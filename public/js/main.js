@@ -1,5 +1,5 @@
  ll// ==================== GLOBAL VARIABLES ====================
-let currentSchool = null;
+fffff let currentSchool = null;
 let currentSettings = null;
 let currentUser = { name: 'Admin', role: 'admin' };
 let isCheckingSetup = false;
