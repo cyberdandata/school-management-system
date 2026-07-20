@@ -33,10 +33,20 @@ app.get('/api/sync/status', (req, res) => {
 });
 
 // Trigger manual sync
+// In server.js - Sync routes
 app.post('/api/sync/trigger', async (req, res) => {
+    // Check token (optional but recommended)
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const expectedToken = process.env.SYNC_TOKEN;
+    
+    if (expectedToken && token !== expectedToken) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     if (!syncManager) {
         return res.status(503).json({ error: 'Sync Manager not available' });
     }
+    
     try {
         await syncManager.forceSync();
         res.json({ success: true, message: 'Sync triggered successfully' });
