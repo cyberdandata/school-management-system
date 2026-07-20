@@ -1,0 +1,34 @@
+[
+  {
+    "id": "7b7470b8-bd1e-431b-a1fb-c7d9ea8c5c32",
+    "name": "English",
+    "code": "ENG",
+    "category": "Core",
+    "classId": "all",
+    "createdAt": "2026-07-18T08:57:13.238Z"
+  },
+  {
+    "id": "4808c2cc-1c34-4907-ac1c-044428dc9200",
+    "name": "Mathematics",
+    "code": "MATH",
+    "category": "Core",
+    "classId": "all",
+    "createdAt": "2026-07-18T08:57:13.238Z"
+  },
+  {
+    "id": "6a74a635-06ac-4fec-aad8-657cd55559b7",
+    "name": "Science",
+    "code": "SCI",
+    "category": "Core",
+    "classId": "all",
+    "createdAt": "2026-07-18T08:57:13.238Z"
+  },
+  {
+    "id": "fdf31f34-0374-44df-a237-f2287c2b9984",
+    "name": "Social Studies",
+    "code": "SST",
+    "category": "Core",
+    "classId": "all",
+    "createdAt": "2026-07-18T08:57:13.238Z"
+  }
+]

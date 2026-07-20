@@ -1,0 +1,4859 @@
+[
+  {
+    "id": "762eda6d-48c1-43f3-b4bb-a0f43c97321a",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "studentName": "Ssepuya Joshua",
+    "admissionNumber": "STU20260001",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784375405553",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784375405553",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T11:50:05.553Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-06T14:44",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24843",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 20000,
+    "method": "cash",
+    "date": "2026-07-06T14:44",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24843",
+    "recordedAt": "2026-07-18T11:50:05.570Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-07-06T14:44"
+      }
+    ]
+  },
+  {
+    "id": "6619c52c-15d6-4254-9494-afb355d1efc0",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "studentName": "Ssepuya Joshua",
+    "admissionNumber": "STU20260001",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784375529992",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784375529992",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T11:52:09.992Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-06T14:51",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24843",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 6000,
+    "method": "cash",
+    "date": "2026-07-06T14:51",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24843",
+    "recordedAt": "2026-07-18T11:52:10.001Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-07-06T14:51"
+      }
+    ]
+  },
+  {
+    "id": "cecff675-8f75-45bf-9045-fd495f6b4e9b",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "studentName": "Ssepuya Joshua",
+    "admissionNumber": "STU20260001",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 4000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 4000,
+    "method": "cash",
+    "date": "2026-07-06T14:52",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24843",
+    "recordedAt": "2026-07-18T11:53:45.190Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "3e2a0380-2c47-4fdc-bf98-ce741021899e",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "studentName": "Ahimbisibwe Rickie",
+    "admissionNumber": "STU20260002",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 70000,
+    "activityItemPayments": [
+      {
+        "periodType": "termly",
+        "componentName": "Transportation Fee",
+        "itemName": "Van Fee",
+        "unitPrice": 10000,
+        "quantityRequired": 7,
+        "paymentType": "paid_cash",
+        "amountPaid": 70000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 70000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [
+        {
+          "componentId": "comp_1784376271263",
+          "componentName": "Transportation Fee",
+          "periodType": "termly",
+          "itemId": "item_1784376271263",
+          "itemName": "Van Fee",
+          "unitPrice": 10000,
+          "quantityRequired": 7,
+          "totalAmount": 70000,
+          "paymentType": "paid_cash",
+          "amountPaid": 70000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 7,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:04:31.263Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-25T15:03",
+              "amount": 70000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "5746",
+              "isIndividualPayment": true,
+              "individualAmount": 70000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "yearly": []
+    },
+    "totalAmount": 70000,
+    "method": "schoolpay",
+    "date": "2026-05-25T15:03",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "5746",
+    "recordedAt": "2026-07-18T12:04:31.267Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Van Fee",
+        "amount": 70000,
+        "itemsBrought": null,
+        "date": "2026-05-25T15:03"
+      }
+    ]
+  },
+  {
+    "id": "338d3938-6681-40a3-b55e-cefb0ac085dd",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "studentName": "Ahimbisibwe Rickie",
+    "admissionNumber": "STU20260002",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784377083079",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784377083079",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:18:03.079Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-25T15:16",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "5746",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 20000,
+    "method": "schoolpay",
+    "date": "2026-05-25T15:16",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "5746",
+    "recordedAt": "2026-07-18T12:18:03.092Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-05-25T15:16"
+      }
+    ]
+  },
+  {
+    "id": "3eb8e5c9-fec1-4820-9397-33835f46daca",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "studentName": "Ahimbisibwe Rickie",
+    "admissionNumber": "STU20260002",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784377137959",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784377137959",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:18:57.959Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-25T15:18",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "5746",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 6000,
+    "method": "schoolpay",
+    "date": "2026-05-25T15:18",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "5746",
+    "recordedAt": "2026-07-18T12:18:57.962Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-05-25T15:18"
+      }
+    ]
+  },
+  {
+    "id": "54cc2596-c02f-4f6f-a847-d75a8c236c7a",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "studentName": "Ahimbisibwe Rickie",
+    "admissionNumber": "STU20260002",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 4000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 4000,
+    "method": "schoolpay",
+    "date": "2026-05-25T15:18",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "5746",
+    "recordedAt": "2026-07-18T12:19:33.558Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "e231e96b-21e0-4a0b-8f16-1d75ade849f0",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "studentName": "Ahimbisibwe Rickie",
+    "admissionNumber": "STU20260002",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "feeStructureName": "Primary 1 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 102000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 102000,
+    "method": "cash",
+    "date": "2026-07-05T15:26",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25911",
+    "recordedAt": "2026-07-18T12:27:34.379Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "c6ec366a-669c-46cd-a02d-695ae6f25989",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "studentName": "Katelega Vianney",
+    "admissionNumber": "STU20260003",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "feeStructureName": "Top Class Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 24000,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784378071021",
+          "componentName": "Sports Fee",
+          "periodType": "one_time",
+          "itemId": "item_1784378071021",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:34:31.021Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-08T15:31",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24897",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 44000,
+    "method": "cash",
+    "date": "2026-06-08T15:31",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24897",
+    "recordedAt": "2026-07-18T12:34:31.023Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-06-08T15:31"
+      }
+    ]
+  },
+  {
+    "id": "14362206-74e4-4625-ac18-6d0e567a526a",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "studentName": "Katelega Vianney",
+    "admissionNumber": "STU20260003",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "feeStructureName": "Top Class Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784378142413",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784378142413",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:35:42.413Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-08T15:35",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24897",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 6000,
+    "method": "cash",
+    "date": "2026-06-08T15:35",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24897",
+    "recordedAt": "2026-07-18T12:35:42.415Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-06-08T15:35"
+      }
+    ]
+  },
+  {
+    "id": "3086b017-3707-4fe7-ab76-e7c75ef9d573",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "studentName": "Katelega Vianney",
+    "admissionNumber": "STU20260003",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "feeStructureName": "Top Class Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 50000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 50000,
+    "method": "schoolpay",
+    "date": "2026-06-15T15:35",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "5928",
+    "recordedAt": "2026-07-18T12:36:25.796Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "593a7bc9-47dc-4d5b-a4a6-bb810f12d4b0",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "studentName": "Katelega Vianney",
+    "admissionNumber": "STU20260003",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "feeStructureName": "Top Class Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 50000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 50000,
+    "method": "schoolpay",
+    "date": "2026-06-24T15:36",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "6009",
+    "recordedAt": "2026-07-18T12:36:58.682Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "6d758e61-61b9-4a6e-97a4-251f2470658d",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "studentName": "Katelega Vianney",
+    "admissionNumber": "STU20260003",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "feeStructureName": "Top Class Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 66000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 66000,
+    "method": "cash",
+    "date": "2026-07-06T15:36",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "6102",
+    "recordedAt": "2026-07-18T12:37:35.363Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "ee098ac9-c843-4056-ac0f-9a1884e226d1",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "studentName": "Akiteng Brenda",
+    "admissionNumber": "STU20260004",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "9005012c-e29b-4a7e-a118-08f6aea1320f",
+    "feeStructureName": "Middle Class Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 14000,
+    "activityTotalPaid": 250000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      },
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "LTBalance",
+        "itemName": "LTBalance",
+        "unitPrice": 10000,
+        "quantityRequired": 22,
+        "paymentType": "paid_cash",
+        "amountPaid": 224000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 224000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784378788827",
+          "componentName": "LTBalance",
+          "periodType": "one_time",
+          "itemId": "item_1784378788827",
+          "itemName": "LTBalance",
+          "unitPrice": 10000,
+          "quantityRequired": 22,
+          "totalAmount": 220000,
+          "paymentType": "paid_cash",
+          "amountPaid": 224000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 22,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:46:28.827Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-08T15:43",
+              "amount": 224000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24853",
+              "isIndividualPayment": true,
+              "individualAmount": 224000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784378788827",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784378788827",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:46:28.827Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-08T15:43",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24853",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784378788827",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784378788827",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T12:46:28.827Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-08T15:43",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24853",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 264000,
+    "method": "cash",
+    "date": "2026-06-08T15:43",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24853",
+    "recordedAt": "2026-07-18T12:46:28.831Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-06-08T15:43"
+      },
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-06-08T15:43"
+      },
+      {
+        "itemName": "LTBalance",
+        "amount": 224000,
+        "itemsBrought": null,
+        "date": "2026-06-08T15:43"
+      }
+    ]
+  },
+  {
+    "id": "04164f00-b14b-4842-9793-4e76adc1ccc4",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "studentName": "Akiteng Brenda",
+    "admissionNumber": "STU20260004",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "9005012c-e29b-4a7e-a118-08f6aea1320f",
+    "feeStructureName": "Middle Class Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "termly",
+        "componentName": "Medical Fee",
+        "itemName": "Medical Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [
+        {
+          "componentId": "comp_1784381011577",
+          "componentName": "Medical Fee",
+          "periodType": "termly",
+          "itemId": "item_1784381011577",
+          "itemName": "Medical Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:23:31.577Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-08T16:22",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24853",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "yearly": []
+    },
+    "totalAmount": 20000,
+    "method": "cash",
+    "date": "2026-06-08T16:22",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24853",
+    "recordedAt": "2026-07-18T13:23:31.586Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Medical Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-06-08T16:22"
+      }
+    ]
+  },
+  {
+    "id": "4460d01f-0c96-4f54-a168-7fe5ba4eb277",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "studentName": "Akiteng Brenda",
+    "admissionNumber": "STU20260004",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "9005012c-e29b-4a7e-a118-08f6aea1320f",
+    "feeStructureName": "Middle Class Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 80000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 80000,
+    "method": "schoolpay",
+    "date": "2026-06-25T16:23",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "6025",
+    "recordedAt": "2026-07-18T13:24:15.082Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "b3fbc28e-80bb-4a1c-8f05-541fe3627eef",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "studentName": "Lokosa Razak",
+    "admissionNumber": "STU20260005",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "feeStructureName": "Primary 2 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 35000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Admission Requirements",
+        "itemName": "Admission and Interview",
+        "unitPrice": 15000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 15000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 15000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Admission Requirements",
+        "itemName": "Development fee",
+        "unitPrice": 15000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 15000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 15000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Admission Requirements",
+        "itemName": "Passport Photos",
+        "unitPrice": 5000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 5000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 5000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784381801357",
+          "componentName": "Admission Requirements",
+          "periodType": "one_time",
+          "itemId": "item_1784381801357",
+          "itemName": "Admission and Interview",
+          "unitPrice": 15000,
+          "quantityRequired": 1,
+          "totalAmount": 15000,
+          "paymentType": "paid_cash",
+          "amountPaid": 15000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:36:41.357Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:34",
+              "amount": 15000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24835",
+              "isIndividualPayment": true,
+              "individualAmount": 15000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784381801358",
+          "componentName": "Admission Requirements",
+          "periodType": "one_time",
+          "itemId": "item_1784381801358",
+          "itemName": "Development fee",
+          "unitPrice": 15000,
+          "quantityRequired": 1,
+          "totalAmount": 15000,
+          "paymentType": "paid_cash",
+          "amountPaid": 15000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:36:41.358Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:34",
+              "amount": 15000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24835",
+              "isIndividualPayment": true,
+              "individualAmount": 15000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784381801359",
+          "componentName": "Admission Requirements",
+          "periodType": "one_time",
+          "itemId": "item_1784381801359",
+          "itemName": "Passport Photos",
+          "unitPrice": 5000,
+          "quantityRequired": 1,
+          "totalAmount": 5000,
+          "paymentType": "paid_cash",
+          "amountPaid": 5000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:36:41.359Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:34",
+              "amount": 5000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24835",
+              "isIndividualPayment": true,
+              "individualAmount": 5000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 35000,
+    "method": "cash",
+    "date": "2026-06-06T16:34",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24835",
+    "recordedAt": "2026-07-18T13:36:41.369Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Admission and Interview",
+        "amount": 15000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:34"
+      },
+      {
+        "itemName": "Development fee",
+        "amount": 15000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:34"
+      },
+      {
+        "itemName": "Passport Photos",
+        "amount": 5000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:34"
+      }
+    ]
+  },
+  {
+    "id": "2363bf0c-a2fd-47e8-adab-d247b27a21ca",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "studentName": "Lokosa Razak",
+    "admissionNumber": "STU20260005",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "feeStructureName": "Primary 2 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 140000,
+    "activityTotalPaid": 295000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Covers (12)",
+        "unitPrice": 3000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 3000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 3000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Dress/Shirt and Short",
+        "unitPrice": 40000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 40000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 40000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Sweater",
+        "unitPrice": 35000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 35000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 35000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Stocking",
+        "unitPrice": 10000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 10000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 10000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Sportswear",
+        "unitPrice": 40000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 40000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 40000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Casual wears",
+        "unitPrice": 46000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 46000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 46000,
+        "individualItems": null
+      },
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Medical Fee",
+        "itemName": "Medical Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Books 96 Pages Picfare",
+        "unitPrice": 0,
+        "quantityRequired": 12,
+        "paymentType": "brought_item",
+        "amountPaid": 0,
+        "itemsBrought": 12,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 0,
+        "individualItems": 12
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Pencils(Nataraj)",
+        "unitPrice": 0,
+        "quantityRequired": 12,
+        "paymentType": "brought_item",
+        "amountPaid": 0,
+        "itemsBrought": 12,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 0,
+        "individualItems": 12
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Box File",
+        "unitPrice": 8000,
+        "quantityRequired": 1,
+        "paymentType": "brought_item",
+        "amountPaid": 8000,
+        "itemsBrought": 1,
+        "cashEquivalent": 8000,
+        "isIndividualPayment": true,
+        "individualAmount": 8000,
+        "individualItems": 1
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Hand Writing Book",
+        "unitPrice": 3000,
+        "quantityRequired": 1,
+        "paymentType": "brought_item",
+        "amountPaid": 3000,
+        "itemsBrought": 1,
+        "cashEquivalent": 3000,
+        "isIndividualPayment": true,
+        "individualAmount": 3000,
+        "individualItems": 1
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Clear Bag",
+        "unitPrice": 2000,
+        "quantityRequired": 1,
+        "paymentType": "brought_item",
+        "amountPaid": 2000,
+        "itemsBrought": 1,
+        "cashEquivalent": 2000,
+        "isIndividualPayment": true,
+        "individualAmount": 2000,
+        "individualItems": 1
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Packet Of Crayons",
+        "unitPrice": 2000,
+        "quantityRequired": 1,
+        "paymentType": "brought_item",
+        "amountPaid": 2000,
+        "itemsBrought": 1,
+        "cashEquivalent": 2000,
+        "isIndividualPayment": true,
+        "individualAmount": 2000,
+        "individualItems": 1
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Cutters",
+        "unitPrice": 1000,
+        "quantityRequired": 2,
+        "paymentType": "brought_item",
+        "amountPaid": 2000,
+        "itemsBrought": 2,
+        "cashEquivalent": 2000,
+        "isIndividualPayment": true,
+        "individualAmount": 2000,
+        "individualItems": 2
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Manila Cards",
+        "unitPrice": 500,
+        "quantityRequired": 2,
+        "paymentType": "brought_item",
+        "amountPaid": 1000,
+        "itemsBrought": 2,
+        "cashEquivalent": 1000,
+        "isIndividualPayment": true,
+        "individualAmount": 1000,
+        "individualItems": 2
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Rubbers",
+        "unitPrice": 500,
+        "quantityRequired": 2,
+        "paymentType": "brought_item",
+        "amountPaid": 1000,
+        "itemsBrought": 2,
+        "cashEquivalent": 1000,
+        "isIndividualPayment": true,
+        "individualAmount": 1000,
+        "individualItems": 2
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Inside Brooms",
+        "unitPrice": 500,
+        "quantityRequired": 2,
+        "paymentType": "brought_item",
+        "amountPaid": 1000,
+        "itemsBrought": 2,
+        "cashEquivalent": 1000,
+        "isIndividualPayment": true,
+        "individualAmount": 1000,
+        "individualItems": 2
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Outside Brooms",
+        "unitPrice": 1000,
+        "quantityRequired": 2,
+        "paymentType": "brought_item",
+        "amountPaid": 2000,
+        "itemsBrought": 2,
+        "cashEquivalent": 2000,
+        "isIndividualPayment": true,
+        "individualAmount": 2000,
+        "individualItems": 2
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Toilet Papers",
+        "unitPrice": 500,
+        "quantityRequired": 8,
+        "paymentType": "brought_item",
+        "amountPaid": 4000,
+        "itemsBrought": 8,
+        "cashEquivalent": 4000,
+        "isIndividualPayment": true,
+        "individualAmount": 4000,
+        "individualItems": 8
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Scrubbing Brush",
+        "unitPrice": 0,
+        "quantityRequired": 1,
+        "paymentType": "brought_item",
+        "amountPaid": 0,
+        "itemsBrought": 1,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 0,
+        "individualItems": 1
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Sealed Sugar",
+        "unitPrice": 5000,
+        "quantityRequired": 6,
+        "paymentType": "brought_item",
+        "amountPaid": 30000,
+        "itemsBrought": 6,
+        "cashEquivalent": 30000,
+        "isIndividualPayment": true,
+        "individualAmount": 30000,
+        "individualItems": 6
+      },
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Ream(Rwenzori)",
+        "unitPrice": 25000,
+        "quantityRequired": 1,
+        "paymentType": "brought_item",
+        "amountPaid": 25000,
+        "itemsBrought": 1,
+        "cashEquivalent": 25000,
+        "isIndividualPayment": true,
+        "individualAmount": 25000,
+        "individualItems": 1
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784382164490",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784382164490",
+          "itemName": "Dress/Shirt and Short",
+          "unitPrice": 40000,
+          "quantityRequired": 1,
+          "totalAmount": 40000,
+          "paymentType": "paid_cash",
+          "amountPaid": 40000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.490Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 40000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 40000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164491",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784382164491",
+          "itemName": "Sweater",
+          "unitPrice": 35000,
+          "quantityRequired": 1,
+          "totalAmount": 35000,
+          "paymentType": "paid_cash",
+          "amountPaid": 35000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.491Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 35000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 35000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164491",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784382164491",
+          "itemName": "Stocking",
+          "unitPrice": 10000,
+          "quantityRequired": 1,
+          "totalAmount": 10000,
+          "paymentType": "paid_cash",
+          "amountPaid": 10000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.491Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 10000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 10000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164491",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784382164491",
+          "itemName": "Sportswear",
+          "unitPrice": 40000,
+          "quantityRequired": 1,
+          "totalAmount": 40000,
+          "paymentType": "paid_cash",
+          "amountPaid": 40000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.491Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 40000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 40000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164491",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784382164491",
+          "itemName": "Casual wears",
+          "unitPrice": 46000,
+          "quantityRequired": 1,
+          "totalAmount": 46000,
+          "paymentType": "paid_cash",
+          "amountPaid": 46000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.491Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 46000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 46000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [
+        {
+          "componentId": "comp_1784382164492",
+          "componentName": "Medical Fee",
+          "periodType": "termly",
+          "itemId": "item_1784382164492",
+          "itemName": "Medical Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.492Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164492",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164492",
+          "itemName": "Books 96 Pages Picfare",
+          "unitPrice": 0,
+          "quantityRequired": 12,
+          "totalAmount": 0,
+          "paymentType": "brought_item",
+          "amountPaid": 0,
+          "itemsBrought": 12,
+          "cashEquivalent": 0,
+          "itemsCovered": 12,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.492Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 0,
+              "type": "brought_item",
+              "itemsBrought": 12,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 0,
+              "individualItems": 12
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164493",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164493",
+          "itemName": "Pencils(Nataraj)",
+          "unitPrice": 0,
+          "quantityRequired": 12,
+          "totalAmount": 0,
+          "paymentType": "brought_item",
+          "amountPaid": 0,
+          "itemsBrought": 12,
+          "cashEquivalent": 0,
+          "itemsCovered": 12,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.493Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 0,
+              "type": "brought_item",
+              "itemsBrought": 12,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 0,
+              "individualItems": 12
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164493",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164493",
+          "itemName": "Box File",
+          "unitPrice": 8000,
+          "quantityRequired": 1,
+          "totalAmount": 8000,
+          "paymentType": "brought_item",
+          "amountPaid": 8000,
+          "itemsBrought": 1,
+          "cashEquivalent": 8000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.493Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 8000,
+              "type": "brought_item",
+              "itemsBrought": 1,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 8000,
+              "individualItems": 1
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164493",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164493",
+          "itemName": "Hand Writing Book",
+          "unitPrice": 3000,
+          "quantityRequired": 1,
+          "totalAmount": 3000,
+          "paymentType": "brought_item",
+          "amountPaid": 3000,
+          "itemsBrought": 1,
+          "cashEquivalent": 3000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.493Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 3000,
+              "type": "brought_item",
+              "itemsBrought": 1,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 3000,
+              "individualItems": 1
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164493",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164493",
+          "itemName": "Clear Bag",
+          "unitPrice": 2000,
+          "quantityRequired": 1,
+          "totalAmount": 2000,
+          "paymentType": "brought_item",
+          "amountPaid": 2000,
+          "itemsBrought": 1,
+          "cashEquivalent": 2000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.493Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 2000,
+              "type": "brought_item",
+              "itemsBrought": 1,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 2000,
+              "individualItems": 1
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164494",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164494",
+          "itemName": "Packet Of Crayons",
+          "unitPrice": 2000,
+          "quantityRequired": 1,
+          "totalAmount": 2000,
+          "paymentType": "brought_item",
+          "amountPaid": 2000,
+          "itemsBrought": 1,
+          "cashEquivalent": 2000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.494Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 2000,
+              "type": "brought_item",
+              "itemsBrought": 1,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 2000,
+              "individualItems": 1
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164494",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164494",
+          "itemName": "Cutters",
+          "unitPrice": 1000,
+          "quantityRequired": 2,
+          "totalAmount": 2000,
+          "paymentType": "brought_item",
+          "amountPaid": 2000,
+          "itemsBrought": 2,
+          "cashEquivalent": 2000,
+          "itemsCovered": 4,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.494Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 2000,
+              "type": "brought_item",
+              "itemsBrought": 2,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 2000,
+              "individualItems": 2
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164494",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164494",
+          "itemName": "Manila Cards",
+          "unitPrice": 500,
+          "quantityRequired": 2,
+          "totalAmount": 1000,
+          "paymentType": "brought_item",
+          "amountPaid": 1000,
+          "itemsBrought": 2,
+          "cashEquivalent": 1000,
+          "itemsCovered": 4,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.494Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 1000,
+              "type": "brought_item",
+              "itemsBrought": 2,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 1000,
+              "individualItems": 2
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164494",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164494",
+          "itemName": "Rubbers",
+          "unitPrice": 500,
+          "quantityRequired": 2,
+          "totalAmount": 1000,
+          "paymentType": "brought_item",
+          "amountPaid": 1000,
+          "itemsBrought": 2,
+          "cashEquivalent": 1000,
+          "itemsCovered": 4,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.494Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 1000,
+              "type": "brought_item",
+              "itemsBrought": 2,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 1000,
+              "individualItems": 2
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164495",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164495",
+          "itemName": "Inside Brooms",
+          "unitPrice": 500,
+          "quantityRequired": 2,
+          "totalAmount": 1000,
+          "paymentType": "brought_item",
+          "amountPaid": 1000,
+          "itemsBrought": 2,
+          "cashEquivalent": 1000,
+          "itemsCovered": 4,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.495Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 1000,
+              "type": "brought_item",
+              "itemsBrought": 2,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 1000,
+              "individualItems": 2
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164495",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164495",
+          "itemName": "Outside Brooms",
+          "unitPrice": 1000,
+          "quantityRequired": 2,
+          "totalAmount": 2000,
+          "paymentType": "brought_item",
+          "amountPaid": 2000,
+          "itemsBrought": 2,
+          "cashEquivalent": 2000,
+          "itemsCovered": 4,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.495Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 2000,
+              "type": "brought_item",
+              "itemsBrought": 2,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 2000,
+              "individualItems": 2
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164495",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164495",
+          "itemName": "Toilet Papers",
+          "unitPrice": 500,
+          "quantityRequired": 8,
+          "totalAmount": 4000,
+          "paymentType": "brought_item",
+          "amountPaid": 4000,
+          "itemsBrought": 8,
+          "cashEquivalent": 4000,
+          "itemsCovered": 16,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.495Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 4000,
+              "type": "brought_item",
+              "itemsBrought": 8,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 4000,
+              "individualItems": 8
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164495",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164495",
+          "itemName": "Scrubbing Brush",
+          "unitPrice": 0,
+          "quantityRequired": 1,
+          "totalAmount": 0,
+          "paymentType": "brought_item",
+          "amountPaid": 0,
+          "itemsBrought": 1,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.495Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 0,
+              "type": "brought_item",
+              "itemsBrought": 1,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 0,
+              "individualItems": 1
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164496",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784382164496",
+          "itemName": "Sealed Sugar",
+          "unitPrice": 5000,
+          "quantityRequired": 6,
+          "totalAmount": 30000,
+          "paymentType": "brought_item",
+          "amountPaid": 30000,
+          "itemsBrought": 6,
+          "cashEquivalent": 30000,
+          "itemsCovered": 12,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.496Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 30000,
+              "type": "brought_item",
+              "itemsBrought": 6,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 30000,
+              "individualItems": 6
+            }
+          ]
+        }
+      ],
+      "yearly": [
+        {
+          "componentId": "comp_1784382164490",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784382164490",
+          "itemName": "Covers (12)",
+          "unitPrice": 3000,
+          "quantityRequired": 1,
+          "totalAmount": 3000,
+          "paymentType": "paid_cash",
+          "amountPaid": 3000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.490Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 3000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 3000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164491",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784382164491",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.491Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784382164496",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "yearly",
+          "itemId": "item_1784382164496",
+          "itemName": "Ream(Rwenzori)",
+          "unitPrice": 25000,
+          "quantityRequired": 1,
+          "totalAmount": 25000,
+          "paymentType": "brought_item",
+          "amountPaid": 25000,
+          "itemsBrought": 1,
+          "cashEquivalent": 25000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:42:44.496Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-06T16:39",
+              "amount": 25000,
+              "type": "brought_item",
+              "itemsBrought": 1,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24838",
+              "isIndividualPayment": true,
+              "individualAmount": 25000,
+              "individualItems": 1
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 435000,
+    "method": "cash",
+    "date": "2026-06-06T16:39",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24838",
+    "recordedAt": "2026-07-18T13:42:44.508Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Covers (12)",
+        "amount": 3000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Dress/Shirt and Short",
+        "amount": 40000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Sweater",
+        "amount": 35000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Stocking",
+        "amount": 10000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Sportswear",
+        "amount": 40000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Casual wears",
+        "amount": 46000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Medical Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Books 96 Pages Picfare",
+        "amount": 0,
+        "itemsBrought": 12,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Pencils(Nataraj)",
+        "amount": 0,
+        "itemsBrought": 12,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Box File",
+        "amount": 8000,
+        "itemsBrought": 1,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Hand Writing Book",
+        "amount": 3000,
+        "itemsBrought": 1,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Clear Bag",
+        "amount": 2000,
+        "itemsBrought": 1,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Packet Of Crayons",
+        "amount": 2000,
+        "itemsBrought": 1,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Cutters",
+        "amount": 2000,
+        "itemsBrought": 2,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Manila Cards",
+        "amount": 1000,
+        "itemsBrought": 2,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Rubbers",
+        "amount": 1000,
+        "itemsBrought": 2,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Inside Brooms",
+        "amount": 1000,
+        "itemsBrought": 2,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Outside Brooms",
+        "amount": 2000,
+        "itemsBrought": 2,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Toilet Papers",
+        "amount": 4000,
+        "itemsBrought": 8,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Scrubbing Brush",
+        "amount": 0,
+        "itemsBrought": 1,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Sealed Sugar",
+        "amount": 30000,
+        "itemsBrought": 6,
+        "date": "2026-06-06T16:39"
+      },
+      {
+        "itemName": "Ream(Rwenzori)",
+        "amount": 25000,
+        "itemsBrought": 1,
+        "date": "2026-06-06T16:39"
+      }
+    ]
+  },
+  {
+    "id": "b5ca1623-c49e-4bb0-a0bf-d1a1444fa90d",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "studentName": "Lokosa Razak",
+    "admissionNumber": "STU20260005",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "feeStructureName": "Primary 2 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 100000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 100000,
+    "method": "cash",
+    "date": "2026-07-05T16:43",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25998",
+    "recordedAt": "2026-07-18T13:43:47.116Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "e03b59e3-7a7b-40ab-94ab-e7bd4a944cbe",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "studentName": "Lokosa Razak",
+    "admissionNumber": "STU20260005",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "feeStructureName": "Primary 2 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 94000,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784382352141",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784382352141",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:45:52.141Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-08T16:44",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25673",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 100000,
+    "method": "cash",
+    "date": "2026-07-08T16:44",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25673",
+    "recordedAt": "2026-07-18T13:45:52.153Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-07-08T16:44"
+      }
+    ]
+  },
+  {
+    "id": "54e3a3c4-6076-4c9f-946a-ed62d6f7464c",
+    "studentId": "90c0d501-4043-49c3-a641-8e6429dceed2",
+    "studentName": "Nakityo Shulainah",
+    "admissionNumber": "STU20260006",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "feeStructureName": "Primary 2 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 40000,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784383013669",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784383013669",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 40000,
+          "itemsBrought": 0,
+          "cashEquivalent": 40000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T13:56:53.669Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-17T16:55",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN013641740",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-07-17T16:58",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25814",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 20000,
+    "method": "cash",
+    "date": "2026-07-17T16:58",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25814",
+    "recordedAt": "2026-07-18T13:59:44.862Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-07-17T16:58"
+      }
+    ]
+  },
+  {
+    "id": "324848de-dfc6-41d5-9d74-4fe74a394b18",
+    "studentId": "90c0d501-4043-49c3-a641-8e6429dceed2",
+    "studentName": "Nakityo Shulainah",
+    "admissionNumber": "STU20260006",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "feeStructureName": "Primary 2 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 15000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 15000,
+    "method": "cash",
+    "date": "2026-05-26T16:59",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24656",
+    "recordedAt": "2026-07-18T14:00:22.802Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "5e14a271-105c-4657-8e77-ab35e4b61e60",
+    "studentId": "90c0d501-4043-49c3-a641-8e6429dceed2",
+    "studentName": "Nakityo Shulainah",
+    "admissionNumber": "STU20260006",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "feeStructureName": "Primary 2 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784383334769",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784383334769",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:02:14.769Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-22T17:01",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25127",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 6000,
+    "method": "cash",
+    "date": "2026-06-22T17:01",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25127",
+    "recordedAt": "2026-07-18T14:02:14.778Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-06-22T17:01"
+      }
+    ]
+  },
+  {
+    "id": "dd592c60-a071-42ad-9005-f433cc9b267e",
+    "studentId": "90c0d501-4043-49c3-a641-8e6429dceed2",
+    "studentName": "Nakityo Shulainah",
+    "admissionNumber": "STU20260006",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "feeStructureName": "Primary 2 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 34000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 34000,
+    "method": "cash",
+    "date": "2026-06-22T17:02",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25127",
+    "recordedAt": "2026-07-18T14:03:01.718Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "af0c6593-176e-47bf-9e71-9665dae73285",
+    "studentId": "4cf378a9-df99-47f1-b8fe-f873564c2dea",
+    "studentName": "Katami Lilian",
+    "admissionNumber": "STU20260007",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "feeStructureName": "Primary 7 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 50000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Medical Fee",
+        "itemName": "Medical Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Special examinations",
+        "itemName": "Special Examinations",
+        "unitPrice": 50000,
+        "quantityRequired": 0,
+        "paymentType": "paid_cash",
+        "amountPaid": 30000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 30000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784384799839",
+          "componentName": "Medical Fee",
+          "periodType": "one_time",
+          "itemId": "item_1784384799839",
+          "itemName": "Medical Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:26:39.839Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-25T17:25",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24655",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784384799840",
+          "componentName": "Special examinations",
+          "periodType": "one_time",
+          "itemId": "item_1784384799840",
+          "itemName": "Special Examinations",
+          "unitPrice": 50000,
+          "quantityRequired": 0,
+          "totalAmount": 0,
+          "paymentType": "paid_cash",
+          "amountPaid": 30000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:26:39.840Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-25T17:25",
+              "amount": 30000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24655",
+              "isIndividualPayment": true,
+              "individualAmount": 30000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 50000,
+    "method": "cash",
+    "date": "2026-05-25T17:25",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24655",
+    "recordedAt": "2026-07-18T14:26:39.852Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Medical Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-05-25T17:25"
+      },
+      {
+        "itemName": "Special Examinations",
+        "amount": 30000,
+        "itemsBrought": null,
+        "date": "2026-05-25T17:25"
+      }
+    ]
+  },
+  {
+    "id": "38bc7b5b-e70e-424b-a349-dbc042025f6b",
+    "studentId": "4cf378a9-df99-47f1-b8fe-f873564c2dea",
+    "studentName": "Katami Lilian",
+    "admissionNumber": "STU20260007",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "feeStructureName": "Primary 7 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 80000,
+    "activityTotalPaid": 70000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Motivation Fee",
+        "itemName": "Motivation Fee",
+        "unitPrice": 50000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 50000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 50000,
+        "individualItems": null
+      },
+      {
+        "periodType": "one_time",
+        "componentName": "Special examinations",
+        "itemName": "Special Examinations",
+        "unitPrice": 50000,
+        "quantityRequired": 0,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 50000,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784384885569",
+          "componentName": "Motivation Fee",
+          "periodType": "one_time",
+          "itemId": "item_1784384885569",
+          "itemName": "Motivation Fee",
+          "unitPrice": 50000,
+          "quantityRequired": 1,
+          "totalAmount": 50000,
+          "paymentType": "paid_cash",
+          "amountPaid": 50000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:28:05.569Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-05T17:26",
+              "amount": 50000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25291",
+              "isIndividualPayment": true,
+              "individualAmount": 50000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784384799840",
+          "componentName": "Special examinations",
+          "periodType": "one_time",
+          "itemId": "item_1784384799840",
+          "itemName": "Special Examinations",
+          "unitPrice": 50000,
+          "quantityRequired": 0,
+          "totalAmount": 0,
+          "paymentType": "paid_cash",
+          "amountPaid": 50000,
+          "itemsBrought": 0,
+          "cashEquivalent": 50000,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:26:39.840Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-25T17:25",
+              "amount": 30000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24655",
+              "isIndividualPayment": true,
+              "individualAmount": 30000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-07-05T17:26",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25291",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 150000,
+    "method": "cash",
+    "date": "2026-07-05T17:26",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25291",
+    "recordedAt": "2026-07-18T14:28:05.583Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Motivation Fee",
+        "amount": 50000,
+        "itemsBrought": null,
+        "date": "2026-07-05T17:26"
+      },
+      {
+        "itemName": "Special Examinations",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-07-05T17:26"
+      }
+    ]
+  },
+  {
+    "id": "ce268c75-0134-41d2-85cb-1a9fa2c6adae",
+    "studentId": "77de9a13-d34b-482f-bd29-74224bab6b27",
+    "studentName": "Mugabi Innocent",
+    "admissionNumber": "STU20260008",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "feeStructureName": "Primary 7 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 30000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Motivation Fee",
+        "itemName": "Motivation Fee",
+        "unitPrice": 50000,
+        "quantityRequired": 0,
+        "paymentType": "paid_cash",
+        "amountPaid": 30000,
+        "itemsBrought": null,
+        "cashEquivalent": 60000,
+        "isIndividualPayment": true,
+        "individualAmount": 30000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784385415193",
+          "componentName": "Motivation Fee",
+          "periodType": "one_time",
+          "itemId": "item_1784385415193",
+          "itemName": "Motivation Fee",
+          "unitPrice": 50000,
+          "quantityRequired": 0,
+          "totalAmount": 0,
+          "paymentType": "paid_cash",
+          "amountPaid": 60000,
+          "itemsBrought": 0,
+          "cashEquivalent": 60000,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:36:55.193Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-24T17:34",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24594",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-05-24T17:37",
+              "amount": 10000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24594",
+              "isIndividualPayment": true,
+              "individualAmount": 10000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-05-24T17:39",
+              "amount": 30000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24594",
+              "isIndividualPayment": true,
+              "individualAmount": 30000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 30000,
+    "method": "cash",
+    "date": "2026-05-24T17:39",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24594",
+    "recordedAt": "2026-07-18T14:39:42.403Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Motivation Fee",
+        "amount": 30000,
+        "itemsBrought": null,
+        "date": "2026-05-24T17:39"
+      }
+    ]
+  },
+  {
+    "id": "99ca9a88-80f2-4718-8d3e-0b5e52498124",
+    "studentId": "77de9a13-d34b-482f-bd29-74224bab6b27",
+    "studentName": "Mugabi Innocent",
+    "admissionNumber": "STU20260008",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "feeStructureName": "Primary 7 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Motivation Fee",
+        "itemName": "Motivation Fee",
+        "unitPrice": 50000,
+        "quantityRequired": 0,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 80000,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784385415193",
+          "componentName": "Motivation Fee",
+          "periodType": "one_time",
+          "itemId": "item_1784385415193",
+          "itemName": "Motivation Fee",
+          "unitPrice": 50000,
+          "quantityRequired": 0,
+          "totalAmount": 0,
+          "paymentType": "paid_cash",
+          "amountPaid": 80000,
+          "itemsBrought": 0,
+          "cashEquivalent": 80000,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:36:55.193Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-05-24T17:34",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24594",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-05-24T17:37",
+              "amount": 10000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24594",
+              "isIndividualPayment": true,
+              "individualAmount": 10000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-05-24T17:39",
+              "amount": 30000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24594",
+              "isIndividualPayment": true,
+              "individualAmount": 30000,
+              "individualItems": 0
+            },
+            {
+              "date": "2026-06-22T17:39",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25101",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 20000,
+    "method": "cash",
+    "date": "2026-06-22T17:39",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25101",
+    "recordedAt": "2026-07-18T14:40:13.632Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Motivation Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-06-22T17:39"
+      }
+    ]
+  },
+  {
+    "id": "2fa1ad6b-e3d3-43ce-aeea-daa228ef027b",
+    "studentId": "77de9a13-d34b-482f-bd29-74224bab6b27",
+    "studentName": "Mugabi Innocent",
+    "admissionNumber": "STU20260008",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "feeStructureName": "Primary 7 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 30000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 30000,
+    "method": "cash",
+    "date": "2026-06-22T17:40",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25101",
+    "recordedAt": "2026-07-18T14:40:39.974Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "b1f5bca4-13d2-428e-9315-d37663ef8145",
+    "studentId": "77de9a13-d34b-482f-bd29-74224bab6b27",
+    "studentName": "Mugabi Innocent",
+    "admissionNumber": "STU20260008",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "feeStructureName": "Primary 7 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 80000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 80000,
+    "method": "cash",
+    "date": "2026-07-05T17:43",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25288",
+    "recordedAt": "2026-07-18T14:43:59.836Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "f0375a28-fd84-4aac-95e2-d1638694637f",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "studentName": "Ssanyu Jemimah",
+    "admissionNumber": "STU20260009",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureName": "Primary 5 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 35000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Jersey",
+        "unitPrice": 35000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 35000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 35000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784386438631",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784386438631",
+          "itemName": "Jersey",
+          "unitPrice": 35000,
+          "quantityRequired": 1,
+          "totalAmount": 35000,
+          "paymentType": "paid_cash",
+          "amountPaid": 35000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:53:58.631Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-03T17:53",
+              "amount": 35000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25009",
+              "isIndividualPayment": true,
+              "individualAmount": 35000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 35000,
+    "method": "cash",
+    "date": "2026-07-03T17:53",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25009",
+    "recordedAt": "2026-07-18T14:53:58.641Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Jersey",
+        "amount": 35000,
+        "itemsBrought": null,
+        "date": "2026-07-03T17:53"
+      }
+    ]
+  },
+  {
+    "id": "142b74e4-3113-477b-a6f1-08757de5ebbd",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "studentName": "Ssanyu Jemimah",
+    "admissionNumber": "STU20260009",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureName": "Primary 5 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 180000,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784386503703",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784386503703",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:55:03.703Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-04-30T17:53",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24496",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 200000,
+    "method": "cash",
+    "date": "2026-04-30T17:53",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24496",
+    "recordedAt": "2026-07-18T14:55:03.713Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-04-30T17:53"
+      }
+    ]
+  },
+  {
+    "id": "a08193b7-2ae7-4394-ac15-772c62866d16",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "studentName": "Ssanyu Jemimah",
+    "admissionNumber": "STU20260009",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureName": "Primary 5 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 40000,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784386764690",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784386764690",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T14:59:24.690Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-30T17:56",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25234",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 46000,
+    "method": "cash",
+    "date": "2026-06-30T17:56",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25234",
+    "recordedAt": "2026-07-18T14:59:24.706Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-06-30T17:56"
+      }
+    ]
+  },
+  {
+    "id": "51d796a3-725d-4bee-94b7-eada28e773e6",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "studentName": "Ssanyu Jemimah",
+    "admissionNumber": "STU20260009",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureName": "Primary 5 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 40000,
+    "activityItemPayments": [
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Toilet Papers",
+        "unitPrice": 500,
+        "quantityRequired": 4,
+        "paymentType": "paid_cash",
+        "amountPaid": 2000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 2000,
+        "individualItems": null
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Inside Brooms",
+        "unitPrice": 500,
+        "quantityRequired": 2,
+        "paymentType": "paid_cash",
+        "amountPaid": 1000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 1000,
+        "individualItems": null
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Sealed Sugar",
+        "unitPrice": 5000,
+        "quantityRequired": 2,
+        "paymentType": "paid_cash",
+        "amountPaid": 10000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 10000,
+        "individualItems": null
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Outside Brooms",
+        "unitPrice": 1000,
+        "quantityRequired": 2,
+        "paymentType": "paid_cash",
+        "amountPaid": 2000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 2000,
+        "individualItems": null
+      },
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Ream(Rwenzori)",
+        "unitPrice": 25000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 25000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 25000,
+        "individualItems": null
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Books long 96 Pages Picfare",
+        "unitPrice": 0,
+        "quantityRequired": 12,
+        "paymentType": "brought_item",
+        "amountPaid": 0,
+        "itemsBrought": 12,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 0,
+        "individualItems": 12
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Pens",
+        "unitPrice": 0,
+        "quantityRequired": 12,
+        "paymentType": "brought_item",
+        "amountPaid": 0,
+        "itemsBrought": 12,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 0,
+        "individualItems": 12
+      },
+      {
+        "periodType": "termly",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "itemName": "Black Books",
+        "unitPrice": 0,
+        "quantityRequired": 8,
+        "paymentType": "brought_item",
+        "amountPaid": 0,
+        "itemsBrought": 8,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 0,
+        "individualItems": 8
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [
+        {
+          "componentId": "comp_1784386838881",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838881",
+          "itemName": "Toilet Papers",
+          "unitPrice": 500,
+          "quantityRequired": 4,
+          "totalAmount": 2000,
+          "paymentType": "paid_cash",
+          "amountPaid": 2000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 4,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.881Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 2000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 2000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784386838881",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838881",
+          "itemName": "Inside Brooms",
+          "unitPrice": 500,
+          "quantityRequired": 2,
+          "totalAmount": 1000,
+          "paymentType": "paid_cash",
+          "amountPaid": 1000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.881Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 1000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 1000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784386838881",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838881",
+          "itemName": "Sealed Sugar",
+          "unitPrice": 5000,
+          "quantityRequired": 2,
+          "totalAmount": 10000,
+          "paymentType": "paid_cash",
+          "amountPaid": 10000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.881Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 10000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 10000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784386838881",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838881",
+          "itemName": "Outside Brooms",
+          "unitPrice": 1000,
+          "quantityRequired": 2,
+          "totalAmount": 2000,
+          "paymentType": "paid_cash",
+          "amountPaid": 2000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 2,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.881Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 2000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 2000,
+              "individualItems": 0
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784386838882",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838882",
+          "itemName": "Books long 96 Pages Picfare",
+          "unitPrice": 0,
+          "quantityRequired": 12,
+          "totalAmount": 0,
+          "paymentType": "brought_item",
+          "amountPaid": 0,
+          "itemsBrought": 12,
+          "cashEquivalent": 0,
+          "itemsCovered": 12,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.882Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 0,
+              "type": "brought_item",
+              "itemsBrought": 12,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 0,
+              "individualItems": 12
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784386838882",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838882",
+          "itemName": "Pens",
+          "unitPrice": 0,
+          "quantityRequired": 12,
+          "totalAmount": 0,
+          "paymentType": "brought_item",
+          "amountPaid": 0,
+          "itemsBrought": 12,
+          "cashEquivalent": 0,
+          "itemsCovered": 12,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.882Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 0,
+              "type": "brought_item",
+              "itemsBrought": 12,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 0,
+              "individualItems": 12
+            }
+          ]
+        },
+        {
+          "componentId": "comp_1784386838882",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "termly",
+          "itemId": "item_1784386838882",
+          "itemName": "Black Books",
+          "unitPrice": 0,
+          "quantityRequired": 8,
+          "totalAmount": 0,
+          "paymentType": "brought_item",
+          "amountPaid": 0,
+          "itemsBrought": 8,
+          "cashEquivalent": 0,
+          "itemsCovered": 8,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.882Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 0,
+              "type": "brought_item",
+              "itemsBrought": 8,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 0,
+              "individualItems": 8
+            }
+          ]
+        }
+      ],
+      "yearly": [
+        {
+          "componentId": "comp_1784386838882",
+          "componentName": "Scholastic Requirements (ITEMS)",
+          "periodType": "yearly",
+          "itemId": "item_1784386838882",
+          "itemName": "Ream(Rwenzori)",
+          "unitPrice": 25000,
+          "quantityRequired": 1,
+          "totalAmount": 25000,
+          "paymentType": "paid_cash",
+          "amountPaid": 25000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:00:38.882Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-18T17:59",
+              "amount": 25000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN838857541",
+              "isIndividualPayment": true,
+              "individualAmount": 25000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 40000,
+    "method": "cash",
+    "date": "2026-07-18T17:59",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "EDEN838857541",
+    "recordedAt": "2026-07-18T15:00:38.895Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Toilet Papers",
+        "amount": 2000,
+        "itemsBrought": null,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Inside Brooms",
+        "amount": 1000,
+        "itemsBrought": null,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Sealed Sugar",
+        "amount": 10000,
+        "itemsBrought": null,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Outside Brooms",
+        "amount": 2000,
+        "itemsBrought": null,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Ream(Rwenzori)",
+        "amount": 25000,
+        "itemsBrought": null,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Books long 96 Pages Picfare",
+        "amount": 0,
+        "itemsBrought": 12,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Pens",
+        "amount": 0,
+        "itemsBrought": 12,
+        "date": "2026-07-18T17:59"
+      },
+      {
+        "itemName": "Black Books",
+        "amount": 0,
+        "itemsBrought": 8,
+        "date": "2026-07-18T17:59"
+      }
+    ]
+  },
+  {
+    "id": "e623157a-e6ec-4f90-ac8b-7076dc4cd8e3",
+    "studentId": "18a441b5-5564-41cf-ac22-bbd6f440b9c6",
+    "studentName": "Herediano Elly",
+    "admissionNumber": "STU20260010",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "feeStructureName": "Primary 4 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 60000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Tour",
+        "itemName": "Tour Fee",
+        "unitPrice": 60000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 60000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 60000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784387663286",
+          "componentName": "Tour",
+          "periodType": "yearly",
+          "itemId": "item_1784387663286",
+          "itemName": "Tour Fee",
+          "unitPrice": 60000,
+          "quantityRequired": 1,
+          "totalAmount": 60000,
+          "paymentType": "paid_cash",
+          "amountPaid": 60000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:14:23.286Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-07T18:13",
+              "amount": 60000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "25639",
+              "isIndividualPayment": true,
+              "individualAmount": 60000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 60000,
+    "method": "cash",
+    "date": "2026-07-07T18:13",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25639",
+    "recordedAt": "2026-07-18T15:14:23.298Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Tour Fee",
+        "amount": 60000,
+        "itemsBrought": null,
+        "date": "2026-07-07T18:13"
+      }
+    ]
+  },
+  {
+    "id": "18ef89a5-29f1-484e-a158-5c55a596dbbf",
+    "studentId": "18a441b5-5564-41cf-ac22-bbd6f440b9c6",
+    "studentName": "Herediano Elly",
+    "admissionNumber": "STU20260010",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "feeStructureName": "Primary 4 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 20000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Sports Fee",
+        "itemName": "Sports Fee",
+        "unitPrice": 20000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 20000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 20000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784387813372",
+          "componentName": "Sports Fee",
+          "periodType": "yearly",
+          "itemId": "item_1784387813372",
+          "itemName": "Sports Fee",
+          "unitPrice": 20000,
+          "quantityRequired": 1,
+          "totalAmount": 20000,
+          "paymentType": "paid_cash",
+          "amountPaid": 20000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:16:53.372Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-04-17T18:14",
+              "amount": 20000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24400",
+              "isIndividualPayment": true,
+              "individualAmount": 20000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 20000,
+    "method": "cash",
+    "date": "2026-04-17T18:14",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24400",
+    "recordedAt": "2026-07-18T15:16:53.384Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sports Fee",
+        "amount": 20000,
+        "itemsBrought": null,
+        "date": "2026-04-17T18:14"
+      }
+    ]
+  },
+  {
+    "id": "6325f390-2b52-47a0-951d-9909832241fe",
+    "studentId": "18a441b5-5564-41cf-ac22-bbd6f440b9c6",
+    "studentName": "Herediano Elly",
+    "admissionNumber": "STU20260010",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "feeStructureName": "Primary 4 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 74000,
+    "activityTotalPaid": 6000,
+    "activityItemPayments": [
+      {
+        "periodType": "yearly",
+        "componentName": "Scholastic Requirements (CASH)",
+        "itemName": "Holiday Package",
+        "unitPrice": 6000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 6000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 6000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": [
+        {
+          "componentId": "comp_1784388227401",
+          "componentName": "Scholastic Requirements (CASH)",
+          "periodType": "yearly",
+          "itemId": "item_1784388227401",
+          "itemName": "Holiday Package",
+          "unitPrice": 6000,
+          "quantityRequired": 1,
+          "totalAmount": 6000,
+          "paymentType": "paid_cash",
+          "amountPaid": 6000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-18T15:23:47.401Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-06-04T18:21",
+              "amount": 6000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "24812",
+              "isIndividualPayment": true,
+              "individualAmount": 6000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ]
+    },
+    "totalAmount": 80000,
+    "method": "cash",
+    "date": "2026-06-04T18:21",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "24812",
+    "recordedAt": "2026-07-18T15:23:47.412Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Holiday Package",
+        "amount": 6000,
+        "itemsBrought": null,
+        "date": "2026-06-04T18:21"
+      }
+    ]
+  },
+  {
+    "id": "4ed276b5-0d50-42d8-ae96-5ce03489bd6b",
+    "studentId": "18a441b5-5564-41cf-ac22-bbd6f440b9c6",
+    "studentName": "Herediano Elly",
+    "admissionNumber": "STU20260010",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "feeStructureName": "Primary 4 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 100000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 100000,
+    "method": "cash",
+    "date": "2026-07-13T18:23",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25760",
+    "recordedAt": "2026-07-18T15:25:59.703Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  },
+  {
+    "id": "5f27c15d-d1b6-4f51-82c1-bcf4c96c3315",
+    "studentId": "18a441b5-5564-41cf-ac22-bbd6f440b9c6",
+    "studentName": "Herediano Elly",
+    "admissionNumber": "STU20260010",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "feeStructureName": "Primary 4 Day",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 20000,
+    "activityTotalPaid": 0,
+    "activityItemPayments": [],
+    "paymentsByPeriodType": {
+      "one_time": [],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 20000,
+    "method": "cash",
+    "date": "2026-07-13T18:26",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "25761",
+    "recordedAt": "2026-07-18T15:26:53.460Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": []
+  }
+]

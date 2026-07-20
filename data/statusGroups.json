@@ -1,0 +1,90 @@
+[
+  {
+    "id": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+    "name": "Scholastic Requirements",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T09:06:01.032Z",
+    "updatedAt": "2026-07-18T09:06:01.032Z"
+  },
+  {
+    "id": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+    "name": "Scholastic Requirements(CASH)",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T09:20:21.841Z",
+    "updatedAt": "2026-07-18T09:20:21.842Z"
+  },
+  {
+    "id": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+    "name": "Uniform",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T09:48:07.286Z",
+    "updatedAt": "2026-07-18T09:48:07.286Z"
+  },
+  {
+    "id": "c7475c9f-3365-47c4-871e-02e1c2aca6fc",
+    "name": "Admission Requirements",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T09:51:23.752Z",
+    "updatedAt": "2026-07-18T09:51:23.752Z"
+  },
+  {
+    "id": "ae85c418-f39f-4238-b293-9d819b574809",
+    "name": "Sports Fee",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T09:54:40.691Z",
+    "updatedAt": "2026-07-18T09:54:40.691Z"
+  },
+  {
+    "id": "7a82d519-760d-47d7-9529-f56a2a851387",
+    "name": "Transportation Fee",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T10:10:28.961Z",
+    "updatedAt": "2026-07-18T10:10:28.961Z"
+  },
+  {
+    "id": "04f8a6ea-8300-49dc-b152-56fb4dceab20",
+    "name": "LTBalance",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T12:42:30.348Z",
+    "updatedAt": "2026-07-18T12:42:30.348Z"
+  },
+  {
+    "id": "098c2ee7-5bfc-4c8e-adb6-94e3bdc7c0db",
+    "name": "Medical Fee",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T13:22:08.313Z",
+    "updatedAt": "2026-07-18T13:22:08.313Z"
+  },
+  {
+    "id": "bd0ff514-d0a3-4e9a-91b3-8b1c10b3cd80",
+    "name": "Motivation Fee",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T14:23:19.960Z",
+    "updatedAt": "2026-07-18T14:23:19.960Z"
+  },
+  {
+    "id": "54ade501-13fd-41b8-b7a4-50d5acabab59",
+    "name": "Special examinations",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T14:24:12.415Z",
+    "updatedAt": "2026-07-18T14:24:12.415Z"
+  },
+  {
+    "id": "db1f348b-c70f-4486-a6e5-308f293e1ea6",
+    "name": "Tour",
+    "description": "",
+    "color": "#6b7280",
+    "createdAt": "2026-07-18T15:11:42.793Z",
+    "updatedAt": "2026-07-18T15:11:42.793Z"
+  }
+]

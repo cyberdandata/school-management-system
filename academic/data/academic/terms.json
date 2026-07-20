@@ -1,0 +1,26 @@
+{
+  "currentYear": 2026,
+  "currentTerm": 1,
+  "terms": {
+    "2026": {
+      "1": {
+        "name": "First Term",
+        "start": "2026-01-10",
+        "end": "2026-04-10",
+        "isActive": true
+      },
+      "2": {
+        "name": "Second Term",
+        "start": "2026-05-10",
+        "end": "2026-08-10",
+        "isActive": false
+      },
+      "3": {
+        "name": "Third Term",
+        "start": "2026-09-10",
+        "end": "2026-12-10",
+        "isActive": false
+      }
+    }
+  }
+}

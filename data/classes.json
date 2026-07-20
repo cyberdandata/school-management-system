@@ -1,0 +1,72 @@
+[
+  {
+    "id": "ba613cbc-8cba-4567-a19c-0ce120235f73",
+    "name": "Baby Class",
+    "level": "Nursery",
+    "order": 1,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "1eca2496-c17d-43cf-a0bb-f2ca10417ed0",
+    "name": "Middle Class",
+    "level": "Nursery",
+    "order": 2,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "04fa9f78-c4c2-4d61-96a7-25cce606bc37",
+    "name": "Top Class",
+    "level": "Nursery",
+    "order": 3,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
+    "name": "P.1",
+    "level": "LowerPrimary",
+    "order": 4,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
+    "name": "P.2",
+    "level": "LowerPrimary",
+    "order": 5,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "a61ce407-56f0-4c52-9739-2c5322ad48e7",
+    "name": "P.3",
+    "level": "LowerPrimary",
+    "order": 6,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "64c2dad5-05ae-4219-bdbb-f77154d49e7b",
+    "name": "P.4",
+    "level": "UpperPrimary",
+    "order": 7,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "name": "P.5",
+    "level": "UpperPrimary",
+    "order": 8,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "name": "P.6",
+    "level": "UpperPrimary",
+    "order": 9,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  },
+  {
+    "id": "dfb7d515-9c77-43e8-a4ba-122df93808b0",
+    "name": "P.7",
+    "level": "UpperPrimary",
+    "order": 10,
+    "createdAt": "2026-07-18T08:57:13.235Z"
+  }
+]

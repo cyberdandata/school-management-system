@@ -1,0 +1,18 @@
+{
+    "enabled": true,
+    "autoSync": true,
+    "syncInterval": 300000,
+    "conflictResolution": "merge",
+    "filesToSync": {
+        "data": ["*.json"],
+        "frontend": ["*.js", "*.html", "*.css"],
+        "backend": ["server.js"]
+    },
+    "excludeFiles": [
+        "node_modules/**",
+        "git-repo/**",
+        "*.log"
+    ],
+    "retryAttempts": 3,
+    "retryDelay": 5000
+}

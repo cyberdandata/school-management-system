@@ -1,0 +1,40 @@
+{
+  "default": {
+    "id": "default",
+    "name": "Standard Report Card",
+    "header": {
+      "schoolName": "{{schoolName}}",
+      "title": "ACADEMIC REPORT CARD",
+      "term": "{{term}} {{year}}",
+      "studentInfo": [
+        "Student Name: {{studentName}}",
+        "Admission: {{admissionNumber}}",
+        "Class: {{className}}"
+      ]
+    },
+    "subjects": {
+      "show": true,
+      "columns": [
+        "Subject",
+        "Score",
+        "Grade",
+        "Remark"
+      ]
+    },
+    "summary": {
+      "show": true,
+      "fields": [
+        "Average",
+        "Grade",
+        "Position",
+        "Total"
+      ]
+    },
+    "footer": {
+      "teacherComment": true,
+      "recommendation": true,
+      "signature": true
+    },
+    "layout": "standard"
+  }
+}

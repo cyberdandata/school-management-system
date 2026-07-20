@@ -1,0 +1,6248 @@
+[
+  {
+    "id": "2c003121-147f-4324-b139-510174132027",
+    "name": "Baby Class Day",
+    "level": "Nursery",
+    "tuition": 180000,
+    "activityComponents": [
+      {
+        "id": "group_1784366180876_672u60",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784365680533_zk8cr1",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784365732602_r70az7",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784365749865_uemhak",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784365767228_hi8o4h",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784365885939_asyt08",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784365964572_ggfika",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784365978945_d37la8",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366004244_4qp2dz",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366020296_ugyb82",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366101284_o798qh",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366126249_rmsn79",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366175738_b3i2b7",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 32000,
+        "createdAt": "2026-07-18T09:16:20.879Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      },
+      {
+        "id": "group_1784366348409_5requh",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784367059045_g03l3x",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T09:19:08.409Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      },
+      {
+        "id": "group_1784366447900_ug6m27",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784366446205_unsv4s",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T09:20:47.900Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      },
+      {
+        "id": "group_1784368191825_p8u8bs",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784368126157_et2i1f",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784368137272_9rthsh",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 30000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784368150880_7fhiug",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784368184876_gi4e7p",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 110000,
+        "createdAt": "2026-07-18T09:49:51.825Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      },
+      {
+        "id": "group_1784368454337_cfwt6i",
+        "name": "Admission Fee",
+        "periodType": "one_time",
+        "statusGroupId": "c7475c9f-3365-47c4-871e-02e1c2aca6fc",
+        "statusGroupName": "Admission Requirements",
+        "items": [
+          {
+            "id": "item_1784368358688_vf1gih",
+            "name": "Admission and Interview",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784368424954_uj55nv",
+            "name": "Passport Photos",
+            "quantity": 3,
+            "cashAmount": 5000,
+            "totalAmount": 5000,
+            "unitPrice": 1666.6666666666667,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784368449768_ivvo5m",
+            "name": "Development fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 30000,
+        "createdAt": "2026-07-18T09:54:14.337Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      },
+      {
+        "id": "group_1784368501224_9f5srb",
+        "name": "Sports Fee",
+        "periodType": "one_time",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784368495833_try15l",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T09:55:01.224Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      },
+      {
+        "id": "group_1784369453909_jiljxu",
+        "name": "Transportation Fee",
+        "periodType": "termly",
+        "statusGroupId": "7a82d519-760d-47d7-9529-f56a2a851387",
+        "statusGroupName": "Transportation Fee",
+        "items": [
+          {
+            "id": "item_1784369442278_6oh1w8",
+            "name": "Van Fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10000,
+        "createdAt": "2026-07-18T10:10:53.909Z",
+        "updatedAt": "2026-07-18T10:12:05.405Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:21:41.481Z",
+    "updatedAt": "2026-07-18T10:12:05.405Z"
+  },
+  {
+    "id": "439f6e8a-87f4-4757-923a-6603fb48bbe8",
+    "name": "Baby Class Boarding",
+    "level": "Nursery",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784366614245_s9t9l8",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784366614245_l5m505",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_ogwerj",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_qnuchu",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_g8mxho",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_dmdwk4",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_de9sin",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_1fpcil",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_h1lkjw",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_rcgm1i",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366614245_gh1eyg",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366757331_9ugrmj",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366827357_weo4hw",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366862117_pezf5e",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366876478_657ivv",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784366956181_ttgcnn",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T09:23:34.245Z",
+        "updatedAt": "2026-07-18T10:09:54.808Z"
+      },
+      {
+        "id": "group_1784366614245_0p7ka5",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784366710903_ci85h2",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T09:23:34.245Z",
+        "updatedAt": "2026-07-18T10:09:54.808Z"
+      },
+      {
+        "id": "group_1784366614245_2fimyj",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784366614245_78nr79",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T09:23:34.245Z",
+        "updatedAt": "2026-07-18T10:09:54.808Z"
+      },
+      {
+        "id": "group_1784369165304_443d62",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784369156262_wxx86m",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:06:05.304Z",
+        "updatedAt": "2026-07-18T10:09:54.808Z"
+      },
+      {
+        "id": "group_1784369355458_tz6n5o",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369297313_yh4uxl",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369310278_np64hv",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 30000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369325608_puo5o5",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369344769_buamsk",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 110000,
+        "createdAt": "2026-07-18T10:09:15.458Z",
+        "updatedAt": "2026-07-18T10:09:54.808Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:29:51.303Z",
+    "updatedAt": "2026-07-18T10:09:54.808Z"
+  },
+  {
+    "id": "0cd3d0f9-fe95-4867-bddd-3db580d132ec",
+    "name": "Middle Class Day",
+    "level": "Nursery",
+    "tuition": 180000,
+    "activityComponents": [
+      {
+        "id": "group_1784369546829_01n8pa",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369546829_6g3zch",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_o9iwd7",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_55fl2b",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_ww87ff",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_pnynr6",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_uewsn5",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_inybzy",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_lwxlfz",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_4rhtqg",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_bwhkt5",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_q6yqub",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_zcyo8y",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 32000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      },
+      {
+        "id": "group_1784369546829_sxtygn",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369546829_o90iuq",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      },
+      {
+        "id": "group_1784369546829_swhvma",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784369546829_0tbc9u",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      },
+      {
+        "id": "group_1784369546829_xy2joq",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369546829_y2qpos",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369546829_qcgpuy",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 30000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369546829_nqwwrt",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369546829_8nwaeg",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 110000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      },
+      {
+        "id": "group_1784369546829_yl8o37",
+        "name": "Admission Fee",
+        "periodType": "one_time",
+        "statusGroupId": "c7475c9f-3365-47c4-871e-02e1c2aca6fc",
+        "statusGroupName": "Admission Requirements",
+        "items": [
+          {
+            "id": "item_1784369546829_6doaow",
+            "name": "Admission and Interview",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369546829_o6fqnp",
+            "name": "Passport Photos",
+            "quantity": 3,
+            "cashAmount": 5000,
+            "totalAmount": 5000,
+            "unitPrice": 1666.6666666666667,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369546829_c3itxe",
+            "name": "Development fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 30000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      },
+      {
+        "id": "group_1784369546829_8n492y",
+        "name": "Sports Fee",
+        "periodType": "one_time",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784369546829_gxevfm",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      },
+      {
+        "id": "group_1784369546829_sdoid7",
+        "name": "Transportation Fee",
+        "periodType": "termly",
+        "statusGroupId": "7a82d519-760d-47d7-9529-f56a2a851387",
+        "statusGroupName": "Transportation Fee",
+        "items": [
+          {
+            "id": "item_1784369546829_r4o751",
+            "name": "Van Fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10000,
+        "createdAt": "2026-07-18T10:12:26.829Z",
+        "updatedAt": "2026-07-18T10:12:35.088Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:31:51.839Z",
+    "updatedAt": "2026-07-18T10:12:35.088Z"
+  },
+  {
+    "id": "9005012c-e29b-4a7e-a118-08f6aea1320f",
+    "name": "Middle Class Boarding",
+    "level": "Nursery",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784369595191_wefxas",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369595191_8v2lr4",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_y6a8f2",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_jnnpoj",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_8tgpln",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_ccb88m",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_vels8q",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_es4idx",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_kvtv5l",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_mr5v8u",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_ds4234",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_0aotat",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_48j1go",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_qs3dd8",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_5zky1x",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369595191_1l8n55",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T10:13:15.191Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      },
+      {
+        "id": "group_1784369595191_mel8xf",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369595191_gh3hox",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:13:15.191Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      },
+      {
+        "id": "group_1784369595192_e7neg7",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784369595192_qu4pv4",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784378491557_k6g9ra",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 9000,
+        "createdAt": "2026-07-18T10:13:15.192Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      },
+      {
+        "id": "group_1784369595192_4x5dxo",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784369595192_p3hgxo",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:13:15.192Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      },
+      {
+        "id": "group_1784369595192_ly4ct6",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369595192_m0mexl",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369595192_ujyfl9",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 30000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369595192_6s0fg2",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369595192_p7chy6",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 110000,
+        "createdAt": "2026-07-18T10:13:15.192Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      },
+      {
+        "id": "group_1784378576367_2taw27",
+        "name": "LTBalance",
+        "periodType": "one_time",
+        "statusGroupId": "04f8a6ea-8300-49dc-b152-56fb4dceab20",
+        "statusGroupName": "LTBalance",
+        "items": [
+          {
+            "id": "item_1784378570800_l0kv5u",
+            "name": "LTBalance",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10000,
+        "createdAt": "2026-07-18T12:42:56.367Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      },
+      {
+        "id": "group_1784380944389_imiu6i",
+        "name": "Medical Fee",
+        "periodType": "termly",
+        "statusGroupId": "098c2ee7-5bfc-4c8e-adb6-94e3bdc7c0db",
+        "statusGroupName": "Medical Fee",
+        "items": [
+          {
+            "id": "item_1784380942012_cyaozs",
+            "name": "Medical Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T13:22:24.389Z",
+        "updatedAt": "2026-07-18T13:22:31.415Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:33:00.706Z",
+    "updatedAt": "2026-07-18T13:22:31.415Z"
+  },
+  {
+    "id": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "name": "Top Class Day",
+    "level": "Nursery",
+    "tuition": 190000,
+    "activityComponents": [
+      {
+        "id": "group_1784369614705_adjijb",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369614705_9vms1m",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_e0rdfp",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_34qwiq",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_rt8agj",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_454nwb",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_ffs9f5",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_wg2exi",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_eeydfy",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_kteeyj",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_jbdjse",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_oqaucf",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_u9870s",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 32000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      },
+      {
+        "id": "group_1784369614705_yd0ox8",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369614705_pp6j00",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      },
+      {
+        "id": "group_1784369614705_g482f5",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784369614705_g6bddh",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784378098199_axk8fc",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 9000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      },
+      {
+        "id": "group_1784369614705_f8tc65",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369614705_wv0xp3",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369614705_kczhgn",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 30000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369614705_bx839l",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369614705_y96i64",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 110000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      },
+      {
+        "id": "group_1784369614705_77be8p",
+        "name": "Admission Fee",
+        "periodType": "one_time",
+        "statusGroupId": "c7475c9f-3365-47c4-871e-02e1c2aca6fc",
+        "statusGroupName": "Admission Requirements",
+        "items": [
+          {
+            "id": "item_1784369614705_9w9aao",
+            "name": "Admission and Interview",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369614705_1zf25f",
+            "name": "Passport Photos",
+            "quantity": 3,
+            "cashAmount": 5000,
+            "totalAmount": 5000,
+            "unitPrice": 1666.6666666666667,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369614705_210mci",
+            "name": "Development fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 30000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      },
+      {
+        "id": "group_1784369614705_cgbxbd",
+        "name": "Sports Fee",
+        "periodType": "one_time",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784369614705_maqsbg",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      },
+      {
+        "id": "group_1784369614705_4pyy6b",
+        "name": "Transportation Fee",
+        "periodType": "termly",
+        "statusGroupId": "7a82d519-760d-47d7-9529-f56a2a851387",
+        "statusGroupName": "Transportation Fee",
+        "items": [
+          {
+            "id": "item_1784369614705_du6gx7",
+            "name": "Van Fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10000,
+        "createdAt": "2026-07-18T10:13:34.705Z",
+        "updatedAt": "2026-07-18T12:35:05.153Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:34:16.661Z",
+    "updatedAt": "2026-07-18T12:35:05.153Z"
+  },
+  {
+    "id": "6646ccd8-a3f5-42a3-a291-356e71c39120",
+    "name": "Top Class Boarding",
+    "level": "Nursery",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784369659620_mt2lo8",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369659620_mqcmb3",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_jx5qgp",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_e6o2d8",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_o23z2s",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_r4019l",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_acgw4o",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_miv9em",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_oj31gs",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_n7v5ul",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_4ghivn",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_ru9pv5",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_7h2xc7",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_0x8q7f",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_rthbz5",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784369659621_7c2to9",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T10:14:19.620Z",
+        "updatedAt": "2026-07-18T10:14:21.927Z"
+      },
+      {
+        "id": "group_1784369659621_v1odoz",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784369659621_1xq0q8",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:14:19.621Z",
+        "updatedAt": "2026-07-18T10:14:21.927Z"
+      },
+      {
+        "id": "group_1784369659621_j83hwl",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784369659621_eviuis",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T10:14:19.621Z",
+        "updatedAt": "2026-07-18T10:14:21.927Z"
+      },
+      {
+        "id": "group_1784369659621_yjl6nc",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784369659621_yg6xdh",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:14:19.621Z",
+        "updatedAt": "2026-07-18T10:14:21.927Z"
+      },
+      {
+        "id": "group_1784369659621_jregaq",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369659621_ce1tfj",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369659621_qx31u2",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 30000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369659621_9rwzwr",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369659621_1fysm5",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 110000,
+        "createdAt": "2026-07-18T10:14:19.621Z",
+        "updatedAt": "2026-07-18T10:14:21.927Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:34:30.806Z",
+    "updatedAt": "2026-07-18T10:14:21.927Z"
+  },
+  {
+    "id": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "name": "Primary 1 Day",
+    "level": "LowerPrimary",
+    "tuition": 200000,
+    "activityComponents": [
+      {
+        "id": "group_1784367435867_rkwsep",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784367435867_5l9xth",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_wrf5a5",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_rzxt4m",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_28hzp8",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_fnv2p8",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_gwprv3",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_lugggj",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_oyy8ne",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_zau8eo",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_gcvuo1",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367435867_ea8wwl",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367492111_vfozcp",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367570585_iqb7fr",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 34000,
+        "createdAt": "2026-07-18T09:37:15.867Z",
+        "updatedAt": "2026-07-18T12:02:53.325Z"
+      },
+      {
+        "id": "group_1784367435867_d7hjhy",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784367435867_59607s",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T09:37:15.867Z",
+        "updatedAt": "2026-07-18T12:02:53.326Z"
+      },
+      {
+        "id": "group_1784367435867_nqk2yg",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784367547361_zzx0eo",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784375481017_z5b7ba",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10500,
+        "createdAt": "2026-07-18T09:37:15.868Z",
+        "updatedAt": "2026-07-18T12:02:53.326Z"
+      },
+      {
+        "id": "group_1784369877727_08q77p",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369802491_ql491z",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369817054_8an8te",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369838023_ostzvo",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369871268_p5w6g1",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:17:57.727Z",
+        "updatedAt": "2026-07-18T12:02:53.326Z"
+      },
+      {
+        "id": "group_1784369940109_cdogjx",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784369928825_k62sg8",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:19:00.109Z",
+        "updatedAt": "2026-07-18T12:02:53.326Z"
+      },
+      {
+        "id": "group_1784376171367_0y07jt",
+        "name": "Transportation Fee",
+        "periodType": "termly",
+        "statusGroupId": "7a82d519-760d-47d7-9529-f56a2a851387",
+        "statusGroupName": "Transportation Fee",
+        "items": [
+          {
+            "id": "item_1784376168957_rknxz9",
+            "name": "Van Fee",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10000,
+        "createdAt": "2026-07-18T12:02:51.367Z",
+        "updatedAt": "2026-07-18T12:02:53.326Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:39:40.019Z",
+    "updatedAt": "2026-07-18T12:02:53.326Z"
+  },
+  {
+    "id": "0fe1f565-caad-4f52-bc37-2915a1931b04",
+    "name": "Primary 1 Boarding",
+    "level": "LowerPrimary",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784367811925_qw3svx",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784367811925_togoyd",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_je922g",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_z5u5jt",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_iaxehd",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_ciwj5q",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_dz6xtx",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_rjgghj",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_vl2x8y",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_dxw6lr",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_aiwehl",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_zgbmf9",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_ivqkmr",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_lsnmtu",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_sbl77g",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784367811925_axkirt",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T09:43:31.925Z",
+        "updatedAt": "2026-07-18T10:21:40.005Z"
+      },
+      {
+        "id": "group_1784367811925_az97x6",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784367811925_hbw2pq",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T09:43:31.925Z",
+        "updatedAt": "2026-07-18T10:21:40.005Z"
+      },
+      {
+        "id": "group_1784367811925_99kr6l",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784367811925_hqv15o",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T09:43:31.925Z",
+        "updatedAt": "2026-07-18T10:21:40.005Z"
+      },
+      {
+        "id": "group_1784370035964_ejwht3",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784369980586_5vi2nv",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784369992782_84yzeh",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370004343_jqv9bi",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370018189_nqt371",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:20:35.964Z",
+        "updatedAt": "2026-07-18T10:21:40.005Z"
+      },
+      {
+        "id": "group_1784370067167_5hrart",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370066655_eh5w4a",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:21:07.167Z",
+        "updatedAt": "2026-07-18T10:21:40.005Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:43:39.780Z",
+    "updatedAt": "2026-07-18T10:21:40.005Z"
+  },
+  {
+    "id": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "name": "Primary 2 Day",
+    "level": "LowerPrimary",
+    "tuition": 200000,
+    "activityComponents": [
+      {
+        "id": "group_1784370114821_1dr1b1",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370114821_uchqgh",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_g1scoy",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_9iihia",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_6yhnwm",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_6l6lub",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_33p8r7",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_44hx74",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_vwr01z",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_fxox34",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_ykendh",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_yvart0",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_4fuv0q",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370114821_nz7kd0",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 34000,
+        "createdAt": "2026-07-18T10:21:54.821Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      },
+      {
+        "id": "group_1784370114821_9ic5z2",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370114821_a3ei26",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:21:54.821Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      },
+      {
+        "id": "group_1784370114821_qd86zj",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784370114821_qo0iqe",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784383287459_8fhwf6",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10500,
+        "createdAt": "2026-07-18T10:21:54.821Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      },
+      {
+        "id": "group_1784370114821_5679qt",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784370114821_o1zcd2",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370114821_b17bgs",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370114821_z3iszm",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370114821_co35ce",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:21:54.821Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      },
+      {
+        "id": "group_1784370114821_ba3485",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370114821_zqc46m",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:21:54.821Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      },
+      {
+        "id": "group_1784381508053_ez97qq",
+        "name": "Admission Requirements",
+        "periodType": "one_time",
+        "statusGroupId": "c7475c9f-3365-47c4-871e-02e1c2aca6fc",
+        "statusGroupName": "Admission Requirements",
+        "items": [
+          {
+            "id": "item_1784381462411_doxcc1",
+            "name": "Admission and Interview",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784381478398_tmbzwi",
+            "name": "Development fee",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784381503463_s2ii5t",
+            "name": "Passport Photos",
+            "quantity": 3,
+            "cashAmount": 5000,
+            "totalAmount": 5000,
+            "unitPrice": 1666.6666666666667,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 35000,
+        "createdAt": "2026-07-18T13:31:48.053Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      },
+      {
+        "id": "group_1784383876469_n0uowl",
+        "name": "LTBalance",
+        "periodType": "one_time",
+        "statusGroupId": "04f8a6ea-8300-49dc-b152-56fb4dceab20",
+        "statusGroupName": "LTBalance",
+        "items": [
+          {
+            "id": "item_1784383873241_8qvhsn",
+            "name": "LTBalance",
+            "quantity": 1,
+            "cashAmount": 500,
+            "totalAmount": 500,
+            "unitPrice": 500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 500,
+        "createdAt": "2026-07-18T14:11:16.469Z",
+        "updatedAt": "2026-07-18T14:11:22.630Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:44:35.489Z",
+    "updatedAt": "2026-07-18T14:11:22.630Z"
+  },
+  {
+    "id": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "name": "Primary 2 Boarding",
+    "level": "LowerPrimary",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784370166244_ncwyu8",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370166244_msejjo",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_7zoz4h",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_ugx8zn",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_linspe",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_t1cguo",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_rc7zfn",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_7m05gr",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_l8npml",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_n2gjlb",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_i0wkqr",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_fhgttv",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_ytovdc",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_q1fui4",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_3zwqgm",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370166244_02dd2x",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T10:22:46.244Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      },
+      {
+        "id": "group_1784370166244_cuj7ii",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370166244_k319zf",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:22:46.244Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      },
+      {
+        "id": "group_1784370166244_zy6aft",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784370166244_xc0h2k",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784382271595_zv1mu0",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 9000,
+        "createdAt": "2026-07-18T10:22:46.244Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      },
+      {
+        "id": "group_1784370166244_j1jxgq",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784370166244_pjbokq",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370166244_0es54f",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370166244_f2p23i",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370166244_stugv2",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784381984646_9vdcua",
+            "name": "Casual wears",
+            "quantity": 1,
+            "cashAmount": 46000,
+            "totalAmount": 46000,
+            "unitPrice": 46000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 171000,
+        "createdAt": "2026-07-18T10:22:46.244Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      },
+      {
+        "id": "group_1784370166244_hgyiuc",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370166244_m0mqbc",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:22:46.244Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      },
+      {
+        "id": "group_1784381628708_gmkdkh",
+        "name": "Admission Requirements",
+        "periodType": "one_time",
+        "statusGroupId": "c7475c9f-3365-47c4-871e-02e1c2aca6fc",
+        "statusGroupName": "Admission Requirements",
+        "items": [
+          {
+            "id": "item_1784381604631_x1efet",
+            "name": "Admission and Interview",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784381614349_mj8viz",
+            "name": "Development fee",
+            "quantity": 1,
+            "cashAmount": 15000,
+            "totalAmount": 15000,
+            "unitPrice": 15000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784536188215_at1azn",
+            "name": "Passport Photo",
+            "quantity": 1,
+            "cashAmount": 5000,
+            "totalAmount": 5000,
+            "unitPrice": 5000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 35000,
+        "createdAt": "2026-07-18T13:33:48.708Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      },
+      {
+        "id": "group_1784381963710_x4i9s9",
+        "name": "Medical Fee",
+        "periodType": "termly",
+        "statusGroupId": "098c2ee7-5bfc-4c8e-adb6-94e3bdc7c0db",
+        "statusGroupName": "Medical Fee",
+        "items": [
+          {
+            "id": "item_1784381961345_3fbh3t",
+            "name": "Medical Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T13:39:23.711Z",
+        "updatedAt": "2026-07-20T08:29:54.391Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T09:45:05.523Z",
+    "updatedAt": "2026-07-20T08:29:54.391Z"
+  },
+  {
+    "id": "a70c9ea5-a364-470e-95df-57ffc2b2f7f1",
+    "name": "Primary 3 Day",
+    "level": "LowerPrimary",
+    "tuition": 210000,
+    "activityComponents": [
+      {
+        "id": "group_1784370467981_1kc6y9",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370467981_4cctcf",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_2w7a0d",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_zeh58b",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_d2itre",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_ww0hkq",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_j996pe",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_7blgba",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_hln0zl",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_9cvfq4",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_wnqyfb",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_5zonqd",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_9b9l7q",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370467981_tu9jm7",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 34000,
+        "createdAt": "2026-07-18T10:27:47.981Z"
+      },
+      {
+        "id": "group_1784370467982_d6td1s",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370467982_yq4ymq",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:27:47.982Z"
+      },
+      {
+        "id": "group_1784370467983_nkdlcm",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784370467983_3mi7o3",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 4500,
+        "createdAt": "2026-07-18T10:27:47.983Z"
+      },
+      {
+        "id": "group_1784370467983_r8fgo4",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784370467983_4vicig",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370467983_me82bw",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370467983_wrswed",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370467983_jejpve",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:27:47.983Z"
+      },
+      {
+        "id": "group_1784370467983_dcopew",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370467983_vzkq17",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:27:47.983Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:28:21.767Z",
+    "updatedAt": "2026-07-18T10:28:21.767Z"
+  },
+  {
+    "id": "16ea91dc-c9fa-4673-8ee8-5821a2081188",
+    "name": "Primary 3 Boarding",
+    "level": "LowerPrimary",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784370519661_mbkvud",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370519661_c6ymoy",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_w9ebgp",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_t3utz0",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_8vyn1g",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_0pmqwj",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_2dayol",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_qspy9a",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_r5v28l",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519661_j6dsf3",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519662_ddc3hn",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519662_r2kjy9",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519662_u9jk15",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519662_xim7h3",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519662_3tvmpa",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370519662_r7zklg",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T10:28:39.661Z"
+      },
+      {
+        "id": "group_1784370519662_7gi23y",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370519662_s5ia6u",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:28:39.662Z"
+      },
+      {
+        "id": "group_1784370519662_pzlcax",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784370519662_9v89ip",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T10:28:39.662Z"
+      },
+      {
+        "id": "group_1784370519662_xi16qv",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784370519662_jaztku",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370519662_92zb3o",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370519662_an1213",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370519662_svhzal",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:28:39.662Z"
+      },
+      {
+        "id": "group_1784370519662_8yo39j",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370519662_szjiwv",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:28:39.662Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:29:02.021Z",
+    "updatedAt": "2026-07-18T10:29:02.021Z"
+  },
+  {
+    "id": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "name": "Primary 4 Day",
+    "level": "UpperPrimary",
+    "tuition": 220000,
+    "activityComponents": [
+      {
+        "id": "group_1784370768188_xq9jhx",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370768188_n6avoj",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_l3rxzm",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_ohq6ri",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_3y6kow",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_iud193",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_zpx01q",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_40s3e6",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_21lr0e",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_52ffbs",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_99flx7",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_bcfmbe",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_eqzccj",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370768188_kzubap",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 34000,
+        "createdAt": "2026-07-18T10:32:48.188Z",
+        "updatedAt": "2026-07-18T15:21:38.308Z"
+      },
+      {
+        "id": "group_1784370768188_5rg286",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370768188_vu6irn",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:32:48.188Z",
+        "updatedAt": "2026-07-18T15:21:38.308Z"
+      },
+      {
+        "id": "group_1784370768189_phyacy",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784370768189_4xo5vd",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784388085477_3vd98l",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10500,
+        "createdAt": "2026-07-18T10:32:48.189Z",
+        "updatedAt": "2026-07-18T15:21:38.308Z"
+      },
+      {
+        "id": "group_1784370768189_v3y5d6",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784370768189_ooikg4",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370768189_akkjpg",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370768189_8txd1p",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370768189_dfbkcs",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:32:48.189Z",
+        "updatedAt": "2026-07-18T15:21:38.308Z"
+      },
+      {
+        "id": "group_1784370768189_r0xwx9",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370768189_0whkg5",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:32:48.189Z",
+        "updatedAt": "2026-07-18T15:21:38.308Z"
+      },
+      {
+        "id": "group_1784387550567_5h4mfu",
+        "name": "Tour",
+        "periodType": "yearly",
+        "statusGroupId": "db1f348b-c70f-4486-a6e5-308f293e1ea6",
+        "statusGroupName": "Tour",
+        "items": [
+          {
+            "id": "item_1784387539062_ejzsas",
+            "name": "Tour Fee",
+            "quantity": 1,
+            "cashAmount": 60000,
+            "totalAmount": 60000,
+            "unitPrice": 60000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 60000,
+        "createdAt": "2026-07-18T15:12:30.567Z",
+        "updatedAt": "2026-07-18T15:21:38.308Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:33:14.300Z",
+    "updatedAt": "2026-07-18T15:21:38.308Z"
+  },
+  {
+    "id": "c6b9b331-a153-4182-99cb-981a1ba27b70",
+    "name": "Primary 4 Boarding",
+    "level": "UpperPrimary",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784370841006_i0pxqz",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370841006_mja12v",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_e7r3f4",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_uu39jj",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_bvbr2r",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_x40u4f",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_f7mbk9",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_1yq28g",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_7zixya",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_g3a55u",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_t7qvpx",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_g55djh",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_uyd9yj",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_5e2pb8",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_kxm0h4",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784370841006_96pua9",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T10:34:01.006Z",
+        "updatedAt": "2026-07-18T10:58:21.660Z"
+      },
+      {
+        "id": "group_1784370841006_6b4dku",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784370841006_8x0ra4",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:34:01.006Z",
+        "updatedAt": "2026-07-18T10:58:21.660Z"
+      },
+      {
+        "id": "group_1784370841006_mkf2bq",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784370841007_g75css",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T10:34:01.006Z",
+        "updatedAt": "2026-07-18T10:58:21.660Z"
+      },
+      {
+        "id": "group_1784370841007_zr6x56",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784370841007_mvvyr6",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370841007_k7k6pq",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370841007_5gj3i7",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784370841007_ff5pdz",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:34:01.007Z",
+        "updatedAt": "2026-07-18T10:58:21.660Z"
+      },
+      {
+        "id": "group_1784370841008_4c29hf",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784370841008_ykltjf",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:34:01.008Z",
+        "updatedAt": "2026-07-18T10:58:21.660Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:34:02.259Z",
+    "updatedAt": "2026-07-18T10:58:21.660Z"
+  },
+  {
+    "id": "6338477d-6f36-4563-9a3f-32021022efae",
+    "name": "Primary 5 Day",
+    "level": "UpperPrimary",
+    "tuition": 220000,
+    "activityComponents": [
+      {
+        "id": "group_1784371282388_e73qno",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784371282388_xedtn3",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_umfcwg",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_plqkp5",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_4ih92w",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_bw1ssi",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_b1kssp",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_ha3xpe",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_xugnqn",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_ppodwf",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_vuzx05",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_3sbz6h",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_6gbvur",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371282388_k9i8jm",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371350268_95c4mi",
+            "name": "Pens",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784371375072_7egd0t",
+            "name": "Black Books",
+            "quantity": 8,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 34000,
+        "createdAt": "2026-07-18T10:41:22.388Z",
+        "updatedAt": "2026-07-18T14:56:11.736Z"
+      },
+      {
+        "id": "group_1784371282388_4ynjcg",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784371282388_kyhadh",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:41:22.388Z",
+        "updatedAt": "2026-07-18T14:56:11.736Z"
+      },
+      {
+        "id": "group_1784371282389_ge1lvn",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784371282389_lp1h10",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784386559428_bhrvyj",
+            "name": "Holiday Package",
+            "quantity": 1,
+            "cashAmount": 6000,
+            "totalAmount": 6000,
+            "unitPrice": 6000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 10500,
+        "createdAt": "2026-07-18T10:41:22.389Z",
+        "updatedAt": "2026-07-18T14:56:11.736Z"
+      },
+      {
+        "id": "group_1784371282389_46sbcq",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784371282389_hlw12i",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784371282389_nolntx",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784371282389_moekhb",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784371282389_xdmhd3",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784386364048_znidu4",
+            "name": "Jersey",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 160000,
+        "createdAt": "2026-07-18T10:41:22.389Z",
+        "updatedAt": "2026-07-18T14:56:11.736Z"
+      },
+      {
+        "id": "group_1784371282389_ggvdqv",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784371282389_mdvdim",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:41:22.389Z",
+        "updatedAt": "2026-07-18T14:56:11.736Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:43:13.107Z",
+    "updatedAt": "2026-07-18T14:56:11.736Z"
+  },
+  {
+    "id": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
+    "name": "Primary 5 Boarding",
+    "level": "UpperPrimary",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784372122374_ftty51",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372122374_lm2o7u",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_7bc7nv",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_0u6emd",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_zg9al6",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_fz2xt7",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_3v0xd4",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_nj22b3",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_ba0ej4",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_bt49qm",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_7unj5x",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_sni2fr",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_lh0yad",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_m1ez1y",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_ew09zt",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372122374_efyzji",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T10:55:22.374Z",
+        "updatedAt": "2026-07-18T10:57:57.820Z"
+      },
+      {
+        "id": "group_1784372122374_i54zyf",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372122374_oisy1u",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:55:22.374Z",
+        "updatedAt": "2026-07-18T10:57:57.821Z"
+      },
+      {
+        "id": "group_1784372122374_n44rop",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784372122374_k1beun",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T10:55:22.374Z",
+        "updatedAt": "2026-07-18T10:57:57.821Z"
+      },
+      {
+        "id": "group_1784372122374_482vfx",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784372122374_5em2cs",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372122374_tqnlnq",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372122374_uix82b",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372122375_9hxcbs",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:55:22.374Z",
+        "updatedAt": "2026-07-18T10:57:57.821Z"
+      },
+      {
+        "id": "group_1784372122375_88adyo",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784372122375_ce742w",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:55:22.375Z",
+        "updatedAt": "2026-07-18T10:57:57.821Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:56:16.942Z",
+    "updatedAt": "2026-07-18T10:57:57.821Z"
+  },
+  {
+    "id": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "name": "Primary 6 Day",
+    "level": "UpperPrimary",
+    "tuition": 230000,
+    "activityComponents": [
+      {
+        "id": "group_1784372343840_rbuxps",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372343840_uxbxtf",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_639wd5",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_inl092",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_2bp2bj",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_ekrimo",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_i76c8r",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_91eqy0",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_h70jjg",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_u3uxqp",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_mn46dh",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_4ey5no",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_1ffhbd",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_9kxlrl",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_zzn9lr",
+            "name": "Pens",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372343840_vumefq",
+            "name": "Black Books",
+            "quantity": 8,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 34000,
+        "createdAt": "2026-07-18T10:59:03.840Z",
+        "updatedAt": "2026-07-18T11:03:01.892Z"
+      },
+      {
+        "id": "group_1784372343840_i298s1",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372343841_oouapy",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T10:59:03.841Z",
+        "updatedAt": "2026-07-18T11:03:01.892Z"
+      },
+      {
+        "id": "group_1784372343841_tx22uw",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784372343841_jnhyfa",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 4500,
+        "createdAt": "2026-07-18T10:59:03.841Z",
+        "updatedAt": "2026-07-18T11:03:01.892Z"
+      },
+      {
+        "id": "group_1784372343841_6w2o1r",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784372343841_0b20yi",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372343841_npxrpm",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372343841_liujbm",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372343841_t9inj9",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T10:59:03.841Z",
+        "updatedAt": "2026-07-18T11:03:01.892Z"
+      },
+      {
+        "id": "group_1784372343842_ot5uit",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784372343842_zm3a70",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T10:59:03.842Z",
+        "updatedAt": "2026-07-18T11:03:01.892Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T10:59:20.601Z",
+    "updatedAt": "2026-07-18T11:03:01.892Z"
+  },
+  {
+    "id": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "name": "Primary 6 Boarding",
+    "level": "UpperPrimary",
+    "tuition": 400000,
+    "activityComponents": [
+      {
+        "id": "group_1784372433345_iedtnj",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372433345_bhgv0u",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_y2nn8n",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_c6goln",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_doxjb7",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_ciho82",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_v6fkkk",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_mkqrl1",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_424q6d",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_d2wnnd",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_4vg5xv",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_ga30qj",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_qw6ux5",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_kzks0z",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_c55ztt",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372433345_ny2x2m",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 56000,
+        "createdAt": "2026-07-18T11:00:33.345Z",
+        "updatedAt": "2026-07-18T11:00:48.350Z"
+      },
+      {
+        "id": "group_1784372433345_n6ai9h",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "yearly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372433345_p72sq8",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T11:00:33.345Z",
+        "updatedAt": "2026-07-18T11:00:48.350Z"
+      },
+      {
+        "id": "group_1784372433346_pujw7h",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784372433346_dp0s86",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T11:00:33.346Z",
+        "updatedAt": "2026-07-18T11:00:48.350Z"
+      },
+      {
+        "id": "group_1784372433346_okrabx",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784372433346_m3sm6k",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372433346_w81hlf",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372433346_1r87az",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372433346_jbvwr0",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T11:00:33.346Z",
+        "updatedAt": "2026-07-18T11:00:48.350Z"
+      },
+      {
+        "id": "group_1784372433346_29mkfn",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784372433346_mt09yi",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T11:00:33.346Z",
+        "updatedAt": "2026-07-18T11:00:48.350Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T11:00:34.926Z",
+    "updatedAt": "2026-07-18T11:00:48.350Z"
+  },
+  {
+    "id": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "name": "Primary 7 Day",
+    "level": "UpperPrimary",
+    "tuition": 250000,
+    "activityComponents": [
+      {
+        "id": "group_1784372524922_44gfy3",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372524922_q9fi4f",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_e9tdkz",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_ybbo9m",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_xrlrw7",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_6u6ak7",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_724dsw",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_hvwgi0",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_k89q5x",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_hgvhf8",
+            "name": "Toilet Papers",
+            "quantity": 4,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_rk7cp1",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_aggfnq",
+            "name": "Sealed Sugar",
+            "quantity": 2,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_3471j0",
+            "name": "Books long 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_omot1v",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_yiaw11",
+            "name": "Pens",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372524922_jimuli",
+            "name": "Black Books",
+            "quantity": 8,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372763086_644sjt",
+            "name": "Box of Chalk",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 38500,
+        "createdAt": "2026-07-18T11:02:04.922Z",
+        "updatedAt": "2026-07-18T11:07:01.208Z"
+      },
+      {
+        "id": "group_1784372524922_10eleb",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372524922_stt3dq",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T11:02:04.922Z",
+        "updatedAt": "2026-07-18T11:07:01.208Z"
+      },
+      {
+        "id": "group_1784372524923_81jhde",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784372524923_zkmwxm",
+            "name": "Covers(12)",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 4500,
+        "createdAt": "2026-07-18T11:02:04.923Z",
+        "updatedAt": "2026-07-18T11:07:01.208Z"
+      },
+      {
+        "id": "group_1784372524923_1fikpz",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784372524923_083b25",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372524923_vg9mqm",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372524923_0zx5nr",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372524923_trsgc9",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T11:02:04.923Z",
+        "updatedAt": "2026-07-18T11:07:01.208Z"
+      },
+      {
+        "id": "group_1784372524923_nj1ea8",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784372524923_pg0i63",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T11:02:04.923Z",
+        "updatedAt": "2026-07-18T11:07:01.208Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T11:02:31.680Z",
+    "updatedAt": "2026-07-18T11:07:01.208Z"
+  },
+  {
+    "id": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "name": "Primary 7 Boarding",
+    "level": "UpperPrimary",
+    "tuition": 420000,
+    "activityComponents": [
+      {
+        "id": "group_1784372867870_npzn9j",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372867870_7qqsgv",
+            "name": "Books 96 Pages Picfare",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_opde32",
+            "name": "Pencils(Nataraj)",
+            "quantity": 12,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_vcn2iv",
+            "name": "Box File",
+            "quantity": 1,
+            "cashAmount": 8000,
+            "totalAmount": 8000,
+            "unitPrice": 8000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_d8oy8f",
+            "name": "Hand Writing Book",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_5sfzce",
+            "name": "Clear Bag",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_13ft11",
+            "name": "Packet Of Crayons",
+            "quantity": 1,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 2000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_5n1b0q",
+            "name": "Cutters",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_q69hc5",
+            "name": "Manila Cards",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_fkto3j",
+            "name": "Rubbers",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_ol06h3",
+            "name": "Inside Brooms",
+            "quantity": 2,
+            "cashAmount": 1000,
+            "totalAmount": 1000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_v40w8t",
+            "name": "Outside Brooms",
+            "quantity": 2,
+            "cashAmount": 2000,
+            "totalAmount": 2000,
+            "unitPrice": 1000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_zq9hc4",
+            "name": "Toilet Papers",
+            "quantity": 8,
+            "cashAmount": 4000,
+            "totalAmount": 4000,
+            "unitPrice": 500,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_rnbazs",
+            "name": "Scrubbing Brush",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_dbo9wc",
+            "name": "Squeezer",
+            "quantity": 1,
+            "cashAmount": 0,
+            "totalAmount": 0,
+            "unitPrice": 0,
+            "paymentOption": "item_only",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372867870_8lucex",
+            "name": "Sealed Sugar",
+            "quantity": 6,
+            "cashAmount": 30000,
+            "totalAmount": 30000,
+            "unitPrice": 5000,
+            "paymentOption": "either",
+            "isTangible": true
+          },
+          {
+            "id": "item_1784372906220_5yhcot",
+            "name": "Box of Chalk",
+            "quantity": 1,
+            "cashAmount": 4500,
+            "totalAmount": 4500,
+            "unitPrice": 4500,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 60500,
+        "createdAt": "2026-07-18T11:07:47.870Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784372867871_nk34h7",
+        "name": "Scholastic Requirements (ITEMS)",
+        "periodType": "termly",
+        "statusGroupId": "bd5ffbdd-e3c2-4938-8043-fde435d838a3",
+        "statusGroupName": "Scholastic Requirements",
+        "items": [
+          {
+            "id": "item_1784372867871_l247lr",
+            "name": "Ream(Rwenzori)",
+            "quantity": 1,
+            "cashAmount": 25000,
+            "totalAmount": 25000,
+            "unitPrice": 25000,
+            "paymentOption": "either",
+            "isTangible": true
+          }
+        ],
+        "totalAmount": 25000,
+        "createdAt": "2026-07-18T11:07:47.871Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784372867871_r777fl",
+        "name": "Scholastic Requirements (CASH)",
+        "periodType": "yearly",
+        "statusGroupId": "d9c64c71-9a60-486d-9d24-1fcd2c48187d",
+        "statusGroupName": "Scholastic Requirements(CASH)",
+        "items": [
+          {
+            "id": "item_1784372867871_gcxslj",
+            "name": "Covers (12)",
+            "quantity": 1,
+            "cashAmount": 3000,
+            "totalAmount": 3000,
+            "unitPrice": 3000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 3000,
+        "createdAt": "2026-07-18T11:07:47.871Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784372867871_91mxyc",
+        "name": "Uniform",
+        "periodType": "one_time",
+        "statusGroupId": "d0d4b951-51b7-4372-9d2f-6f8b3a96b799",
+        "statusGroupName": "Uniform",
+        "items": [
+          {
+            "id": "item_1784372867871_nch97u",
+            "name": "Dress/Shirt and Short",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372867871_o4s3n9",
+            "name": "Sweater",
+            "quantity": 1,
+            "cashAmount": 35000,
+            "totalAmount": 35000,
+            "unitPrice": 35000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372867871_ulfufl",
+            "name": "Stocking",
+            "quantity": 1,
+            "cashAmount": 10000,
+            "totalAmount": 10000,
+            "unitPrice": 10000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          },
+          {
+            "id": "item_1784372867871_21ii2h",
+            "name": "Sportswear",
+            "quantity": 1,
+            "cashAmount": 40000,
+            "totalAmount": 40000,
+            "unitPrice": 40000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 125000,
+        "createdAt": "2026-07-18T11:07:47.871Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784372867871_3kdbrg",
+        "name": "Sports Fee",
+        "periodType": "yearly",
+        "statusGroupId": "ae85c418-f39f-4238-b293-9d819b574809",
+        "statusGroupName": "Sports Fee",
+        "items": [
+          {
+            "id": "item_1784372867871_3ttivz",
+            "name": "Sports Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T11:07:47.871Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784384569774_zngtvn",
+        "name": "Medical Fee",
+        "periodType": "one_time",
+        "statusGroupId": "098c2ee7-5bfc-4c8e-adb6-94e3bdc7c0db",
+        "statusGroupName": "Medical Fee",
+        "items": [
+          {
+            "id": "item_1784384565814_ssl7kg",
+            "name": "Medical Fee",
+            "quantity": 1,
+            "cashAmount": 20000,
+            "totalAmount": 20000,
+            "unitPrice": 20000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 20000,
+        "createdAt": "2026-07-18T14:22:49.774Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784384624914_umfld0",
+        "name": "Motivation Fee",
+        "periodType": "one_time",
+        "statusGroupId": "bd0ff514-d0a3-4e9a-91b3-8b1c10b3cd80",
+        "statusGroupName": "Motivation Fee",
+        "items": [
+          {
+            "id": "item_1784384621804_v8uvr7",
+            "name": "Motivation Fee",
+            "quantity": 1,
+            "cashAmount": 50000,
+            "totalAmount": 50000,
+            "unitPrice": 50000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 50000,
+        "createdAt": "2026-07-18T14:23:44.914Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784384682903_vvfgle",
+        "name": "Special examinations",
+        "periodType": "one_time",
+        "statusGroupId": "54ade501-13fd-41b8-b7a4-50d5acabab59",
+        "statusGroupName": "Special examinations",
+        "items": [
+          {
+            "id": "item_1784384679950_ajhmol",
+            "name": "Special Examinations",
+            "quantity": 1,
+            "cashAmount": 50000,
+            "totalAmount": 50000,
+            "unitPrice": 50000,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 50000,
+        "createdAt": "2026-07-18T14:24:42.903Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      },
+      {
+        "id": "group_1784384971636_u0q7a6",
+        "name": "LTBalance",
+        "periodType": "one_time",
+        "statusGroupId": "04f8a6ea-8300-49dc-b152-56fb4dceab20",
+        "statusGroupName": "LTBalance",
+        "items": [
+          {
+            "id": "item_1784384969108_i8y70q",
+            "name": "LTBalance",
+            "quantity": 1,
+            "cashAmount": 500,
+            "totalAmount": 500,
+            "unitPrice": 500,
+            "paymentOption": "cash_only",
+            "isTangible": false
+          }
+        ],
+        "totalAmount": 500,
+        "createdAt": "2026-07-18T14:29:31.636Z",
+        "updatedAt": "2026-07-18T14:34:15.896Z"
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-07-18T11:09:32.285Z",
+    "updatedAt": "2026-07-18T14:34:15.896Z"
+  }
+]

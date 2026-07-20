@@ -1,0 +1,32 @@
+[
+  {
+    "id": "5ea93609-cf48-4125-8a4b-9dc82478015d",
+    "name": "Merit Scholarship",
+    "description": "Top performers",
+    "type": "percentage",
+    "value": 25,
+    "category": "Academic",
+    "isActive": true,
+    "createdAt": "2026-07-18T08:57:13.240Z"
+  },
+  {
+    "id": "fc997bf6-2d5f-430b-b9aa-b614bea84549",
+    "name": "Sports Bursary",
+    "description": "Sports talent",
+    "type": "percentage",
+    "value": 15,
+    "category": "Sports",
+    "isActive": true,
+    "createdAt": "2026-07-18T08:57:13.240Z"
+  },
+  {
+    "id": "d74db2ac-5fbd-4952-8b07-b8187f49a01b",
+    "name": "Sibling Discount",
+    "description": "Multiple children",
+    "type": "percentage",
+    "value": 10,
+    "category": "Family",
+    "isActive": true,
+    "createdAt": "2026-07-18T08:57:13.240Z"
+  }
+]

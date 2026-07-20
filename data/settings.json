@@ -1,0 +1,37 @@
+{
+  "currentAcademicYear": 2026,
+  "currentTerm": 2,
+  "gradingSystem": {
+    "A": {
+      "min": 80,
+      "max": 100,
+      "remark": "Excellent"
+    },
+    "B": {
+      "min": 70,
+      "max": 79,
+      "remark": "Very Good"
+    },
+    "C": {
+      "min": 60,
+      "max": 69,
+      "remark": "Good"
+    },
+    "D": {
+      "min": 50,
+      "max": 59,
+      "remark": "Satisfactory"
+    },
+    "E": {
+      "min": 40,
+      "max": 49,
+      "remark": "Fair"
+    },
+    "F": {
+      "min": 0,
+      "max": 39,
+      "remark": "Poor"
+    }
+  },
+  "lastUpdated": "2026-07-18T02:28:29.319Z"
+}

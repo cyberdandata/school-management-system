@@ -1,0 +1,141 @@
+UNIFORM MANAGEMENT REPORT
+Term: First Term 2026
+Generated: 26/06/2026, 13:26:50
+
+=== STOCK SUMMARY ===
+Stocking | Received: 1 | Issued: 1 | Available: 0
+Sweater | Received: 1 | Issued: 0 | Available: 1
+Dress/Shirt & Short | Received: 1 | Issued: 1 | Available: 0
+
+=== STUDENT STATUS ===
+John Doe (STU20260001) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Wasswa Jeremiah (STU20260002) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Robert Ssempayo (STU20260003) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Nakato Nakiwala (STU20260004) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Baryamwijuka Hosea (STU20260005) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+lynet komugambe (STU20260006) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Jamirah nasasiira (STU20260007) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Jayson taremwa (STU20260008) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Wallen twinamasiko (STU20260009) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+stelah nuwamanya (STU20260010) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+wicklife nakawuki (STU20260011) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+kevin kato (STU20260012) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Sam kakuru kakuru (STU20260013) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+sonia kemigisa (STU20260014) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+deo mathew (STU20260015) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Ssekajugu Iyan (STU20260016) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Raymond Ssekandi (STU20260017) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Nakayima Joan (STU20260018) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+Jajja Fanon (STU20260019) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportwear: Required=1 Collected=0 Issued=0
+
+Charles Peter (STU20260020) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=1 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=1 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+DANIEL Dandatadon (STU20260021) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportswear: Required=1 Collected=0 Issued=0
+
+DANIEL WASSWA cyber (STU20260022) - NOT PAID
+  Dress/Shirt & Short: Required=1 Collected=0 Issued=0
+  Sweater: Required=1 Collected=0 Issued=0
+  Stocking: Required=1 Collected=0 Issued=0
+  Sportwear: Required=1 Collected=0 Issued=0

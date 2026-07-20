@@ -1,0 +1,46 @@
+{
+  "default": {
+    "A": {
+      "min": 80,
+      "max": 100,
+      "grade": "A",
+      "description": "Excellent",
+      "points": 1
+    },
+    "B": {
+      "min": 70,
+      "max": 79,
+      "grade": "B",
+      "description": "Very Good",
+      "points": 2
+    },
+    "C": {
+      "min": 60,
+      "max": 69,
+      "grade": "C",
+      "description": "Good",
+      "points": 3
+    },
+    "D": {
+      "min": 50,
+      "max": 59,
+      "grade": "D",
+      "description": "Satisfactory",
+      "points": 4
+    },
+    "E": {
+      "min": 40,
+      "max": 49,
+      "grade": "E",
+      "description": "Fair",
+      "points": 5
+    },
+    "F": {
+      "min": 0,
+      "max": 39,
+      "grade": "F",
+      "description": "Poor",
+      "points": 6
+    }
+  }
+}

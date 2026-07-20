@@ -1,0 +1,28 @@
+{
+  "name": "Eden Christian School",
+  "version": "2.0.0",
+  "description": "Complete Offline School Management System",
+  "main": "server.js",
+  "scripts": {
+   "start": "node server.js",
+        "sync": "node syncManager.js --force",
+        "sync:pull": "node syncManager.js --pull",
+        "sync:push": "node syncManager.js --push",
+        "sync:status": "node syncManager.js --status"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.5",
+    "chokidar": "^5.0.0",
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
+    "fs-extra": "^11.3.6",
+    "multer": "^2.2.0",
+    "node-cron": "^4.6.0",
+    "nodemod": "^3.0.6",
+    "nodemon": "^3.1.14",
+    "path": "^0.12.7",
+    "simple-git": "^3.36.0",
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schoolName": "Eden Christian School",
+  "motto": "Quality Education for All",
+  "established": "2020",
+  "address": "Kampala, Uganda",
+  "phone": "+256 700 000 000",
+  "email": "info@edenschool.ug",
+  "logo": "",
+  "academicYear": 2026,
+  "terms": [
+    {
+      "id": 1,
+      "name": "First Term",
+      "start": "2026-01-10",
+      "end": "2026-04-10",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "name": "Second Term",
+      "start": "2026-05-10",
+      "end": "2026-08-10",
+      "isActive": false
+    },
+    {
+      "id": 3,
+      "name": "Third Term",
+      "start": "2026-09-10",
+      "end": "2026-12-10",
+      "isActive": false
+    }
+  ],
+  "currentTerm": 1
+}

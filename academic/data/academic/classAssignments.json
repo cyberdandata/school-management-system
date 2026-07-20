@@ -1,0 +1,82 @@
+[
+  {
+    "id": "assign_001",
+    "teacherId": "tch_001",
+    "classId": "cls_baby",
+    "className": "Baby Class",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_002",
+    "teacherId": "tch_002",
+    "classId": "cls_middle",
+    "className": "Middle Class",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_003",
+    "teacherId": "tch_003",
+    "classId": "cls_top",
+    "className": "Top Class",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_004",
+    "teacherId": "tch_004",
+    "classId": "cls_p1",
+    "className": "P.1",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_005",
+    "teacherId": "tch_005",
+    "classId": "cls_p2",
+    "className": "P.2",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_006",
+    "teacherId": "tch_006",
+    "classId": "cls_p3",
+    "className": "P.3",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_007",
+    "teacherId": "tch_007",
+    "classId": "cls_p4",
+    "className": "P.4",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_008",
+    "teacherId": "tch_008",
+    "classId": "cls_p5",
+    "className": "P.5",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_009",
+    "teacherId": "tch_009",
+    "classId": "cls_p6",
+    "className": "P.6",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "assign_010",
+    "teacherId": "tch_010",
+    "classId": "cls_p7",
+    "className": "P.7",
+    "assignedAt": "2026-01-10T08:00:00.000Z",
+    "isActive": true
+  }
+]

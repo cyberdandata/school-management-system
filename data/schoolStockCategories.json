@@ -1,0 +1,44 @@
+[
+  {
+    "id": "cat_food",
+    "name": "🍞 Food Items",
+    "description": "Food and kitchen supplies",
+    "color": "#f59e0b",
+    "icon": "fa-utensils"
+  },
+  {
+    "id": "cat_cleaning",
+    "name": "🧹 Cleaning Supplies",
+    "description": "Cleaning materials and equipment",
+    "color": "#3b82f6",
+    "icon": "fa-broom"
+  },
+  {
+    "id": "cat_office",
+    "name": "📋 Office Supplies",
+    "description": "Office stationery and equipment",
+    "color": "#8b5cf6",
+    "icon": "fa-pen"
+  },
+  {
+    "id": "cat_maintenance",
+    "name": "🔧 Maintenance",
+    "description": "Maintenance tools and materials",
+    "color": "#ef4444",
+    "icon": "fa-tools"
+  },
+  {
+    "id": "cat_medical",
+    "name": "💊 Medical Supplies",
+    "description": "First aid and medical items",
+    "color": "#10b981",
+    "icon": "fa-medkit"
+  },
+  {
+    "id": "cat_other",
+    "name": "📦 Other Supplies",
+    "description": "Other school supplies",
+    "color": "#6b7280",
+    "icon": "fa-box"
+  }
+]

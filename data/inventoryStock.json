@@ -1,0 +1,578 @@
+{
+  "Sports Fee_2026_2": {
+    "name": "Sports Fee",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 10,
+    "issued": 0,
+    "available": 10,
+    "lastUpdated": "2026-07-18T15:16:53.396Z"
+  },
+  "Sports Fee": {
+    "name": "Sports Fee",
+    "totalReceived": 10,
+    "issued": 0,
+    "available": 10,
+    "lastUpdated": "2026-07-18T15:16:53.396Z"
+  },
+  "Holiday Package_2026_2": {
+    "name": "Holiday Package",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 8,
+    "issued": 0,
+    "available": 8,
+    "lastUpdated": "2026-07-18T15:23:47.425Z"
+  },
+  "Holiday Package": {
+    "name": "Holiday Package",
+    "totalReceived": 8,
+    "issued": 0,
+    "available": 8,
+    "lastUpdated": "2026-07-18T15:23:47.425Z"
+  },
+  "Van Fee_2026_2": {
+    "name": "Van Fee",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 7,
+    "issued": 0,
+    "available": 7,
+    "lastUpdated": "2026-07-18T12:04:31.274Z"
+  },
+  "Van Fee": {
+    "name": "Van Fee",
+    "totalReceived": 7,
+    "issued": 0,
+    "available": 7,
+    "lastUpdated": "2026-07-18T12:04:31.274Z"
+  },
+  "LTBalance_2026_2": {
+    "name": "LTBalance",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 44,
+    "issued": 0,
+    "available": 44,
+    "lastUpdated": "2026-07-18T12:48:26.109Z"
+  },
+  "LTBalance": {
+    "name": "LTBalance",
+    "totalReceived": 44,
+    "issued": 0,
+    "available": 44,
+    "lastUpdated": "2026-07-18T12:48:26.109Z"
+  },
+  "Medical Fee_2026_2": {
+    "name": "Medical Fee",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 4,
+    "issued": 0,
+    "available": 4,
+    "lastUpdated": "2026-07-18T14:36:55.225Z"
+  },
+  "Medical Fee": {
+    "name": "Medical Fee",
+    "totalReceived": 4,
+    "issued": 0,
+    "available": 4,
+    "lastUpdated": "2026-07-18T14:36:55.225Z"
+  },
+  "Admission and Interview_2026_2": {
+    "name": "Admission and Interview",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:36:41.380Z"
+  },
+  "Admission and Interview": {
+    "name": "Admission and Interview",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:36:41.380Z"
+  },
+  "Development fee_2026_2": {
+    "name": "Development fee",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:36:41.381Z"
+  },
+  "Development fee": {
+    "name": "Development fee",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:36:41.381Z"
+  },
+  "Passport Photos_2026_2": {
+    "name": "Passport Photos",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:36:41.382Z"
+  },
+  "Passport Photos": {
+    "name": "Passport Photos",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:36:41.382Z"
+  },
+  "Covers (12)_2026_2": {
+    "name": "Covers (12)",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.524Z"
+  },
+  "Covers (12)": {
+    "name": "Covers (12)",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.524Z"
+  },
+  "Dress/Shirt and Short_2026_2": {
+    "name": "Dress/Shirt and Short",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.525Z"
+  },
+  "Dress/Shirt and Short": {
+    "name": "Dress/Shirt and Short",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.525Z"
+  },
+  "Sweater_2026_2": {
+    "name": "Sweater",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.527Z"
+  },
+  "Sweater": {
+    "name": "Sweater",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.527Z"
+  },
+  "Stocking_2026_2": {
+    "name": "Stocking",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.527Z"
+  },
+  "Stocking": {
+    "name": "Stocking",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.527Z"
+  },
+  "Sportswear_2026_2": {
+    "name": "Sportswear",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.528Z"
+  },
+  "Sportswear": {
+    "name": "Sportswear",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.528Z"
+  },
+  "Casual wears_2026_2": {
+    "name": "Casual wears",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.529Z"
+  },
+  "Casual wears": {
+    "name": "Casual wears",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.529Z"
+  },
+  "Books 96 Pages Picfare_2026_2": {
+    "name": "Books 96 Pages Picfare",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T13:42:44.530Z"
+  },
+  "Books 96 Pages Picfare": {
+    "name": "Books 96 Pages Picfare",
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T13:42:44.530Z"
+  },
+  "Pencils(Nataraj)_2026_2": {
+    "name": "Pencils(Nataraj)",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T13:42:44.530Z"
+  },
+  "Pencils(Nataraj)": {
+    "name": "Pencils(Nataraj)",
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T13:42:44.530Z"
+  },
+  "Box File_2026_2": {
+    "name": "Box File",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.531Z"
+  },
+  "Box File": {
+    "name": "Box File",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.531Z"
+  },
+  "Hand Writing Book_2026_2": {
+    "name": "Hand Writing Book",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.531Z"
+  },
+  "Hand Writing Book": {
+    "name": "Hand Writing Book",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.531Z"
+  },
+  "Clear Bag_2026_2": {
+    "name": "Clear Bag",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.532Z"
+  },
+  "Clear Bag": {
+    "name": "Clear Bag",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.532Z"
+  },
+  "Packet Of Crayons_2026_2": {
+    "name": "Packet Of Crayons",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.532Z"
+  },
+  "Packet Of Crayons": {
+    "name": "Packet Of Crayons",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.532Z"
+  },
+  "Cutters_2026_2": {
+    "name": "Cutters",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T13:42:44.533Z"
+  },
+  "Cutters": {
+    "name": "Cutters",
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T13:42:44.533Z"
+  },
+  "Manila Cards_2026_2": {
+    "name": "Manila Cards",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T13:42:44.533Z"
+  },
+  "Manila Cards": {
+    "name": "Manila Cards",
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T13:42:44.533Z"
+  },
+  "Rubbers_2026_2": {
+    "name": "Rubbers",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T13:42:44.534Z"
+  },
+  "Rubbers": {
+    "name": "Rubbers",
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T13:42:44.534Z"
+  },
+  "Inside Brooms_2026_2": {
+    "name": "Inside Brooms",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 4,
+    "issued": 0,
+    "available": 4,
+    "lastUpdated": "2026-07-18T15:00:38.908Z"
+  },
+  "Inside Brooms": {
+    "name": "Inside Brooms",
+    "totalReceived": 4,
+    "issued": 0,
+    "available": 4,
+    "lastUpdated": "2026-07-18T15:00:38.908Z"
+  },
+  "Outside Brooms_2026_2": {
+    "name": "Outside Brooms",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 4,
+    "issued": 0,
+    "available": 4,
+    "lastUpdated": "2026-07-18T15:00:38.909Z"
+  },
+  "Outside Brooms": {
+    "name": "Outside Brooms",
+    "totalReceived": 4,
+    "issued": 0,
+    "available": 4,
+    "lastUpdated": "2026-07-18T15:00:38.909Z"
+  },
+  "Toilet Papers_2026_2": {
+    "name": "Toilet Papers",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T15:00:38.907Z"
+  },
+  "Toilet Papers": {
+    "name": "Toilet Papers",
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T15:00:38.907Z"
+  },
+  "Scrubbing Brush_2026_2": {
+    "name": "Scrubbing Brush",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.537Z"
+  },
+  "Scrubbing Brush": {
+    "name": "Scrubbing Brush",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T13:42:44.537Z"
+  },
+  "Sealed Sugar_2026_2": {
+    "name": "Sealed Sugar",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 8,
+    "issued": 0,
+    "available": 8,
+    "lastUpdated": "2026-07-18T15:00:38.908Z"
+  },
+  "Sealed Sugar": {
+    "name": "Sealed Sugar",
+    "totalReceived": 8,
+    "issued": 0,
+    "available": 8,
+    "lastUpdated": "2026-07-18T15:00:38.908Z"
+  },
+  "Ream(Rwenzori)_2026_2": {
+    "name": "Ream(Rwenzori)",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T15:00:38.909Z"
+  },
+  "Ream(Rwenzori)": {
+    "name": "Ream(Rwenzori)",
+    "totalReceived": 2,
+    "issued": 0,
+    "available": 2,
+    "lastUpdated": "2026-07-18T15:00:38.909Z"
+  },
+  "Motivation Fee_2026_2": {
+    "name": "Motivation Fee",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T14:28:05.597Z"
+  },
+  "Motivation Fee": {
+    "name": "Motivation Fee",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T14:28:05.597Z"
+  },
+  "Special Examinations_2026_2": {
+    "name": "Special Examinations",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T14:36:55.225Z"
+  },
+  "Special Examinations": {
+    "name": "Special Examinations",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T14:36:55.225Z"
+  },
+  "Jersey_2026_2": {
+    "name": "Jersey",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T14:53:58.663Z"
+  },
+  "Jersey": {
+    "name": "Jersey",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T14:53:58.663Z"
+  },
+  "Books long 96 Pages Picfare_2026_2": {
+    "name": "Books long 96 Pages Picfare",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T15:00:38.909Z"
+  },
+  "Books long 96 Pages Picfare": {
+    "name": "Books long 96 Pages Picfare",
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T15:00:38.910Z"
+  },
+  "Pens_2026_2": {
+    "name": "Pens",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T15:00:38.916Z"
+  },
+  "Pens": {
+    "name": "Pens",
+    "totalReceived": 12,
+    "issued": 0,
+    "available": 12,
+    "lastUpdated": "2026-07-18T15:00:38.916Z"
+  },
+  "Black Books_2026_2": {
+    "name": "Black Books",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 8,
+    "issued": 0,
+    "available": 8,
+    "lastUpdated": "2026-07-18T15:00:38.917Z"
+  },
+  "Black Books": {
+    "name": "Black Books",
+    "totalReceived": 8,
+    "issued": 0,
+    "available": 8,
+    "lastUpdated": "2026-07-18T15:00:38.917Z"
+  },
+  "Tour Fee_2026_2": {
+    "name": "Tour Fee",
+    "academicYear": 2026,
+    "term": 2,
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T15:14:23.319Z"
+  },
+  "Tour Fee": {
+    "name": "Tour Fee",
+    "totalReceived": 1,
+    "issued": 0,
+    "available": 1,
+    "lastUpdated": "2026-07-18T15:14:23.319Z"
+  }
+}

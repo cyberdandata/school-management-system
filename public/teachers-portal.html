@@ -1,0 +1,276 @@
+<!-- ==================== TEACHERS PORTAL LOGIN PAGE ==================== -->
+<!-- File: public/teachers-portal.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teacher Portal Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .login-input {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .login-input:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+            outline: none;
+        }
+        .login-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .login-btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            transition: all 0.3s ease;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+        }
+        .login-btn:active {
+            transform: translateY(0);
+        }
+        .school-icon {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+        .error-message {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        .error-message.show {
+            display: block;
+            animation: shake 0.5s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+        .loading-spinner {
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        .loading-spinner.show {
+            display: flex;
+        }
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container rounded-2xl p-8 w-full max-w-md mx-4">
+        <!-- School Icon -->
+        <div class="text-center">
+            <div class="school-icon mx-auto">
+                <i class="fas fa-chalkboard-user text-white text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-white mb-1">Teacher Portal</h1>
+            <p class="text-gray-400 text-sm mb-6">Sign in to access your dashboard</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message mb-4">
+            <i class="fas fa-exclamation-circle mr-2"></i>
+            <span id="errorText">Invalid credentials. Please try again.</span>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1.5">
+                    <i class="fas fa-user mr-2"></i> First Name
+                </label>
+                <input 
+                    type="text" 
+                    id="firstName" 
+                    class="login-input w-full rounded-lg px-4 py-3 text-white placeholder-gray-400"
+                    placeholder="Enter your first name"
+                    autocomplete="given-name"
+                    required
+                />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1.5">
+                    <i class="fas fa-key mr-2"></i> Password
+                </label>
+                <div class="relative">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="login-input w-full rounded-lg px-4 py-3 text-white placeholder-gray-400"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        required
+                    />
+                    <button 
+                        type="button" 
+                        onclick="togglePasswordVisibility()" 
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition"
+                    >
+                        <i id="passwordToggleIcon" class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button 
+                type="submit" 
+                id="loginBtn"
+                class="login-btn w-full text-white font-semibold py-3.5 rounded-lg text-lg flex items-center justify-center gap-2"
+            >
+                <span id="loginBtnText">Sign In</span>
+                <div id="loginSpinner" class="loading-spinner">
+                    <div class="spinner"></div>
+                    <span>Signing in...</span>
+                </div>
+            </button>
+        </form>
+
+        <!-- Footer -->
+        <div class="mt-6 text-center text-gray-500 text-sm border-t border-gray-700/50 pt-4">
+            <p>© 2026 School Management System</p>
+            <p class="text-xs text-gray-600 mt-1">Secure Teacher Portal</p>
+        </div>
+    </div>
+
+    <script>
+        // ==================== TOGGLE PASSWORD VISIBILITY ====================
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            const icon = document.getElementById('passwordToggleIcon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // ==================== SHOW ERROR MESSAGE ====================
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // ==================== HANDLE LOGIN ====================
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const firstName = document.getElementById('firstName').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!firstName || !password) {
+                showError('Please enter both first name and password.');
+                return;
+            }
+
+            // Show loading state
+            const loginBtn = document.getElementById('loginBtn');
+            const loginBtnText = document.getElementById('loginBtnText');
+            const loginSpinner = document.getElementById('loginSpinner');
+            loginBtn.disabled = true;
+            loginBtnText.textContent = '';
+            loginSpinner.classList.add('show');
+
+            try {
+                const response = await fetch('/api/teachers/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Store teacher data in session
+                    sessionStorage.setItem('teacherLoggedIn', 'true');
+                    sessionStorage.setItem('teacherData', JSON.stringify(result.teacher));
+                    
+                    // Redirect to teacher dashboard
+                    window.location.href = '/teacher-dashboard.html';
+                } else {
+                    showError(result.error || 'Invalid credentials. Please try again.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Network error. Please check your connection.');
+            } finally {
+                // Reset loading state
+                loginBtn.disabled = false;
+                loginBtnText.textContent = 'Sign In';
+                loginSpinner.classList.remove('show');
+            }
+        });
+
+        // ==================== ENTER KEY SUPPORT ====================
+        document.getElementById('password').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // ==================== CHECK IF ALREADY LOGGED IN ====================
+        if (sessionStorage.getItem('teacherLoggedIn') === 'true') {
+            try {
+                const teacherData = JSON.parse(sessionStorage.getItem('teacherData'));
+                if (teacherData && teacherData.id) {
+                    window.location.href = '/teacher-dashboard.html';
+                }
+            } catch (e) {
+                sessionStorage.removeItem('teacherLoggedIn');
+                sessionStorage.removeItem('teacherData');
+            }
+        }
+    </script>
+</body>
+</html>

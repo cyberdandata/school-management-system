@@ -1,0 +1,26 @@
+﻿# Column widths: 5, 14, 20, 12, 16, 16, 16, 14, 18, 14, 14, 14
+#    ,Admission     ,Student Name        ,Class       ,Tuition Expected,Tuition Paid    ,Tuition Balance ,Tuition Status,Uniform - Stocking (Collected/Required),Uniform - Stocking (Status),Uniform - Stocking (Amount),Overall Status
+1,STU20260001,John Doe,P.1,160000,0,160000,No Payment," 0/1",Unpaid,0,Payment Due
+2,STU20260002,Wasswa Jeremiah,Baby Class,160000,0,160000,No Payment," 0/1",Unpaid,0,No Payment
+3,STU20260003,Robert Ssempayo,Baby Class,180000,0,180000,No Payment," 0/1",Unpaid,0,No Payment
+4,STU20260004,Nakato Nakiwala,Middle Class,180000,0,180000,No Payment," 0/1",Unpaid,0,No Payment
+5,STU20260005,Baryamwijuka Hosea,Middle Class,180000,0,180000,No Payment," 0/1",Unpaid,0,No Payment
+6,STU20260006,lynet komugambe,Middle Class,180000,0,180000,No Payment," 0/1",Unpaid,0,No Payment
+7,STU20260007,Jamirah nasasiira,Top Class,190000,0,190000,No Payment," 0/1",Unpaid,0,No Payment
+8,STU20260008,Jayson taremwa,Top Class,190000,0,190000,No Payment," 0/1",Unpaid,0,No Payment
+9,STU20260009,Wallen twinamasiko,Top Class,140000,0,140000,No Payment," 0/1",Unpaid,0,No Payment
+10,STU20260010,stelah nuwamanya,P.1,200000,0,200000,No Payment," 0/1",Unpaid,0,No Payment
+11,STU20260011,wicklife nakawuki,P.1,170000,0,170000,No Payment," 0/1",Unpaid,0,No Payment
+12,STU20260012,kevin kato,P.1,200000,0,200000,No Payment," 0/1",Unpaid,0,No Payment
+13,STU20260013,Sam kakuru kakuru,P.1,200000,0,200000,No Payment," 0/1",Unpaid,0,No Payment
+14,STU20260014,sonia kemigisa,P.2,200000,0,200000,No Payment," 0/1",Unpaid,0,No Payment
+15,STU20260015,deo mathew,P.2,200000,0,200000,No Payment," 0/1",Unpaid,0,No Payment
+16,STU20260016,Ssekajugu Iyan,P.2,160000,0,160000,No Payment," 0/1",Unpaid,0,No Payment
+17,STU20260017,Raymond Ssekandi,P.3,210000,0,210000,No Payment," 0/1",Unpaid,0,No Payment
+18,STU20260018,Nakayima Joan,P.3,189000,0,189000,No Payment," 0/1",Unpaid,0,No Payment
+19,STU20260019,Jajja Fanon,P.4,220000,0,220000,No Payment," 0/1",Unpaid,0,No Payment
+20,STU20260020,Charles Peter,Baby Class,180000,0,180000,No Payment," 1/1",Fully Paid,10000,Payment Due
+21,STU20260021,DANIEL Dandatadon,P.2,200000,0,200000,No Payment," 0/1",Unpaid,0,No Payment
+22,STU20260022,DANIEL WASSWA cyber,P.4,220000,0,220000,No Payment," 0/1",Unpaid,0,Payment Due
+23,STU20260023,Kim Jesca,P.5,210000,50000,160000,Payment Due," 0/1",Unpaid,0,Payment Due
+TOTALS,,,,"4,319,000","50,000","4,269,000",1.2%," 1/23",4%,10000,3.0%

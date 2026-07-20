@@ -1,0 +1,59 @@
+{
+  "school": {
+    "name": "Eden Christian School",
+    "motto": "Quality Education for All",
+    "address": "Kampala, Uganda",
+    "phone": "+256 700 000 000",
+    "email": "info@edenschool.ug",
+    "currentTerm": 1,
+    "currentYear": 2026,
+    "termName": "First Term"
+  },
+  "students": {
+    "total": 0,
+    "active": 0,
+    "male": 0,
+    "female": 0,
+    "byClass": {},
+    "byLevel": {
+      "Nursery": 0,
+      "LowerPrimary": 0,
+      "UpperPrimary": 0
+    }
+  },
+  "financial": {
+    "totalCollected": 0,
+    "totalTransactions": 0,
+    "paymentMethods": {},
+    "feeStructureStats": []
+  },
+  "inventory": {
+    "totalItems": 0,
+    "totalValue": 0,
+    "lowStock": 0,
+    "outOfStock": 0,
+    "byCategory": {}
+  },
+  "uniform": {
+    "totalItems": 0,
+    "totalValue": 0,
+    "lowStock": 0,
+    "outOfStock": 0,
+    "bySize": {}
+  },
+  "academic": {
+    "totalReportCards": 0,
+    "averageScore": 0,
+    "passedCount": 0,
+    "failedCount": 0,
+    "gradeDistribution": {},
+    "promotedCount": 0,
+    "retainedCount": 0
+  },
+  "teachers": {
+    "total": 0,
+    "active": 0
+  },
+  "recentPayments": [],
+  "generatedAt": "2026-06-24T09:31:01.882Z"
+}

@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Head Teacher Dashboard - School Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f0f2f5; }
+        
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0f1729 0%, #1a1a2e 50%, #0f3460 100%);
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            transition: transform 0.3s ease;
+            z-index: 100;
+            overflow-y: auto;
+        }
+        
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        
+        .sidebar-item {
+            padding: 12px 20px;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+        
+        .sidebar-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .sidebar-item.active { background: rgba(255,255,255,0.08); color: white; border-left-color: #60a5fa; }
+        .sidebar-item i { width: 20px; text-align: center; font-size: 16px; }
+        
+        .main-content { margin-left: 260px; padding: 20px; min-height: 100vh; }
+        
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+        }
+        
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f1729 0%, #1a1a2e 50%, #0f3460 100%);
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .login-card h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #1a1a2e, #0f3460);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-badge.success { background: #d1fae5; color: #065f46; }
+        .status-badge.warning { background: #fef3c7; color: #92400e; }
+        .status-badge.danger { background: #fee2e2; color: #991b1b; }
+        .status-badge.info { background: #dbeafe; color: #1e40af; }
+        
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            z-index: 999;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        .toast.info { background: #3b82f6; }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 12px; }
+            .mobile-menu-btn { display: block !important; }
+        }
+        .mobile-menu-btn { display: none; }
+        
+        .loading-spinner {
+            border: 3px solid #e5e7eb;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-card">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <i class="fas fa-graduation-cap text-white text-3xl"></i>
+                </div>
+                <h1>Head Teacher Dashboard</h1>
+                <p class="text-gray-500 text-sm mt-1">Complete School Management Overview</p>
+            </div>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="loginUsername" value="admin" required
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="loginPassword" value="admin123" required
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                </div>
+                <button type="submit" id="loginBtn"
+                        class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Login
+                </button>
+            </form>
+            <p class="text-center text-xs text-gray-400 mt-4">
+                <i class="fas fa-shield-alt mr-1"></i> Secure Access - Administration Only
+            </p>
+        </div>
+    </div>
+    
+    <!-- Main Dashboard -->
+    <div id="mainApp" class="hidden">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="p-5 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-school text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-white font-bold text-sm">Head Teacher</p>
+                        <p class="text-white/60 text-xs" id="sidebarSchoolName">Dashboard</p>
+                    </div>
+                </div>
+            </div>
+            <div class="py-4">
+                <div class="sidebar-item active" data-page="dashboard">
+                    <i class="fas fa-chart-pie"></i> Overview
+                </div>
+                <div class="sidebar-item" data-page="students">
+                    <i class="fas fa-users"></i> Students
+                </div>
+                <div class="sidebar-item" data-page="financial">
+                    <i class="fas fa-money-bill-wave"></i> Financial
+                </div>
+                <div class="sidebar-item" data-page="inventory">
+                    <i class="fas fa-boxes"></i> Inventory
+                </div>
+                <div class="sidebar-item" data-page="uniform">
+                    <i class="fas fa-tshirt"></i> Uniform
+                </div>
+                <div class="sidebar-item" data-page="academic">
+                    <i class="fas fa-graduation-cap"></i> Academic
+                </div>
+                <div class="sidebar-item" data-page="staff">
+                    <i class="fas fa-chalkboard-user"></i> Staff
+                </div>
+                <div class="sidebar-item" data-page="announcements">
+                    <i class="fas fa-bullhorn"></i> Announcements
+                </div>
+                <div class="sidebar-item" data-page="settings">
+                    <i class="fas fa-cog"></i> Settings
+                </div>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 p-5 border-t border-white/10">
+                <div class="sidebar-item text-red-400 hover:text-red-300" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <button id="mobileMenuBtn" class="mobile-menu-btn fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow-lg">
+            <i class="fas fa-bars text-xl"></i>
+        </button>
+        
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <div class="flex items-center justify-center h-64">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+// ==================== STATE ====================
+const state = {
+    token: null,
+    dashboardData: null,
+    currentPage: 'dashboard'
+};
+
+// ==================== API HELPERS ====================
+async function apiCall(endpoint, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+    
+    const response = await fetch(endpoint, { ...options, headers });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(error.error || 'Request failed');
+    }
+    return response.json();
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+function formatCurrency(amount) {
+    return Math.round(amount || 0).toLocaleString('en-US');
+}
+
+function formatDate(date) {
+    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// ==================== LOGIN ====================
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    const btn = document.getElementById('loginBtn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+    btn.disabled = true;
+    
+    try {
+        const result = await apiCall('/api/head/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (result.success) {
+            state.token = result.token;
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            showToast('Welcome to the Head Teacher Dashboard!', 'success');
+            await loadDashboard();
+        }
+    } catch (error) {
+        showToast('Login failed: ' + error.message, 'error');
+    } finally {
+        btn.innerHTML = original;
+        btn.disabled = false;
+    }
+});
+
+// ==================== LOGOUT ====================
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try { await apiCall('/api/head/logout', { method: 'POST', body: JSON.stringify({ token: state.token }) }); } catch(e) {}
+    state.token = null;
+    state.dashboardData = null;
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('mainApp').classList.add('hidden');
+    showToast('Logged out', 'info');
+});
+
+// ==================== SIDEBAR NAVIGATION ====================
+document.querySelectorAll('.sidebar-item[data-page]').forEach(item => {
+    item.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        navigateTo(item.dataset.page);
+    });
+});
+
+document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+});
+
+// ==================== NAVIGATION ====================
+async function navigateTo(page) {
+    state.currentPage = page;
+    const mainContent = document.getElementById('mainContent');
+    mainContent.innerHTML = `<div class="flex items-center justify-center h-64"><div class="loading-spinner"></div></div>`;
+    
+    try {
+        switch(page) {
+            case 'dashboard': await renderDashboard(); break;
+            case 'students': await renderStudents(); break;
+            case 'financial': await renderFinancial(); break;
+            case 'inventory': await renderInventory(); break;
+            case 'uniform': await renderUniform(); break;
+            case 'academic': await renderAcademic(); break;
+            case 'staff': await renderStaff(); break;
+            case 'announcements': await renderAnnouncements(); break;
+            case 'settings': await renderSettings(); break;
+            default: await renderDashboard();
+        }
+    } catch (error) {
+        mainContent.innerHTML = `
+            <div class="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
+                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
+                <p class="text-red-600 font-semibold">Error loading page</p>
+                <p class="text-red-500 text-sm">${error.message}</p>
+                <button onclick="navigateTo('${page}')" class="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-sync-alt"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+// ==================== LOAD DASHBOARD DATA ====================
+async function loadDashboard() {
+    try {
+        const result = await apiCall('/api/head/dashboard');
+        if (result.success) {
+            state.dashboardData = result.data;
+            
+            // Update sidebar school name
+            document.getElementById('sidebarSchoolName').textContent = 
+                state.dashboardData.school?.name || 'School Dashboard';
+            
+            return state.dashboardData;
+        }
+    } catch (error) {
+        showToast('Error loading dashboard data: ' + error.message, 'error');
+        // Try cached data
+        try {
+            const cached = await apiCall('/api/head/dashboard/cached');
+            if (cached.success) {
+                state.dashboardData = cached.data;
+                showToast('Using cached data', 'info');
+                return cached.data;
+            }
+        } catch (e) {}
+    }
+    return null;
+}
+
+// ==================== RENDER DASHBOARD ====================
+async function renderDashboard() {
+    const mainContent = document.getElementById('mainContent');
+    const data = state.dashboardData;
+    
+    if (!data) {
+        await loadDashboard();
+        if (!state.dashboardData) {
+            mainContent.innerHTML = `<div class="text-center py-12"><i class="fas fa-database text-gray-400 text-5xl mb-4"></i><p class="text-gray-500">No data available</p></div>`;
+            return;
+        }
+    }
+    
+    const d = state.dashboardData;
+    const school = d.school || {};
+    const students = d.students || {};
+    const financial = d.financial || {};
+    const inventory = d.inventory || {};
+    const uniform = d.uniform || {};
+    const academic = d.academic || {};
+    const teachers = d.teachers || {};
+    
+    const html = `
+        <div class="space-y-6">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 rounded-2xl p-6 text-white">
+                <div class="flex justify-between items-center flex-wrap gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold">${school.name || 'School Dashboard'}</h1>
+                        <p class="text-sm opacity-90">${school.motto || ''} • ${school.termName || ''} ${school.currentYear || ''}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="refreshDashboard()" class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg text-sm hover:bg-white/30 transition">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button onclick="exportReport()" class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg text-sm hover:bg-white/30 transition">
+                            <i class="fas fa-download"></i> Export Report
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                    <div class="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                        <p class="text-xs opacity-75">Total Students</p>
+                        <p class="text-2xl font-bold">${students.total || 0}</p>
+                        <p class="text-xs opacity-75">👨 ${students.male || 0} 👩 ${students.female || 0}</p>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                        <p class="text-xs opacity-75">Collection Rate</p>
+                        <p class="text-2xl font-bold ${financial.collectionRate >= 80 ? 'text-green-400' : financial.collectionRate >= 50 ? 'text-yellow-400' : 'text-red-400'}">
+                            ${financial.collectionRate || 0}%
+                        </p>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                        <p class="text-xs opacity-75">Inventory Items</p>
+                        <p class="text-2xl font-bold">${inventory.totalItems || 0}</p>
+                        <p class="text-xs opacity-75">📦 ${inventory.lowStock || 0} low stock</p>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                        <p class="text-xs opacity-75">Staff</p>
+                        <p class="text-2xl font-bold">${teachers.total || 0}</p>
+                        <p class="text-xs opacity-75">${teachers.active || 0} active</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="stat-card">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Active Students</p>
+                            <p class="text-2xl font-bold">${students.active || 0}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user-check text-green-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">${students.total || 0} total enrolled</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Collected</p>
+                            <p class="text-2xl font-bold">UGX ${formatCurrency(financial.totalCollected)}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-money-bill-wave text-blue-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">${financial.totalTransactions || 0} transactions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Inventory Value</p>
+                            <p class="text-2xl font-bold">UGX ${formatCurrency(inventory.totalValue)}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-boxes text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">${inventory.totalItems || 0} items</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Academic Avg</p>
+                            <p class="text-2xl font-bold ${academic.averageScore >= 70 ? 'text-green-600' : academic.averageScore >= 50 ? 'text-yellow-600' : 'text-red-600'}">
+                                ${academic.averageScore || 0}%
+                            </p>
+                        </div>
+                        <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-graduation-cap text-orange-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">${academic.passedCount || 0} passed</div>
+                </div>
+            </div>
+            
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Grade Distribution -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-bold text-lg mb-4">📊 Grade Distribution</h3>
+                    <div class="h-64">
+                        <canvas id="gradeChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Fee Collection by Structure -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-bold text-lg mb-4">💰 Fee Collection by Structure</h3>
+                    <div class="h-64">
+                        <canvas id="feeStructureChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Student Level & Inventory Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Students by Level -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-bold text-lg mb-4">🎓 Students by Level</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span>Nursery</span>
+                                <span class="font-semibold">${students.byLevel?.Nursery || 0}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-pink-500 rounded-full h-2" style="width: ${students.total > 0 ? ((students.byLevel?.Nursery || 0) / students.total * 100) : 0}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span>Lower Primary</span>
+                                <span class="font-semibold">${students.byLevel?.LowerPrimary || 0}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-500 rounded-full h-2" style="width: ${students.total > 0 ? ((students.byLevel?.LowerPrimary || 0) / students.total * 100) : 0}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm">
+                                <span>Upper Primary</span>
+                                <span class="font-semibold">${students.byLevel?.UpperPrimary || 0}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-purple-500 rounded-full h-2" style="width: ${students.total > 0 ? ((students.byLevel?.UpperPrimary || 0) / students.total * 100) : 0}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Inventory Status -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-bold text-lg mb-4">📦 Inventory Status</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">Available</span>
+                            <span class="font-semibold text-green-600">${inventory.totalAvailable || 0}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">Low Stock (&lt;5)</span>
+                            <span class="font-semibold text-yellow-600">${inventory.lowStock || 0}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">Out of Stock</span>
+                            <span class="font-semibold text-red-600">${inventory.outOfStock || 0}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">Uniform Items</span>
+                            <span class="font-semibold">${uniform.totalItems || 0}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Payments -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-bold text-lg mb-4">🔄 Recent Payments</h3>
+                    <div class="space-y-3 max-h-48 overflow-y-auto">
+                        ${(d.recentPayments || []).slice(0, 5).map(p => `
+                            <div class="flex justify-between items-center py-2 border-b last:border-0">
+                                <div>
+                                    <p class="font-medium text-sm">${p.studentName || 'Unknown'}</p>
+                                    <p class="text-xs text-gray-500">${formatDate(p.date)} • ${p.receiptNumber || 'N/A'}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-green-600">UGX ${formatCurrency(p.amount)}</p>
+                                    <span class="text-xs px-2 py-0.5 bg-gray-100 rounded-full">${p.method || 'cash'}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${(d.recentPayments || []).length === 0 ? '<p class="text-gray-500 text-sm text-center">No recent payments</p>' : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="text-center text-xs text-gray-400 py-4 border-t">
+                <span>Generated: ${formatDate(d.generatedAt || new Date())}</span>
+                <span class="mx-2">•</span>
+                <span>Head Teacher Dashboard v1.0</span>
+            </div>
+        </div>
+    `;
+    
+    mainContent.innerHTML = html;
+    
+    // Initialize charts after render
+    setTimeout(() => {
+        initializeCharts(d);
+    }, 300);
+}
+
+// ==================== INITIALIZE CHARTS ====================
+function initializeCharts(data) {
+    // Grade Distribution Chart
+    const gradeCtx = document.getElementById('gradeChart');
+    if (gradeCtx) {
+        const grades = data.academic?.gradeDistribution || {};
+        const labels = Object.keys(grades).sort();
+        const values = labels.map(g => grades[g] || 0);
+        
+        const colors = {
+            'A': '#22c55e', 'B': '#3b82f6', 'C': '#eab308', 
+            'D': '#f59e0b', 'E': '#f97316', 'F': '#ef4444'
+        };
+        
+        new Chart(gradeCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Students',
+                    data: values,
+                    backgroundColor: labels.map(g => colors[g] || '#94a3b8'),
+                    borderRadius: 8,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = values.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0;
+                                return `${context.raw} students (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+    
+    // Fee Structure Chart
+    const feeCtx = document.getElementById('feeStructureChart');
+    if (feeCtx) {
+        const structures = data.financial?.feeStructureStats || [];
+        const labels = structures.map(s => s.name || 'Unnamed');
+        const collected = structures.map(s => s.collected || 0);
+        const expected = structures.map(s => s.expected || 0);
+        
+        new Chart(feeCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Collected',
+                        data: collected,
+                        backgroundColor: '#22c55e',
+                        borderRadius: 4,
+                        barPercentage: 0.4
+                    },
+                    {
+                        label: 'Expected',
+                        data: expected,
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: 4,
+                        barPercentage: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) return 'UGX ' + (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return 'UGX ' + (value / 1000).toFixed(0) + 'K';
+                                return 'UGX ' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// ==================== REFRESH DASHBOARD ====================
+async function refreshDashboard() {
+    showToast('🔄 Refreshing dashboard...', 'info');
+    await loadDashboard();
+    if (state.dashboardData) {
+        await renderDashboard();
+        showToast('✅ Dashboard refreshed', 'success');
+    }
+}
+
+// ==================== EXPORT REPORT ====================
+function exportReport() {
+    showToast('📊 Exporting report...', 'info');
+    // Open export options
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content max-w-md">
+            <div class="flex justify-between items-start mb-4 pb-3 border-b">
+                <h2 class="text-xl font-bold">📊 Export Report</h2>
+                <button onclick="this.closest('.modal-overlay').remove()" class="text-gray-500 text-2xl">&times;</button>
+            </div>
+            <div class="space-y-3">
+                <button onclick="exportReportType('financial')" class="w-full p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition text-left">
+                    <i class="fas fa-money-bill-wave text-blue-600 mr-2"></i>
+                    Financial Report
+                    <span class="float-right text-sm text-gray-500">CSV</span>
+                </button>
+                <button onclick="exportReportType('students')" class="w-full p-3 bg-green-50 rounded-lg hover:bg-green-100 transition text-left">
+                    <i class="fas fa-users text-green-600 mr-2"></i>
+                    Student Report
+                    <span class="float-right text-sm text-gray-500">CSV</span>
+                </button>
+                <button onclick="exportReportType('inventory')" class="w-full p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition text-left">
+                    <i class="fas fa-boxes text-purple-600 mr-2"></i>
+                    Inventory Report
+                    <span class="float-right text-sm text-gray-500">CSV</span>
+                </button>
+                <button onclick="exportReportType('uniform')" class="w-full p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition text-left">
+                    <i class="fas fa-tshirt text-orange-600 mr-2"></i>
+                    Uniform Report
+                    <span class="float-right text-sm text-gray-500">CSV</span>
+                </button>
+                <button onclick="exportReportType('academic')" class="w-full p-3 bg-pink-50 rounded-lg hover:bg-pink-100 transition text-left">
+                    <i class="fas fa-graduation-cap text-pink-600 mr-2"></i>
+                    Academic Report
+                    <span class="float-right text-sm text-gray-500">CSV</span>
+                </button>
+            </div>
+            <div class="mt-4 pt-3 border-t">
+                <button onclick="this.closest('.modal-overlay').remove()" class="w-full bg-gray-300 text-gray-700 py-2 rounded-lg">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// ==================== EXPORT REPORT TYPE ====================
+async function exportReportType(type) {
+    try {
+        showToast(`📊 Exporting ${type} report...`, 'info');
+        const result = await apiCall(`/api/head/export/${type}`);
+        if (result.success && result.data) {
+            const csv = arrayToCSV(result.data);
+            downloadCSV(csv, `${type}_report_${new Date().toISOString().split('T')[0]}.csv`);
+            showToast(`✅ ${type} report exported successfully`, 'success');
+        }
+    } catch (error) {
+        showToast('Error exporting: ' + error.message, 'error');
+    }
+}
+
+function arrayToCSV(data) {
+    if (!data || data.length === 0) return '';
+    const headers = Object.keys(data[0]);
+    const rows = data.map(row => headers.map(h => `"${String(row[h] || '').replace(/"/g, '""')}"`).join(','));
+    return [headers.join(','), ...rows].join('\n');
+}
+
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ==================== RENDER STUDENTS PAGE ====================
+async function renderStudents() {
+    const mainContent = document.getElementById('mainContent');
+    const data = state.dashboardData;
+    const students = data?.students || {};
+    
+    mainContent.innerHTML = `
+        <div class="space-y-6">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                <h1 class="text-2xl font-bold"><i class="fas fa-users mr-2"></i>Student Management</h1>
+                <p class="text-sm opacity-90">${students.total || 0} students enrolled</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Total</p>
+                    <p class="text-2xl font-bold">${students.total || 0}</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Active</p>
+                    <p class="text-2xl font-bold text-green-600">${students.active || 0}</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Male</p>
+                    <p class="text-2xl font-bold text-blue-600">${students.male || 0}</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Female</p>
+                    <p class="text-2xl font-bold text-pink-600">${students.female || 0}</p>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-left">Admission</th>
+                                <th class="p-3 text-left">Name</th>
+                                <th class="p-3 text-left">Class</th>
+                                <th class="p-3 text-left">Gender</th>
+                                <th class="p-3 text-left">Status</th>
+                                <th class="p-3 text-left">Parent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="p-6 text-center text-gray-500">
+                                    <i class="fas fa-database text-3xl mb-2"></i>
+                                    <p>Student list will appear here. Data is being synced...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ==================== RENDER FINANCIAL PAGE ====================
+async function renderFinancial() {
+    const mainContent = document.getElementById('mainContent');
+    const data = state.dashboardData;
+    const financial = data?.financial || {};
+    const payments = data?.recentPayments || [];
+    
+    mainContent.innerHTML = `
+        <div class="space-y-6">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                <h1 class="text-2xl font-bold"><i class="fas fa-money-bill-wave mr-2"></i>Financial Overview</h1>
+                <p class="text-sm opacity-90">${financial.totalTransactions || 0} transactions • UGX ${formatCurrency(financial.totalCollected)} collected</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Total Collected</p>
+                    <p class="text-2xl font-bold text-green-600">UGX ${formatCurrency(financial.totalCollected)}</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Transactions</p>
+                    <p class="text-2xl font-bold">${financial.totalTransactions || 0}</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Fee Structures</p>
+                    <p class="text-2xl font-bold">${financial.feeStructureStats?.length || 0}</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                    <p class="text-sm text-gray-500">Collection Rate</p>
+                    <p class="text-2xl font-bold ${financial.collectionRate >= 80 ? 'text-green-600' : financial.collectionRate >= 50 ? 'text-yellow-600' : 'text-red-600'}">
+                        ${financial.collectionRate || 0}%
+                    </p>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="font-bold text-lg mb-4">📊 Fee Structure Collection</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-left">Fee Structure</th>
+                                <th class="p-3 text-center">Students</th>
+                                <th class="p-3 text-right">Expected</th>
+                                <th class="p-3 text-right">Collected</th>
+                                <th class="p-3 text-center">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(financial.feeStructureStats || []).map(fs => `
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="p-3 font-medium">${fs.name || 'Unnamed'}</td>
+                                    <td class="p-3 text-center">${fs.students || 0}</td>
+                                    <td class="p-3 text-right">UGX ${formatCurrency(fs.expected)}</td>
+                                    <td class="p-3 text-right text-green-600">UGX ${formatCurrency(fs.collected)}</td>
+                                    <td class="p-3 text-center">
+                                        <span class="px-2 py-1 rounded-full text-xs ${fs.rate >= 80 ? 'bg-green-100 text-green-800' : fs.rate >= 50 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                                            ${fs.rate}%
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <h3 class="font-bold text-lg mb-4">💳 Payment Methods</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${Object.entries(financial.paymentMethods || {}).map(([method, amount]) => `
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-sm font-medium capitalize">${method}</p>
+                            <p class="text-lg font-bold text-green-600">UGX ${formatCurrency(amount)}</p>
+                        </div>
+                    `).join('')}
+                    ${Object.keys(financial.paymentMethods || {}).length === 0 ? '<p class="text-gray-500 text-sm col-span-4 text-center">No payment data available</p>' : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ==================== RENDER INVENTORY PAGE ====================
+async function renderInventory() {
+    const mainContent = document.getElementById('mainContent');
+    
+    try {
+        const result = await apiCall('/api/head/inventory/summary');
+        const data = result.data || {};
+        const items = data.items || [];
+        
+        mainContent.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-boxes mr-2"></i>Inventory Management</h1>
+                    <p class="text-sm opacity-90">${data.totalItems || 0} items • ${data.totalAvailable || 0} available</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Total Items</p>
+                        <p class="text-2xl font-bold">${data.totalItems || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Available</p>
+                        <p class="text-2xl font-bold text-green-600">${data.totalAvailable || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Low Stock</p>
+                        <p class="text-2xl font-bold text-yellow-600">${items.filter(i => i.available < 5).length || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Out of Stock</p>
+                        <p class="text-2xl font-bold text-red-600">${items.filter(i => i.available === 0).length || 0}</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-3 text-left">Item Name</th>
+                                    <th class="p-3 text-center">Available</th>
+                                    <th class="p-3 text-center">Received</th>
+                                    <th class="p-3 text-center">Issued</th>
+                                    <th class="p-3 text-right">Unit Price</th>
+                                    <th class="p-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-3 font-medium">${item.name || 'Unknown'}</td>
+                                        <td class="p-3 text-center font-semibold ${item.available > 0 ? 'text-green-600' : 'text-red-600'}">${item.available || 0}</td>
+                                        <td class="p-3 text-center">${item.received || 0}</td>
+                                        <td class="p-3 text-center">${item.issued || 0}</td>
+                                        <td class="p-3 text-right">UGX ${formatCurrency(item.unitPrice)}</td>
+                                        <td class="p-3 text-center">
+                                            <span class="px-2 py-1 rounded-full text-xs ${item.available > 10 ? 'bg-green-100 text-green-800' : item.available > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                                                ${item.available > 10 ? 'In Stock' : item.available > 0 ? 'Low Stock' : 'Out of Stock'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${items.length === 0 ? '<tr><td colspan="6" class="p-6 text-center text-gray-500">No inventory items found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        mainContent.innerHTML = `<div class="bg-red-50 p-6 rounded-lg text-center text-red-600">Error loading inventory: ${error.message}</div>`;
+    }
+}
+
+// ==================== RENDER UNIFORM PAGE ====================
+async function renderUniform() {
+    const mainContent = document.getElementById('mainContent');
+    
+    try {
+        const result = await apiCall('/api/head/uniform/summary');
+        const data = result.data || {};
+        const items = data.items || [];
+        
+        mainContent.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-tshirt mr-2"></i>Uniform Management</h1>
+                    <p class="text-sm opacity-90">${data.totalItems || 0} items • ${data.totalAvailable || 0} available</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Total Items</p>
+                        <p class="text-2xl font-bold">${data.totalItems || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Available</p>
+                        <p class="text-2xl font-bold text-green-600">${data.totalAvailable || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Students Assigned</p>
+                        <p class="text-2xl font-bold">${data.assignments || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Total Value</p>
+                        <p class="text-2xl font-bold text-blue-600">UGX ${formatCurrency(data.totalValue)}</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-3 text-left">Item Name</th>
+                                    <th class="p-3 text-center">Available</th>
+                                    <th class="p-3 text-center">Received</th>
+                                    <th class="p-3 text-center">Issued</th>
+                                    <th class="p-3 text-right">Unit Price</th>
+                                    <th class="p-3 text-center">Size</th>
+                                    <th class="p-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-3 font-medium">${item.name || 'Unknown'}</td>
+                                        <td class="p-3 text-center font-semibold ${item.available > 0 ? 'text-green-600' : 'text-red-600'}">${item.available || 0}</td>
+                                        <td class="p-3 text-center">${item.received || 0}</td>
+                                        <td class="p-3 text-center">${item.issued || 0}</td>
+                                        <td class="p-3 text-right">UGX ${formatCurrency(item.unitPrice)}</td>
+                                        <td class="p-3 text-center">${item.size || 'N/A'}</td>
+                                        <td class="p-3 text-center">
+                                            <span class="px-2 py-1 rounded-full text-xs ${item.available > 10 ? 'bg-green-100 text-green-800' : item.available > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                                                ${item.available > 10 ? 'In Stock' : item.available > 0 ? 'Low Stock' : 'Out of Stock'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${items.length === 0 ? '<tr><td colspan="7" class="p-6 text-center text-gray-500">No uniform items found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        mainContent.innerHTML = `<div class="bg-red-50 p-6 rounded-lg text-center text-red-600">Error loading uniform: ${error.message}</div>`;
+    }
+}
+
+// ==================== RENDER ACADEMIC PAGE ====================
+async function renderAcademic() {
+    const mainContent = document.getElementById('mainContent');
+    const data = state.dashboardData;
+    const academic = data?.academic || {};
+    
+    try {
+        const result = await apiCall('/api/head/academic/summary');
+        const summary = result.data || {};
+        
+        mainContent.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-graduation-cap mr-2"></i>Academic Overview</h1>
+                    <p class="text-sm opacity-90">${academic.totalReportCards || 0} report cards • ${academic.averageScore || 0}% average</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Report Cards</p>
+                        <p class="text-2xl font-bold">${academic.totalReportCards || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Average Score</p>
+                        <p class="text-2xl font-bold ${academic.averageScore >= 70 ? 'text-green-600' : academic.averageScore >= 50 ? 'text-yellow-600' : 'text-red-600'}">
+                            ${academic.averageScore || 0}%
+                        </p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Passed</p>
+                        <p class="text-2xl font-bold text-green-600">${academic.passedCount || 0}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <p class="text-sm text-gray-500">Failed</p>
+                        <p class="text-2xl font-bold text-red-600">${academic.failedCount || 0}</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-bold text-lg mb-4">📚 Subject Performance</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-3 text-left">Subject</th>
+                                    <th class="p-3 text-right">Average</th>
+                                    <th class="p-3 text-center">Students</th>
+                                    <th class="p-3 text-center">Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(summary.subjectAverages || []).map(subj => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-3 font-medium">${subj.name || 'Unknown'}</td>
+                                        <td class="p-3 text-right font-bold ${subj.average >= 70 ? 'text-green-600' : subj.average >= 50 ? 'text-yellow-600' : 'text-red-600'}">
+                                            ${subj.average || 0}%
+                                        </td>
+                                        <td class="p-3 text-center">${subj.count || 0}</td>
+                                        <td class="p-3 text-center">
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="${subj.average >= 70 ? 'bg-green-500' : subj.average >= 50 ? 'bg-yellow-500' : 'bg-red-500'} rounded-full h-2" style="width: ${Math.min(100, subj.average || 0)}%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${(summary.subjectAverages || []).length === 0 ? '<tr><td colspan="4" class="p-6 text-center text-gray-500">No subject data available</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                        <h3 class="font-bold text-lg mb-4">📈 Top Performing Subjects</h3>
+                        <div class="space-y-2">
+                            ${(summary.topSubjects || []).map(subj => `
+                                <div class="flex justify-between items-center py-2 border-b last:border-0">
+                                    <span class="font-medium">${subj.name}</span>
+                                    <span class="font-bold text-green-600">${subj.average}%</span>
+                                </div>
+                            `).join('')}
+                            ${(summary.topSubjects || []).length === 0 ? '<p class="text-gray-500 text-sm">No data available</p>' : ''}
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                        <h3 class="font-bold text-lg mb-4">📉 Needs Improvement</h3>
+                        <div class="space-y-2">
+                            ${(summary.lowestSubjects || []).map(subj => `
+                                <div class="flex justify-between items-center py-2 border-b last:border-0">
+                                    <span class="font-medium">${subj.name}</span>
+                                    <span class="font-bold text-red-600">${subj.average}%</span>
+                                </div>
+                            `).join('')}
+                            ${(summary.lowestSubjects || []).length === 0 ? '<p class="text-gray-500 text-sm">All subjects performing well!</p>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        mainContent.innerHTML = `<div class="bg-red-50 p-6 rounded-lg text-center text-red-600">Error loading academic data: ${error.message}</div>`;
+    }
+}
+
+// ==================== RENDER STAFF PAGE ====================
+async function renderStaff() {
+    const mainContent = document.getElementById('mainContent');
+    
+    try {
+        const staff = await apiCall('/api/head/staff');
+        
+        mainContent.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                    <div class="flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <h1 class="text-2xl font-bold"><i class="fas fa-chalkboard-user mr-2"></i>Staff Management</h1>
+                            <p class="text-sm opacity-90">${staff.length || 0} staff members</p>
+                        </div>
+                        <button onclick="showAddStaffModal()" class="bg-white text-purple-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">
+                            <i class="fas fa-plus"></i> Add Staff
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="p-3 text-left">Name</th>
+                                    <th class="p-3 text-left">Role</th>
+                                    <th class="p-3 text-left">Department</th>
+                                    <th class="p-3 text-left">Email</th>
+                                    <th class="p-3 text-left">Phone</th>
+                                    <th class="p-3 text-center">Status</th>
+                                    <th class="p-3 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${staff.map(s => `
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="p-3 font-medium">${s.firstName || ''} ${s.lastName || ''}</td>
+                                        <td class="p-3">${s.role || 'N/A'}</td>
+                                        <td class="p-3">${s.department || 'N/A'}</td>
+                                        <td class="p-3">${s.email || 'N/A'}</td>
+                                        <td class="p-3">${s.phone || 'N/A'}</td>
+                                        <td class="p-3 text-center">
+                                            <span class="px-2 py-1 rounded-full text-xs ${s.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                                ${s.isActive !== false ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <button onclick="editStaff('${s.id}')" class="text-blue-600 hover:text-blue-800 mx-1"><i class="fas fa-edit"></i></button>
+                                            <button onclick="deleteStaff('${s.id}')" class="text-red-600 hover:text-red-800 mx-1"><i class="fas fa-trash"></i></button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${staff.length === 0 ? '<tr><td colspan="7" class="p-6 text-center text-gray-500">No staff members found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        mainContent.innerHTML = `<div class="bg-red-50 p-6 rounded-lg text-center text-red-600">Error loading staff: ${error.message}</div>`;
+    }
+}
+
+// ==================== STAFF MODALS ====================
+function showAddStaffModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content max-w-md">
+            <div class="flex justify-between items-start mb-4 pb-3 border-b">
+                <h2 class="text-xl font-bold"><i class="fas fa-user-plus text-blue-600 mr-2"></i>Add Staff Member</h2>
+                <button onclick="this.closest('.modal-overlay').remove()" class="text-gray-500 text-2xl">&times;</button>
+            </div>
+            <form id="addStaffForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">First Name *</label>
+                        <input type="text" id="staffFirstName" required class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Last Name *</label>
+                        <input type="text" id="staffLastName" required class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Role *</label>
+                    <select id="staffRole" required class="w-full border rounded-lg px-3 py-2">
+                        <option value="">Select Role</option>
+                        <option value="Teacher">Teacher</option>
+                        <option value="Head Teacher">Head Teacher</option>
+                        <option value="Deputy Head">Deputy Head</option>
+                        <option value="Bursar">Bursar</option>
+                        <option value="Accountant">Accountant</option>
+                        <option value="Secretary">Secretary</option>
+                        <option value="Cleaner">Cleaner</option>
+                        <option value="Security">Security</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Department</label>
+                    <input type="text" id="staffDepartment" class="w-full border rounded-lg px-3 py-2" placeholder="e.g., Academic, Admin, Finance">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Email *</label>
+                    <input type="email" id="staffEmail" required class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Phone</label>
+                    <input type="tel" id="staffPhone" class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Join Date</label>
+                    <input type="date" id="staffJoinDate" class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Add Staff</button>
+                    <button type="button" onclick="this.closest('.modal-overlay').remove()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('addStaffForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            firstName: document.getElementById('staffFirstName').value,
+            lastName: document.getElementById('staffLastName').value,
+            role: document.getElementById('staffRole').value,
+            department: document.getElementById('staffDepartment').value,
+            email: document.getElementById('staffEmail').value,
+            phone: document.getElementById('staffPhone').value,
+            joinDate: document.getElementById('staffJoinDate').value
+        };
+        
+        try {
+            const result = await apiCall('/api/head/staff', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            if (result.success) {
+                showToast('✅ Staff added successfully', 'success');
+                modal.remove();
+                await renderStaff();
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    });
+}
+
+async function editStaff(id) {
+    showToast('Edit functionality coming soon', 'info');
+}
+
+async function deleteStaff(id) {
+    if (!confirm('Delete this staff member?')) return;
+    try {
+        const result = await apiCall(`/api/head/staff/${id}`, { method: 'DELETE' });
+        if (result.success) {
+            showToast('✅ Staff deleted', 'success');
+            await renderStaff();
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// ==================== RENDER ANNOUNCEMENTS ====================
+async function renderAnnouncements() {
+    const mainContent = document.getElementById('mainContent');
+    
+    try {
+        const announcements = await apiCall('/api/head/announcements');
+        
+        mainContent.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                    <div class="flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <h1 class="text-2xl font-bold"><i class="fas fa-bullhorn mr-2"></i>Announcements</h1>
+                            <p class="text-sm opacity-90">${announcements.length || 0} announcements</p>
+                        </div>
+                        <button onclick="showAddAnnouncementModal()" class="bg-white text-purple-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">
+                            <i class="fas fa-plus"></i> New Announcement
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    ${announcements.filter(a => a.isActive !== false).map(a => `
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="font-bold text-lg">${a.title}</h3>
+                                        <span class="px-2 py-0.5 rounded-full text-xs ${a.priority === 'high' ? 'bg-red-100 text-red-800' : a.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}">
+                                            ${a.priority || 'normal'}
+                                        </span>
+                                        <span class="text-xs text-gray-400">${formatDate(a.createdAt)}</span>
+                                    </div>
+                                    <p class="text-gray-600 mt-2">${a.content}</p>
+                                </div>
+                                <div class="flex gap-2 ml-4">
+                                    <button onclick="editAnnouncement('${a.id}')" class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></button>
+                                    <button onclick="deleteAnnouncement('${a.id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                    ${announcements.filter(a => a.isActive !== false).length === 0 ? `
+                        <div class="text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
+                            <i class="fas fa-bullhorn text-4xl mb-3 text-gray-300"></i>
+                            <p>No announcements yet</p>
+                            <p class="text-sm">Click "New Announcement" to create one</p>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        mainContent.innerHTML = `<div class="bg-red-50 p-6 rounded-lg text-center text-red-600">Error loading announcements: ${error.message}</div>`;
+    }
+}
+
+// ==================== ANNOUNCEMENT MODALS ====================
+function showAddAnnouncementModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content max-w-md">
+            <div class="flex justify-between items-start mb-4 pb-3 border-b">
+                <h2 class="text-xl font-bold"><i class="fas fa-bullhorn text-blue-600 mr-2"></i>New Announcement</h2>
+                <button onclick="this.closest('.modal-overlay').remove()" class="text-gray-500 text-2xl">&times;</button>
+            </div>
+            <form id="addAnnouncementForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Title *</label>
+                    <input type="text" id="annTitle" required class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Content *</label>
+                    <textarea id="annContent" rows="4" required class="w-full border rounded-lg px-3 py-2"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Priority</label>
+                    <select id="annPriority" class="w-full border rounded-lg px-3 py-2">
+                        <option value="normal">Normal</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Type</label>
+                    <select id="annType" class="w-full border rounded-lg px-3 py-2">
+                        <option value="general">General</option>
+                        <option value="academic">Academic</option>
+                        <option value="financial">Financial</option>
+                        <option value="staff">Staff</option>
+                    </select>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Post Announcement</button>
+                    <button type="button" onclick="this.closest('.modal-overlay').remove()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    document.getElementById('addAnnouncementForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            title: document.getElementById('annTitle').value,
+            content: document.getElementById('annContent').value,
+            priority: document.getElementById('annPriority').value,
+            type: document.getElementById('annType').value
+        };
+        
+        try {
+            const result = await apiCall('/api/head/announcements', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            if (result.success) {
+                showToast('✅ Announcement posted', 'success');
+                modal.remove();
+                await renderAnnouncements();
+            }
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        }
+    });
+}
+
+async function editAnnouncement(id) {
+    showToast('Edit functionality coming soon', 'info');
+}
+
+async function deleteAnnouncement(id) {
+    if (!confirm('Delete this announcement?')) return;
+    try {
+        const result = await apiCall(`/api/head/announcements/${id}`, { method: 'DELETE' });
+        if (result.success) {
+            showToast('✅ Announcement deleted', 'success');
+            await renderAnnouncements();
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// ==================== SETTINGS ====================
+async function renderSettings() {
+    const mainContent = document.getElementById('mainContent');
+    
+    try {
+        const settings = await apiCall('/api/head/settings');
+        
+        mainContent.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-cog mr-2"></i>School Settings</h1>
+                    <p class="text-sm opacity-90">Manage school configuration</p>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <form id="settingsForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">School Name</label>
+                            <input type="text" id="schoolName" value="${settings.schoolName || ''}" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Motto</label>
+                            <input type="text" id="schoolMotto" value="${settings.motto || ''}" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Address</label>
+                            <input type="text" id="schoolAddress" value="${settings.address || ''}" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Phone</label>
+                            <input type="text" id="schoolPhone" value="${settings.phone || ''}" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Email</label>
+                            <input type="email" id="schoolEmail" value="${settings.email || ''}" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Current Academic Year</label>
+                            <input type="number" id="academicYear" value="${settings.academicYear || new Date().getFullYear()}" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Current Term</label>
+                            <select id="currentTerm" class="w-full border rounded-lg px-3 py-2">
+                                <option value="1" ${settings.currentTerm === 1 ? 'selected' : ''}>First Term</option>
+                                <option value="2" ${settings.currentTerm === 2 ? 'selected' : ''}>Second Term</option>
+                                <option value="3" ${settings.currentTerm === 3 ? 'selected' : ''}>Third Term</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                schoolName: document.getElementById('schoolName').value,
+                motto: document.getElementById('schoolMotto').value,
+                address: document.getElementById('schoolAddress').value,
+                phone: document.getElementById('schoolPhone').value,
+                email: document.getElementById('schoolEmail').value,
+                academicYear: parseInt(document.getElementById('academicYear').value),
+                currentTerm: parseInt(document.getElementById('currentTerm').value)
+            };
+            
+            try {
+                const result = await apiCall('/api/head/settings', {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                if (result.success) {
+                    showToast('✅ Settings saved', 'success');
+                    await loadDashboard();
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        });
+    } catch (error) {
+        mainContent.innerHTML = `<div class="bg-red-50 p-6 rounded-lg text-center text-red-600">Error loading settings: ${error.message}</div>`;
+    }
+}
+
+// ==================== INITIALIZATION ====================
+console.log('👔 Head Teacher Dashboard v1.0 loaded!');
+console.log('🔑 Login: admin / admin123');
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "e6f683f6-cc6a-46b6-8b25-d5d1320dc3fa": {
+    "username": "admin",
+    "role": "headteacher",
+    "loginTime": "2026-06-24T09:17:20.327Z"
+  },
+  "a7c0824f-b46d-4b4c-9d43-8ec2e57a597f": {
+    "username": "admin",
+    "role": "headteacher",
+    "loginTime": "2026-06-24T09:21:05.400Z"
+  },
+  "46b80414-5a9d-4620-99ce-d57b5ef63125": {
+    "username": "admin",
+    "role": "headteacher",
+    "loginTime": "2026-06-24T09:23:22.884Z"
+  },
+  "2614cb6d-feba-4b50-9084-de935894339c": {
+    "username": "admin",
+    "role": "headteacher",
+    "loginTime": "2026-06-24T09:23:36.945Z"
+  },
+  "573173fc-8870-4c86-ade3-f7edc6980325": {
+    "username": "admin",
+    "role": "headteacher",
+    "loginTime": "2026-06-24T09:31:01.860Z"
+  }
+}

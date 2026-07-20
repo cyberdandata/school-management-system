@@ -1,0 +1,363 @@
+[
+  {
+    "id": "c8ac213e-df98-482a-a9f9-3fa885dd53ae",
+    "admissionNumber": "STU20260001",
+    "firstName": "NAMARA",
+    "lastName": "BLESSING",
+    "gender": "Female",
+    "currentClassId": "d0701cdd-5aea-42e8-a7f2-4aa1a8bdf903",
+    "currentClass": "Baby Class",
+    "parentInfo": {
+      "name": "Ssekajja Jonathan",
+      "relationship": "Parent",
+      "phone": "0754876666",
+      "altPhone": "0777434455",
+      "email": "ssekajajonath@gmail.com",
+      "occupation": "Laywer"
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T12:30:19.788Z"
+  },
+  {
+    "id": "2a147e63-7f7c-4dc2-b160-b2e808b7c104",
+    "admissionNumber": "STU20260002",
+    "firstName": "Wasswa",
+    "lastName": "Jeremiah",
+    "gender": "Male",
+    "currentClassId": "d0701cdd-5aea-42e8-a7f2-4aa1a8bdf903",
+    "currentClass": "Baby Class",
+    "parentInfo": {
+      "name": "Namakula",
+      "relationship": "Parent",
+      "phone": "0754876666",
+      "altPhone": "",
+      "email": "ssekajajonath@gmail.com",
+      "occupation": "Laywer"
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T12:57:41.094Z"
+  },
+  {
+    "id": "ae3d0cfa-6485-4426-bc80-55f7145dbe20",
+    "admissionNumber": "STU20260003",
+    "firstName": "Robert",
+    "lastName": "Ssempayo",
+    "gender": "Male",
+    "currentClassId": "d0701cdd-5aea-42e8-a7f2-4aa1a8bdf903",
+    "currentClass": "Baby Class",
+    "parentInfo": {
+      "name": "Namakula",
+      "relationship": "Parent",
+      "phone": "0754876666",
+      "altPhone": "0788555949",
+      "email": "ssekajajonath@gmail.com",
+      "occupation": "Laywer"
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T13:03:56.257Z"
+  },
+  {
+    "id": "12d02cbc-e942-4aae-b8b7-9649f7f4bb0d",
+    "admissionNumber": "STU20260004",
+    "firstName": "Nakato",
+    "lastName": "Nakiwala",
+    "gender": "Female",
+    "currentClassId": "915e0394-9364-4545-8c23-20e31789a4df",
+    "currentClass": "Middle Class",
+    "parentInfo": {
+      "name": "Ssekajja Jonathan",
+      "relationship": "Parent",
+      "phone": "0754876666",
+      "altPhone": "",
+      "email": "ssekajajonath@gmail.com",
+      "occupation": "Laywer"
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T13:05:16.363Z"
+  },
+  {
+    "id": "99cc2331-6676-4f2b-b8ca-562436624a41",
+    "admissionNumber": "STU20260005",
+    "firstName": "Baryamwijuka",
+    "lastName": "Hosea",
+    "gender": "Male",
+    "currentClassId": "915e0394-9364-4545-8c23-20e31789a4df",
+    "currentClass": "Middle Class",
+    "parentInfo": {
+      "name": "jackson nuwamanya",
+      "relationship": "Parent",
+      "phone": "0788289604",
+      "altPhone": "0750546797",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T13:58:04.925Z"
+  },
+  {
+    "id": "efa9ea93-79a3-4d21-a54a-65999e440c82",
+    "admissionNumber": "STU20260006",
+    "firstName": "lynet",
+    "lastName": "komugambe",
+    "gender": "Female",
+    "currentClassId": "915e0394-9364-4545-8c23-20e31789a4df",
+    "currentClass": "Middle Class",
+    "parentInfo": {
+      "name": "kyomugabe faldah",
+      "relationship": "Parent",
+      "phone": "0756432567",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:01:16.725Z"
+  },
+  {
+    "id": "3ce7fa80-ae25-4ceb-9845-b00ecc3d04b0",
+    "admissionNumber": "STU20260007",
+    "firstName": "Jamirah",
+    "lastName": "nasasiira",
+    "gender": "Female",
+    "currentClassId": "cffa5875-1fdc-48cd-9b98-31bfc1764f28",
+    "currentClass": "Top Class",
+    "parentInfo": {
+      "name": "joan nasasiira",
+      "relationship": "Parent",
+      "phone": "0750765443",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:04:18.398Z"
+  },
+  {
+    "id": "51ac9c22-42cb-47ba-a39a-9c93db047c44",
+    "admissionNumber": "STU20260008",
+    "firstName": "Jayson",
+    "lastName": "taremwa",
+    "gender": "Male",
+    "currentClassId": "cffa5875-1fdc-48cd-9b98-31bfc1764f28",
+    "currentClass": "Top Class",
+    "parentInfo": {
+      "name": "lovence",
+      "relationship": "Parent",
+      "phone": "0798765237",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:05:48.680Z"
+  },
+  {
+    "id": "b81eebdd-013c-44fa-be6c-cc9df3b95af0",
+    "admissionNumber": "STU20260009",
+    "firstName": "Wallen",
+    "lastName": "twinamasiko",
+    "gender": "Male",
+    "currentClassId": "cffa5875-1fdc-48cd-9b98-31bfc1764f28",
+    "currentClass": "Top Class",
+    "parentInfo": {
+      "name": "Dickson t",
+      "relationship": "Parent",
+      "phone": "0789678978",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:09:46.364Z"
+  },
+  {
+    "id": "32bb31cb-104b-4d07-bb0a-2161516afc23",
+    "admissionNumber": "STU20260010",
+    "firstName": "stelah",
+    "lastName": "nuwamanya",
+    "gender": "Female",
+    "currentClassId": "6f2da310-6a16-49ee-96da-73d4808515b2",
+    "currentClass": "P.1",
+    "parentInfo": {
+      "name": "dallen m",
+      "relationship": "Parent",
+      "phone": "07898767654",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:12:03.560Z"
+  },
+  {
+    "id": "a398bf4d-75a8-4f3c-ab71-f72cae69e06d",
+    "admissionNumber": "STU20260011",
+    "firstName": "wicklife",
+    "lastName": "nakawuki",
+    "gender": "Male",
+    "currentClassId": "6f2da310-6a16-49ee-96da-73d4808515b2",
+    "currentClass": "P.1",
+    "parentInfo": {
+      "name": "namaaka stephen",
+      "relationship": "Parent",
+      "phone": "07876545437",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:14:10.541Z"
+  },
+  {
+    "id": "990d3c42-1ff1-4362-9be0-bc295f76b925",
+    "admissionNumber": "STU20260012",
+    "firstName": "kevin",
+    "lastName": "kato",
+    "gender": "Male",
+    "currentClassId": "6f2da310-6a16-49ee-96da-73d4808515b2",
+    "currentClass": "P.1",
+    "parentInfo": {
+      "name": "doe kamu",
+      "relationship": "Parent",
+      "phone": "0789876543",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:16:31.477Z"
+  },
+  {
+    "id": "a83cf7f5-a2bf-4a10-8f46-3ab220f905bc",
+    "admissionNumber": "STU20260013",
+    "firstName": "Sam kakuru",
+    "lastName": "kakuru",
+    "gender": "Male",
+    "currentClassId": "6f2da310-6a16-49ee-96da-73d4808515b2",
+    "currentClass": "P.1",
+    "parentInfo": {
+      "name": "Sam isaah",
+      "relationship": "Parent",
+      "phone": "0789879890",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:21:32.257Z"
+  },
+  {
+    "id": "7d0ebf00-3bd4-4ff2-9b3c-3dd9f22d50ff",
+    "admissionNumber": "STU20260014",
+    "firstName": "sonia",
+    "lastName": "kemigisa",
+    "gender": "Female",
+    "currentClassId": "d43fcdc7-9514-49a1-9424-808fdc177ce9",
+    "currentClass": "P.2",
+    "parentInfo": {
+      "name": "patric",
+      "relationship": "Parent",
+      "phone": "0789776543",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:23:29.036Z"
+  },
+  {
+    "id": "00e1c665-151d-40d5-b9e1-0a849cfcac51",
+    "admissionNumber": "STU20260015",
+    "firstName": "deo",
+    "lastName": "mathew",
+    "gender": "Male",
+    "currentClassId": "d43fcdc7-9514-49a1-9424-808fdc177ce9",
+    "currentClass": "P.2",
+    "parentInfo": {
+      "name": "Judas mark",
+      "relationship": "Parent",
+      "phone": "0789876554",
+      "altPhone": "",
+      "email": "",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:25:06.725Z"
+  },
+  {
+    "id": "2800f305-6382-4d96-b7ff-db245cd5e975",
+    "admissionNumber": "STU20260016",
+    "firstName": "Ssekajugu",
+    "lastName": "Iyan",
+    "gender": "Male",
+    "currentClassId": "d43fcdc7-9514-49a1-9424-808fdc177ce9",
+    "currentClass": "P.2",
+    "parentInfo": {
+      "name": "Namakula",
+      "relationship": "Parent",
+      "phone": "0754876666",
+      "altPhone": "",
+      "email": "ssekajajonath@gmail.com",
+      "occupation": "Laywer"
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:33:12.310Z"
+  },
+  {
+    "id": "84f0af53-2a24-4352-8f3c-36295dbc36ce",
+    "admissionNumber": "STU20260017",
+    "firstName": "Raymond",
+    "lastName": "Ssekandi",
+    "gender": "Male",
+    "currentClassId": "9f0757bf-f489-4499-97a6-5141dc9dca1f",
+    "currentClass": "P.3",
+    "parentInfo": {
+      "name": "Moa",
+      "relationship": "Parent",
+      "phone": "0785725798",
+      "altPhone": "",
+      "email": "offtueducationcentremukono@gmail.com",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:44:55.401Z"
+  },
+  {
+    "id": "7ba1538f-b04f-479e-897c-28e620d1aef6",
+    "admissionNumber": "STU20260018",
+    "firstName": "Nakayima",
+    "lastName": "Joan",
+    "gender": "Female",
+    "currentClassId": "9f0757bf-f489-4499-97a6-5141dc9dca1f",
+    "currentClass": "P.3",
+    "parentInfo": {
+      "name": "Moa",
+      "relationship": "Parent",
+      "phone": "0785725798",
+      "altPhone": "",
+      "email": "offtueducationcentremukono@gmail.com",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:46:34.087Z"
+  },
+  {
+    "id": "03f8b679-47dc-47a6-8e6b-5bd95232cebf",
+    "admissionNumber": "STU20260019",
+    "firstName": "Jajja",
+    "lastName": "Fanon",
+    "gender": "Male",
+    "currentClassId": "ff27d821-9bea-482c-98bd-5fe7cafab0e7",
+    "currentClass": "P.4",
+    "parentInfo": {
+      "name": "Nalongo",
+      "relationship": "Parent",
+      "phone": "0785725798",
+      "altPhone": "",
+      "email": "offtueducationcentremukono@gmail.com",
+      "occupation": ""
+    },
+    "status": "Active",
+    "enrolledAt": "2026-06-23T14:48:07.113Z"
+  }
+]
