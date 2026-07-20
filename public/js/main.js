@@ -1,4 +1,4 @@
- // ==================== GLOBAL VARIABLES ====================
+ ll// ==================== GLOBAL VARIABLES ====================
 let currentSchool = null;
 let currentSettings = null;
 let currentUser = { name: 'Admin', role: 'admin' };
