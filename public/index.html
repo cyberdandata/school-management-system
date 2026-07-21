@@ -6,7 +6,7 @@
     <title>Eden Christian School - Management Information System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./css/style.css">
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
    <script>
@@ -424,30 +424,40 @@ Check your Browserslist config to be sure that your targets are set up correctly
     <!-- Mobile Overlay -->
     <div id="mobileOverlay" class="overlay"></div>
     
-   <!-- Sidebar Navigation -->
-<div id="sidebar" class="sidebar fixed left-0 top-0 h-full w-72 bg-white shadow-2xl overflow-y-auto z-40">
-    <!-- School Header with Logo -->
-    <div class="p-5 border-b bg-gradient-to-r from-blue-50 to-purple-50">
-        <div class="flex items-center space-x-3">
-            <!-- Logo Container -->
-            <div id="schoolLogoContainer" class="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center overflow-hidden shadow-md flex-shrink-0">
-                <i id="sidebarSchoolIcon" class="fas fa-school text-white text-2xl"></i>
-                <img id="sidebarSchoolLogo" class="w-full h-full object-cover hidden" alt="School Logo">
+    <!-- Sidebar Navigation -->
+    <div id="sidebar" class="sidebar fixed left-0 top-0 h-full w-72 bg-white shadow-2xl overflow-y-auto z-40">
+        <!-- School Header with Logo -->
+        <div class="p-5 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+            <div class="flex items-center space-x-3">
+                <!-- Logo Container -->
+                <div id="schoolLogoContainer" class="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center overflow-hidden shadow-md flex-shrink-0">
+                    <i id="sidebarSchoolIcon" class="fas fa-school text-white text-2xl"></i>
+                    <img id="sidebarSchoolLogo" class="w-full h-full object-cover hidden" alt="School Logo">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h1 id="sidebarSchoolName" class="font-bold text-base text-gray-800 truncate">Eden Christian</h1>
+                    <p class="text-xs text-gray-500">Management System</p>
+                </div>
+                <!-- Mobile Close Button -->
+                <button id="closeSidebarBtn" class="md:hidden text-gray-500 hover:text-gray-700 flex-shrink-0">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
             </div>
-            <div class="flex-1 min-w-0">
-                <!-- ⭐ IMPORTANT: This ID must match the JavaScript -->
-                <h1 id="sidebarSchoolName" class="font-bold text-base text-gray-800 truncate">My School</h1>
-                <p class="text-xs text-gray-500">Management System</p>
-            </div>
-            <!-- Mobile Close Button -->
-            <button id="closeSidebarBtn" class="md:hidden text-gray-500 hover:text-gray-700 flex-shrink-0">
-                <i class="fas fa-times text-xl"></i>
-            </button>
         </div>
-    </div>
         
-
-    
+        <!-- User Info Section -->
+        <div class="p-4 border-b bg-gray-50">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-semibold text-sm truncate" id="adminName">Administrator</p>
+                    <p class="text-xs text-gray-500">System Admin</p>
+                </div>
+            </div>
+        </div>
+        
         <!-- Navigation Menu -->
         <nav class="p-3 space-y-1">
             <!-- Dashboard -->
@@ -566,12 +576,6 @@ Check your Browserslist config to be sure that your targets are set up correctly
 <a href="#" onclick="showUniformManagement(); return false;" class="sidebar-item flex items-center space-x-3 p-3 rounded-xl text-gray-700 hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-600 hover:text-white transition-all duration-300 group" data-page="uniform">
     <i class="fas fa-tshirt w-5 group-hover:scale-110 transition-transform"></i>
     <span class="flex-1">Uniform</span>
-    <i class="fas fa-chevron-right text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
-</a>
-<!-- School Stock Management -->
-<a href="#" onclick="showSchoolStockManagement(); return false;" class="sidebar-item flex items-center space-x-3 p-3 rounded-xl text-gray-700 hover:bg-gradient-to-r hover:from-teal-500 hover:to-emerald-600 hover:text-white transition-all duration-300 group" data-page="school-stock">
-    <i class="fas fa-warehouse w-5 group-hover:scale-110 transition-transform"></i>
-    <span class="flex-1">School Stock</span>
     <i class="fas fa-chevron-right text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
 </a>
             <!-- Divider -->
@@ -1094,95 +1098,5 @@ window.showConfetti = showConfetti;
 window.pulseElement = pulseElement;
 window.typeWriter = typeWriter;
     </script>
-    <script>
-// ⭐ IMMEDIATE SIDEBAR UPDATE - RUNS BEFORE ANYTHING ELSE
-(function() {
-    console.log('🚀 FORCE SIDEBAR UPDATE');
-    
-    // Function to update sidebar
-    function forceUpdateSidebar() {
-        // Get school data from localStorage
-        let schoolName = 'My School';
-        let schoolLogo = '';
-        
-        try {
-            const saved = localStorage.getItem('schoolData');
-            if (saved) {
-                const data = JSON.parse(saved);
-                if (data && data.schoolName) {
-                    schoolName = data.schoolName;
-                    schoolLogo = data.logo || '';
-                    console.log('📦 Found school in localStorage:', schoolName);
-                }
-            }
-        } catch (e) {
-            console.warn('Could not read localStorage:', e);
-        }
-        
-        // Update school name - DIRECT DOM MANIPULATION
-        const nameEl = document.getElementById('sidebarSchoolName');
-        if (nameEl) {
-            nameEl.textContent = schoolName;
-            console.log('✅ Sidebar name set to:', schoolName);
-        } else {
-            console.warn('❌ sidebarSchoolName element not found!');
-            // Try again after DOM is fully loaded
-            setTimeout(function() {
-                const el = document.getElementById('sidebarSchoolName');
-                if (el) {
-                    el.textContent = schoolName;
-                    console.log('✅ Sidebar name set (delayed):', schoolName);
-                }
-            }, 100);
-        }
-        
-        // Update logo
-        const logoImg = document.getElementById('sidebarSchoolLogo');
-        const iconEl = document.getElementById('sidebarSchoolIcon');
-        const container = document.getElementById('schoolLogoContainer');
-        
-        if (schoolLogo) {
-            if (logoImg) {
-                logoImg.src = schoolLogo;
-                logoImg.classList.remove('hidden');
-                logoImg.classList.add('block');
-            }
-            if (iconEl) {
-                iconEl.classList.add('hidden');
-            }
-            if (container) {
-                container.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-purple-600');
-                container.classList.add('bg-white');
-            }
-        } else {
-            if (logoImg) {
-                logoImg.classList.add('hidden');
-                logoImg.classList.remove('block');
-            }
-            if (iconEl) {
-                iconEl.classList.remove('hidden');
-            }
-            if (container) {
-                container.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600');
-                container.classList.remove('bg-white');
-            }
-        }
-    }
-    
-    // Run immediately if DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', forceUpdateSidebar);
-    } else {
-        forceUpdateSidebar();
-    }
-    
-    // Also run after a short delay to catch any late-loading
-    setTimeout(forceUpdateSidebar, 200);
-    setTimeout(forceUpdateSidebar, 500);
-    
-    // Make it globally available
-    window.forceUpdateSidebar = forceUpdateSidebar;
-})();
-</script>
 </body>
 </html>
