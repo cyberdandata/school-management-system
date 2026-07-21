@@ -1931,42 +1931,5 @@
     "enrolledAt": "2026-07-20T15:53:18.209Z",
     "createdAt": "2026-07-20T15:53:18.209Z",
     "updatedAt": "2026-07-20T16:06:52.327Z"
-  },
-  {
-    "id": "7ab2e4ab-3309-4325-a72a-334bf2301e1f",
-    "admissionNumber": "STU20260013",
-    "firstName": "DANIEL",
-    "lastName": "WASSWA",
-    "dateOfBirth": "",
-    "gender": "Male",
-    "birthPlace": "",
-    "nationality": "Ugandan",
-    "studentPhoto": null,
-    "parentInfo": {
-      "name": "Nalongo",
-      "relationship": "Parent",
-      "phone": "0758728037",
-      "altPhone": "",
-      "email": "",
-      "occupation": ""
-    },
-    "address": "Mukono-Nasuuti\nMap",
-    "previousSchool": "",
-    "admissionType": "New",
-    "enrollmentDate": "2026-07-21",
-    "status": "Active",
-    "currentClassId": "a61ce407-56f0-4c52-9739-2c5322ad48e7",
-    "enrolledAt": "2026-07-21T14:25:54.771Z",
-    "createdAt": "2026-07-21T14:25:54.771Z",
-    "updatedAt": "2026-07-21T14:25:54.771Z",
-    "customBursary": null,
-    "customTransportation": null,
-    "customItemOverrides": null,
-    "removedItems": null,
-    "hasCustomizations": null,
-    "hasRemovedItems": null,
-    "customizationCount": 0,
-    "removedItemsCount": 0,
-    "assignedFeeStructureId": "a70c9ea5-a364-470e-95df-57ffc2b2f7f1"
   }
 ]
