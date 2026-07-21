@@ -815,11 +815,20 @@
     "currentClassId": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
     "enrolledAt": "2026-07-18T13:29:25.830Z",
     "createdAt": "2026-07-18T13:29:25.830Z",
-    "updatedAt": "2026-07-20T11:14:03.097Z",
+    "updatedAt": "2026-07-21T20:44:30.921Z",
     "customBursary": null,
     "customTransportation": null,
     "customItemOverrides": {},
-    "removedItems": {},
+    "removedItems": {
+      "item_1784370166244_k319zf": {
+        "itemId": "item_1784370166244_k319zf",
+        "itemName": "Ream(Rwenzori)",
+        "componentName": "Scholastic Requirements (ITEMS)",
+        "removedAt": "2026-07-21T20:44:29.001Z",
+        "reason": "Removed during edit",
+        "isActive": true
+      }
+    },
     "hasCustomizations": false,
     "hasRemovedItems": null,
     "customizationCount": 0,
