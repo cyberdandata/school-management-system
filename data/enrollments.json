@@ -96,5 +96,13 @@
     "isCurrent": true,
     "enrolledAt": "2026-07-20T15:53:18.209Z",
     "updatedAt": "2026-07-20T16:06:52.327Z"
+  },
+  {
+    "id": "2c908b21-4ba2-4bb5-97b5-f083a893220c",
+    "studentId": "7ab2e4ab-3309-4325-a72a-334bf2301e1f",
+    "classId": "a61ce407-56f0-4c52-9739-2c5322ad48e7",
+    "academicYear": 2026,
+    "isCurrent": true,
+    "enrolledAt": "2026-07-21T14:25:54.786Z"
   }
 ]
