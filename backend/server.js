@@ -29,7 +29,8 @@ app.get('/api/sync/status', (req, res) => {
     if (!syncManager) {
         return res.status(503).json({ error: 'Sync Manager not available' });
     }
-    res.json(syncManager.getStatus());
+    const status = syncManager.getStatus();
+    res.json(status);
 });
 
 // Trigger manual sync
