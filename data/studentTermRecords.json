@@ -2520,5 +2520,57 @@
       }
     ],
     "lastUpdated": "2026-07-18T15:26:53.453Z"
+  },
+  "6fe4579d-6081-441b-b8f3-5df8f0e2816d_2026_2": {
+    "studentId": "6fe4579d-6081-441b-b8f3-5df8f0e2816d",
+    "year": 2026,
+    "term": 2,
+    "activityItemsPaid": {
+      "one_time": [
+        {
+          "componentId": "comp_1784667743499",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784667743499",
+          "itemName": "Sweater",
+          "unitPrice": 35000,
+          "quantityRequired": 1,
+          "totalAmount": 35000,
+          "paymentType": "paid_cash",
+          "amountPaid": 35000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-21T21:02:23.499Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-22T00:01",
+              "amount": 35000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN743456861",
+              "isIndividualPayment": true,
+              "individualAmount": 35000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "tuitionTotalPaid": 0,
+    "activityTotalPaid": 35000,
+    "isPreviousBalanceRecord": false,
+    "originalPeriod": null,
+    "createdAt": "2026-07-21T21:02:23.495Z",
+    "individualPayments": [],
+    "individualTuitionPayments": [],
+    "lastUpdated": "2026-07-21T21:02:23.500Z"
   }
 }

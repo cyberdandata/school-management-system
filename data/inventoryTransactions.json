@@ -1523,5 +1523,30 @@
     "autoAdded": true,
     "isItemPayment": false,
     "isCashPayment": true
+  },
+  {
+    "id": "9ef9123b-d1ba-481a-8149-7e6cd6e41346",
+    "itemName": "Sweater",
+    "quantity": 1,
+    "transactionType": "receipt",
+    "source": "cash_payment",
+    "studentId": "6fe4579d-6081-441b-b8f3-5df8f0e2816d",
+    "paymentType": "paid_cash",
+    "amountPaid": 35000,
+    "itemsBrought": 0,
+    "cashEquivalent": 35000,
+    "unitPrice": 35000,
+    "quantityRequired": 1,
+    "periodKey": "2026_2",
+    "academicYear": 2026,
+    "term": 2,
+    "stockBefore": 1,
+    "stockAfter": 2,
+    "timestamp": "2026-07-21T21:02:23.624Z",
+    "date": "2026-07-21",
+    "isInventory": true,
+    "autoAdded": true,
+    "isItemPayment": false,
+    "isCashPayment": true
   }
 ]

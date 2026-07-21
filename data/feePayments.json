@@ -4855,5 +4855,100 @@
     "isIndividualPayment": true,
     "paymentMode": "incremental",
     "individualPayments": []
+  },
+  {
+    "id": "a0d6038b-f725-43f3-91a1-51469190f7ea",
+    "studentId": "6fe4579d-6081-441b-b8f3-5df8f0e2816d",
+    "studentName": "katambuze hillary",
+    "admissionNumber": "STU20260014",
+    "term": 2,
+    "academicYear": "2026",
+    "feeStructureId": "c6b9b331-a153-4182-99cb-981a1ba27b70",
+    "feeStructureName": "Primary 4 Boarding",
+    "bursaryId": null,
+    "bursaryName": null,
+    "tuitionPaid": 0,
+    "activityTotalPaid": 35000,
+    "activityItemPayments": [
+      {
+        "periodType": "one_time",
+        "componentName": "Uniform",
+        "itemName": "Sweater",
+        "unitPrice": 35000,
+        "quantityRequired": 1,
+        "paymentType": "paid_cash",
+        "amountPaid": 35000,
+        "itemsBrought": null,
+        "cashEquivalent": 0,
+        "isIndividualPayment": true,
+        "individualAmount": 35000,
+        "individualItems": null
+      }
+    ],
+    "paymentsByPeriodType": {
+      "one_time": [
+        {
+          "componentId": "comp_1784667743499",
+          "componentName": "Uniform",
+          "periodType": "one_time",
+          "itemId": "item_1784667743499",
+          "itemName": "Sweater",
+          "unitPrice": 35000,
+          "quantityRequired": 1,
+          "totalAmount": 35000,
+          "paymentType": "paid_cash",
+          "amountPaid": 35000,
+          "itemsBrought": 0,
+          "cashEquivalent": 0,
+          "itemsCovered": 1,
+          "remainingQuantity": 0,
+          "remainingAmount": 0,
+          "status": "fully_paid",
+          "recordedAt": "2026-07-21T21:02:23.499Z",
+          "isPreviousBalanceItem": false,
+          "payments": [
+            {
+              "date": "2026-07-22T00:01",
+              "amount": 35000,
+              "type": "paid_cash",
+              "itemsBrought": null,
+              "isPreviousBalancePayment": false,
+              "receiptNumber": "EDEN743456861",
+              "isIndividualPayment": true,
+              "individualAmount": 35000,
+              "individualItems": 0
+            }
+          ]
+        }
+      ],
+      "termly": [],
+      "yearly": []
+    },
+    "totalAmount": 35000,
+    "method": "cash",
+    "date": "2026-07-22T00:01",
+    "reference": "",
+    "notes": "",
+    "receiptNumber": "EDEN743456861",
+    "recordedAt": "2026-07-21T21:02:23.555Z",
+    "isPreviousBalancePayment": false,
+    "originalPeriod": null,
+    "paymentPeriod": {
+      "year": 2026,
+      "term": 2
+    },
+    "isBulkPayment": false,
+    "bulkPaymentId": null,
+    "periodDisplay": "2026 Term 2",
+    "isIndividualPayment": true,
+    "paymentMode": "incremental",
+    "individualPayments": [
+      {
+        "itemName": "Sweater",
+        "amount": 35000,
+        "itemsBrought": null,
+        "date": "2026-07-22T00:01"
+      }
+    ]
   }
 ]
