@@ -117,5 +117,13 @@
     "feeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
     "bursaryId": null,
     "assignedAt": "2026-07-21T20:29:47.645Z"
+  },
+  {
+    "id": "c4aa398b-645d-496f-ae9d-196bc13203da",
+    "studentId": "6fe4579d-6081-441b-b8f3-5df8f0e2816d",
+    "feeStructureId": "c6b9b331-a153-4182-99cb-981a1ba27b70",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-21T20:55:15.047Z"
   }
 ]
