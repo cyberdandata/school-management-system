@@ -3016,7 +3016,7 @@
         ],
         "totalAmount": 56000,
         "createdAt": "2026-07-18T10:22:46.244Z",
-        "updatedAt": "2026-07-21T20:40:49.031Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       },
       {
         "id": "group_1784370166244_cuj7ii",
@@ -3038,7 +3038,7 @@
         ],
         "totalAmount": 25000,
         "createdAt": "2026-07-18T10:22:46.244Z",
-        "updatedAt": "2026-07-21T20:40:49.032Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       },
       {
         "id": "group_1784370166244_zy6aft",
@@ -3070,7 +3070,7 @@
         ],
         "totalAmount": 9000,
         "createdAt": "2026-07-18T10:22:46.244Z",
-        "updatedAt": "2026-07-21T20:40:49.032Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       },
       {
         "id": "group_1784370166244_j1jxgq",
@@ -3132,7 +3132,7 @@
         ],
         "totalAmount": 171000,
         "createdAt": "2026-07-18T10:22:46.244Z",
-        "updatedAt": "2026-07-21T20:40:49.032Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       },
       {
         "id": "group_1784370166244_hgyiuc",
@@ -3154,7 +3154,7 @@
         ],
         "totalAmount": 20000,
         "createdAt": "2026-07-18T10:22:46.244Z",
-        "updatedAt": "2026-07-21T20:40:49.032Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       },
       {
         "id": "group_1784381628708_gmkdkh",
@@ -3184,19 +3184,19 @@
             "isTangible": false
           },
           {
-            "id": "item_1784666444455_vnt5t4",
-            "name": "Passport Photos",
-            "quantity": 1,
+            "id": "item_1784666851157_3z6hk1",
+            "name": "Passport photos",
+            "quantity": 3,
             "cashAmount": 5000,
             "totalAmount": 5000,
-            "unitPrice": 5000,
-            "paymentOption": "cash_only",
-            "isTangible": false
+            "unitPrice": 1666.6666666666667,
+            "paymentOption": "either",
+            "isTangible": true
           }
         ],
         "totalAmount": 35000,
         "createdAt": "2026-07-18T13:33:48.708Z",
-        "updatedAt": "2026-07-21T20:40:49.032Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       },
       {
         "id": "group_1784381963710_x4i9s9",
@@ -3218,12 +3218,12 @@
         ],
         "totalAmount": 20000,
         "createdAt": "2026-07-18T13:39:23.711Z",
-        "updatedAt": "2026-07-21T20:40:49.032Z"
+        "updatedAt": "2026-07-21T20:47:37.133Z"
       }
     ],
     "isActive": true,
     "createdAt": "2026-07-18T09:45:05.523Z",
-    "updatedAt": "2026-07-21T20:40:49.032Z"
+    "updatedAt": "2026-07-21T20:47:37.133Z"
   },
   {
     "id": "a70c9ea5-a364-470e-95df-57ffc2b2f7f1",
