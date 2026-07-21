@@ -82,11 +82,11 @@
   {
     "id": "7719dbe4-3e80-4b85-82ff-86026a3ef5d8",
     "studentId": "4ea8a975-6dc3-446f-9543-43e312e920ce",
-    "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "classId": "a61ce407-56f0-4c52-9739-2c5322ad48e7",
     "academicYear": 2026,
     "isCurrent": true,
     "enrolledAt": "2026-07-20T15:53:18.207Z",
-    "updatedAt": "2026-07-20T16:06:52.326Z"
+    "updatedAt": "2026-07-21T20:29:47.643Z"
   },
   {
     "id": "fb80e808-6cd1-4a4c-987e-522900e9c2da",
@@ -112,5 +112,13 @@
     "academicYear": 2026,
     "isCurrent": true,
     "enrolledAt": "2026-07-21T16:43:40.440Z"
+  },
+  {
+    "id": "090f8804-1ead-4462-a9cc-15ba2a704fad",
+    "studentId": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
+    "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "academicYear": 2026,
+    "isCurrent": true,
+    "enrolledAt": "2026-07-21T20:29:47.645Z"
   }
 ]

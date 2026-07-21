@@ -1900,10 +1900,10 @@
     "admissionType": "New",
     "enrollmentDate": "2026-07-20",
     "status": "Active",
-    "currentClassId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "currentClassId": "a61ce407-56f0-4c52-9739-2c5322ad48e7",
     "enrolledAt": "2026-07-20T15:53:18.207Z",
     "createdAt": "2026-07-20T15:53:18.207Z",
-    "updatedAt": "2026-07-20T16:06:52.326Z"
+    "updatedAt": "2026-07-21T20:29:47.642Z"
   },
   {
     "id": "27f2379d-f274-4fe7-afa1-c3f102034f73",
@@ -1931,5 +1931,32 @@
     "enrolledAt": "2026-07-20T15:53:18.209Z",
     "createdAt": "2026-07-20T15:53:18.209Z",
     "updatedAt": "2026-07-20T16:06:52.327Z"
+  },
+  {
+    "id": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
+    "admissionNumber": "STU20260013",
+    "firstName": "Mary",
+    "lastName": "Smith",
+    "dateOfBirth": "2014-06-20",
+    "gender": "Female",
+    "birthPlace": "Jinja",
+    "nationality": "Ugandan",
+    "parentInfo": {
+      "name": "Peter Smith",
+      "relationship": "Parent",
+      "phone": "0700987654",
+      "altPhone": "",
+      "email": "mary.smith@email.com",
+      "occupation": "Business"
+    },
+    "address": "Jinja, Uganda",
+    "previousSchool": "",
+    "admissionType": "New",
+    "enrollmentDate": "2026-07-21",
+    "status": "Active",
+    "currentClassId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "enrolledAt": "2026-07-21T20:29:47.645Z",
+    "createdAt": "2026-07-21T20:29:47.645Z",
+    "updatedAt": "2026-07-21T20:29:47.645Z"
   }
 ]
