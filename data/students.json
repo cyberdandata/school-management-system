@@ -1931,5 +1931,42 @@
     "enrolledAt": "2026-07-20T15:53:18.209Z",
     "createdAt": "2026-07-20T15:53:18.209Z",
     "updatedAt": "2026-07-20T16:06:52.327Z"
+  },
+  {
+    "id": "dad596a2-c9c6-47af-b90b-e4a6eaf937d7",
+    "admissionNumber": "STU20260013",
+    "firstName": "katambuze",
+    "lastName": "hillary",
+    "dateOfBirth": "",
+    "gender": "Male",
+    "birthPlace": "",
+    "nationality": "Ugandan",
+    "studentPhoto": null,
+    "parentInfo": {
+      "name": "hh",
+      "relationship": "Parent",
+      "phone": "0777777777",
+      "altPhone": "",
+      "email": "hillaryclintonforchrist@gmail.com",
+      "occupation": ""
+    },
+    "address": "mkn",
+    "previousSchool": "",
+    "admissionType": "New",
+    "enrollmentDate": "2026-07-21",
+    "status": "Active",
+    "currentClassId": "64c2dad5-05ae-4219-bdbb-f77154d49e7b",
+    "enrolledAt": "2026-07-21T16:43:40.422Z",
+    "createdAt": "2026-07-21T16:43:40.422Z",
+    "updatedAt": "2026-07-21T16:43:40.422Z",
+    "customBursary": null,
+    "customTransportation": null,
+    "customItemOverrides": null,
+    "removedItems": null,
+    "hasCustomizations": null,
+    "hasRemovedItems": null,
+    "customizationCount": 0,
+    "removedItemsCount": 0,
+    "assignedFeeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef"
   }
 ]
