@@ -9832,12 +9832,9 @@ app.post('/api/students/promote', async (req, res) => {
             feeStructureMap[fs.id] = fs;
             
             const nameKey = fs.name.toLowerCase().trim();
-            // Store by raw name
             feeStructureMap[nameKey] = fs;
             
-            // Separate day/boarding
             if (nameKey.includes('boarding')) {
-                // Remove 'boarding' suffix for base name
                 let base = nameKey.replace('boarding', '').trim();
                 boardingFeeStructures[base] = fs;
                 boardingFeeStructures[base.replace(/\s/g, '')] = fs;
@@ -9878,31 +9875,22 @@ app.post('/api/students/promote', async (req, res) => {
             if (!className) return null;
             const clean = className.toLowerCase().trim();
             
-            // Determine which map to use
             const isBoarding = studentType === 'Boarding';
             const map = isBoarding ? boardingFeeStructures : dayFeeStructures;
             
-            // Try exact match in the specific map
             if (map[clean]) return map[clean];
             if (map[clean.replace(/\s/g, '')]) return map[clean.replace(/\s/g, '')];
             
-            // Try by number (P.5 -> primary 5)
             const match = clean.match(/(p\.?|primary)\s*(\d+)/i);
             if (match) {
                 const num = match[2];
-                const variants = [
-                    `p.${num}`,
-                    `primary ${num}`,
-                    `p${num}`,
-                    `primary${num}`
-                ];
+                const variants = [`p.${num}`, `primary ${num}`, `p${num}`, `primary${num}`];
                 for (const v of variants) {
                     if (map[v]) return map[v];
                     if (map[v.replace(/\s/g, '')]) return map[v.replace(/\s/g, '')];
                 }
             }
             
-            // Try by level (Baby, Middle, Top)
             const levelMatch = clean.match(/(baby|middle|top|nursery)/i);
             if (levelMatch) {
                 const levelMap = {
@@ -9915,18 +9903,16 @@ app.post('/api/students/promote', async (req, res) => {
                 if (levelName) {
                     const cleanLevel = levelName.toLowerCase().trim();
                     if (map[cleanLevel]) return map[cleanLevel];
-                    // Also try with day/boarding suffix removed
                     if (map[cleanLevel.replace(/\s/g, '')]) return map[cleanLevel.replace(/\s/g, '')];
                 }
             }
             
-            // Fallback: try any fee structure that contains the class name
+            // Fallback: any fee structure containing class name, respecting type
             for (const key in feeStructureMap) {
                 const fs = feeStructureMap[key];
                 if (!fs) continue;
                 const fsName = fs.name.toLowerCase().trim();
                 if (fsName.includes(clean) || clean.includes(fsName)) {
-                    // Ensure it matches the type (if type-specific exists)
                     if (isBoarding && fsName.includes('boarding')) return fs;
                     if (!isBoarding && (fsName.includes('day') || !fsName.includes('boarding'))) return fs;
                 }
@@ -9937,7 +9923,7 @@ app.post('/api/students/promote', async (req, res) => {
         }
         
         // ================================================================
-        // DETERMINE STUDENT TYPE (Day/Boarding) - like import
+        // DETERMINE STUDENT TYPE (Day/Boarding)
         // ================================================================
         function determineStudentType(feeStructureId) {
             if (!feeStructureId) return 'Day';
@@ -9953,52 +9939,32 @@ app.post('/api/students/promote', async (req, res) => {
         // DETERMINE STUDENTS TO PROMOTE
         // ================================================================
         let targetStudentIds = [];
-        let promotionReason = '';
-        
-        // Get current enrollments (only those marked as current)
         const currentEnrollments = enrollments.filter(e => e.isCurrent === true);
         
         if (allSchool === true) {
             targetStudentIds = currentEnrollments.map(e => e.studentId);
-            promotionReason = 'All School Promotion';
-            console.log(`🏫 Promoting ALL ${targetStudentIds.length} students`);
         } else if (level) {
             const levelClasses = classes.filter(c => c.level === level);
             const classIds = levelClasses.map(c => c.id);
             const levelEnrollments = currentEnrollments.filter(e => classIds.includes(e.classId));
             targetStudentIds = levelEnrollments.map(e => e.studentId);
-            promotionReason = `Level Promotion: ${level}`;
-            console.log(`🏷️ Promoting ${level}: ${targetStudentIds.length} students`);
         } else if (fromClassId) {
             const classEnrollments = currentEnrollments.filter(e => e.classId === fromClassId);
             targetStudentIds = classEnrollments.map(e => e.studentId);
-            promotionReason = `Class Promotion from: ${classMap[fromClassId]?.name || fromClassId}`;
-            console.log(`📚 Promoting from class: ${targetStudentIds.length} students`);
         } else if (studentIds && Array.isArray(studentIds) && studentIds.length > 0) {
             targetStudentIds = studentIds;
-            promotionReason = `Individual Promotion (${studentIds.length} students)`;
-            console.log(`👤 Promoting ${studentIds.length} individual students`);
         }
         
-        // Remove duplicates
         targetStudentIds = [...new Set(targetStudentIds)];
         
         if (targetStudentIds.length === 0) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'No students found to promote' 
-            });
+            return res.status(400).json({ success: false, error: 'No students found to promote' });
         }
         
         // ================================================================
         // PROCESS EACH STUDENT
         // ================================================================
-        const results = { 
-            success: [], 
-            failed: [],
-            skipped: []
-        };
-        
+        const results = { success: [], failed: [], skipped: [] };
         const enrollmentsToAdd = [];
         const enrollmentsToUpdate = [];
         const feeAssignmentsToAdd = [];
@@ -10007,14 +9973,12 @@ app.post('/api/students/promote', async (req, res) => {
         
         for (const studentId of targetStudentIds) {
             try {
-                // Find student
                 const student = students.find(s => s && s.id === studentId);
                 if (!student) {
                     results.failed.push({ studentId, reason: 'Student not found' });
                     continue;
                 }
                 
-                // Find current enrollment
                 const currentEnrollment = currentEnrollments.find(e => e.studentId === studentId);
                 if (!currentEnrollment) {
                     results.failed.push({ studentId, reason: 'No current enrollment' });
@@ -10027,65 +9991,33 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
                 
-                // ================================================================
-                // DETERMINE STUDENT TYPE FROM CURRENT FEE STRUCTURE
-                // ================================================================
+                // Determine student type
                 const currentAssignment = feeAssignments.find(a => a.studentId === studentId);
                 let studentType = 'Day';
-                let currentFeeStructure = null;
-                
                 if (currentAssignment) {
-                    currentFeeStructure = feeStructureMap[currentAssignment.feeStructureId];
-                    if (currentFeeStructure) {
-                        studentType = determineStudentType(currentAssignment.feeStructureId);
-                        console.log(`   📍 ${student.firstName} ${student.lastName}: Current type = ${studentType} (${currentFeeStructure.name})`);
-                    }
+                    studentType = determineStudentType(currentAssignment.feeStructureId);
                 }
+                console.log(`   📍 ${student.firstName} ${student.lastName}: Type = ${studentType}`);
                 
-                // Also check student's custom transportation or other indicators
-                if (student.customTransportation && student.customTransportation.hasTransportation !== false) {
-                    // If they have transportation, they might be Day (usually)
-                    // But we already determined from fee structure
-                }
-                
-                // ================================================================
-                // DETERMINE TARGET CLASS
-                // ================================================================
+                // Determine target class
                 let targetClassId = toClassId;
-                
                 if (!targetClassId) {
-                    // Auto-promote: find next level
                     const levelOrder = ['Nursery', 'LowerPrimary', 'UpperPrimary'];
                     const currentIndex = levelOrder.indexOf(currentClass.level);
-                    
                     if (currentIndex === -1 || currentIndex === levelOrder.length - 1) {
-                        // Already in highest level - skip
-                        results.skipped.push({ 
-                            studentId, 
-                            reason: 'Already in highest level',
-                            currentClass: currentClass.name
-                        });
+                        results.skipped.push({ studentId, reason: 'Already in highest level', currentClass: currentClass.name });
                         continue;
                     }
-                    
                     const nextLevel = levelOrder[currentIndex + 1];
                     const nextClasses = classes.filter(c => c.level === nextLevel);
-                    
-                    // Try to match by number (e.g., P.1 -> P.2)
                     const numMatch = currentClass.name.match(/(\d+)/);
                     const num = numMatch ? numMatch[1] : '';
                     let matched = nextClasses.find(c => c.name.includes(num));
                     if (!matched && nextClasses.length > 0) matched = nextClasses[0];
-                    
                     if (!matched) {
-                        results.skipped.push({ 
-                            studentId, 
-                            reason: 'No target class found',
-                            currentClass: currentClass.name
-                        });
+                        results.skipped.push({ studentId, reason: 'No target class found', currentClass: currentClass.name });
                         continue;
                     }
-                    
                     targetClassId = matched.id;
                 }
                 
@@ -10095,11 +10027,9 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
                 
-                console.log(`   📈 ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (Type: ${studentType})`);
+                console.log(`   📈 ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (${studentType})`);
                 
-                // ================================================================
-                // FIND FEE STRUCTURE FOR TARGET CLASS WITH CORRECT TYPE (using the enhanced matcher)
-                // ================================================================
+                // Find fee structure for target class and student type
                 const newFeeStructure = findFeeStructureForClassAndType(targetClass.name, studentType);
                 const newFeeStructureId = newFeeStructure?.id || null;
                 const newFeeStructureName = newFeeStructure?.name || null;
@@ -10110,9 +10040,7 @@ app.post('/api/students/promote', async (req, res) => {
                     console.log(`   💰 Fee structure: ${newFeeStructureName}`);
                 }
                 
-                // ================================================================
-                // CREATE NEW ENROLLMENT FOR NEXT YEAR
-                // ================================================================
+                // Create new enrollment
                 const newEnrollment = {
                     id: uuidv4(),
                     studentId: studentId,
@@ -10124,25 +10052,22 @@ app.post('/api/students/promote', async (req, res) => {
                     createdAt: new Date().toISOString()
                 };
                 
-                // MARK OLD ENROLLMENT AS NOT CURRENT
+                // Mark old enrollment as not current
                 currentEnrollment.isCurrent = false;
                 currentEnrollment.completedAt = new Date().toISOString();
                 enrollmentsToUpdate.push(currentEnrollment);
-                
-                // ADD NEW ENROLLMENT
                 enrollmentsToAdd.push(newEnrollment);
                 
                 // ================================================================
-                // CREATE/UPDATE FEE ASSIGNMENT FOR THE NEW YEAR
+                // UPDATE FEE ASSIGNMENT FOR THE NEW YEAR
                 // ================================================================
                 if (newFeeStructureId) {
-                    // Check if there's already a fee assignment for this student for the next year
+                    // Check if there's already a fee assignment for next year
                     const existingAssignment = feeAssignments.find(a => 
                         a.studentId === studentId && a.academicYear === nextYear
                     );
                     
                     if (existingAssignment) {
-                        // Update existing assignment
                         existingAssignment.feeStructureId = newFeeStructureId;
                         existingAssignment.bursaryId = currentAssignment?.bursaryId || null;
                         existingAssignment.updatedAt = new Date().toISOString();
@@ -10153,7 +10078,6 @@ app.post('/api/students/promote', async (req, res) => {
                         feeAssignmentsToUpdate.push(existingAssignment);
                         console.log(`   ✅ Updated fee assignment for ${nextYear}`);
                     } else {
-                        // Create new assignment
                         const newAssignment = {
                             id: uuidv4(),
                             studentId: studentId,
@@ -10169,9 +10093,11 @@ app.post('/api/students/promote', async (req, res) => {
                 }
                 
                 // ================================================================
-                // UPDATE STUDENT'S CURRENT CLASS
+                // UPDATE STUDENT OBJECT - CRITICAL: Update assignedFeeStructureId
                 // ================================================================
                 student.currentClassId = targetClassId;
+                student.assignedFeeStructureId = newFeeStructureId;  // <-- CRITICAL FIX
+                student.feeStructureId = newFeeStructureId;          // Also update any other fee structure field
                 student.updatedAt = new Date().toISOString();
                 studentsToUpdate.push(student);
                 
@@ -10192,10 +10118,7 @@ app.post('/api/students/promote', async (req, res) => {
                 
             } catch (error) {
                 console.error(`❌ Error promoting ${studentId}:`, error.message);
-                results.failed.push({ 
-                    studentId, 
-                    reason: error.message 
-                });
+                results.failed.push({ studentId, reason: error.message });
             }
         }
         
@@ -10209,38 +10132,26 @@ app.post('/api/students/promote', async (req, res) => {
         console.log(`   📝 ${feeAssignmentsToUpdate.length} fee assignments to update`);
         console.log(`   📝 ${studentsToUpdate.length} students to update`);
         
-        // Apply updates to arrays
+        // Apply updates
         for (const update of enrollmentsToUpdate) {
             const idx = enrollments.findIndex(e => e.id === update.id);
             if (idx !== -1) enrollments[idx] = update;
         }
-        
-        for (const add of enrollmentsToAdd) {
-            enrollments.push(add);
-        }
-        
-        for (const add of feeAssignmentsToAdd) {
-            feeAssignments.push(add);
-        }
-        
+        for (const add of enrollmentsToAdd) enrollments.push(add);
+        for (const add of feeAssignmentsToAdd) feeAssignments.push(add);
         for (const update of feeAssignmentsToUpdate) {
             const idx = feeAssignments.findIndex(a => a.id === update.id);
             if (idx !== -1) feeAssignments[idx] = update;
         }
-        
         for (const update of studentsToUpdate) {
             const idx = students.findIndex(s => s.id === update.id);
             if (idx !== -1) students[idx] = update;
         }
         
-        // Save all files
-        const saveResults = {
-            students: saveJSON('students.json', students),
-            enrollments: saveJSON('enrollments.json', enrollments),
-            feeAssignments: saveJSON('studentFeeAssignments.json', feeAssignments)
-        };
-        
-        console.log(`💾 Save results:`, saveResults);
+        // Save files
+        saveJSON('students.json', students);
+        saveJSON('enrollments.json', enrollments);
+        saveJSON('studentFeeAssignments.json', feeAssignments);
         
         // ================================================================
         // SEND RESPONSE
@@ -10253,8 +10164,7 @@ app.post('/api/students/promote', async (req, res) => {
                 successCount: results.success.length,
                 failedCount: results.failed.length,
                 skippedCount: results.skipped.length,
-                nextAcademicYear: nextYear,
-                promotionReason: promotionReason
+                nextAcademicYear: nextYear
             },
             results: results,
             promotedStudents: results.success
@@ -10270,12 +10180,7 @@ app.post('/api/students/promote', async (req, res) => {
         
     } catch (error) {
         console.error('❌ Promotion error:', error);
-        console.error('Stack:', error.stack);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
