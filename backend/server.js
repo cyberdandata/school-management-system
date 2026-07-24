@@ -2589,145 +2589,26 @@ app.delete('/api/fee/bursaries/:id', (req, res) => {
 app.get('/api/student-fee-assignments', (req, res) => {
     res.json(readFile(files.studentFeeAssignments));
 });
-app.get('/api/student-fee-assignments/period', (req, res) => {
-    const { studentId, year, term } = req.query;
-    
-    if (!studentId) {
-        return res.status(400).json({ error: 'Student ID is required' });
-    }
-    
-    const assignments = readFile(files.studentFeeAssignments);
-    const targetYear = parseInt(year) || currentAcademicSettings.currentYear;
-    const targetTerm = parseInt(term) || currentAcademicSettings.currentTerm;
-    
-    // Look for assignment for this specific period
-    let assignment = assignments.find(a => 
-        a.studentId === studentId && 
-        a.academicYear === targetYear && 
-        a.academicTerm === targetTerm
-    );
-    
-    // If not found, look for the current assignment
-    if (!assignment) {
-        assignment = assignments.find(a => 
-            a.studentId === studentId && 
-            a.isCurrent === true
-        );
-    }
-    
-    // If still not found, look for any assignment for this student
-    if (!assignment) {
-        assignment = assignments.find(a => a.studentId === studentId);
-    }
-    
-    res.json({ 
-        success: true, 
-        assignment: assignment || null,
-        period: {
-            year: targetYear,
-            term: targetTerm
-        }
-    });
-});
-app.post('/api/student-fee-assignments', async (req, res) => {
-    console.log('=== PERIOD-AWARE FEE ASSIGNMENT ===');
-    const { studentId, feeStructureId, bursaryId, academicYear, academicTerm } = req.body;
-    
-    if (!studentId) {
-        return res.status(400).json({ error: 'Student ID is required' });
-    }
-    
+
+app.post('/api/student-fee-assignments', (req, res) => {
+    const { studentId, feeStructureId, bursaryId } = req.body;
     let assignments = readFile(files.studentFeeAssignments);
     
-    // Get current academic period
-    const settings = readFile(files.settings);
-    const year = academicYear || settings.currentAcademicYear || new Date().getFullYear();
-    const term = academicTerm || settings.currentTerm || 1;
-    
-    console.log(`📅 Student: ${studentId}, Period: ${year} Term ${term}`);
-    console.log(`📦 Fee Structure: ${feeStructureId || 'None'}`);
-    console.log(`🎖️ Bursary: ${bursaryId || 'None'}`);
-    
-    // ================================================================
-    // STEP 1: Find existing assignment for this student AND period
-    // ================================================================
-    const existingIndex = assignments.findIndex(a => 
-        a.studentId === studentId && 
-        a.academicYear === year && 
-        a.academicTerm === term
-    );
-    
-    // ================================================================
-    // STEP 2: Build the assignment object
-    // ================================================================
-    const newAssignment = {
+    const existingIndex = assignments.findIndex(a => a.studentId === studentId);
+    const assignment = {
         id: existingIndex !== -1 ? assignments[existingIndex].id : uuidv4(),
-        studentId: studentId,
+        studentId,
         feeStructureId: feeStructureId || null,
         bursaryId: bursaryId || null,
-        academicYear: year,
-        academicTerm: term,
-        isCurrent: true,
-        assignedAt: existingIndex !== -1 ? assignments[existingIndex].assignedAt : new Date().toISOString(),
+        assignedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
     
-    // ================================================================
-    // STEP 3: Mark older periods as NOT current for this student
-    // ================================================================
-    assignments = assignments.map(a => {
-        if (a.studentId === studentId && 
-            (a.academicYear !== year || a.academicTerm !== term)) {
-            return { ...a, isCurrent: false };
-        }
-        return a;
-    });
+    if (existingIndex !== -1) assignments[existingIndex] = assignment;
+    else assignments.push(assignment);
     
-    // ================================================================
-    // STEP 4: Save or update the assignment
-    // ================================================================
-    let savedAssignment;
-    if (existingIndex !== -1) {
-        assignments[existingIndex] = newAssignment;
-        savedAssignment = newAssignment;
-        console.log(`🔄 Updated assignment for ${studentId} (${year} Term ${term})`);
-    } else {
-        assignments.push(newAssignment);
-        savedAssignment = newAssignment;
-        console.log(`➕ New assignment for ${studentId} (${year} Term ${term})`);
-    }
-    
-    // ================================================================
-    // STEP 5: Also update the student object's feeStructureId for quick access
-    // ================================================================
-    let students = readFile(files.students);
-    const studentIndex = students.findIndex(s => s.id === studentId);
-    if (studentIndex !== -1) {
-        students[studentIndex].feeStructureId = feeStructureId || null;
-        students[studentIndex].assignedFeeStructureId = feeStructureId || null;
-        students[studentIndex].bursaryId = bursaryId || null;
-        students[studentIndex].updatedAt = new Date().toISOString();
-        saveFile(files.students, students);
-        console.log(`✅ Updated student object with new fee structure ID`);
-    }
-    
-    // ================================================================
-    // STEP 6: Save to file
-    // ================================================================
     saveFile(files.studentFeeAssignments, assignments);
-    
-    // ================================================================
-    // STEP 7: Return the assignment with period info
-    // ================================================================
-    res.json({ 
-        success: true, 
-        assignment: savedAssignment,
-        period: {
-            year: year,
-            term: term
-        },
-        message: `Fee structure assigned for ${year} Term ${term}`
-    });
+    res.json({ success: true });
 });
 
 // Get all status groups
