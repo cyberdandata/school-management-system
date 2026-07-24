@@ -1,7 +1,6 @@
 {
-  
-  "currentAcademicYear": 2026,
-  "currentTerm": 2,
+  "currentAcademicYear": 2027,
+  "currentTerm": 1,
   "gradingSystem": {
     "A": {
       "min": 80,
@@ -34,5 +33,5 @@
       "remark": "Poor"
     }
   },
-  "lastUpdated": "2026-07-18T02:28:29.319Z"
+  "lastUpdated": "2026-07-24T07:02:50.487Z"
 }

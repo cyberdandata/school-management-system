@@ -2017,39 +2017,10 @@ app.delete('/api/students/:id', (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/students/promote', (req, res) => {
-    const { studentIds, toClassId, academicYear } = req.body;
-    if (!studentIds || !studentIds.length) {
-        return res.status(400).json({ error: 'No students selected' });
-    }
-    
-    let enrollments = readFile(files.enrollments);
-    const currentYear = academicYear || new Date().getFullYear();
-    const nextYear = currentYear + 1;
-    
-    studentIds.forEach(studentId => {
-        const currentEnrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent);
-        if (currentEnrollment) {
-            currentEnrollment.isCurrent = false;
-            currentEnrollment.completedAt = new Date().toISOString();
-        }
-        
-        enrollments.push({
-            id: uuidv4(),
-            studentId: studentId,
-            classId: toClassId,
-            academicYear: nextYear,
-            isCurrent: true,
-            promotedFrom: currentEnrollment?.classId,
-            promotedAt: new Date().toISOString()
-        });
-    });
-    
-    saveFile(files.enrollments, enrollments);
-    res.json({ success: true, promotedCount: studentIds.length });
-});
+// ================================================================
+// COMPLETE REBUILD: STUDENT PROMOTION ENDPOINT
+// ================================================================
 
-// ==================== GRADING SYSTEM ROUTES ====================
 
 app.get('/api/school/grading', (req, res) => {
     res.json({ gradingSystem: getGradingSystem() });
@@ -9771,7 +9742,616 @@ app.delete('/api/fee/payments/:id', (req, res) => {
     }
 });
 
+// ================================================================
+// STUDENT PROMOTION ENDPOINT - COMPLETE
+// ================================================================
 
+// Make sure uuid is required at the top of server.js
+// const { v4: uuidv4 } = require('uuid');
+
+// ================================================================
+// STUDENT PROMOTION - COMPLETE REBUILD (WORKING)
+// ================================================================
+
+// ================================================================
+// STUDENT PROMOTION - COMPLETE FIXED (Fee Structure Assignment)
+// ================================================================
+
+app.post('/api/students/promote', async (req, res) => {
+    console.log('🎓 === STUDENT PROMOTION REQUEST ===');
+    console.log('📦 Body:', JSON.stringify(req.body, null, 2));
+    
+    try {
+        const { studentIds, toClassId, academicYear, allSchool, level, fromClassId } = req.body;
+        
+        // ================================================================
+        // READ ALL DATA
+        // ================================================================
+        const dataDir = path.join(__dirname, 'data');
+        
+        function readJSON(file) {
+            const filePath = path.join(dataDir, file);
+            if (!fs.existsSync(filePath)) {
+                console.warn(`⚠️ File not found: ${file}, creating empty`);
+                return [];
+            }
+            try {
+                const content = fs.readFileSync(filePath, 'utf8');
+                return JSON.parse(content);
+            } catch (e) {
+                console.warn(`⚠️ Error reading ${file}:`, e.message);
+                return [];
+            }
+        }
+        
+        function saveJSON(file, data) {
+            const filePath = path.join(dataDir, file);
+            try {
+                fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+                console.log(`✅ Saved: ${file}`);
+                return true;
+            } catch (e) {
+                console.error(`❌ Error saving ${file}:`, e.message);
+                return false;
+            }
+        }
+        
+        // Read all data
+        let students = readJSON('students.json');
+        let enrollments = readJSON('enrollments.json');
+        let feeAssignments = readJSON('studentFeeAssignments.json');
+        let feeStructures = readJSON('feeStructures.json');
+        let classes = readJSON('classes.json');
+        
+        // Ensure arrays
+        students = Array.isArray(students) ? students : [];
+        enrollments = Array.isArray(enrollments) ? enrollments : [];
+        feeAssignments = Array.isArray(feeAssignments) ? feeAssignments : [];
+        feeStructures = Array.isArray(feeStructures) ? feeStructures : [];
+        classes = Array.isArray(classes) ? classes : [];
+        
+        const currentYear = academicYear || new Date().getFullYear();
+        const nextYear = currentYear + 1;
+        
+        console.log(`📊 Data: ${students.length} students, ${feeStructures.length} fee structures, ${classes.length} classes`);
+        console.log(`📅 Current: ${currentYear}, Next: ${nextYear}`);
+        
+        // Build maps
+        const classMap = {};
+        classes.forEach(c => { if (c && c.id) classMap[c.id] = c; });
+        
+        const feeStructureMap = {};
+        feeStructures.forEach(fs => { if (fs && fs.id) feeStructureMap[fs.id] = fs; });
+        
+        // ================================================================
+        // IMPROVED: Find Fee Structure for Target Class
+        // ================================================================
+        function findFeeStructureForClass(targetClassName, studentType) {
+            console.log(`🔍 Finding fee structure for: "${targetClassName}" (${studentType})`);
+            
+            // Clean the target class name
+            const cleanTarget = targetClassName.toLowerCase().trim();
+            
+            // Extract level and number from target class
+            // e.g., "P.5" -> { level: 'Primary', number: '5' }
+            // e.g., "Baby Class" -> { level: 'Nursery', number: null }
+            const levelMap = {
+                'baby': 'Nursery',
+                'middle': 'Nursery', 
+                'top': 'Nursery',
+                'nursery': 'Nursery',
+                'p.': 'Primary',
+                'primary': 'Primary'
+            };
+            
+            let level = '';
+            let number = '';
+            let classType = 'Day';
+            
+            // Check if it's a primary class with number
+            const primaryMatch = cleanTarget.match(/(p\.?|primary)\s*(\d+)/i);
+            if (primaryMatch) {
+                level = 'Primary';
+                number = primaryMatch[2];
+                console.log(`   📊 Detected: Primary ${number}`);
+            } else {
+                // Check if it's nursery
+                for (const [key, val] of Object.entries(levelMap)) {
+                    if (cleanTarget.includes(key)) {
+                        level = val;
+                        break;
+                    }
+                }
+                if (!level) {
+                    // Try to match by level from class object
+                    const classObj = classes.find(c => c.name.toLowerCase() === cleanTarget);
+                    if (classObj) {
+                        level = classObj.level || 'LowerPrimary';
+                    }
+                }
+            }
+            
+            // Determine if Day or Boarding from student type
+            const isBoarding = studentType === 'Boarding';
+            classType = isBoarding ? 'Boarding' : 'Day';
+            
+            // Build possible fee structure names to search for
+            const possibleNames = [];
+            
+            if (level === 'Primary' && number) {
+                possibleNames.push(`Primary ${number} ${classType}`);
+                possibleNames.push(`Primary ${number} Day`);
+                possibleNames.push(`Primary ${number} Boarding`);
+                possibleNames.push(`P.${number} ${classType}`);
+                possibleNames.push(`P.${number} Day`);
+                possibleNames.push(`P.${number} Boarding`);
+                possibleNames.push(`Primary ${number}`);
+                possibleNames.push(`P.${number}`);
+            } else if (level === 'Nursery') {
+                possibleNames.push(`${targetClassName} ${classType}`);
+                possibleNames.push(`${targetClassName} Day`);
+                possibleNames.push(`${targetClassName} Boarding`);
+                // Also try with "Class" suffix
+                if (!targetClassName.toLowerCase().includes('class')) {
+                    possibleNames.push(`${targetClassName} Class ${classType}`);
+                    possibleNames.push(`${targetClassName} Class Day`);
+                    possibleNames.push(`${targetClassName} Class Boarding`);
+                }
+            }
+            
+            // Also try direct match with the exact class name
+            possibleNames.push(targetClassName);
+            if (isBoarding && !targetClassName.toLowerCase().includes('boarding')) {
+                possibleNames.push(`${targetClassName} Boarding`);
+            }
+            if (!isBoarding && !targetClassName.toLowerCase().includes('day')) {
+                possibleNames.push(`${targetClassName} Day`);
+            }
+            
+            console.log(`   🔍 Searching for: ${possibleNames.join(', ')}`);
+            
+            // Search for matching fee structure
+            for (const name of possibleNames) {
+                const lowerName = name.toLowerCase().trim();
+                const matched = feeStructures.find(fs => {
+                    if (!fs || fs.isActive === false) return false;
+                    const fsName = fs.name.toLowerCase().trim();
+                    // Exact match
+                    if (fsName === lowerName) return true;
+                    // Contains match
+                    if (fsName.includes(lowerName) || lowerName.includes(fsName)) {
+                        // For primary classes, make sure the number matches
+                        if (number && fsName.includes(number)) {
+                            // If looking for boarding, prefer boarding
+                            if (isBoarding && fsName.includes('boarding')) return true;
+                            if (!isBoarding && fsName.includes('day')) return true;
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+                
+                if (matched) {
+                    console.log(`   ✅ Matched: ${matched.name} (ID: ${matched.id})`);
+                    return matched;
+                }
+            }
+            
+            // Fallback: Try to find ANY fee structure with the class name
+            console.log(`   ⚠️ No exact match, trying fallback...`);
+            const fallbackMatch = feeStructures.find(fs => {
+                if (!fs || fs.isActive === false) return false;
+                const fsName = fs.name.toLowerCase().trim();
+                const clsName = cleanTarget;
+                // Check if class name appears in fee structure name
+                if (fsName.includes(clsName) || clsName.includes(fsName)) {
+                    // For primary with number, ensure number matches
+                    if (number && fsName.includes(number)) {
+                        return true;
+                    }
+                    return true;
+                }
+                return false;
+            });
+            
+            if (fallbackMatch) {
+                console.log(`   ✅ Fallback matched: ${fallbackMatch.name}`);
+                return fallbackMatch;
+            }
+            
+            console.log(`   ❌ No fee structure found for: ${targetClassName}`);
+            return null;
+        }
+        
+        // ================================================================
+        // DETERMINE STUDENTS TO PROMOTE
+        // ================================================================
+        let targetStudentIds = [];
+        let promotionReason = '';
+        
+        // Get current enrollments (only those marked as current)
+        const currentEnrollments = enrollments.filter(e => e.isCurrent === true);
+        
+        if (allSchool === true) {
+            targetStudentIds = currentEnrollments.map(e => e.studentId);
+            promotionReason = 'All School Promotion';
+            console.log(`🏫 Promoting ALL ${targetStudentIds.length} students`);
+        } else if (level) {
+            const levelClasses = classes.filter(c => c.level === level);
+            const classIds = levelClasses.map(c => c.id);
+            const levelEnrollments = currentEnrollments.filter(e => classIds.includes(e.classId));
+            targetStudentIds = levelEnrollments.map(e => e.studentId);
+            promotionReason = `Level Promotion: ${level}`;
+            console.log(`🏷️ Promoting ${level}: ${targetStudentIds.length} students`);
+        } else if (fromClassId) {
+            const classEnrollments = currentEnrollments.filter(e => e.classId === fromClassId);
+            targetStudentIds = classEnrollments.map(e => e.studentId);
+            promotionReason = `Class Promotion from: ${classMap[fromClassId]?.name || fromClassId}`;
+            console.log(`📚 Promoting from class: ${targetStudentIds.length} students`);
+        } else if (studentIds && Array.isArray(studentIds) && studentIds.length > 0) {
+            targetStudentIds = studentIds;
+            promotionReason = `Individual Promotion (${studentIds.length} students)`;
+            console.log(`👤 Promoting ${studentIds.length} individual students`);
+        }
+        
+        // Remove duplicates
+        targetStudentIds = [...new Set(targetStudentIds)];
+        
+        if (targetStudentIds.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No students found to promote' 
+            });
+        }
+        
+        // ================================================================
+        // PROCESS EACH STUDENT
+        // ================================================================
+        const results = { 
+            success: [], 
+            failed: [],
+            skipped: []
+        };
+        
+        const enrollmentsToAdd = [];
+        const enrollmentsToUpdate = [];
+        const feeAssignmentsToAdd = [];
+        const feeAssignmentsToUpdate = [];
+        const studentsToUpdate = [];
+        
+        for (const studentId of targetStudentIds) {
+            try {
+                // Find student
+                const student = students.find(s => s && s.id === studentId);
+                if (!student) {
+                    results.failed.push({ studentId, reason: 'Student not found' });
+                    continue;
+                }
+                
+                // Find current enrollment
+                const currentEnrollment = currentEnrollments.find(e => e.studentId === studentId);
+                if (!currentEnrollment) {
+                    results.failed.push({ studentId, reason: 'No current enrollment' });
+                    continue;
+                }
+                
+                const currentClass = classMap[currentEnrollment.classId];
+                if (!currentClass) {
+                    results.failed.push({ studentId, reason: 'Current class not found' });
+                    continue;
+                }
+                
+                // Determine target class
+                let targetClassId = toClassId;
+                
+                if (!targetClassId) {
+                    // Auto-promote: find next level
+                    const levelOrder = ['Nursery', 'LowerPrimary', 'UpperPrimary'];
+                    const currentIndex = levelOrder.indexOf(currentClass.level);
+                    
+                    if (currentIndex === -1 || currentIndex === levelOrder.length - 1) {
+                        // Already in highest level - skip
+                        results.skipped.push({ 
+                            studentId, 
+                            reason: 'Already in highest level',
+                            currentClass: currentClass.name
+                        });
+                        continue;
+                    }
+                    
+                    const nextLevel = levelOrder[currentIndex + 1];
+                    const nextClasses = classes.filter(c => c.level === nextLevel);
+                    
+                    // Try to match by number (e.g., P.1 -> P.2)
+                    const numMatch = currentClass.name.match(/(\d+)/);
+                    const num = numMatch ? numMatch[1] : '';
+                    let matched = nextClasses.find(c => c.name.includes(num));
+                    if (!matched && nextClasses.length > 0) matched = nextClasses[0];
+                    
+                    if (!matched) {
+                        results.skipped.push({ 
+                            studentId, 
+                            reason: 'No target class found',
+                            currentClass: currentClass.name
+                        });
+                        continue;
+                    }
+                    
+                    targetClassId = matched.id;
+                }
+                
+                const targetClass = classMap[targetClassId];
+                if (!targetClass) {
+                    results.failed.push({ studentId, reason: 'Target class not found' });
+                    continue;
+                }
+                
+                console.log(`\n📌 Processing: ${student.firstName} ${student.lastName}`);
+                console.log(`   From: ${currentClass.name} (${currentClass.level})`);
+                console.log(`   To: ${targetClass.name} (${targetClass.level})`);
+                
+                // ================================================================
+                // DETERMINE STUDENT TYPE (Day/Boarding) from current fee structure
+                // ================================================================
+                const currentAssignment = feeAssignments.find(a => a.studentId === studentId);
+                let studentType = 'Day';
+                
+                if (currentAssignment) {
+                    const currentFs = feeStructureMap[currentAssignment.feeStructureId];
+                    if (currentFs) {
+                        const fsName = currentFs.name.toLowerCase();
+                        if (fsName.includes('boarding')) studentType = 'Boarding';
+                        else if (fsName.includes('day')) studentType = 'Day';
+                    }
+                }
+                
+                console.log(`   🏫 Student Type: ${studentType}`);
+                
+                // ================================================================
+                // FIND FEE STRUCTURE FOR TARGET CLASS
+                // ================================================================
+                const newFeeStructure = findFeeStructureForClass(targetClass.name, studentType);
+                const newFeeStructureId = newFeeStructure?.id || null;
+                const newFeeStructureName = newFeeStructure?.name || 'Not Assigned';
+                
+                console.log(`   💰 Fee Structure: ${newFeeStructureName}`);
+                
+                // ================================================================
+                // CREATE NEW ENROLLMENT FOR NEXT YEAR
+                // ================================================================
+                const newEnrollment = {
+                    id: uuidv4(),
+                    studentId: studentId,
+                    classId: targetClassId,
+                    academicYear: nextYear,
+                    isCurrent: true,
+                    promotedFrom: currentEnrollment.classId,
+                    promotedAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString()
+                };
+                
+                // MARK OLD ENROLLMENT AS NOT CURRENT
+                currentEnrollment.isCurrent = false;
+                currentEnrollment.completedAt = new Date().toISOString();
+                enrollmentsToUpdate.push(currentEnrollment);
+                
+                // ADD NEW ENROLLMENT
+                enrollmentsToAdd.push(newEnrollment);
+                
+                // ================================================================
+                // UPDATE OR CREATE FEE ASSIGNMENT FOR THE NEW ACADEMIC YEAR
+                // ================================================================
+                if (newFeeStructureId) {
+                    // Check if there's already a fee assignment for this student for the next year
+                    const existingAssignment = feeAssignments.find(a => 
+                        a.studentId === studentId && a.academicYear === nextYear
+                    );
+                    
+                    if (existingAssignment) {
+                        // Update existing assignment
+                        existingAssignment.feeStructureId = newFeeStructureId;
+                        existingAssignment.updatedAt = new Date().toISOString();
+                        feeAssignmentsToUpdate.push(existingAssignment);
+                        console.log(`   📝 Updated fee assignment for ${nextYear}`);
+                    } else {
+                        // Create new assignment
+                        const newAssignment = {
+                            id: uuidv4(),
+                            studentId: studentId,
+                            feeStructureId: newFeeStructureId,
+                            bursaryId: currentAssignment?.bursaryId || null,
+                            assignedAt: new Date().toISOString(),
+                            academicYear: nextYear,
+                            // Preserve custom bursary
+                            customBursaryAmount: student.customBursary?.amount || null
+                        };
+                        feeAssignmentsToAdd.push(newAssignment);
+                        console.log(`   📝 Created new fee assignment for ${nextYear}`);
+                    }
+                } else {
+                    console.warn(`   ⚠️ No fee structure assigned for ${targetClass.name}`);
+                }
+                
+                // ================================================================
+                // UPDATE STUDENT'S CURRENT CLASS
+                // ================================================================
+                student.currentClassId = targetClassId;
+                student.updatedAt = new Date().toISOString();
+                studentsToUpdate.push(student);
+                
+                // ================================================================
+                // RECORD SUCCESS
+                // ================================================================
+                results.success.push({
+                    studentId,
+                    studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown',
+                    fromClass: currentClass.name,
+                    toClass: targetClass.name,
+                    feeStructure: newFeeStructureName,
+                    academicYear: nextYear
+                });
+                
+                console.log(`   ✅ ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (${newFeeStructureName})`);
+                
+            } catch (error) {
+                console.error(`❌ Error promoting ${studentId}:`, error.message);
+                results.failed.push({ 
+                    studentId, 
+                    reason: error.message 
+                });
+            }
+        }
+        
+        // ================================================================
+        // SAVE ALL CHANGES
+        // ================================================================
+        console.log(`\n💾 Saving changes...`);
+        console.log(`   📝 ${enrollmentsToUpdate.length} enrollments to update`);
+        console.log(`   📝 ${enrollmentsToAdd.length} new enrollments`);
+        console.log(`   📝 ${feeAssignmentsToAdd.length} new fee assignments`);
+        console.log(`   📝 ${studentsToUpdate.length} students to update`);
+        
+        // Apply updates to arrays
+        for (const update of enrollmentsToUpdate) {
+            const idx = enrollments.findIndex(e => e.id === update.id);
+            if (idx !== -1) enrollments[idx] = update;
+        }
+        
+        for (const add of enrollmentsToAdd) {
+            enrollments.push(add);
+        }
+        
+        for (const add of feeAssignmentsToAdd) {
+            feeAssignments.push(add);
+        }
+        
+        for (const update of feeAssignmentsToUpdate) {
+            const idx = feeAssignments.findIndex(a => a.id === update.id);
+            if (idx !== -1) feeAssignments[idx] = update;
+        }
+        
+        for (const update of studentsToUpdate) {
+            const idx = students.findIndex(s => s.id === update.id);
+            if (idx !== -1) students[idx] = update;
+        }
+        
+        // Save all files
+        const saveResults = {
+            students: saveJSON('students.json', students),
+            enrollments: saveJSON('enrollments.json', enrollments),
+            feeAssignments: saveJSON('studentFeeAssignments.json', feeAssignments)
+        };
+        
+        console.log(`💾 Save results:`, saveResults);
+        
+        // ================================================================
+        // SEND RESPONSE
+        // ================================================================
+        const response = {
+            success: true,
+            message: `Promoted ${results.success.length} students successfully`,
+            summary: {
+                totalProcessed: targetStudentIds.length,
+                successCount: results.success.length,
+                failedCount: results.failed.length,
+                skippedCount: results.skipped.length,
+                nextAcademicYear: nextYear,
+                promotionReason: promotionReason
+            },
+            results: results,
+            promotedStudents: results.success
+        };
+        
+        console.log(`\n📊 Promotion Summary:`);
+        console.log(`   ✅ Success: ${results.success.length}`);
+        console.log(`   ❌ Failed: ${results.failed.length}`);
+        console.log(`   ⏭️ Skipped: ${results.skipped.length}`);
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('❌ Promotion error:', error);
+        console.error('Stack:', error.stack);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+console.log('✅ /api/students/promote endpoint registered (FEE STRUCTURE FIXED)');
+
+console.log('✅ /api/students/promote endpoint registered (FULL WORKING)');
+
+console.log('✅ /api/students/promote endpoint registered');
+
+
+// ================================================================
+// ENROLLMENTS ENDPOINT
+// ================================================================
+
+// Get all enrollments
+app.get('/api/enrollments', (req, res) => {
+    try {
+        const enrollments = readFile(files.enrollments);
+        res.json(enrollments);
+    } catch (error) {
+        console.error('Error fetching enrollments:', error);
+        res.status(500).json({ error: 'Failed to fetch enrollments' });
+    }
+});
+
+app.post('/api/enrollments', (req, res) => {
+    try {
+        const { studentId, classId, academicYear, isCurrent } = req.body;
+        let enrollments = readFile(files.enrollments);
+        
+        const newEnrollment = {
+            id: uuidv4(),
+            studentId,
+            classId,
+            academicYear: academicYear || new Date().getFullYear(),
+            isCurrent: isCurrent !== undefined ? isCurrent : true,
+            enrolledAt: new Date().toISOString()
+        };
+        
+        enrollments.push(newEnrollment);
+        saveFile(files.enrollments, enrollments);
+        res.json({ success: true, enrollment: newEnrollment });
+    } catch (error) {
+        console.error('Error creating enrollment:', error);
+        res.status(500).json({ error: 'Failed to create enrollment' });
+    }
+});
+
+app.put('/api/enrollments/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { classId, isCurrent } = req.body;
+        let enrollments = readFile(files.enrollments);
+        
+        const index = enrollments.findIndex(e => e.id === id);
+        if (index === -1) {
+            return res.status(404).json({ error: 'Enrollment not found' });
+        }
+        
+        enrollments[index] = {
+            ...enrollments[index],
+            classId: classId || enrollments[index].classId,
+            isCurrent: isCurrent !== undefined ? isCurrent : enrollments[index].isCurrent,
+            updatedAt: new Date().toISOString()
+        };
+        
+        saveFile(files.enrollments, enrollments);
+        res.json({ success: true, enrollment: enrollments[index] });
+    } catch (error) {
+        console.error('Error updating enrollment:', error);
+        res.status(500).json({ error: 'Failed to update enrollment' });
+    }
+});
+
+console.log('✅ Enrollments endpoint registered');
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -9963,6 +10543,7 @@ function getLocalIP() {
     return 'localhost';
 }
 
+console.log('✅ Student Promotion endpoint registered at /api/students/promote');
 // ==================== START SERVER ====================
 
 app.listen(PORT, '0.0.0.0', () => {
