@@ -9834,6 +9834,7 @@ app.post('/api/students/promote', async (req, res) => {
             const nameKey = fs.name.toLowerCase().trim();
             feeStructureMap[nameKey] = fs;
             
+            // Separate day/boarding
             if (nameKey.includes('boarding')) {
                 let base = nameKey.replace('boarding', '').trim();
                 boardingFeeStructures[base] = fs;
@@ -9878,9 +9879,11 @@ app.post('/api/students/promote', async (req, res) => {
             const isBoarding = studentType === 'Boarding';
             const map = isBoarding ? boardingFeeStructures : dayFeeStructures;
             
+            // Try exact match in the type-specific map
             if (map[clean]) return map[clean];
             if (map[clean.replace(/\s/g, '')]) return map[clean.replace(/\s/g, '')];
             
+            // Try by number (P.5 -> primary 5)
             const match = clean.match(/(p\.?|primary)\s*(\d+)/i);
             if (match) {
                 const num = match[2];
@@ -9891,6 +9894,7 @@ app.post('/api/students/promote', async (req, res) => {
                 }
             }
             
+            // Try by level (Baby, Middle, Top, Nursery)
             const levelMatch = clean.match(/(baby|middle|top|nursery)/i);
             if (levelMatch) {
                 const levelMap = {
@@ -9907,7 +9911,7 @@ app.post('/api/students/promote', async (req, res) => {
                 }
             }
             
-            // Fallback: any fee structure containing class name, respecting type
+            // Fallback: any fee structure containing class name, but respecting type
             for (const key in feeStructureMap) {
                 const fs = feeStructureMap[key];
                 if (!fs) continue;
