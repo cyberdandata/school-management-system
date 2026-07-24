@@ -25,10 +25,10 @@
     "currentClassId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "enrolledAt": "2026-07-18T11:21:25.031Z",
     "createdAt": "2026-07-18T11:21:25.031Z",
-    "updatedAt": "2026-07-24T10:51:04.252Z",
+    "updatedAt": "2026-07-24T11:04:12.501Z",
     "customBursary": {
       "amount": 5000,
-      "appliedAt": "2026-07-24T10:51:04.010Z",
+      "appliedAt": "2026-07-24T11:04:12.217Z",
       "description": "Custom bursary applied via edit student"
     },
     "customTransportation": null,
@@ -259,9 +259,13 @@
     "hasRemovedItems": true,
     "customizationCount": 0,
     "removedItemsCount": 18,
-    "assignedFeeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "assignedFeeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
     "bursaryId": null,
-    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae"
+    "feeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
+    "_feeAssignmentPeriod": {
+      "year": 2027,
+      "term": 1
+    }
   },
   {
     "id": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
