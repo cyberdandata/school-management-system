@@ -25,10 +25,10 @@
     "currentClassId": "ce39778b-8c73-4c41-9264-3b9efdf29842",
     "enrolledAt": "2026-07-18T11:21:25.031Z",
     "createdAt": "2026-07-18T11:21:25.031Z",
-    "updatedAt": "2026-07-24T10:04:36.897Z",
+    "updatedAt": "2026-07-24T10:13:34.834Z",
     "customBursary": {
       "amount": 5000,
-      "appliedAt": "2026-07-18T11:54:48.165Z",
+      "appliedAt": "2026-07-24T10:13:34.820Z",
       "description": "Custom bursary applied via edit student"
     },
     "customTransportation": null,
