@@ -454,7 +454,7 @@
     "admissionNumber": "STU20260003",
     "firstName": "Katelega",
     "lastName": "Vianney",
-    "dateOfBirth": "",
+    "dateOfBirth": null,
     "gender": "Male",
     "birthPlace": "",
     "nationality": "Ugandan",
@@ -475,10 +475,10 @@
     "currentClassId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "enrolledAt": "2026-07-18T12:31:37.616Z",
     "createdAt": "2026-07-18T12:31:37.616Z",
-    "updatedAt": "2026-07-24T10:06:02.489Z",
+    "updatedAt": "2026-07-24T10:12:42.160Z",
     "customBursary": null,
     "customTransportation": null,
-    "customItemOverrides": null,
+    "customItemOverrides": {},
     "removedItems": {
       "item_1784369614705_9vms1m": {
         "itemId": "item_1784369614705_9vms1m",
@@ -649,12 +649,13 @@
         "isActive": true
       }
     },
-    "hasCustomizations": null,
+    "hasCustomizations": false,
     "hasRemovedItems": true,
     "customizationCount": 0,
     "removedItemsCount": 14,
     "assignedFeeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
-    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae"
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null
   },
   {
     "id": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
