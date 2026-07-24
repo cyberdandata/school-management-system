@@ -1,5 +1,5 @@
 {
-  "currentAcademicYear": 2027,
+  "currentAcademicYear": 2028,
   "currentTerm": 1,
   "gradingSystem": {
     "A": {
@@ -33,5 +33,5 @@
       "remark": "Poor"
     }
   },
-  "lastUpdated": "2026-07-24T07:02:50.487Z"
+  "lastUpdated": "2026-07-24T10:05:23.281Z"
 }
