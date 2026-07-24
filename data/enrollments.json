@@ -303,10 +303,11 @@
     "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
     "classId": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
     "promotedAt": "2026-07-24T07:36:39.664Z",
-    "createdAt": "2026-07-24T07:36:39.664Z"
+    "createdAt": "2026-07-24T07:36:39.664Z",
+    "completedAt": "2026-07-24T10:06:02.489Z"
   },
   {
     "id": "4d97cf70-eea6-4cef-bc6d-92160755b995",
@@ -433,5 +434,15 @@
     "promotedFrom": "dfb7d515-9c77-43e8-a4ba-122df93808b0",
     "promotedAt": "2026-07-24T10:04:36.897Z",
     "createdAt": "2026-07-24T10:04:36.897Z"
+  },
+  {
+    "id": "7f5412ba-c984-449a-a048-c7db52fdfdb9",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
+    "promotedAt": "2026-07-24T10:06:02.489Z",
+    "createdAt": "2026-07-24T10:06:02.489Z"
   }
 ]

@@ -139,11 +139,12 @@
   {
     "id": "1731431c-35ae-40cb-baeb-1388866a3abc",
     "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
-    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
     "bursaryId": null,
     "assignedAt": "2026-07-24T07:36:39.665Z",
     "academicYear": 2027,
-    "customBursaryAmount": null
+    "customBursaryAmount": null,
+    "updatedAt": "2026-07-24T10:06:02.489Z"
   },
   {
     "id": "223214f8-24be-4c56-8832-2bc8ef11f07d",

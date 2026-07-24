@@ -472,10 +472,10 @@
     "admissionType": "New",
     "enrollmentDate": "2026-07-18",
     "status": "Active",
-    "currentClassId": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
+    "currentClassId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "enrolledAt": "2026-07-18T12:31:37.616Z",
     "createdAt": "2026-07-18T12:31:37.616Z",
-    "updatedAt": "2026-07-24T07:36:39.665Z",
+    "updatedAt": "2026-07-24T10:06:02.489Z",
     "customBursary": null,
     "customTransportation": null,
     "customItemOverrides": null,
@@ -653,7 +653,8 @@
     "hasRemovedItems": true,
     "customizationCount": 0,
     "removedItemsCount": 14,
-    "assignedFeeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9"
+    "assignedFeeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae"
   },
   {
     "id": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
