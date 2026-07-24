@@ -167,18 +167,20 @@
     "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
     "classId": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "04fa9f78-c4c2-4d61-96a7-25cce606bc37",
-    "promotedAt": "2026-07-24T06:50:37.712Z"
+    "promotedAt": "2026-07-24T06:50:37.712Z",
+    "completedAt": "2026-07-24T07:36:39.664Z"
   },
   {
     "id": "14fc2093-b0c5-4754-8ae1-ce4977e3f1de",
     "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
     "classId": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "1eca2496-c17d-43cf-a0bb-f2ca10417ed0",
-    "promotedAt": "2026-07-24T06:50:37.712Z"
+    "promotedAt": "2026-07-24T06:50:37.712Z",
+    "completedAt": "2026-07-24T07:37:44.950Z"
   },
   {
     "id": "6735517e-3bdc-43cf-bda6-b0327fba208c",
@@ -275,9 +277,40 @@
     "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
     "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "64c2dad5-05ae-4219-bdbb-f77154d49e7b",
     "promotedAt": "2026-07-24T07:26:01.367Z",
-    "createdAt": "2026-07-24T07:26:01.367Z"
+    "createdAt": "2026-07-24T07:26:01.367Z",
+    "completedAt": "2026-07-24T07:35:52.653Z"
+  },
+  {
+    "id": "9710d9d8-2daf-4789-a107-0fa206b24fa8",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "promotedAt": "2026-07-24T07:35:52.653Z",
+    "createdAt": "2026-07-24T07:35:52.653Z"
+  },
+  {
+    "id": "fab58032-037e-4ba6-abf5-50e4437679be",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "classId": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
+    "promotedAt": "2026-07-24T07:36:39.664Z",
+    "createdAt": "2026-07-24T07:36:39.664Z"
+  },
+  {
+    "id": "4d97cf70-eea6-4cef-bc6d-92160755b995",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "classId": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
+    "promotedAt": "2026-07-24T07:37:44.949Z",
+    "createdAt": "2026-07-24T07:37:44.949Z"
   }
 ]

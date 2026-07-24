@@ -9754,7 +9754,7 @@ app.delete('/api/fee/payments/:id', (req, res) => {
 // ================================================================
 
 // ================================================================
-// STUDENT PROMOTION - COMPLETE FIXED (Fee Structure Assignment)
+// STUDENT PROMOTION - COMPLETE REBUILD (PROPER FEE STRUCTURE)
 // ================================================================
 
 app.post('/api/students/promote', async (req, res) => {
@@ -9824,142 +9824,78 @@ app.post('/api/students/promote', async (req, res) => {
         feeStructures.forEach(fs => { if (fs && fs.id) feeStructureMap[fs.id] = fs; });
         
         // ================================================================
-        // IMPROVED: Find Fee Structure for Target Class
+        // DETERMINE STUDENT TYPE (Day/Boarding) - LIKE IMPORT FUNCTION
         // ================================================================
-        function findFeeStructureForClass(targetClassName, studentType) {
-            console.log(`🔍 Finding fee structure for: "${targetClassName}" (${studentType})`);
+        function determineStudentType(feeStructureId) {
+            if (!feeStructureId) return 'Day';
+            const fs = feeStructureMap[feeStructureId];
+            if (!fs) return 'Day';
+            const fsName = fs.name.toLowerCase().trim();
+            if (fsName.includes('boarding')) return 'Boarding';
+            if (fsName.includes('day')) return 'Day';
+            return 'Day';
+        }
+        
+        // ================================================================
+        // FIND FEE STRUCTURE FOR CLASS AND TYPE - LIKE IMPORT FUNCTION
+        // ================================================================
+        function findFeeStructureForClassAndType(className, studentType) {
+            console.log(`🔍 Finding fee structure: Class="${className}", Type="${studentType}"`);
             
-            // Clean the target class name
-            const cleanTarget = targetClassName.toLowerCase().trim();
+            // Clean the class name for matching
+            const cleanClassName = className.toLowerCase().trim();
             
-            // Extract level and number from target class
-            // e.g., "P.5" -> { level: 'Primary', number: '5' }
-            // e.g., "Baby Class" -> { level: 'Nursery', number: null }
-            const levelMap = {
-                'baby': 'Nursery',
-                'middle': 'Nursery', 
-                'top': 'Nursery',
-                'nursery': 'Nursery',
-                'p.': 'Primary',
-                'primary': 'Primary'
-            };
-            
-            let level = '';
-            let number = '';
-            let classType = 'Day';
-            
-            // Check if it's a primary class with number
-            const primaryMatch = cleanTarget.match(/(p\.?|primary)\s*(\d+)/i);
-            if (primaryMatch) {
-                level = 'Primary';
-                number = primaryMatch[2];
-                console.log(`   📊 Detected: Primary ${number}`);
-            } else {
-                // Check if it's nursery
-                for (const [key, val] of Object.entries(levelMap)) {
-                    if (cleanTarget.includes(key)) {
-                        level = val;
-                        break;
-                    }
-                }
-                if (!level) {
-                    // Try to match by level from class object
-                    const classObj = classes.find(c => c.name.toLowerCase() === cleanTarget);
-                    if (classObj) {
-                        level = classObj.level || 'LowerPrimary';
-                    }
-                }
-            }
-            
-            // Determine if Day or Boarding from student type
-            const isBoarding = studentType === 'Boarding';
-            classType = isBoarding ? 'Boarding' : 'Day';
-            
-            // Build possible fee structure names to search for
-            const possibleNames = [];
-            
-            if (level === 'Primary' && number) {
-                possibleNames.push(`Primary ${number} ${classType}`);
-                possibleNames.push(`Primary ${number} Day`);
-                possibleNames.push(`Primary ${number} Boarding`);
-                possibleNames.push(`P.${number} ${classType}`);
-                possibleNames.push(`P.${number} Day`);
-                possibleNames.push(`P.${number} Boarding`);
-                possibleNames.push(`Primary ${number}`);
-                possibleNames.push(`P.${number}`);
-            } else if (level === 'Nursery') {
-                possibleNames.push(`${targetClassName} ${classType}`);
-                possibleNames.push(`${targetClassName} Day`);
-                possibleNames.push(`${targetClassName} Boarding`);
-                // Also try with "Class" suffix
-                if (!targetClassName.toLowerCase().includes('class')) {
-                    possibleNames.push(`${targetClassName} Class ${classType}`);
-                    possibleNames.push(`${targetClassName} Class Day`);
-                    possibleNames.push(`${targetClassName} Class Boarding`);
-                }
-            }
-            
-            // Also try direct match with the exact class name
-            possibleNames.push(targetClassName);
-            if (isBoarding && !targetClassName.toLowerCase().includes('boarding')) {
-                possibleNames.push(`${targetClassName} Boarding`);
-            }
-            if (!isBoarding && !targetClassName.toLowerCase().includes('day')) {
-                possibleNames.push(`${targetClassName} Day`);
-            }
-            
-            console.log(`   🔍 Searching for: ${possibleNames.join(', ')}`);
-            
-            // Search for matching fee structure
-            for (const name of possibleNames) {
-                const lowerName = name.toLowerCase().trim();
-                const matched = feeStructures.find(fs => {
-                    if (!fs || fs.isActive === false) return false;
-                    const fsName = fs.name.toLowerCase().trim();
-                    // Exact match
-                    if (fsName === lowerName) return true;
-                    // Contains match
-                    if (fsName.includes(lowerName) || lowerName.includes(fsName)) {
-                        // For primary classes, make sure the number matches
-                        if (number && fsName.includes(number)) {
-                            // If looking for boarding, prefer boarding
-                            if (isBoarding && fsName.includes('boarding')) return true;
-                            if (!isBoarding && fsName.includes('day')) return true;
-                        }
-                        return true;
-                    }
-                    return false;
-                });
-                
-                if (matched) {
-                    console.log(`   ✅ Matched: ${matched.name} (ID: ${matched.id})`);
-                    return matched;
-                }
-            }
-            
-            // Fallback: Try to find ANY fee structure with the class name
-            console.log(`   ⚠️ No exact match, trying fallback...`);
-            const fallbackMatch = feeStructures.find(fs => {
+            // Find all fee structures that match the class name
+            let possibleFs = feeStructures.filter(fs => {
                 if (!fs || fs.isActive === false) return false;
                 const fsName = fs.name.toLowerCase().trim();
-                const clsName = cleanTarget;
                 // Check if class name appears in fee structure name
-                if (fsName.includes(clsName) || clsName.includes(fsName)) {
-                    // For primary with number, ensure number matches
-                    if (number && fsName.includes(number)) {
-                        return true;
-                    }
-                    return true;
-                }
-                return false;
+                return fsName.includes(cleanClassName) || cleanClassName.includes(fsName);
             });
             
-            if (fallbackMatch) {
-                console.log(`   ✅ Fallback matched: ${fallbackMatch.name}`);
-                return fallbackMatch;
+            console.log(`   Found ${possibleFs.length} possible fee structures`);
+            
+            if (possibleFs.length === 0) {
+                // Try matching by level and number (e.g., "P.5" -> "Primary 5")
+                const match = cleanClassName.match(/(p\.?|primary)\s*(\d+)/i);
+                if (match) {
+                    const level = match[1].toLowerCase();
+                    const number = match[2];
+                    const levelMap = { 'p': 'Primary', 'primary': 'Primary' };
+                    const levelName = levelMap[level] || 'Primary';
+                    
+                    // Try to find fee structure with this level and number
+                    possibleFs = feeStructures.filter(fs => {
+                        if (!fs || fs.isActive === false) return false;
+                        const fsName = fs.name.toLowerCase().trim();
+                        return fsName.includes(levelName.toLowerCase()) && fsName.includes(number);
+                    });
+                    console.log(`   Found ${possibleFs.length} by level+number`);
+                }
             }
             
-            console.log(`   ❌ No fee structure found for: ${targetClassName}`);
+            // First: try to find exact type match (Boarding or Day)
+            let matched = possibleFs.find(fs => {
+                const fsName = fs.name.toLowerCase().trim();
+                if (studentType === 'Boarding') {
+                    return fsName.includes('boarding');
+                } else {
+                    return fsName.includes('day') || !fsName.includes('boarding');
+                }
+            });
+            
+            // If no exact type, fallback to any
+            if (!matched && possibleFs.length > 0) {
+                matched = possibleFs[0];
+                console.log(`   ⚠️ No exact type match, using fallback: ${matched.name}`);
+            }
+            
+            if (matched) {
+                console.log(`   ✅ Matched: ${matched.name}`);
+                return matched;
+            }
+            
+            console.log(`   ❌ No fee structure found for ${className} (${studentType})`);
             return null;
         }
         
@@ -10041,7 +9977,30 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
                 
-                // Determine target class
+                // ================================================================
+                // DETERMINE STUDENT TYPE FROM CURRENT FEE STRUCTURE
+                // ================================================================
+                const currentAssignment = feeAssignments.find(a => a.studentId === studentId);
+                let studentType = 'Day';
+                let currentFeeStructure = null;
+                
+                if (currentAssignment) {
+                    currentFeeStructure = feeStructureMap[currentAssignment.feeStructureId];
+                    if (currentFeeStructure) {
+                        studentType = determineStudentType(currentAssignment.feeStructureId);
+                        console.log(`   📍 ${student.firstName} ${student.lastName}: Current type = ${studentType} (${currentFeeStructure.name})`);
+                    }
+                }
+                
+                // Also check student's custom transportation or other indicators
+                if (student.customTransportation && student.customTransportation.hasTransportation !== false) {
+                    // If they have transportation, they might be Day (usually)
+                    // But we already determined from fee structure
+                }
+                
+                // ================================================================
+                // DETERMINE TARGET CLASS
+                // ================================================================
                 let targetClassId = toClassId;
                 
                 if (!targetClassId) {
@@ -10086,35 +10045,20 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
                 
-                console.log(`\n📌 Processing: ${student.firstName} ${student.lastName}`);
-                console.log(`   From: ${currentClass.name} (${currentClass.level})`);
-                console.log(`   To: ${targetClass.name} (${targetClass.level})`);
+                console.log(`   📈 ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (Type: ${studentType})`);
                 
                 // ================================================================
-                // DETERMINE STUDENT TYPE (Day/Boarding) from current fee structure
+                // FIND FEE STRUCTURE FOR TARGET CLASS WITH CORRECT TYPE
                 // ================================================================
-                const currentAssignment = feeAssignments.find(a => a.studentId === studentId);
-                let studentType = 'Day';
-                
-                if (currentAssignment) {
-                    const currentFs = feeStructureMap[currentAssignment.feeStructureId];
-                    if (currentFs) {
-                        const fsName = currentFs.name.toLowerCase();
-                        if (fsName.includes('boarding')) studentType = 'Boarding';
-                        else if (fsName.includes('day')) studentType = 'Day';
-                    }
-                }
-                
-                console.log(`   🏫 Student Type: ${studentType}`);
-                
-                // ================================================================
-                // FIND FEE STRUCTURE FOR TARGET CLASS
-                // ================================================================
-                const newFeeStructure = findFeeStructureForClass(targetClass.name, studentType);
+                const newFeeStructure = findFeeStructureForClassAndType(targetClass.name, studentType);
                 const newFeeStructureId = newFeeStructure?.id || null;
-                const newFeeStructureName = newFeeStructure?.name || 'Not Assigned';
+                const newFeeStructureName = newFeeStructure?.name || null;
                 
-                console.log(`   💰 Fee Structure: ${newFeeStructureName}`);
+                if (!newFeeStructureId) {
+                    console.warn(`   ⚠️ No fee structure found for ${targetClass.name} (${studentType})`);
+                } else {
+                    console.log(`   💰 Fee structure: ${newFeeStructureName}`);
+                }
                 
                 // ================================================================
                 // CREATE NEW ENROLLMENT FOR NEXT YEAR
@@ -10139,7 +10083,7 @@ app.post('/api/students/promote', async (req, res) => {
                 enrollmentsToAdd.push(newEnrollment);
                 
                 // ================================================================
-                // UPDATE OR CREATE FEE ASSIGNMENT FOR THE NEW ACADEMIC YEAR
+                // CREATE/UPDATE FEE ASSIGNMENT FOR THE NEW YEAR
                 // ================================================================
                 if (newFeeStructureId) {
                     // Check if there's already a fee assignment for this student for the next year
@@ -10150,9 +10094,14 @@ app.post('/api/students/promote', async (req, res) => {
                     if (existingAssignment) {
                         // Update existing assignment
                         existingAssignment.feeStructureId = newFeeStructureId;
+                        existingAssignment.bursaryId = currentAssignment?.bursaryId || null;
                         existingAssignment.updatedAt = new Date().toISOString();
+                        existingAssignment.academicYear = nextYear;
+                        if (student.customBursary && student.customBursary.amount > 0) {
+                            existingAssignment.customBursaryAmount = student.customBursary.amount;
+                        }
                         feeAssignmentsToUpdate.push(existingAssignment);
-                        console.log(`   📝 Updated fee assignment for ${nextYear}`);
+                        console.log(`   ✅ Updated fee assignment for ${nextYear}`);
                     } else {
                         // Create new assignment
                         const newAssignment = {
@@ -10162,14 +10111,11 @@ app.post('/api/students/promote', async (req, res) => {
                             bursaryId: currentAssignment?.bursaryId || null,
                             assignedAt: new Date().toISOString(),
                             academicYear: nextYear,
-                            // Preserve custom bursary
                             customBursaryAmount: student.customBursary?.amount || null
                         };
                         feeAssignmentsToAdd.push(newAssignment);
-                        console.log(`   📝 Created new fee assignment for ${nextYear}`);
+                        console.log(`   ✅ Created new fee assignment for ${nextYear}`);
                     }
-                } else {
-                    console.warn(`   ⚠️ No fee structure assigned for ${targetClass.name}`);
                 }
                 
                 // ================================================================
@@ -10187,11 +10133,12 @@ app.post('/api/students/promote', async (req, res) => {
                     studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown',
                     fromClass: currentClass.name,
                     toClass: targetClass.name,
-                    feeStructure: newFeeStructureName,
+                    feeStructure: newFeeStructureName || 'Not Assigned',
+                    studentType: studentType,
                     academicYear: nextYear
                 });
                 
-                console.log(`   ✅ ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (${newFeeStructureName})`);
+                console.log(`   ✅ ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (${studentType})`);
                 
             } catch (error) {
                 console.error(`❌ Error promoting ${studentId}:`, error.message);
@@ -10209,6 +10156,7 @@ app.post('/api/students/promote', async (req, res) => {
         console.log(`   📝 ${enrollmentsToUpdate.length} enrollments to update`);
         console.log(`   📝 ${enrollmentsToAdd.length} new enrollments`);
         console.log(`   📝 ${feeAssignmentsToAdd.length} new fee assignments`);
+        console.log(`   📝 ${feeAssignmentsToUpdate.length} fee assignments to update`);
         console.log(`   📝 ${studentsToUpdate.length} students to update`);
         
         // Apply updates to arrays
@@ -10266,6 +10214,7 @@ app.post('/api/students/promote', async (req, res) => {
         console.log(`   ✅ Success: ${results.success.length}`);
         console.log(`   ❌ Failed: ${results.failed.length}`);
         console.log(`   ⏭️ Skipped: ${results.skipped.length}`);
+        console.log(`   📅 Next Year: ${nextYear}`);
         
         res.json(response);
         

@@ -125,5 +125,32 @@
     "bursaryId": null,
     "customBursaryAmount": null,
     "assignedAt": "2026-07-21T20:55:15.047Z"
+  },
+  {
+    "id": "32adbbe4-090e-49a5-80dc-f4dc34220721",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:35:52.654Z",
+    "academicYear": 2027,
+    "customBursaryAmount": 5000
+  },
+  {
+    "id": "1731431c-35ae-40cb-baeb-1388866a3abc",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:36:39.665Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "223214f8-24be-4c56-8832-2bc8ef11f07d",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:37:44.950Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
   }
 ]
