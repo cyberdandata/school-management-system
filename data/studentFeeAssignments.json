@@ -129,11 +129,12 @@
   {
     "id": "32adbbe4-090e-49a5-80dc-f4dc34220721",
     "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
-    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
     "bursaryId": null,
     "assignedAt": "2026-07-24T07:35:52.654Z",
     "academicYear": 2027,
-    "customBursaryAmount": 5000
+    "customBursaryAmount": 5000,
+    "updatedAt": "2026-07-24T08:24:41.927Z"
   },
   {
     "id": "1731431c-35ae-40cb-baeb-1388866a3abc",
@@ -150,6 +151,43 @@
     "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
     "bursaryId": null,
     "assignedAt": "2026-07-24T07:37:44.950Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "1f8a3d3c-7a7a-429a-87dd-3f236c2645aa",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:53:01.918Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null,
+    "updatedAt": "2026-07-24T07:54:31.127Z"
+  },
+  {
+    "id": "0cc0ff40-0936-4e11-8cbb-005f47000e8b",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "feeStructureId": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:54:31.128Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "5ed9e74c-1a86-443b-a4bc-39140c34abed",
+    "studentId": "27f2379d-f274-4fe7-afa1-c3f102034f73",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:54:31.129Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "ccae9372-829f-4172-8271-ee368fe145ec",
+    "studentId": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:54:31.130Z",
     "academicYear": 2027,
     "customBursaryAmount": null
   }

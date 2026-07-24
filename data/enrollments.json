@@ -187,9 +187,10 @@
     "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
     "classId": "64c2dad5-05ae-4219-bdbb-f77154d49e7b",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "3ce69fd4-6576-4815-8b54-c92d00fed6e3",
-    "promotedAt": "2026-07-24T06:50:37.712Z"
+    "promotedAt": "2026-07-24T06:50:37.712Z",
+    "completedAt": "2026-07-24T07:53:01.918Z"
   },
   {
     "id": "e4a5de60-f654-4eb0-b348-e43469855bb2",
@@ -223,9 +224,10 @@
     "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
     "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
-    "promotedAt": "2026-07-24T06:50:37.713Z"
+    "promotedAt": "2026-07-24T06:50:37.713Z",
+    "completedAt": "2026-07-24T07:54:31.128Z"
   },
   {
     "id": "5f0643e2-0b39-4f91-98b5-73d106030cb7",
@@ -250,18 +252,20 @@
     "studentId": "27f2379d-f274-4fe7-afa1-c3f102034f73",
     "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
-    "promotedAt": "2026-07-24T06:50:37.713Z"
+    "promotedAt": "2026-07-24T06:50:37.713Z",
+    "completedAt": "2026-07-24T07:54:31.129Z"
   },
   {
     "id": "eeec90d7-c65f-4dbe-bddc-fa5ad1af1404",
     "studentId": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
     "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
-    "promotedAt": "2026-07-24T06:50:37.713Z"
+    "promotedAt": "2026-07-24T06:50:37.713Z",
+    "completedAt": "2026-07-24T07:54:31.129Z"
   },
   {
     "id": "a931d5ca-d299-4143-b0a9-947a8610544d",
@@ -288,10 +292,11 @@
     "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
     "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "academicYear": 2027,
-    "isCurrent": true,
+    "isCurrent": false,
     "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
     "promotedAt": "2026-07-24T07:35:52.653Z",
-    "createdAt": "2026-07-24T07:35:52.653Z"
+    "createdAt": "2026-07-24T07:35:52.653Z",
+    "completedAt": "2026-07-24T07:54:31.126Z"
   },
   {
     "id": "fab58032-037e-4ba6-abf5-50e4437679be",
@@ -312,5 +317,77 @@
     "promotedFrom": "1775f66f-42ba-4f76-b5cd-0783d6317c8f",
     "promotedAt": "2026-07-24T07:37:44.949Z",
     "createdAt": "2026-07-24T07:37:44.949Z"
+  },
+  {
+    "id": "6418a8e6-979e-457f-acd6-aca7b7539a64",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "classId": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "academicYear": 2027,
+    "isCurrent": false,
+    "promotedFrom": "64c2dad5-05ae-4219-bdbb-f77154d49e7b",
+    "promotedAt": "2026-07-24T07:53:01.918Z",
+    "createdAt": "2026-07-24T07:53:01.918Z",
+    "completedAt": "2026-07-24T07:54:31.127Z"
+  },
+  {
+    "id": "ab4a2da5-2cc8-4fea-ad0e-29169186b164",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "classId": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "academicYear": 2027,
+    "isCurrent": false,
+    "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "promotedAt": "2026-07-24T07:54:31.126Z",
+    "createdAt": "2026-07-24T07:54:31.126Z",
+    "completedAt": "2026-07-24T08:24:41.927Z"
+  },
+  {
+    "id": "ca504213-7cf7-410b-a2bb-2584de9cef55",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "classId": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "promotedAt": "2026-07-24T07:54:31.127Z",
+    "createdAt": "2026-07-24T07:54:31.127Z"
+  },
+  {
+    "id": "a76c48e2-5f18-461b-871a-f0c3cfdb07ff",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "classId": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "promotedAt": "2026-07-24T07:54:31.128Z",
+    "createdAt": "2026-07-24T07:54:31.128Z"
+  },
+  {
+    "id": "ff633d43-4870-491d-a705-f38bf3ce59d2",
+    "studentId": "27f2379d-f274-4fe7-afa1-c3f102034f73",
+    "classId": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "promotedAt": "2026-07-24T07:54:31.129Z",
+    "createdAt": "2026-07-24T07:54:31.129Z"
+  },
+  {
+    "id": "128b9f9e-7839-4b35-8899-26cf1d28ab8d",
+    "studentId": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
+    "classId": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "e8ad66f1-6646-41af-9325-1f23842bfd81",
+    "promotedAt": "2026-07-24T07:54:31.129Z",
+    "createdAt": "2026-07-24T07:54:31.129Z"
+  },
+  {
+    "id": "89b752a6-0235-4450-8fb0-34ee62553e39",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "classId": "dfb7d515-9c77-43e8-a4ba-122df93808b0",
+    "academicYear": 2027,
+    "isCurrent": true,
+    "promotedFrom": "ce39778b-8c73-4c41-9264-3b9efdf29842",
+    "promotedAt": "2026-07-24T08:24:41.927Z",
+    "createdAt": "2026-07-24T08:24:41.927Z"
   }
 ]

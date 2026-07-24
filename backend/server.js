@@ -9820,11 +9820,124 @@ app.post('/api/students/promote', async (req, res) => {
         const classMap = {};
         classes.forEach(c => { if (c && c.id) classMap[c.id] = c; });
         
+        // ================================================================
+        // BUILD FEE STRUCTURE MAPS (like import function)
+        // ================================================================
         const feeStructureMap = {};
-        feeStructures.forEach(fs => { if (fs && fs.id) feeStructureMap[fs.id] = fs; });
+        const dayFeeStructures = {};
+        const boardingFeeStructures = {};
+        
+        for (const fs of feeStructures) {
+            if (!fs || fs.isActive === false) continue;
+            feeStructureMap[fs.id] = fs;
+            
+            const nameKey = fs.name.toLowerCase().trim();
+            // Store by raw name
+            feeStructureMap[nameKey] = fs;
+            
+            // Separate day/boarding
+            if (nameKey.includes('boarding')) {
+                // Remove 'boarding' suffix for base name
+                let base = nameKey.replace('boarding', '').trim();
+                boardingFeeStructures[base] = fs;
+                boardingFeeStructures[base.replace(/\s/g, '')] = fs;
+            } else if (nameKey.includes('day')) {
+                let base = nameKey.replace('day', '').trim();
+                dayFeeStructures[base] = fs;
+                dayFeeStructures[base.replace(/\s/g, '')] = fs;
+            }
+            
+            // Also add aliases for P.1, P.2, etc.
+            const numMatch = fs.name.match(/(\d+)/);
+            if (numMatch) {
+                const num = numMatch[1];
+                const pKey = `p.${num}`.toLowerCase();
+                const primaryKey = `primary ${num}`.toLowerCase();
+                feeStructureMap[pKey] = fs;
+                feeStructureMap[primaryKey] = fs;
+                feeStructureMap[pKey.replace(/\s/g, '')] = fs;
+                feeStructureMap[primaryKey.replace(/\s/g, '')] = fs;
+                
+                if (nameKey.includes('boarding')) {
+                    boardingFeeStructures[pKey] = fs;
+                    boardingFeeStructures[primaryKey] = fs;
+                } else {
+                    dayFeeStructures[pKey] = fs;
+                    dayFeeStructures[primaryKey] = fs;
+                }
+            }
+        }
+        
+        console.log(`📦 Day fee structures: ${Object.keys(dayFeeStructures).length}`);
+        console.log(`📦 Boarding fee structures: ${Object.keys(boardingFeeStructures).length}`);
         
         // ================================================================
-        // DETERMINE STUDENT TYPE (Day/Boarding) - LIKE IMPORT FUNCTION
+        // FUNCTION: FIND FEE STRUCTURE FOR CLASS AND TYPE (matches import)
+        // ================================================================
+        function findFeeStructureForClassAndType(className, studentType) {
+            if (!className) return null;
+            const clean = className.toLowerCase().trim();
+            
+            // Determine which map to use
+            const isBoarding = studentType === 'Boarding';
+            const map = isBoarding ? boardingFeeStructures : dayFeeStructures;
+            
+            // Try exact match in the specific map
+            if (map[clean]) return map[clean];
+            if (map[clean.replace(/\s/g, '')]) return map[clean.replace(/\s/g, '')];
+            
+            // Try by number (P.5 -> primary 5)
+            const match = clean.match(/(p\.?|primary)\s*(\d+)/i);
+            if (match) {
+                const num = match[2];
+                const variants = [
+                    `p.${num}`,
+                    `primary ${num}`,
+                    `p${num}`,
+                    `primary${num}`
+                ];
+                for (const v of variants) {
+                    if (map[v]) return map[v];
+                    if (map[v.replace(/\s/g, '')]) return map[v.replace(/\s/g, '')];
+                }
+            }
+            
+            // Try by level (Baby, Middle, Top)
+            const levelMatch = clean.match(/(baby|middle|top|nursery)/i);
+            if (levelMatch) {
+                const levelMap = {
+                    'baby': 'Baby Class',
+                    'middle': 'Middle Class',
+                    'top': 'Top Class',
+                    'nursery': 'Nursery'
+                };
+                const levelName = levelMap[levelMatch[1].toLowerCase()];
+                if (levelName) {
+                    const cleanLevel = levelName.toLowerCase().trim();
+                    if (map[cleanLevel]) return map[cleanLevel];
+                    // Also try with day/boarding suffix removed
+                    if (map[cleanLevel.replace(/\s/g, '')]) return map[cleanLevel.replace(/\s/g, '')];
+                }
+            }
+            
+            // Fallback: try any fee structure that contains the class name
+            for (const key in feeStructureMap) {
+                const fs = feeStructureMap[key];
+                if (!fs) continue;
+                const fsName = fs.name.toLowerCase().trim();
+                if (fsName.includes(clean) || clean.includes(fsName)) {
+                    // Ensure it matches the type (if type-specific exists)
+                    if (isBoarding && fsName.includes('boarding')) return fs;
+                    if (!isBoarding && (fsName.includes('day') || !fsName.includes('boarding'))) return fs;
+                }
+            }
+            
+            console.log(`⚠️ No fee structure found for "${className}" (${studentType})`);
+            return null;
+        }
+        
+        // ================================================================
+        // DETERMINE STUDENT TYPE (Day/Boarding) - like import
         // ================================================================
         function determineStudentType(feeStructureId) {
             if (!feeStructureId) return 'Day';
@@ -9834,69 +9947,6 @@ app.post('/api/students/promote', async (req, res) => {
             if (fsName.includes('boarding')) return 'Boarding';
             if (fsName.includes('day')) return 'Day';
             return 'Day';
-        }
-        
-        // ================================================================
-        // FIND FEE STRUCTURE FOR CLASS AND TYPE - LIKE IMPORT FUNCTION
-        // ================================================================
-        function findFeeStructureForClassAndType(className, studentType) {
-            console.log(`🔍 Finding fee structure: Class="${className}", Type="${studentType}"`);
-            
-            // Clean the class name for matching
-            const cleanClassName = className.toLowerCase().trim();
-            
-            // Find all fee structures that match the class name
-            let possibleFs = feeStructures.filter(fs => {
-                if (!fs || fs.isActive === false) return false;
-                const fsName = fs.name.toLowerCase().trim();
-                // Check if class name appears in fee structure name
-                return fsName.includes(cleanClassName) || cleanClassName.includes(fsName);
-            });
-            
-            console.log(`   Found ${possibleFs.length} possible fee structures`);
-            
-            if (possibleFs.length === 0) {
-                // Try matching by level and number (e.g., "P.5" -> "Primary 5")
-                const match = cleanClassName.match(/(p\.?|primary)\s*(\d+)/i);
-                if (match) {
-                    const level = match[1].toLowerCase();
-                    const number = match[2];
-                    const levelMap = { 'p': 'Primary', 'primary': 'Primary' };
-                    const levelName = levelMap[level] || 'Primary';
-                    
-                    // Try to find fee structure with this level and number
-                    possibleFs = feeStructures.filter(fs => {
-                        if (!fs || fs.isActive === false) return false;
-                        const fsName = fs.name.toLowerCase().trim();
-                        return fsName.includes(levelName.toLowerCase()) && fsName.includes(number);
-                    });
-                    console.log(`   Found ${possibleFs.length} by level+number`);
-                }
-            }
-            
-            // First: try to find exact type match (Boarding or Day)
-            let matched = possibleFs.find(fs => {
-                const fsName = fs.name.toLowerCase().trim();
-                if (studentType === 'Boarding') {
-                    return fsName.includes('boarding');
-                } else {
-                    return fsName.includes('day') || !fsName.includes('boarding');
-                }
-            });
-            
-            // If no exact type, fallback to any
-            if (!matched && possibleFs.length > 0) {
-                matched = possibleFs[0];
-                console.log(`   ⚠️ No exact type match, using fallback: ${matched.name}`);
-            }
-            
-            if (matched) {
-                console.log(`   ✅ Matched: ${matched.name}`);
-                return matched;
-            }
-            
-            console.log(`   ❌ No fee structure found for ${className} (${studentType})`);
-            return null;
         }
         
         // ================================================================
@@ -10048,7 +10098,7 @@ app.post('/api/students/promote', async (req, res) => {
                 console.log(`   📈 ${student.firstName} ${student.lastName}: ${currentClass.name} → ${targetClass.name} (Type: ${studentType})`);
                 
                 // ================================================================
-                // FIND FEE STRUCTURE FOR TARGET CLASS WITH CORRECT TYPE
+                // FIND FEE STRUCTURE FOR TARGET CLASS WITH CORRECT TYPE (using the enhanced matcher)
                 // ================================================================
                 const newFeeStructure = findFeeStructureForClassAndType(targetClass.name, studentType);
                 const newFeeStructureId = newFeeStructure?.id || null;
