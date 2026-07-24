@@ -2589,7 +2589,46 @@ app.delete('/api/fee/bursaries/:id', (req, res) => {
 app.get('/api/student-fee-assignments', (req, res) => {
     res.json(readFile(files.studentFeeAssignments));
 });
-
+app.get('/api/student-fee-assignments/period', (req, res) => {
+    const { studentId, year, term } = req.query;
+    
+    if (!studentId) {
+        return res.status(400).json({ error: 'Student ID is required' });
+    }
+    
+    const assignments = readFile(files.studentFeeAssignments);
+    const targetYear = parseInt(year) || currentAcademicSettings.currentYear;
+    const targetTerm = parseInt(term) || currentAcademicSettings.currentTerm;
+    
+    // Look for assignment for this specific period
+    let assignment = assignments.find(a => 
+        a.studentId === studentId && 
+        a.academicYear === targetYear && 
+        a.academicTerm === targetTerm
+    );
+    
+    // If not found, look for the current assignment
+    if (!assignment) {
+        assignment = assignments.find(a => 
+            a.studentId === studentId && 
+            a.isCurrent === true
+        );
+    }
+    
+    // If still not found, look for any assignment for this student
+    if (!assignment) {
+        assignment = assignments.find(a => a.studentId === studentId);
+    }
+    
+    res.json({ 
+        success: true, 
+        assignment: assignment || null,
+        period: {
+            year: targetYear,
+            term: targetTerm
+        }
+    });
+});
 app.post('/api/student-fee-assignments', (req, res) => {
     console.log('=== PERIOD-AWARE FEE ASSIGNMENT ===');
     const { studentId, feeStructureId, bursaryId, academicYear, academicTerm } = req.body;
