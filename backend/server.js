@@ -2590,25 +2590,49 @@ app.get('/api/student-fee-assignments', (req, res) => {
     res.json(readFile(files.studentFeeAssignments));
 });
 
+// In server.js - Enhanced fee assignment
 app.post('/api/student-fee-assignments', (req, res) => {
-    const { studentId, feeStructureId, bursaryId } = req.body;
+    const { studentId, feeStructureId, bursaryId, academicYear, academicTerm } = req.body;
     let assignments = readFile(files.studentFeeAssignments);
     
-    const existingIndex = assignments.findIndex(a => a.studentId === studentId);
+    // Get current period
+    const year = academicYear || currentAcademicSettings.currentYear;
+    const term = academicTerm || currentAcademicSettings.currentTerm;
+    
+    // Find existing assignment for this student AND period
+    const existingIndex = assignments.findIndex(a => 
+        a.studentId === studentId && 
+        a.academicYear === year && 
+        a.academicTerm === term
+    );
+    
     const assignment = {
         id: existingIndex !== -1 ? assignments[existingIndex].id : uuidv4(),
         studentId,
         feeStructureId: feeStructureId || null,
         bursaryId: bursaryId || null,
+        academicYear: year,
+        academicTerm: term,
+        isCurrent: true,
         assignedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
     
-    if (existingIndex !== -1) assignments[existingIndex] = assignment;
-    else assignments.push(assignment);
+    // Also set isCurrent = false for previous periods of this student
+    assignments.forEach(a => {
+        if (a.studentId === studentId && a.academicYear !== year && a.academicTerm !== term) {
+            a.isCurrent = false;
+        }
+    });
+    
+    if (existingIndex !== -1) {
+        assignments[existingIndex] = assignment;
+    } else {
+        assignments.push(assignment);
+    }
     
     saveFile(files.studentFeeAssignments, assignments);
-    res.json({ success: true });
+    res.json({ success: true, assignment });
 });
 
 // Get all status groups
