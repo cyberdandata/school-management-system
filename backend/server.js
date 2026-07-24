@@ -9834,7 +9834,6 @@ app.post('/api/students/promote', async (req, res) => {
             const nameKey = fs.name.toLowerCase().trim();
             feeStructureMap[nameKey] = fs;
             
-            // Separate day/boarding
             if (nameKey.includes('boarding')) {
                 let base = nameKey.replace('boarding', '').trim();
                 boardingFeeStructures[base] = fs;
@@ -9845,7 +9844,6 @@ app.post('/api/students/promote', async (req, res) => {
                 dayFeeStructures[base.replace(/\s/g, '')] = fs;
             }
             
-            // Also add aliases for P.1, P.2, etc.
             const numMatch = fs.name.match(/(\d+)/);
             if (numMatch) {
                 const num = numMatch[1];
@@ -9870,7 +9868,7 @@ app.post('/api/students/promote', async (req, res) => {
         console.log(`📦 Boarding fee structures: ${Object.keys(boardingFeeStructures).length}`);
         
         // ================================================================
-        // FUNCTION: FIND FEE STRUCTURE FOR CLASS AND TYPE (matches import)
+        // FIND FEE STRUCTURE FOR CLASS AND TYPE (matches import)
         // ================================================================
         function findFeeStructureForClassAndType(className, studentType) {
             if (!className) return null;
@@ -9927,7 +9925,7 @@ app.post('/api/students/promote', async (req, res) => {
         }
         
         // ================================================================
-        // DETERMINE STUDENT TYPE (Day/Boarding)
+        // DETERMINE STUDENT TYPE
         // ================================================================
         function determineStudentType(feeStructureId) {
             if (!feeStructureId) return 'Day';
@@ -10041,7 +10039,7 @@ app.post('/api/students/promote', async (req, res) => {
                 if (!newFeeStructureId) {
                     console.warn(`   ⚠️ No fee structure found for ${targetClass.name} (${studentType})`);
                 } else {
-                    console.log(`   💰 Fee structure: ${newFeeStructureName}`);
+                    console.log(`   💰 Fee structure: ${newFeeStructureName} (ID: ${newFeeStructureId})`);
                 }
                 
                 // Create new enrollment
@@ -10100,10 +10098,11 @@ app.post('/api/students/promote', async (req, res) => {
                 // UPDATE STUDENT OBJECT - CRITICAL: Update assignedFeeStructureId
                 // ================================================================
                 student.currentClassId = targetClassId;
-                student.assignedFeeStructureId = newFeeStructureId;  // <-- CRITICAL FIX
-                student.feeStructureId = newFeeStructureId;          // Also update any other fee structure field
+                student.assignedFeeStructureId = newFeeStructureId;   // <-- THIS IS THE KEY FIX
+                student.feeStructureId = newFeeStructureId;            // <-- Extra safety
                 student.updatedAt = new Date().toISOString();
                 studentsToUpdate.push(student);
+                console.log(`   🔄 Updated student fee structure ID to: ${newFeeStructureId}`);
                 
                 // ================================================================
                 // RECORD SUCCESS
