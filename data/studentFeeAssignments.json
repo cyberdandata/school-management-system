@@ -197,12 +197,12 @@
   {
     "id": "0def6042-cfeb-4de2-a228-7845e06e0fa9",
     "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
-    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "feeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
     "bursaryId": null,
     "academicYear": 2027,
     "academicTerm": 1,
     "isCurrent": true,
     "assignedAt": "2026-07-24T10:42:18.332Z",
-    "updatedAt": "2026-07-24T10:42:18.332Z"
+    "updatedAt": "2026-07-24T10:42:57.733Z"
   }
 ]
