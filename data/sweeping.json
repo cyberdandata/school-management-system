@@ -1,0 +1,26 @@
+[
+  {
+    "id": "706ec881-6d63-4d6a-8286-36c8aeb998d0",
+    "classId": "04fa9f78-c4c2-4d61-96a7-25cce606bc37",
+    "studentId": "255885f2-92db-40bd-8396-c6806955e4ac",
+    "dayOfWeek": 1,
+    "weekStart": "2026-07-25",
+    "teacherId": "d13bce50-53b7-486f-97fa-e0bf1159548e",
+    "status": "pending",
+    "notes": "",
+    "createdAt": "2026-07-27T08:14:55.051Z",
+    "updatedAt": "2026-07-27T08:14:55.051Z"
+  },
+  {
+    "id": "a4cc6b68-e2bf-4c1b-8747-79b4e43ceeee",
+    "classId": "a61ce407-56f0-4c52-9739-2c5322ad48e7",
+    "studentId": "7ef31d8e-ebd9-4bd1-9f72-aba7c03638a7",
+    "dayOfWeek": 1,
+    "weekStart": "2026-07-25",
+    "teacherId": "d13bce50-53b7-486f-97fa-e0bf1159548e",
+    "status": "completed",
+    "notes": "",
+    "createdAt": "2026-07-27T08:16:19.160Z",
+    "updatedAt": "2026-07-27T08:16:42.758Z"
+  }
+]

@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Parent Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        /* ========== GLOBAL STYLES ========== */
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f3f4f6;
+            padding-bottom: 80px;
+            min-height: 100vh;
+        }
+        .app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #f8fafc;
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0,0,0,0.08);
+        }
+
+        /* ========== BOTTOM NAVIGATION ========== */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 480px;
+            margin: 0 auto;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-around;
+            padding: 6px 0 env(safe-area-inset-bottom);
+            z-index: 100;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+        }
+        .bottom-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px 8px;
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            font-size: 10px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            min-width: 56px;
+        }
+        .bottom-nav .nav-item i {
+            font-size: 20px;
+            margin-bottom: 1px;
+            transition: all 0.2s ease;
+        }
+        .bottom-nav .nav-item span {
+            font-size: 9px;
+            font-weight: 500;
+        }
+        .bottom-nav .nav-item.active {
+            color: #2563eb;
+        }
+        .bottom-nav .nav-item.active i {
+            transform: translateY(-2px);
+        }
+        .bottom-nav .nav-item .badge {
+            position: absolute;
+            top: -2px;
+            right: 2px;
+            background: #ef4444;
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 9999px;
+            min-width: 18px;
+            text-align: center;
+            border: 2px solid white;
+        }
+
+        /* ========== HEADER ========== */
+        .app-header {
+            background: white;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .app-header .header-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .app-header .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .app-header .header-actions button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px;
+            position: relative;
+            transition: color 0.2s;
+        }
+        .app-header .header-actions button:hover { color: #1f2937; }
+        .app-header .header-actions .notification-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #ef4444;
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 9999px;
+            min-width: 18px;
+            text-align: center;
+        }
+        .app-header .profile-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s;
+        }
+        .app-header .profile-btn:hover { transform: scale(1.05); }
+
+        /* ========== TAB CONTENT ========== */
+        .tab-content {
+            padding: 16px;
+            animation: fadeIn 0.25s ease;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ========== CARDS ========== */
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 14px 16px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.2s;
+        }
+        .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+
+        /* ========== NOTIFICATION MODAL ========== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 60px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 400px;
+            width: 95%;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 20px;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-content .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .modal-content .modal-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .modal-content .modal-header button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #9ca3af;
+            cursor: pointer;
+        }
+        .notification-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .notification-item:hover { background: #f8fafc; padding-left: 8px; padding-right: 8px; border-radius: 8px; }
+        .notification-item .notif-title { font-weight: 600; color: #1f2937; font-size: 14px; }
+        .notification-item .notif-date { font-size: 11px; color: #9ca3af; }
+        .notification-item .notif-type {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        .notif-type.announcement { background: #dbeafe; color: #2563eb; }
+        .notif-type.event { background: #fce7f3; color: #db2777; }
+
+        /* ========== FEE BREAKDOWN ========== */
+        .fee-period-group {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .fee-period-group .period-header {
+            background: #f8fafc;
+            padding: 10px 14px;
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .fee-period-group .period-header:hover { background: #f1f5f9; }
+        .fee-period-group .period-body { padding: 0 14px; }
+        .fee-period-group .period-body .fee-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+        }
+        .fee-period-group .period-body .fee-item:last-child { border-bottom: none; }
+        .fee-item .item-status {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        .fee-item .item-status.paid { background: #dcfce7; color: #16a34a; }
+        .fee-item .item-status.partial { background: #fef3c7; color: #d97706; }
+        .fee-item .item-status.unpaid { background: #fee2e2; color: #dc2626; }
+
+        /* ========== CHAT ========== */
+        .chat-contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .chat-contact-item:hover { background: #f8fafc; }
+        .chat-contact-item .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+        }
+        .chat-messages {
+            max-height: 350px;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .chat-message {
+            max-width: 80%;
+            padding: 8px 14px;
+            border-radius: 16px;
+            margin-bottom: 6px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .chat-message.admin {
+            background: #2563eb;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-message.parent {
+            background: #f3f4f6;
+            color: #1f2937;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-message .time {
+            font-size: 9px;
+            opacity: 0.6;
+            margin-top: 2px;
+            display: block;
+        }
+
+        /* ========== EVENT ITEMS ========== */
+        .event-card {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 16px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 10px;
+            transition: all 0.15s;
+            border-left: 4px solid #6b7280;
+        }
+        .event-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .event-card .event-title { font-weight: 600; color: #1f2937; font-size: 15px; }
+        .event-card .event-date { font-size: 12px; color: #6b7280; }
+        .event-card .event-category {
+            font-size: 10px;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* ========== PERFORMANCE ========== */
+        .subject-grade {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+        }
+        .subject-grade .grade {
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 6px;
+        }
+        .grade-A { color: #16a34a; background: #dcfce7; }
+        .grade-B { color: #2563eb; background: #dbeafe; }
+        .grade-C { color: #d97706; background: #fef3c7; }
+        .grade-D { color: #ea580c; background: #ffedd5; }
+        .grade-E { color: #dc2626; background: #fee2e2; }
+        .grade-F { color: #991b1b; background: #fecaca; }
+
+        /* ========== TOAST ========== */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            z-index: 300;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            animation: toastIn 0.3s ease;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 480px) {
+            .app-container { max-width: 100%; }
+            .bottom-nav .nav-item { min-width: 44px; padding: 2px 4px; }
+            .bottom-nav .nav-item i { font-size: 18px; }
+            .bottom-nav .nav-item span { font-size: 8px; }
+            .tab-content { padding: 12px; }
+        }
+        @media (min-width: 481px) {
+            .app-container {
+                border-left: 1px solid #e5e7eb;
+                border-right: 1px solid #e5e7eb;
+            }
+        }
+
+        /* Loading */
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: #9ca3af;
+        }
+        .empty-state i { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="app">
+
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+        <div class="header-title" id="headerTitle">🏠 Dashboard</div>
+        <div class="header-actions">
+            <button onclick="toggleNotifications()" id="notifBtn">
+                <i class="fas fa-bell"></i>
+                <span class="notification-badge hidden" id="notifBadge">0</span>
+            </button>
+            <button class="profile-btn" id="profileBtn" onclick="logoutParent()">
+                <span id="profileInitial">P</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ===== NOTIFICATION MODAL ===== -->
+    <div class="modal-overlay" id="notifModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-bell mr-2 text-blue-500"></i> Notifications</h3>
+                <button onclick="closeNotifications()">&times;</button>
+            </div>
+            <div id="notifList">
+                <div class="text-center text-gray-400 py-8 text-sm">Loading notifications...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TAB CONTENT ===== -->
+    <div class="tab-content">
+
+        <!-- ===== HOME / DASHBOARD ===== -->
+        <div class="tab-panel active" id="tab-home">
+            <div id="homeContent">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+        <!-- ===== PERFORMANCE ===== -->
+        <div class="tab-panel" id="tab-performance">
+            <div id="performanceContent">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+        <!-- ===== FEE MANAGEMENT ===== -->
+        <div class="tab-panel" id="tab-fees">
+            <div id="feesContent">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+        <!-- ===== EVENTS ===== -->
+        <div class="tab-panel" id="tab-events">
+            <div id="eventsContent">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+        <!-- ===== CHAT ===== -->
+        <div class="tab-panel" id="tab-chat">
+            <div id="chatContent">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== BOTTOM NAVIGATION ===== -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-tab="home" onclick="switchTab('home')">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </button>
+        <button class="nav-item" data-tab="performance" onclick="switchTab('performance')">
+            <i class="fas fa-chart-line"></i>
+            <span>Performance</span>
+        </button>
+        <button class="nav-item" data-tab="fees" onclick="switchTab('fees')">
+            <i class="fas fa-coins"></i>
+            <span>Fees</span>
+        </button>
+        <button class="nav-item" data-tab="events" onclick="switchTab('events')">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Events</span>
+        </button>
+        <button class="nav-item" data-tab="chat" onclick="switchTab('chat')">
+            <i class="fas fa-comment-dots"></i>
+            <span>Chat</span>
+            <span class="badge hidden" id="chatBadge">0</span>
+        </button>
+    </nav>
+
+</div>
+
+<!-- ===== TOAST CONTAINER ===== -->
+<div id="toastContainer"></div>
+
+<script>
+// ====================================================================
+//  PARENT DASHBOARD - COMPLETE APPLICATION
+// ====================================================================
+
+(function() {
+    'use strict';
+
+    // ==================== STATE ====================
+    const state = {
+        parentName: '',
+        students: [],
+        selectedStudentId: null,
+        studentDetails: null,
+        activeTab: 'home',
+        notifications: [],
+        unreadCount: 0,
+        events: [],
+        announcements: [],
+        chatContacts: [],
+        chatMessages: [],
+        currentChatContact: null,
+        chatPolling: null
+    };
+
+    // ==================== DOM REFS ====================
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    // ==================== INIT ====================
+    async function init() {
+        // Check login
+        const parentName = localStorage.getItem('parentName');
+        if (!parentName) {
+            window.location.href = '/parent-login.html';
+            return;
+        }
+        state.parentName = parentName;
+
+        // Load data
+        await loadStudents();
+        await loadNotifications();
+        await loadEvents();
+        await loadAnnouncements();
+
+        // Set profile initial
+        document.getElementById('profileInitial').textContent = parentName.charAt(0).toUpperCase();
+
+        // Load dashboard
+        await loadDashboard();
+
+        // Start chat polling
+        startChatPolling();
+
+        console.log('✅ Parent Dashboard loaded');
+    }
+
+    // ==================== LOAD STUDENTS ====================
+    async function loadStudents() {
+        try {
+            const res = await fetch(`/api/parent/students/${encodeURIComponent(state.parentName)}`);
+            const data = await res.json();
+            if (data.success) {
+                state.students = data.students || [];
+                if (state.students.length === 0) {
+                    showToast('No students found for this parent.', 'warning');
+                } else {
+                    state.selectedStudentId = state.students[0].id;
+                }
+            }
+        } catch (e) {
+            console.error('Error loading students:', e);
+            showToast('Error loading students', 'error');
+        }
+    }
+
+    // ==================== LOAD STUDENT DETAILS ====================
+    async function loadStudentDetails(studentId) {
+        try {
+            const res = await fetch(`/api/parent/student/${studentId}/details`);
+            const data = await res.json();
+            if (data.success) {
+                state.studentDetails = data.student;
+                return data.student;
+            }
+        } catch (e) {
+            console.error('Error loading student details:', e);
+            showToast('Error loading student data', 'error');
+        }
+        return null;
+    }
+
+    // ==================== LOAD EVENTS ====================
+    async function loadEvents() {
+        try {
+            const res = await fetch('/api/events');
+            if (res.ok) {
+                state.events = await res.json();
+                updateNotificationBadge();
+            }
+        } catch (e) { console.warn('Could not load events:', e); }
+    }
+
+    // ==================== LOAD ANNOUNCEMENTS ====================
+    async function loadAnnouncements() {
+        try {
+            const res = await fetch('/api/announcements?active=true');
+            if (res.ok) {
+                const data = await res.json();
+                state.announcements = data.data || [];
+                updateNotificationBadge();
+            }
+        } catch (e) { console.warn('Could not load announcements:', e); }
+    }
+
+    // ==================== LOAD NOTIFICATIONS ====================
+    async function loadNotifications() {
+        // Combine announcements and events for notifications
+        state.notifications = [];
+
+        // Add announcements
+        state.announcements.forEach(a => {
+            state.notifications.push({
+                id: a.id,
+                title: a.title,
+                content: a.content,
+                date: a.createdAt,
+                type: 'announcement',
+                read: false,
+                icon: 'fa-bullhorn',
+                color: '#2563eb'
+            });
+        });
+
+        // Add events (upcoming only)
+        const today = new Date().toISOString().split('T')[0];
+        state.events
+            .filter(e => e.startDate >= today && e.status === 'published')
+            .forEach(e => {
+                state.notifications.push({
+                    id: e.id,
+                    title: e.title,
+                    content: e.description || 'Upcoming event',
+                    date: e.startDate,
+                    type: 'event',
+                    read: false,
+                    icon: 'fa-calendar-alt',
+                    color: '#db2777'
+                });
+            });
+
+        // Sort by date
+        state.notifications.sort((a, b) => new Date(b.date) - new Date(a.date));
+        state.unreadCount = state.notifications.filter(n => !n.read).length;
+        updateNotificationBadge();
+    }
+
+    // ==================== UPDATE NOTIFICATION BADGE ====================
+    function updateNotificationBadge() {
+        const badge = document.getElementById('notifBadge');
+        if (state.unreadCount > 0) {
+            badge.textContent = state.unreadCount > 9 ? '9+' : state.unreadCount;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    // ==================== TOGGLE NOTIFICATIONS ====================
+    function toggleNotifications() {
+        const modal = document.getElementById('notifModal');
+        const list = document.getElementById('notifList');
+
+        if (modal.classList.contains('show')) {
+            closeNotifications();
+            return;
+        }
+
+        modal.classList.add('show');
+
+        if (state.notifications.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-bell-slash"></i>
+                    <p>No notifications</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Mark all as read
+        state.notifications.forEach(n => n.read = true);
+        state.unreadCount = 0;
+        updateNotificationBadge();
+
+        list.innerHTML = state.notifications.slice(0, 20).map(n => `
+            <div class="notification-item" onclick="closeNotifications()">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background: ${n.color}20; color: ${n.color}">
+                        <i class="fas ${n.icon}"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start">
+                            <span class="notif-title">${escapeHtml(n.title)}</span>
+                            <span class="notif-type ${n.type}">${n.type}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 truncate">${escapeHtml(n.content)}</p>
+                        <span class="notif-date">${new Date(n.date).toLocaleDateString()}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function closeNotifications() {
+        document.getElementById('notifModal').classList.remove('show');
+    }
+
+    // ==================== SWITCH TAB ====================
+    async function switchTab(tab) {
+        state.activeTab = tab;
+
+        // Update nav
+        $$('.nav-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.tab === tab);
+        });
+
+        // Update header
+        const titles = {
+            home: '🏠 Dashboard',
+            performance: '📊 Performance',
+            fees: '💰 Fees',
+            events: '📅 Events',
+            chat: '💬 Chat'
+        };
+        document.getElementById('headerTitle').textContent = titles[tab] || 'Dashboard';
+
+        // Show tab panel
+        $$('.tab-panel').forEach(el => el.classList.remove('active'));
+        const panel = document.getElementById(`tab-${tab}`);
+        if (panel) panel.classList.add('active');
+
+        // Load content
+        switch(tab) {
+            case 'home': await loadDashboard(); break;
+            case 'performance': await loadPerformance(); break;
+            case 'fees': await loadFees(); break;
+            case 'events': await loadEventsTab(); break;
+            case 'chat': await loadChatTab(); break;
+        }
+    }
+
+    // ==================== LOAD DASHBOARD ====================
+    async function loadDashboard() {
+        const container = document.getElementById('homeContent');
+        if (!state.selectedStudentId || !state.students.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <p>No students assigned to this parent.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // If multiple students, show selector
+        let studentSelector = '';
+        if (state.students.length > 1) {
+            studentSelector = `
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Student:</label>
+                    <select id="dashboardStudentSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            onchange="switchDashboardStudent(this.value)">
+                        ${state.students.map(s => `
+                            <option value="${s.id}" ${s.id === state.selectedStudentId ? 'selected' : ''}>
+                                ${s.firstName} ${s.lastName} (${s.admissionNumber})
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        const student = await loadStudentDetails(state.selectedStudentId);
+        if (!student) {
+            container.innerHTML = `<div class="text-center py-8 text-gray-400">Could not load student data.</div>`;
+            return;
+        }
+
+        // Build fee summary
+        const feeStructure = student.currentFeeStructure || {};
+        const tuition = feeStructure.tuition || 0;
+        const totalPaid = student.totalPaid || 0;
+        const balance = tuition - totalPaid;
+
+        // Activity items summary
+        let activityExpected = 0;
+        let activityPaid = 0;
+        let totalItems = 0;
+        let itemsPaid = 0;
+
+        if (feeStructure.activityComponents) {
+            feeStructure.activityComponents.forEach(comp => {
+                (comp.items || []).forEach(item => {
+                    const total = item.totalAmount || 0;
+                    activityExpected += total;
+                    // Check if paid from term records
+                    const paid = student.termRecords?.[Object.keys(student.termRecords || {})[0]]?.activityItemsPaid || {};
+                    const paidItems = Object.values(paid).flat() || [];
+                    const paidRecord = paidItems.find(p => p.itemName === item.name);
+                    if (paidRecord) {
+                        activityPaid += paidRecord.amountPaid || 0;
+                        itemsPaid++;
+                    }
+                    totalItems++;
+                });
+            });
+        }
+
+        // Attendance summary
+        const attendance = student.attendance?.summary || { present: 0, absent: 0, total: 0, rate: 0 };
+
+        // Announcements (latest 3)
+        const recentAnnouncements = state.announcements.slice(0, 3);
+
+        // Events (upcoming 3)
+        const today = new Date().toISOString().split('T')[0];
+        const upcomingEvents = state.events
+            .filter(e => e.startDate >= today && e.status === 'published')
+            .sort((a, b) => a.startDate.localeCompare(b.startDate))
+            .slice(0, 3);
+
+        container.innerHTML = `
+            ${studentSelector}
+            <!-- Student Info -->
+            <div class="stat-card mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                        ${(student.firstName || '')[0]}${(student.lastName || '')[0]}
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-lg">${student.firstName || ''} ${student.lastName || ''}</h3>
+                        <p class="text-sm text-gray-500">${student.currentClass || 'No Class'} • ${student.admissionNumber || 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fee Summary -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="stat-card">
+                    <p class="text-xs text-gray-500">💰 Tuition</p>
+                    <p class="text-xl font-bold text-blue-600">UGX ${(tuition || 0).toLocaleString()}</p>
+                    <p class="text-xs text-green-600">Paid: UGX ${(totalPaid || 0).toLocaleString()}</p>
+                    <p class="text-xs ${balance > 0 ? 'text-red-500' : 'text-green-500'}">Balance: UGX ${(balance || 0).toLocaleString()}</p>
+                </div>
+                <div class="stat-card">
+                    <p class="text-xs text-gray-500">📦 Activity Items</p>
+                    <p class="text-xl font-bold text-purple-600">UGX ${(activityExpected || 0).toLocaleString()}</p>
+                    <p class="text-xs text-green-600">Paid: UGX ${(activityPaid || 0).toLocaleString()}</p>
+                    <p class="text-xs text-gray-500">Items: ${itemsPaid}/${totalItems}</p>
+                </div>
+            </div>
+
+            <!-- Attendance -->
+            <div class="stat-card mb-4">
+                <div class="flex justify-between items-center">
+                    <span class="font-medium text-gray-700">📋 Attendance</span>
+                    <span class="text-sm font-bold ${attendance.rate >= 80 ? 'text-green-600' : attendance.rate >= 50 ? 'text-yellow-600' : 'text-red-600'}">${attendance.rate}%</span>
+                </div>
+                <div class="flex gap-4 mt-2 text-sm">
+                    <span>✅ Present: ${attendance.present}</span>
+                    <span>❌ Absent: ${attendance.absent}</span>
+                    <span>📊 Total: ${attendance.total}</span>
+                </div>
+            </div>
+
+            <!-- Announcements -->
+            ${recentAnnouncements.length ? `
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2"><i class="fas fa-bullhorn text-blue-500 mr-1"></i> Announcements</h4>
+                    ${recentAnnouncements.map(a => `
+                        <div class="stat-card mb-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-medium text-gray-800">${escapeHtml(a.title)}</p>
+                                    <p class="text-sm text-gray-600">${escapeHtml(a.content.substring(0, 80))}${a.content.length > 80 ? '...' : ''}</p>
+                                </div>
+                                ${a.importance === 'Urgent' ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Urgent</span>' : ''}
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">${new Date(a.createdAt).toLocaleDateString()}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+
+            <!-- Upcoming Events -->
+            ${upcomingEvents.length ? `
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2"><i class="fas fa-calendar-alt text-purple-500 mr-1"></i> Upcoming Events</h4>
+                    ${upcomingEvents.map(e => `
+                        <div class="stat-card mb-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="font-medium text-gray-800">${escapeHtml(e.title)}</p>
+                                    <p class="text-sm text-gray-600">${escapeHtml(e.description || '')}</p>
+                                </div>
+                                <span class="text-xs" style="color: ${e.color || '#6b7280'}">●</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">${new Date(e.startDate).toLocaleDateString()} ${e.startTime || ''}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        `;
+
+        // Update chat badge from events/announcements
+        updateChatBadge();
+    }
+
+    // ==================== SWITCH DASHBOARD STUDENT ====================
+    async function switchDashboardStudent(studentId) {
+        state.selectedStudentId = studentId;
+        await loadDashboard();
+    }
+
+    // ==================== LOAD PERFORMANCE ====================
+    async function loadPerformance() {
+        const container = document.getElementById('performanceContent');
+
+        if (!state.selectedStudentId) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><p>No student selected</p></div>`;
+            return;
+        }
+
+        // Show student selector if multiple
+        let selector = '';
+        if (state.students.length > 1) {
+            selector = `
+                <div class="mb-4">
+                    <select id="perfStudentSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            onchange="switchPerformanceStudent(this.value)">
+                        ${state.students.map(s => `
+                            <option value="${s.id}" ${s.id === state.selectedStudentId ? 'selected' : ''}>
+                                ${s.firstName} ${s.lastName}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        const student = await loadStudentDetails(state.selectedStudentId);
+        if (!student) {
+            container.innerHTML = `<div class="text-center py-8 text-gray-400">Could not load student data.</div>`;
+            return;
+        }
+
+        // Get marks from student data
+        const marks = student.marks || {};
+        const years = Object.keys(marks).sort().reverse();
+
+        if (years.length === 0) {
+            container.innerHTML = `
+                ${selector}
+                <div class="empty-state">
+                    <i class="fas fa-chart-line"></i>
+                    <p>No performance data available yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Build performance view
+        let html = selector;
+
+        // Term/Year selector
+        const currentYear = years[0];
+        const terms = Object.keys(marks[currentYear] || {}).sort();
+        const currentTerm = terms.length > 0 ? terms[0] : '1';
+
+        html += `
+            <div class="flex gap-2 mb-4">
+                <select id="perfYear" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        onchange="loadPerformanceData()">
+                    ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+                </select>
+                <select id="perfTerm" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        onchange="loadPerformanceData()">
+                    ${terms.map(t => `<option value="${t}" ${t === currentTerm ? 'selected' : ''}>Term ${t}</option>`).join('')}
+                </select>
+            </div>
+            <div id="perfDataContainer">
+                <div class="loading-spinner"></div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Load performance data
+        await loadPerformanceData();
+    }
+
+    // ==================== LOAD PERFORMANCE DATA ====================
+    async function loadPerformanceData() {
+        const container = document.getElementById('perfDataContainer');
+        if (!container) return;
+
+        const year = document.getElementById('perfYear')?.value;
+        const term = document.getElementById('perfTerm')?.value;
+
+        if (!year || !term || !state.selectedStudentId) {
+            container.innerHTML = `<div class="empty-state"><p>Select a term and year</p></div>`;
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/reports/report-card/${state.selectedStudentId}/${term}/${year}`);
+            if (!res.ok) throw new Error('Failed to load report card');
+
+            const data = await res.json();
+            const results = data.results || [];
+            const summary = data.summary || {};
+
+            if (results.length === 0) {
+                container.innerHTML = `<div class="empty-state"><p>No marks recorded for this term.</p></div>`;
+                return;
+            }
+
+            let html = `
+                <div class="stat-card mb-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-sm text-gray-500">${data.student?.name}</p>
+                            <p class="text-sm text-gray-500">${data.student?.class} • ${data.student?.admissionNumber}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold ${summary.average >= 80 ? 'text-green-600' : summary.average >= 50 ? 'text-yellow-600' : 'text-red-600'}">${summary.average}%</p>
+                            <p class="text-sm text-gray-500">Grade: ${summary.grade}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <h4 class="font-semibold text-gray-700 mb-2">Subjects</h4>
+                    ${results.map(r => `
+                        <div class="subject-grade">
+                            <span>${escapeHtml(r.subjectName)}</span>
+                            <span class="grade grade-${r.grade}">${r.grade} (${r.score}%)</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+        } catch (e) {
+            console.error('Error loading performance data:', e);
+            container.innerHTML = `<div class="text-center text-red-500 py-4">Error loading performance data</div>`;
+        }
+    }
+
+    // ==================== SWITCH PERFORMANCE STUDENT ====================
+    async function switchPerformanceStudent(studentId) {
+        state.selectedStudentId = studentId;
+        await loadPerformance();
+    }
+
+    // ==================== LOAD FEES ====================
+    async function loadFees() {
+        const container = document.getElementById('feesContent');
+
+        if (!state.selectedStudentId) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i><p>No student selected</p></div>`;
+            return;
+        }
+
+        // Student selector
+        let selector = '';
+        if (state.students.length > 1) {
+            selector = `
+                <div class="mb-4">
+                    <select id="feeStudentSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            onchange="switchFeeStudent(this.value)">
+                        ${state.students.map(s => `
+                            <option value="${s.id}" ${s.id === state.selectedStudentId ? 'selected' : ''}>
+                                ${s.firstName} ${s.lastName}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        const student = await loadStudentDetails(state.selectedStudentId);
+        if (!student) {
+            container.innerHTML = `<div class="text-center py-8 text-gray-400">Could not load student data.</div>`;
+            return;
+        }
+
+        const feeStructure = student.currentFeeStructure || {};
+        const tuition = feeStructure.tuition || 0;
+        const totalPaid = student.totalPaid || 0;
+        const balance = tuition - totalPaid;
+
+        // Build activity items by period
+        const components = feeStructure.activityComponents || [];
+        const periods = ['one_time', 'termly', 'yearly'];
+        const periodLabels = { one_time: '⭐ One-Time', termly: '📅 Termly', yearly: '📆 Yearly' };
+        const periodColors = { one_time: 'purple', termly: 'blue', yearly: 'green' };
+
+        let activityHtml = '';
+        for (const period of periods) {
+            const periodComps = components.filter(c => c.periodType === period);
+            if (periodComps.length === 0) continue;
+
+            let itemsHtml = '';
+            let periodTotal = 0;
+            let periodPaid = 0;
+
+            for (const comp of periodComps) {
+                for (const item of (comp.items || [])) {
+                    const total = item.totalAmount || 0;
+                    periodTotal += total;
+
+                    // Check if paid
+                    const termRecords = student.termRecords || {};
+                    const recordKey = Object.keys(termRecords)[0] || '';
+                    const record = termRecords[recordKey] || {};
+                    const paidItems = record.activityItemsPaid?.[period] || [];
+                    const paidRecord = paidItems.find(p => p.itemName === item.name);
+                    const paid = paidRecord?.amountPaid || 0;
+                    periodPaid += paid;
+
+                    const status = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+                    const statusLabels = { paid: '✅ Paid', partial: '⏳ Partial', unpaid: '❌ Unpaid' };
+
+                    itemsHtml += `
+                        <div class="fee-item">
+                            <span>${escapeHtml(item.name)} <span class="text-xs text-gray-400">×${item.quantity || 1}</span></span>
+                            <div class="flex items-center gap-2">
+                                <span>UGX ${(total || 0).toLocaleString()}</span>
+                                <span class="item-status ${status}">${statusLabels[status]}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (itemsHtml) {
+                activityHtml += `
+                    <div class="fee-period-group">
+                        <div class="period-header">
+                            <span>${periodLabels[period]}</span>
+                            <span>UGX ${(periodTotal || 0).toLocaleString()} (Paid: UGX ${(periodPaid || 0).toLocaleString()})</span>
+                        </div>
+                        <div class="period-body">${itemsHtml}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Payment history
+        let paymentHtml = '';
+        const payments = student.payments || [];
+        if (payments.length > 0) {
+            paymentHtml = `
+                <div class="stat-card mt-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">💰 Payment History</h4>
+                    ${payments.slice(0, 10).map(p => `
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100 text-sm">
+                            <div>
+                                <span class="font-medium">${p.receiptNumber || 'N/A'}</span>
+                                <span class="text-gray-400 text-xs ml-2">${new Date(p.date).toLocaleDateString()}</span>
+                            </div>
+                            <span class="font-bold text-green-600">UGX ${(p.totalAmount || p.amount || 0).toLocaleString()}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            ${selector}
+            <!-- Tuition -->
+            <div class="stat-card mb-4">
+                <h4 class="font-semibold text-gray-700 mb-2">💵 Tuition</h4>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                        <p class="text-xs text-gray-500">Expected</p>
+                        <p class="text-lg font-bold text-blue-600">UGX ${(tuition || 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Paid</p>
+                        <p class="text-lg font-bold text-green-600">UGX ${(totalPaid || 0).toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Balance</p>
+                        <p class="text-lg font-bold ${balance > 0 ? 'text-red-500' : 'text-green-500'}">UGX ${(balance || 0).toLocaleString()}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Items -->
+            <div class="mb-4">
+                <h4 class="font-semibold text-gray-700 mb-2">📦 Activity Items</h4>
+                ${activityHtml || '<div class="text-gray-400 text-sm">No activity items.</div>'}
+            </div>
+
+            ${paymentHtml}
+        `;
+    }
+
+    // ==================== SWITCH FEE STUDENT ====================
+    async function switchFeeStudent(studentId) {
+        state.selectedStudentId = studentId;
+        await loadFees();
+    }
+
+    // ==================== LOAD EVENTS TAB ====================
+    async function loadEventsTab() {
+        const container = document.getElementById('eventsContent');
+
+        try {
+            await loadEvents();
+            const today = new Date().toISOString().split('T')[0];
+            const upcoming = state.events
+                .filter(e => e.startDate >= today && e.status === 'published')
+                .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+            const past = state.events
+                .filter(e => e.startDate < today && e.status === 'published')
+                .sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+            if (upcoming.length === 0 && past.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-alt"></i>
+                        <p>No events scheduled.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+
+            if (upcoming.length) {
+                html += `<h4 class="font-semibold text-gray-700 mb-2">📅 Upcoming Events</h4>`;
+                html += upcoming.map(e => `
+                    <div class="event-card" style="border-left-color: ${e.color || '#6b7280'}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="event-title">${escapeHtml(e.title)}</div>
+                                <div class="event-date">${new Date(e.startDate).toLocaleDateString()} ${e.startTime || ''} ${e.endTime ? '- ' + e.endTime : ''}</div>
+                                ${e.location ? `<div class="text-xs text-gray-400 mt-1">📍 ${escapeHtml(e.location)}</div>` : ''}
+                            </div>
+                            <span class="event-category" style="background: ${e.color || '#6b7280'}20; color: ${e.color || '#6b7280'}">${e.category || 'General'}</span>
+                        </div>
+                        ${e.description ? `<p class="text-sm text-gray-600 mt-1">${escapeHtml(e.description)}</p>` : ''}
+                    </div>
+                `).join('');
+            }
+
+            if (past.length) {
+                html += `<h4 class="font-semibold text-gray-700 mt-4 mb-2">📋 Past Events</h4>`;
+                html += past.slice(0, 10).map(e => `
+                    <div class="event-card opacity-70" style="border-left-color: ${e.color || '#6b7280'}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="event-title">${escapeHtml(e.title)}</div>
+                                <div class="event-date">${new Date(e.startDate).toLocaleDateString()}</div>
+                            </div>
+                            <span class="text-xs text-gray-400">Past</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            container.innerHTML = html;
+
+        } catch (e) {
+            console.error('Error loading events:', e);
+            container.innerHTML = `<div class="text-center text-red-500 py-4">Error loading events</div>`;
+        }
+    }
+
+    // ==================== LOAD CHAT TAB ====================
+    async function loadChatTab() {
+        const container = document.getElementById('chatContent');
+
+        await loadChatContacts();
+
+        if (state.chatContacts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-comment-slash"></i>
+                    <p>No contacts available</p>
+                    <p class="text-sm">Contact the school administration.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Build chat view
+        let html = `
+            <div class="flex flex-col h-[calc(100vh-180px)]">
+                <!-- Contact List -->
+                <div class="flex-1 overflow-y-auto border border-gray-200 rounded-xl">
+                    ${state.chatContacts.map(c => `
+                        <div class="chat-contact-item" onclick="selectChatContact('${c.id}')" data-contact-id="${c.id}">
+                            <div class="avatar" style="background: ${getAvatarColor(c.id)}">
+                                ${c.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-medium text-gray-800">${escapeHtml(c.name)}</span>
+                                    <span class="text-xs text-gray-400">${c.type}</span>
+                                </div>
+                                <p class="text-xs text-gray-500 truncate">${c.phone || c.email || 'Click to chat'}</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Chat Area -->
+                <div id="chatArea" class="mt-3 border border-gray-200 rounded-xl p-3 bg-gray-50 min-h-[200px] flex items-center justify-center text-gray-400 text-sm">
+                    <div class="text-center">
+                        <i class="fas fa-comment-dots text-3xl text-gray-300 mb-2 block"></i>
+                        <p>Select a contact to start chatting</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // If there's a current contact, load messages
+        if (state.currentChatContact) {
+            await loadChatMessages(state.currentChatContact.id);
+        }
+    }
+
+    // ==================== LOAD CHAT CONTACTS ====================
+    async function loadChatContacts() {
+        try {
+            const res = await fetch('/api/chat/contacts?type=all');
+            if (res.ok) {
+                const contacts = await res.json();
+                // Filter to only show relevant contacts (teachers, director)
+                state.chatContacts = contacts.filter(c => 
+                    c.type === 'teacher' || c.type === 'director'
+                );
+            }
+        } catch (e) {
+            console.warn('Error loading chat contacts:', e);
+        }
+    }
+
+    // ==================== SELECT CHAT CONTACT ====================
+    async function selectChatContact(contactId) {
+        const contact = state.chatContacts.find(c => c.id === contactId);
+        if (!contact) return;
+
+        state.currentChatContact = contact;
+
+        // Highlight selected
+        document.querySelectorAll('.chat-contact-item').forEach(el => {
+            el.style.background = el.dataset.contactId === contactId ? '#eff6ff' : '';
+            el.style.borderLeft = el.dataset.contactId === contactId ? '3px solid #2563eb' : '';
+        });
+
+        await loadChatMessages(contactId);
+    }
+
+    // ==================== LOAD CHAT MESSAGES ====================
+    async function loadChatMessages(contactId) {
+        const area = document.getElementById('chatArea');
+        if (!area) return;
+
+        try {
+            const res = await fetch(`/api/chat/messages/${contactId}?limit=50`);
+            if (!res.ok) throw new Error('Failed to load messages');
+
+            const messages = await res.json();
+
+            if (messages.length === 0) {
+                area.innerHTML = `
+                    <div class="text-center text-gray-400 text-sm">
+                        <i class="fas fa-comment-dots text-2xl text-gray-300 mb-2 block"></i>
+                        <p>No messages yet</p>
+                        <p class="text-xs">Start a conversation with ${escapeHtml(state.currentChatContact?.name || '')}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="chat-messages flex flex-col">
+                    ${messages.map(m => {
+                        const isAdmin = m.sender === 'admin';
+                        return `
+                            <div class="chat-message ${isAdmin ? 'admin' : 'parent'}">
+                                ${escapeHtml(m.message)}
+                                <span class="time">${new Date(m.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <input type="text" id="chatInput" placeholder="Type a message..."
+                           class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                           onkeydown="if(event.key==='Enter') sendChatMessage()">
+                    <button onclick="sendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            `;
+
+            area.innerHTML = html;
+            area.scrollTop = area.scrollHeight;
+
+            // Mark messages as read
+            await fetch(`/api/chat/messages/${contactId}/read`, { method: 'PUT' });
+
+        } catch (e) {
+            console.error('Error loading messages:', e);
+            area.innerHTML = `<div class="text-center text-red-500 text-sm">Error loading messages</div>`;
+        }
+    }
+
+    // ==================== SEND CHAT MESSAGE ====================
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        if (!input || !state.currentChatContact) return;
+
+        const message = input.value.trim();
+        if (!message) return;
+
+        input.disabled = true;
+
+        try {
+            const res = await fetch('/api/chat/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contactId: state.currentChatContact.id,
+                    message: message,
+                    sender: state.parentName || 'parent',
+                    messageType: 'text'
+                })
+            });
+
+            if (res.ok) {
+                input.value = '';
+                await loadChatMessages(state.currentChatContact.id);
+                updateChatBadge();
+            } else {
+                showToast('Failed to send message', 'error');
+            }
+        } catch (e) {
+            console.error('Error sending message:', e);
+            showToast('Error sending message', 'error');
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    // ==================== UPDATE CHAT BADGE ====================
+    async function updateChatBadge() {
+        try {
+            const res = await fetch('/api/chat/unread');
+            if (res.ok) {
+                const data = await res.json();
+                const badge = document.getElementById('chatBadge');
+                if (data.totalUnread > 0) {
+                    badge.textContent = data.totalUnread > 9 ? '9+' : data.totalUnread;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    // ==================== START CHAT POLLING ====================
+    function startChatPolling() {
+        if (state.chatPolling) clearInterval(state.chatPolling);
+        state.chatPolling = setInterval(() => {
+            if (state.currentChatContact) {
+                loadChatMessages(state.currentChatContact.id);
+            }
+            updateChatBadge();
+        }, 5000);
+    }
+
+    // ==================== LOGOUT ====================
+    function logoutParent() {
+        if (confirm('Are you sure you want to logout?')) {
+            localStorage.removeItem('parentName');
+            localStorage.removeItem('parentStudents');
+            localStorage.removeItem('parentLoginTime');
+            if (state.chatPolling) clearInterval(state.chatPolling);
+            window.location.href = '/parent-login.html';
+        }
+    }
+
+    // ==================== HELPERS ====================
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getAvatarColor(id) {
+        const colors = ['#4F46E5', '#7C3AED', '#EC4899', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
+        let hash = 0;
+        for (let i = 0; i < id.length; i++) {
+            hash = id.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
+    }
+
+    function getTermName(term) {
+        const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+        return names[term] || `Term ${term}`;
+    }
+
+    // ==================== TOAST ====================
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const colors = {
+            success: 'bg-green-600',
+            error: 'bg-red-600',
+            warning: 'bg-yellow-600',
+            info: 'bg-blue-600'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${colors[type] || 'bg-gray-700'}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+
+    // ==================== EXPOSE GLOBALLY ====================
+    window.switchTab = switchTab;
+    window.toggleNotifications = toggleNotifications;
+    window.closeNotifications = closeNotifications;
+    window.logoutParent = logoutParent;
+    window.switchDashboardStudent = switchDashboardStudent;
+    window.switchPerformanceStudent = switchPerformanceStudent;
+    window.switchFeeStudent = switchFeeStudent;
+    window.loadPerformanceData = loadPerformanceData;
+    window.selectChatContact = selectChatContact;
+    window.sendChatMessage = sendChatMessage;
+    window.showToast = showToast;
+    window.state = state;
+
+    // ==================== START ====================
+    document.addEventListener('DOMContentLoaded', init);
+
+})();
+</script>
+
+</body>
+</html> 

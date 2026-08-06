@@ -1,0 +1,58 @@
+[
+  {
+    "id": "cat_general",
+    "name": "General",
+    "color": "#3b82f6",
+    "icon": "fa-bullhorn",
+    "description": "General school announcements"
+  },
+  {
+    "id": "cat_fee",
+    "name": "Fee Reminder",
+    "color": "#ef4444",
+    "icon": "fa-money-bill-wave",
+    "description": "Fee payment reminders and updates"
+  },
+  {
+    "id": "cat_events",
+    "name": "Events",
+    "color": "#8b5cf6",
+    "icon": "fa-calendar-alt",
+    "description": "School events and activities"
+  },
+  {
+    "id": "cat_exams",
+    "name": "Exams",
+    "color": "#f59e0b",
+    "icon": "fa-pencil-alt",
+    "description": "Exam schedules and results"
+  },
+  {
+    "id": "cat_holidays",
+    "name": "Holidays",
+    "color": "#10b981",
+    "icon": "fa-umbrella-beach",
+    "description": "Holiday announcements"
+  },
+  {
+    "id": "cat_sports",
+    "name": "Sports",
+    "color": "#06b6d4",
+    "icon": "fa-running",
+    "description": "Sports events and updates"
+  },
+  {
+    "id": "cat_academic",
+    "name": "Academic",
+    "color": "#6366f1",
+    "icon": "fa-graduation-cap",
+    "description": "Academic updates and notices"
+  },
+  {
+    "id": "cat_other",
+    "name": "Other",
+    "color": "#6b7280",
+    "icon": "fa-ellipsis-h",
+    "description": "Other announcements"
+  }
+]

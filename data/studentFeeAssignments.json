@@ -1,0 +1,458 @@
+[
+  {
+    "id": "66871fc3-6e5f-41d3-a92e-d193df7d4b0b",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "feeStructureId": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T10:13:35.067Z",
+    "updatedAt": "2026-07-24T10:13:35.067Z",
+    "isCurrent": false
+  },
+  {
+    "id": "03162bce-f69c-4aca-be1b-658ef8758cbc",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "bursaryId": null,
+    "assignedAt": "2026-07-18T12:26:44.408Z",
+    "updatedAt": "2026-07-18T12:26:44.408Z"
+  },
+  {
+    "id": "79cc30f3-d234-4ba7-a257-644aaaf81460",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T10:12:42.205Z",
+    "updatedAt": "2026-07-24T10:12:42.205Z"
+  },
+  {
+    "id": "5745b679-571b-4cb2-bc53-e2b260d0a490",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "feeStructureId": "9005012c-e29b-4a7e-a118-08f6aea1320f",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-18T12:40:48.278Z"
+  },
+  {
+    "id": "4b40ecfc-eb3a-42a3-9a9e-715b36289550",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-18T13:29:25.837Z"
+  },
+  {
+    "id": "68a74c74-e867-4627-b102-d0deff6a7b46",
+    "studentId": "90c0d501-4043-49c3-a641-8e6429dceed2",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "bursaryId": null,
+    "assignedAt": "2026-07-18T14:11:54.273Z",
+    "updatedAt": "2026-07-18T14:11:54.273Z"
+  },
+  {
+    "id": "b4353f5f-960c-40a6-a933-12ec5f4547ee",
+    "studentId": "4cf378a9-df99-47f1-b8fe-f873564c2dea",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-18T14:20:48.315Z"
+  },
+  {
+    "id": "edd81603-db58-4bdc-bf16-57077016e99b",
+    "studentId": "77de9a13-d34b-482f-bd29-74224bab6b27",
+    "feeStructureId": "208edb9e-33b2-4d19-b876-6499fd39a22b",
+    "bursaryId": null,
+    "customBursaryAmount": 220000,
+    "assignedAt": "2026-07-18T14:33:55.152Z"
+  },
+  {
+    "id": "000e1c35-8b4c-439d-aa41-ed1fc349da31",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-18T14:51:39.220Z"
+  },
+  {
+    "id": "5459f3d5-49e0-42ee-ba44-54cc828921ee",
+    "studentId": "18a441b5-5564-41cf-ac22-bbd6f440b9c6",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-18T15:08:45.348Z"
+  },
+  {
+    "id": "cfefcc85-c750-4f0a-b1c3-23e18f3cb90b",
+    "studentId": "4ea8a975-6dc3-446f-9543-43e312e920ce",
+    "feeStructureId": "a70c9ea5-a364-470e-95df-57ffc2b2f7f1",
+    "bursaryId": null,
+    "assignedAt": "2026-07-20T15:53:18.207Z",
+    "updatedAt": "2026-07-21T20:29:47.643Z"
+  },
+  {
+    "id": "83fa78d2-beec-4f3e-9071-de9b2f175400",
+    "studentId": "27f2379d-f274-4fe7-afa1-c3f102034f73",
+    "feeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
+    "bursaryId": null,
+    "assignedAt": "2026-07-20T15:53:18.209Z",
+    "updatedAt": "2026-07-20T16:06:52.327Z"
+  },
+  {
+    "id": "4ad732d5-6dae-47ac-9ca5-d900733fab79",
+    "studentId": "7ab2e4ab-3309-4325-a72a-334bf2301e1f",
+    "feeStructureId": "a70c9ea5-a364-470e-95df-57ffc2b2f7f1",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-21T14:25:54.798Z"
+  },
+  {
+    "id": "c15916a1-bcf4-41f2-ab30-1a8176349bea",
+    "studentId": "dad596a2-c9c6-47af-b90b-e4a6eaf937d7",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-21T16:43:40.453Z"
+  },
+  {
+    "id": "692090ee-fa15-4581-ab21-a6ea46a17e7e",
+    "studentId": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
+    "feeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
+    "bursaryId": null,
+    "assignedAt": "2026-07-21T20:29:47.645Z"
+  },
+  {
+    "id": "c4aa398b-645d-496f-ae9d-196bc13203da",
+    "studentId": "6fe4579d-6081-441b-b8f3-5df8f0e2816d",
+    "feeStructureId": "c6b9b331-a153-4182-99cb-981a1ba27b70",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-21T20:55:15.047Z"
+  },
+  {
+    "id": "32adbbe4-090e-49a5-80dc-f4dc34220721",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "feeStructureId": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:35:52.654Z",
+    "academicYear": 2027,
+    "customBursaryAmount": 5000,
+    "updatedAt": "2026-07-24T10:04:36.897Z",
+    "isCurrent": false
+  },
+  {
+    "id": "1731431c-35ae-40cb-baeb-1388866a3abc",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:36:39.665Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null,
+    "updatedAt": "2026-07-24T10:06:02.489Z"
+  },
+  {
+    "id": "223214f8-24be-4c56-8832-2bc8ef11f07d",
+    "studentId": "a4aa778a-f02e-4d7c-a600-f35f4147117d",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:37:44.950Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "1f8a3d3c-7a7a-429a-87dd-3f236c2645aa",
+    "studentId": "dd3d4328-2f8d-43ba-b92a-d045a1d6663c",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:53:01.918Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null,
+    "updatedAt": "2026-07-24T07:54:31.127Z"
+  },
+  {
+    "id": "0cc0ff40-0936-4e11-8cbb-005f47000e8b",
+    "studentId": "597ee083-ad1f-4dc3-a553-01ae4997facf",
+    "feeStructureId": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:54:31.128Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "5ed9e74c-1a86-443b-a4bc-39140c34abed",
+    "studentId": "27f2379d-f274-4fe7-afa1-c3f102034f73",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:54:31.129Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "ccae9372-829f-4172-8271-ee368fe145ec",
+    "studentId": "ed983fbd-93e9-4541-ba79-24f0c185d1ca",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "assignedAt": "2026-07-24T07:54:31.130Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "0def6042-cfeb-4de2-a228-7845e06e0fa9",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "feeStructureId": "4edb456d-2d87-4e76-9812-f1ec0b123e46",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "academicTerm": 1,
+    "isCurrent": true,
+    "assignedAt": "2026-07-24T10:42:18.332Z",
+    "updatedAt": "2026-07-24T11:04:12.498Z"
+  },
+  {
+    "id": "b704b05a-1240-47ab-abe2-5a771662010b",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "feeStructureId": "b2135ed9-5eab-43ff-9d48-4baaf0e9e8e5",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "term": 1,
+    "assignedAt": "2026-07-25T08:27:06.754Z"
+  },
+  {
+    "id": "b3785b60-1dea-4654-9ba1-bac50859bf5f",
+    "studentId": "c5e8a48a-a43f-4710-b4db-3d299897e64c",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T08:28:22.558Z",
+    "academicYear": 2028,
+    "customBursaryAmount": 5000
+  },
+  {
+    "id": "6d010b92-7d35-40c9-b477-44cb895d1970",
+    "studentId": "1ece2715-35a7-4186-a7d2-d9d93c8ecfee",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T08:33:23.311Z",
+    "academicYear": 2028,
+    "customBursaryAmount": 5000
+  },
+  {
+    "id": "fcef3960-c86b-47ee-8861-a0605ec73b55",
+    "studentId": "475d6642-d616-4f40-bd0e-de55eb4b2473",
+    "feeStructureId": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T08:49:05.372Z",
+    "academicYear": 2028,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "5ce36f33-2f6d-4892-97cd-f8824f9b143d",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-25T09:34:53.247Z"
+  },
+  {
+    "id": "3069a1a8-cd8a-4fff-91a2-291804000f75",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "6338477d-6f36-4563-9a3f-32021022efae",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "term": 1,
+    "assignedAt": "2026-07-25T09:35:50.695Z",
+    "updatedAt": "2026-07-31T15:43:50.406Z"
+  },
+  {
+    "id": "24745749-9a2d-48a1-85f1-0acebb7e576b",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "a70c9ea5-a364-470e-95df-57ffc2b2f7f1",
+    "bursaryId": null,
+    "academicYear": 2026,
+    "term": 1,
+    "assignedAt": "2026-07-25T10:29:12.898Z",
+    "updatedAt": "2026-07-28T06:23:45.009Z"
+  },
+  {
+    "id": "235c0a36-92b7-44af-a2ba-7a7603891da4",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "1be563b2-00f4-4178-ae32-a42ebc00dd63",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T10:04:59.124Z",
+    "academicYear": 2028,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "341604f5-6133-43ed-9380-8cea381fb3eb",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "term": 1,
+    "assignedAt": "2026-07-25T11:59:19.092Z"
+  },
+  {
+    "id": "f93c6158-eec9-4a55-bc47-86c5a3d5ed24",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T10:22:16.609Z",
+    "academicYear": 2029,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "4f68a723-8926-4ae4-b33b-53d8e026a191",
+    "studentId": "f408818e-618b-4c1b-99b9-d8b08a0df61e",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-25T10:29:54.968Z"
+  },
+  {
+    "id": "3ca02207-434b-4cae-999d-e0d6e551f6c6",
+    "studentId": "f408818e-618b-4c1b-99b9-d8b08a0df61e",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T10:30:43.028Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "fa7593de-2748-4dfa-b4c9-493d13c9cb74",
+    "studentId": "f408818e-618b-4c1b-99b9-d8b08a0df61e",
+    "feeStructureId": "e86688dc-351e-4a48-a6aa-46109c0f9fef",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T10:36:42.005Z",
+    "academicYear": 2028,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "ea33182d-9d3c-469a-8d8e-9310809ead33",
+    "studentId": "483f38fd-605f-44ce-bbe2-03010742bcd9",
+    "feeStructureId": "c6b9b331-a153-4182-99cb-981a1ba27b70",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-25T11:13:47.661Z"
+  },
+  {
+    "id": "78a2b6aa-6394-4202-8d31-e000f0f66f9b",
+    "studentId": "d4b1fe4a-3a20-4368-9543-18e10dbf1616",
+    "feeStructureId": "0fe1f565-caad-4f52-bc37-2915a1931b04",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-25T11:20:39.995Z"
+  },
+  {
+    "id": "d4c55733-198d-4307-a77f-67528c69095e",
+    "studentId": "d4b1fe4a-3a20-4368-9543-18e10dbf1616",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T11:33:42.918Z",
+    "academicYear": 2027,
+    "customBursaryAmount": null
+  },
+  {
+    "id": "074626cb-214f-4526-b69b-76c981fdd66c",
+    "studentId": "d4b1fe4a-3a20-4368-9543-18e10dbf1616",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "bursaryId": null,
+    "academicYear": 2028,
+    "term": 1,
+    "assignedAt": "2026-07-25T12:05:25.532Z",
+    "updatedAt": "2026-07-25T13:33:18.714Z"
+  },
+  {
+    "id": "d11b4557-1c51-4800-bc8f-eae941c38eee",
+    "studentId": "e7f2a0cd-cd39-40ea-923b-9d8dc8e2f929",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "bursaryId": null,
+    "academicYear": 2028,
+    "term": 1,
+    "assignedAt": "2026-07-25T12:34:54.924Z"
+  },
+  {
+    "id": "312d1a99-9344-48eb-b020-5a0460cd0625",
+    "studentId": "d4b1fe4a-3a20-4368-9543-18e10dbf1616",
+    "feeStructureId": "84d82108-2e2e-4085-8251-5fe51b1791c2",
+    "bursaryId": null,
+    "academicYear": 2028,
+    "term": 1,
+    "assignedAt": "2026-07-25T12:38:49.507Z"
+  },
+  {
+    "id": "9add7276-fafc-4f29-811b-6676dc351ac8",
+    "studentId": "d4b1fe4a-3a20-4368-9543-18e10dbf1616",
+    "feeStructureId": "16ea91dc-c9fa-4673-8ee8-5821a2081188",
+    "bursaryId": null,
+    "assignedAt": "2026-07-25T12:45:10.000Z",
+    "academicYear": 2029,
+    "customBursaryAmount": null,
+    "updatedAt": "2026-07-25T13:33:30.878Z"
+  },
+  {
+    "id": "cfa90313-f4cf-4b16-84cd-cdbd116edc65",
+    "studentId": "c92eba38-d2aa-4855-92c8-e2b1916f318d",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-25T14:20:50.646Z"
+  },
+  {
+    "id": "6e4d61fd-ed7c-4e87-9f06-391b8fa42da5",
+    "studentId": "96c490fb-331f-4ddc-83d0-6774c3f2845f",
+    "feeStructureId": "5ad1c252-694f-4167-823f-538b1ca1b535",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-25T14:56:42.142Z"
+  },
+  {
+    "id": "d2d32d98-f494-4526-8a87-87f029239bea",
+    "studentId": "7ef31d8e-ebd9-4bd1-9f72-aba7c03638a7",
+    "feeStructureId": "02b87208-0fe3-45b2-a5cd-e70eaa844d58",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-26T05:55:15.087Z"
+  },
+  {
+    "id": "6c9b32fe-4797-4837-8f83-9da424c7edc5",
+    "studentId": "7ef31d8e-ebd9-4bd1-9f72-aba7c03638a7",
+    "feeStructureId": "16ea91dc-c9fa-4673-8ee8-5821a2081188",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "term": 1,
+    "assignedAt": "2026-07-26T06:03:06.143Z",
+    "updatedAt": "2026-07-31T07:27:51.736Z"
+  },
+  {
+    "id": "beede2dc-60a7-4390-a277-86a713cdebb5",
+    "studentId": "f81906c0-4ce4-4aa6-a0b3-ac85fab046ad",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-26T18:39:30.527Z"
+  },
+  {
+    "id": "64235666-dbf3-44be-9084-ff2f1797484d",
+    "studentId": "255885f2-92db-40bd-8396-c6806955e4ac",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "bursaryId": null,
+    "customBursaryAmount": null,
+    "assignedAt": "2026-07-27T06:08:47.093Z"
+  },
+  {
+    "id": "55fad7cf-9f4a-444d-9c00-4c9a65b7566d",
+    "studentId": "f81906c0-4ce4-4aa6-a0b3-ac85fab046ad",
+    "feeStructureId": "f911c08b-7f6c-4bc5-b5d6-21e220e42167",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "term": 1,
+    "assignedAt": "2026-07-31T07:24:28.761Z",
+    "updatedAt": "2026-07-31T07:26:17.080Z"
+  },
+  {
+    "id": "689d179f-8b2d-4dc4-a27e-594e073ed6e7",
+    "studentId": "255885f2-92db-40bd-8396-c6806955e4ac",
+    "feeStructureId": "fa9a7b93-987b-45b5-b75a-ee34005b31b9",
+    "bursaryId": null,
+    "academicYear": 2027,
+    "term": 1,
+    "assignedAt": "2026-08-03T23:36:08.096Z",
+    "updatedAt": "2026-08-03T23:37:57.117Z"
+  }
+]

@@ -1,0 +1,3428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teacher Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        /* ========== BASE STYLES ========== */
+        .status-badge { transition: all 0.2s ease; }
+        .attendance-row:hover { background-color: #f8fafc; }
+        .toggle-checkbox:checked + .toggle-slider { background-color: #22c55e; }
+        .toggle-checkbox:checked + .toggle-slider:before { transform: translateX(1.25rem); }
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: white;
+            border-radius: 9999px;
+            transition: transform 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .tab-btn { transition: all 0.2s ease; }
+        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .tab-btn:not(.active) { color: #6b7280; border-bottom-color: transparent; }
+        .tab-btn:not(.active):hover { color: #374151; border-bottom-color: #d1d5db; }
+        .sub-tab-btn { transition: all 0.2s ease; }
+        .sub-tab-btn.active { background-color: #2563eb; color: white; }
+        .sub-tab-btn:not(.active) { background-color: #f3f4f6; color: #6b7280; }
+        .sub-tab-btn:not(.active):hover { background-color: #e5e7eb; }
+        .scrollable-table { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+        .scrollable-table::-webkit-scrollbar { width: 4px; }
+        .scrollable-table::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
+        .history-item:hover { background-color: #f8fafc; }
+        .history-item.selected { background-color: #eff6ff; border-left: 3px solid #2563eb; }
+        .toast {
+            animation: toastIn 0.4s ease-out;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .toast-out {
+            animation: toastOut 0.3s ease-in forwards;
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(20px) scale(0.95); }
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .modal-overlay {
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+        .sweeping-day-card {
+            transition: all 0.2s ease;
+        }
+        .sweeping-day-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .sweeping-student-chip {
+            transition: all 0.2s ease;
+        }
+        .sweeping-student-chip:hover {
+            background-color: #dbeafe;
+            transform: scale(1.02);
+        }
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .day-selector-btn {
+            transition: all 0.2s ease;
+        }
+        .day-selector-btn.active-day {
+            background-color: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .day-selector-btn.active-day:hover {
+            background-color: #1d4ed8;
+        }
+        .day-selector-btn:not(.active-day):hover {
+            background-color: #f3f4f6;
+        }
+        .marks-input {
+            transition: all 0.2s ease;
+        }
+        .marks-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+        }
+        .marks-input.has-value {
+            background-color: #f0fdf4;
+            border-color: #22c55e;
+        }
+        .marks-input.has-error {
+            background-color: #fef2f2;
+            border-color: #ef4444;
+        }
+        .subject-header {
+            writing-mode: vertical-lr;
+            text-orientation: mixed;
+            white-space: nowrap;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 2px;
+            min-width: 24px;
+        }
+        .assessment-header {
+            font-size: 9px;
+            font-weight: 500;
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+        .report-card-preview {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .report-card-preview .school-name {
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .report-card-preview .school-address {
+            font-size: 12px;
+            text-align: center;
+            color: #6b7280;
+        }
+        .report-card-preview .student-info {
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        .report-card-preview table {
+            width: 100%;
+            font-size: 12px;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        .report-card-preview table th {
+            background: #f3f4f6;
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+            text-align: left;
+            font-weight: 600;
+        }
+        .report-card-preview table td {
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+        }
+        .report-card-preview .grade-A { color: #16a34a; font-weight: 700; }
+        .report-card-preview .grade-B { color: #2563eb; font-weight: 700; }
+        .report-card-preview .grade-C { color: #ca8a04; font-weight: 700; }
+        .report-card-preview .grade-D { color: #ea580c; font-weight: 700; }
+        .report-card-preview .grade-E { color: #dc2626; font-weight: 700; }
+        .report-card-preview .grade-F { color: #991b1b; font-weight: 700; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="min-h-screen bg-gray-100">
+
+        <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                            <i class="fas fa-chalkboard-user text-sm"></i>
+                        </div>
+                        <span class="text-lg font-bold text-gray-800 hidden sm:block">Teacher Portal</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-4 bg-gray-50 px-4 py-1.5 rounded-full border border-gray-200">
+                        <i class="fas fa-user-circle text-blue-600 text-lg"></i>
+                        <span class="text-sm font-medium text-gray-700" id="teacherName">Loading...</span>
+                        <span class="text-xs text-gray-400">|</span>
+                        <span class="text-xs text-gray-500" id="teacherId">ID: ---</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="logoutTeacher()" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="hidden sm:inline">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+            <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl font-bold" id="welcomeMessage">Welcome, Teacher!</h1>
+                        <p class="text-sm text-blue-100 mt-0.5">Manage your classes, attendance, sweeping rosters, and report cards.</p>
+                    </div>
+                    <div class="flex items-center gap-3 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="text-sm font-medium" id="currentDate"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <i class="fas fa-users text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800" id="studentCount">0</p>
+                        <p class="text-xs text-gray-500">My Students</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <i class="fas fa-chalkboard text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800" id="classCount">0</p>
+                        <p class="text-xs text-gray-500">My Classes</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-green-50 text-green-600 flex items-center justify-center">
+                        <i class="fas fa-book-open text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800" id="subjectCount">0</p>
+                        <p class="text-xs text-gray-500">Subjects</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                        <i class="fas fa-clock text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800" id="todayClasses">0</p>
+                        <p class="text-xs text-gray-500">Today's Classes</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i class="fas fa-broom text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800" id="sweepingCount">0</p>
+                        <p class="text-xs text-gray-500">Sweeping Roster</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                        <i class="fas fa-file-alt text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-gray-800" id="reportCount">0</p>
+                        <p class="text-xs text-gray-500">Report Cards</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="classManagementContainer" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="flex items-center justify-center py-16">
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="loading-spinner"></div>
+                        <p class="text-sm text-gray-500">Loading your classes...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- History Detail Modal -->
+    <div id="historyModal" class="fixed inset-0 z-50 hidden modal-overlay flex items-center justify-center">
+        <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden shadow-2xl animate-slide-up">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-800" id="historyModalTitle">Attendance Details</h3>
+                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[60vh]" id="historyModalBody">
+                <div class="flex justify-center py-8"><div class="loading-spinner"></div></div>
+            </div>
+            <div class="border-t border-gray-200 p-4 flex justify-end">
+                <button onclick="closeHistoryModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sweeping Roster Modal (Add/Edit) -->
+    <div id="sweepingModal" class="fixed inset-0 z-50 hidden modal-overlay flex items-center justify-center">
+        <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden shadow-2xl animate-slide-up">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-800" id="sweepingModalTitle">Manage Sweeping Roster</h3>
+                <button onclick="closeSweepingModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[60vh]" id="sweepingModalBody">
+                <div class="flex justify-center py-8"><div class="loading-spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Card Modal -->
+    <div id="reportModal" class="fixed inset-0 z-50 hidden modal-overlay flex items-center justify-center">
+        <div class="bg-white rounded-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden shadow-2xl animate-slide-up">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-800" id="reportModalTitle">Report Card</h3>
+                <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto max-h-[70vh]" id="reportModalBody">
+                <div class="flex justify-center py-8"><div class="loading-spinner"></div></div>
+            </div>
+            <div class="border-t border-gray-200 p-4 flex justify-end gap-3">
+                <button onclick="window.printReportCard()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                    <i class="fas fa-print mr-2"></i> Print
+                </button>
+                <button onclick="closeReportModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ==================== STATE ====================
+            const state = {
+                teacher: null,
+                classes: [],
+                subjects: [],
+                students: [],
+                enrollments: [],
+                selectedClassId: null,
+                attendanceStudents: [],
+                attendanceDate: new Date().toISOString().split('T')[0],
+                activeTab: 'attendance',
+                subTab: 'record', // default sub-tab for reports
+                attendanceHistory: [],
+                isSubmitting: false,
+                classStudentsCache: {},
+                sweepingRosters: {},
+                sweepingSelectedDay: null,
+                sweepingSelectedClass: null,
+                reportMarks: {},
+                reportCardTemplate: null,
+                generatedReportCards: [],
+                selectedStudentId: null,
+                selectedTerm: null,
+                selectedYear: null,
+                subjectInitials: {}
+            };
+
+            const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const ASSESSMENT_TYPES = ['CAT 1', 'CAT 2', 'Exam'];
+            const GRADING_SYSTEM = {
+                'A': { min: 80, max: 100, remark: 'Excellent' },
+                'B': { min: 70, max: 79, remark: 'Very Good' },
+                'C': { min: 60, max: 69, remark: 'Good' },
+                'D': { min: 50, max: 59, remark: 'Satisfactory' },
+                'E': { min: 40, max: 49, remark: 'Fair' },
+                'F': { min: 0, max: 39, remark: 'Poor' }
+            };
+
+            // ==================== DOM HELPERS ====================
+            const $ = (sel) => document.querySelector(sel);
+            const $$ = (sel) => document.querySelectorAll(sel);
+
+            // ==================== INIT ====================
+            async function init() {
+                console.log('🚀 Teacher Dashboard v10.0 - With Report Card Management');
+
+                const raw = localStorage.getItem('teacherData');
+                if (!raw) { window.location.href = '/teacher-login.html'; return; }
+                let teacher;
+                try { teacher = JSON.parse(raw); } catch { window.location.href = '/teacher-login.html'; return; }
+
+                try {
+                    const res = await fetch(`/api/teachers/${teacher.id}`);
+                    if (res.ok) {
+                        const freshTeacher = await res.json();
+                        localStorage.setItem('teacherData', JSON.stringify(freshTeacher));
+                        state.teacher = freshTeacher;
+                        console.log('✅ Teacher data refreshed from server');
+                    } else {
+                        state.teacher = teacher;
+                        console.warn('⚠️ Could not refresh teacher data, using cached copy');
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Error fetching teacher data, using cached copy:', e);
+                    state.teacher = teacher;
+                }
+
+                document.getElementById('teacherName').textContent =
+                    `${state.teacher.firstName || ''} ${state.teacher.lastName || ''}`.trim() || 'Teacher';
+                document.getElementById('teacherId').textContent = state.teacher.teacherId || 'N/A';
+                document.getElementById('welcomeMessage').textContent =
+                    `Welcome, ${state.teacher.firstName || ''}!`;
+
+                const now = new Date();
+                document.getElementById('currentDate').textContent =
+                    now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+                await loadAllData();
+                await renderStats();
+                await renderClassManagement();
+
+                console.log('✅ Dashboard ready');
+            }
+
+            // ==================== LOAD DATA ====================
+            async function loadAllData() {
+                try {
+                    const [classesRes, subjectsRes, studentsRes, enrollmentsRes, templateRes] = await Promise.all([
+                        fetch('/api/school/classes'),
+                        fetch('/api/school/subjects'),
+                        fetch('/api/students'),
+                        fetch('/api/enrollments'),
+                        fetch('/api/report-cards/template').catch(() => ({ ok: false })),
+                    ]);
+                    state.classes = await classesRes.json();
+                    state.subjects = await subjectsRes.json();
+                    state.students = await studentsRes.json();
+                    state.enrollments = await enrollmentsRes.json();
+
+                    if (templateRes && templateRes.ok) {
+                        const templateData = await templateRes.json();
+                        state.reportCardTemplate = templateData.template || null;
+                    }
+
+                    // Load sweeping rosters
+                    if (state.teacher && state.teacher.classes) {
+                        for (const classId of state.teacher.classes) {
+                            try {
+                                const res = await fetch(`/api/sweeping/class/${classId}`);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data.success) {
+                                        state.sweepingRosters[classId] = data.roster || {};
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn(`Could not load sweeping roster for class ${classId}:`, e);
+                            }
+                        }
+                    }
+
+                    console.log('📚 Data loaded. Sweeping rosters:', Object.keys(state.sweepingRosters).length);
+                } catch (e) {
+                    console.error('Failed to load data:', e);
+                    showToast('Failed to load data', 'error');
+                }
+            }
+
+            // ==================== RENDER STATS ====================
+            function renderStats() {
+                const teacherClasses = state.classes.filter(c => state.teacher.classes?.includes(c.id));
+                const classIds = teacherClasses.map(c => c.id);
+                const currentEnrollments = state.enrollments.filter(e => e.isCurrent === true && classIds.includes(e.classId));
+                const studentIds = currentEnrollments.map(e => e.studentId);
+                const classStudents = state.students.filter(s => studentIds.includes(s.id) && s.status === 'Active');
+
+                document.getElementById('studentCount').textContent = classStudents.length;
+                document.getElementById('classCount').textContent = teacherClasses.length;
+                document.getElementById('subjectCount').textContent = state.teacher.subjects?.length || 0;
+                document.getElementById('todayClasses').textContent = teacherClasses.length;
+
+                let totalSweeping = 0;
+                for (const [classId, roster] of Object.entries(state.sweepingRosters)) {
+                    for (const day of DAYS) {
+                        if (roster[day] && roster[day].length > 0) {
+                            totalSweeping += roster[day].length;
+                        }
+                    }
+                }
+                document.getElementById('sweepingCount').textContent = totalSweeping;
+
+                document.getElementById('reportCount').textContent = state.generatedReportCards?.length || 0;
+            }
+
+            // ==================== RENDER CLASS MANAGEMENT ====================
+            async function renderClassManagement() {
+                const container = document.getElementById('classManagementContainer');
+                if (!container) return;
+
+                const teacherClasses = state.classes.filter(c => state.teacher.classes?.includes(c.id));
+
+                if (teacherClasses.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-16 text-gray-500">
+                            <i class="fas fa-exclamation-circle text-5xl text-gray-300 mb-4"></i>
+                            <p class="text-lg font-medium">No classes assigned</p>
+                            <p class="text-sm">Contact the administrator to assign you to classes.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const currentEnrollments = state.enrollments.filter(e => e.isCurrent === true);
+                const classOptions = teacherClasses.map(c => {
+                    const enrolled = currentEnrollments.filter(e => e.classId === c.id).length;
+                    const direct = state.students.filter(s => s.currentClassId === c.id && s.status === 'Active' && !currentEnrollments.some(e => e.studentId === s.id && e.isCurrent)).length;
+                    const count = enrolled + direct;
+                    return { ...c, studentCount: count };
+                });
+
+                if (!state.selectedClassId || !classOptions.find(c => c.id === state.selectedClassId)) {
+                    state.selectedClassId = classOptions[0].id;
+                    state.sweepingSelectedClass = state.selectedClassId;
+                }
+
+                container.innerHTML = buildClassManagementHTML(classOptions);
+                bindClassManagementEvents(classOptions);
+
+                await loadClassStudents(state.selectedClassId);
+
+                // Force load the active tab content
+                const tabContent = document.getElementById('tabContent');
+                if (tabContent) {
+                    if (state.activeTab === 'reports') {
+                        await refreshReportsTab();
+                    } else if (state.activeTab === 'attendance') {
+                        refreshAttendanceTab();
+                    } else if (state.activeTab === 'sweeping') {
+                        refreshSweepingTab();
+                    } else if (state.activeTab === 'students') {
+                        refreshStudentTab();
+                    }
+                }
+            }
+
+            // ==================== BUILD CLASS MANAGEMENT HTML ====================
+            function buildClassManagementHTML(classOptions) {
+                const selected = classOptions.find(c => c.id === state.selectedClassId);
+                const tabs = ['attendance', 'students', 'sweeping', 'reports', 'homework'];
+                const tabLabels = ['Attendance', 'Students', 'Sweeping', 'Reports', 'Homework'];
+                const tabIcons = ['fa-clipboard-list', 'fa-users', 'fa-broom', 'fa-file-alt', 'fa-book'];
+
+                // Ensure subTab is set
+                if (!state.subTab) state.subTab = 'record';
+
+                return `
+                    <div class="p-4 sm:p-6 border-b border-gray-200 bg-gray-50/50">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-chalkboard text-blue-600 text-lg"></i>
+                                <label for="classSelector" class="font-medium text-gray-700">Select Class:</label>
+                            </div>
+                            <select id="classSelector" class="flex-1 max-w-xs border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                                ${classOptions.map(c => `
+                                    <option value="${c.id}" ${c.id === state.selectedClassId ? 'selected' : ''}>
+                                        ${c.name} (${c.level || 'N/A'}) — ${c.studentCount} students
+                                    </option>
+                                `).join('')}
+                            </select>
+                            <span id="classInfo" class="text-sm text-gray-500">
+                                <i class="fas fa-users mr-1"></i>
+                                ${selected ? `${selected.studentCount} students` : ''}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="border-b border-gray-200 px-4 sm:px-6">
+                        <div class="flex gap-1 overflow-x-auto py-2" id="tabContainer">
+                            ${tabs.map((tab, i) => `
+                                <button class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${tab === state.activeTab ? 'active' : ''}"
+                                        data-tab="${tab}">
+                                    <i class="fas ${tabIcons[i]} mr-2"></i>
+                                    ${tabLabels[i]}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div id="tabContent" class="p-4 sm:p-6">
+                        ${buildTabContent(state.activeTab)}
+                    </div>
+                `;
+            }
+
+            // ==================== BUILD TAB CONTENT ====================
+            function buildTabContent(tabName) {
+                switch (tabName) {
+                    case 'attendance': return buildAttendanceTab();
+                    case 'students': return buildStudentsTab();
+                    case 'sweeping': return buildSweepingTab();
+                    case 'reports': return buildReportsTab();
+                    case 'homework': return buildHomeworkTab();
+                    default: return '<p class="text-gray-500">Select a tab</p>';
+                }
+            }
+
+            // ==================== REPORTS TAB (FIXED) ====================
+            function buildReportsTab() {
+                const subTabs = [
+                    { id: 'record', label: '📝 Record Marks', icon: 'fa-pen' },
+                    { id: 'generate', label: '📄 Generate Report Cards', icon: 'fa-file-alt' },
+                    { id: 'view', label: '👁️ View Report Cards', icon: 'fa-eye' },
+                    { id: 'settings', label: '⚙️ Settings', icon: 'fa-cog' }
+                ];
+
+                const currentSubTab = state.subTab || 'record';
+
+                return `
+                    <div class="mb-4">
+                        <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+                            ${subTabs.map(st => `
+                                <button class="sub-tab-btn px-4 py-2 rounded-lg text-sm font-medium transition ${st.id === currentSubTab ? 'active' : ''}"
+                                        data-subtab="${st.id}">
+                                    <i class="fas ${st.icon} mr-1"></i> ${st.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div id="reportSubContent">
+                        ${buildReportSubContent(currentSubTab)}
+                    </div>
+                `;
+            }
+
+            function buildReportSubContent(subTab) {
+                switch (subTab) {
+                    case 'record': return buildRecordMarksTab();
+                    case 'generate': return buildGenerateReportCardsTab();
+                    case 'view': return buildViewReportCardsTab();
+                    case 'settings': return buildReportSettingsTab();
+                    default: return '<p class="text-gray-500">Select a sub‑tab</p>';
+                }
+            }
+
+            // ==================== REFRESH REPORTS TAB (FIXED) ====================
+          // ==================== FIXED: REFRESH REPORTS TAB ====================
+async function refreshReportsTab() {
+    console.log('🔄 Refreshing Reports Tab...');
+    
+    const container = document.getElementById('tabContent');
+    if (!container || state.activeTab !== 'reports') return;
+
+    // Ensure class data is loaded
+    if (!state.selectedClassId) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-500">Please select a class first.</div>`;
+        return;
+    }
+
+    // Load students for this class if not cached
+    if (!state.classStudentsCache[state.selectedClassId]) {
+        await loadClassStudents(state.selectedClassId);
+    }
+
+    // Ensure subTab is set
+    if (!state.subTab) state.subTab = 'record';
+
+    // Render the reports tab structure
+    container.innerHTML = buildReportsTab();
+
+    // Re-bind sub-tab events
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const subTab = this.dataset.subtab;
+            state.subTab = subTab;
+            document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const subContainer = document.getElementById('reportSubContent');
+            if (subContainer) {
+                subContainer.innerHTML = buildReportSubContent(subTab);
+                bindReportEvents();
+                // Load marks when switching to record tab
+                if (subTab === 'record') {
+                    loadMarksData();
+                }
+            }
+        });
+    });
+
+    // Load marks if on record tab
+    if (state.subTab === 'record') {
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+            loadMarksData();
+        }, 300);
+    }
+
+    bindReportEvents();
+}
+            // ==================== BUILD RECORD MARKS TAB ====================
+         // ==================== BUILD RECORD MARKS TAB (SINGLE MARK PER SUBJECT - COMPLETE FIX) ====================
+function buildRecordMarksTab() {
+    const classId = state.selectedClassId;
+    const students = state.attendanceStudents || [];
+    const classSubjects = getClassSubjects(classId);
+
+    const { currentYear, currentTerm } = currentAcademicSettings || { currentYear: new Date().getFullYear(), currentTerm: 1 };
+
+    // Load marks for these students
+    const marksData = state.reportMarks[classId] || {};
+
+    return `
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="font-semibold text-gray-700"><i class="fas fa-pen mr-2"></i> Record Marks</h3>
+                <p class="text-xs text-gray-500">Enter marks for each student per subject</p>
+                <p class="text-xs text-gray-400 mt-1">📅 ${getTermName(currentTerm)} ${currentYear} | Class: ${getClassName(classId)}</p>
+                <p class="text-xs text-blue-500 mt-0.5">💡 Each subject has <strong>one</strong> mark input per student</p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <button onclick="window.loadStudentMarks()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm transition flex items-center gap-1">
+                    <i class="fas fa-sync-alt text-xs"></i> Load Marks
+                </button>
+                <button onclick="window.saveAllMarks()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm transition flex items-center gap-1">
+                    <i class="fas fa-save text-xs"></i> Save All
+                </button>
+                <button onclick="window.bulkUploadMarks()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm transition flex items-center gap-1">
+                    <i class="fas fa-upload text-xs"></i> Bulk Upload
+                </button>
+            </div>
+        </div>
+
+        ${students.length === 0 ? `
+            <div class="text-center py-12 text-gray-400">
+                <i class="fas fa-users text-4xl mb-3 text-gray-300"></i>
+                <p>No students in this class</p>
+                <p class="text-sm">Select a different class</p>
+            </div>
+        ` : classSubjects.length === 0 ? `
+            <div class="text-center py-12 text-yellow-400">
+                <i class="fas fa-book text-4xl mb-3 text-yellow-300"></i>
+                <p>No subjects assigned to this class</p>
+                <p class="text-sm">Please contact the administrator to assign subjects.</p>
+            </div>
+        ` : `
+            <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                <table class="w-full text-sm" id="marksTable">
+                    <thead class="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase sticky left-0 bg-gray-50 z-10" style="min-width: 140px;">
+                                <span class="block">Student</span>
+                                <span class="text-[10px] font-normal text-gray-400">Admission</span>
+                            </th>
+                            ${classSubjects.map(subject => `
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-600 border-l border-gray-200" style="min-width: 130px;">
+                                    <div class="font-semibold text-gray-800">${escapeHtml(subject.name)}</div>
+                                    <div class="text-[9px] font-normal text-gray-400">${escapeHtml(subject.code || '')}</div>
+                                    <div class="flex justify-center gap-2 mt-1.5">
+                                        <span class="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Mark</span>
+                                        <span class="text-[9px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Init</span>
+                                    </div>
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100" id="marksTableBody">
+                        ${students.map((student, rowIdx) => {
+                            const studentMarks = marksData[student.id] || {};
+                            return `
+                                <tr class="hover:bg-gray-50 transition" data-student-id="${student.id}">
+                                    <td class="px-3 py-3 sticky left-0 bg-white" style="min-width: 140px;">
+                                        <div class="font-medium text-gray-800">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</div>
+                                        <div class="text-[10px] text-gray-400">${student.admissionNumber || 'N/A'}</div>
+                                    </td>
+                                    ${classSubjects.map(subject => {
+                                        const subjectMarks = studentMarks[subject.id] || {};
+                                        // SINGLE MARK FIELD
+                                        const mark = subjectMarks.mark !== undefined && subjectMarks.mark !== null ? subjectMarks.mark : '';
+                                        const grade = mark !== '' && !isNaN(mark) ? calculateGrade(parseFloat(mark)) : '';
+                                        const initialsKey = `${student.id}_${subject.id}`;
+                                        const initials = state.subjectInitials[initialsKey] || '';
+
+                                        return `
+                                            <td class="px-3 py-2 border-l border-gray-200">
+                                                <div class="flex flex-col items-center gap-1">
+                                                    <div class="flex items-center gap-1.5 w-full">
+                                                        <!-- SINGLE MARK INPUT -->
+                                                        <input type="number"
+                                                               class="marks-input w-20 px-2 py-1.5 text-center text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${mark !== '' ? 'has-value' : ''}"
+                                                               data-student="${student.id}"
+                                                               data-subject="${subject.id}"
+                                                               data-field="mark"
+                                                               value="${mark !== '' ? mark : ''}"
+                                                               min="0" max="100"
+                                                               step="0.5"
+                                                               placeholder="—"
+                                                               onchange="window.updateMarksInput(this)"
+                                                               oninput="window.updateMarksInput(this)">
+                                                        <!-- INITIALS INPUT -->
+                                                        <input type="text"
+                                                               class="w-14 px-1 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                                                               placeholder="Init"
+                                                               value="${initials}"
+                                                               data-student="${student.id}"
+                                                               data-subject="${subject.id}"
+                                                               data-field="initials"
+                                                               onchange="window.updateSubjectInitials(this)"
+                                                               title="Teacher Initials (e.g., W.D)">
+                                                    </div>
+                                                    ${grade ? `<span class="text-xs font-bold ${getGradeColorClass(grade)}">${grade}</span>` :
+                                                             `<span class="text-xs text-gray-300">—</span>`}
+                                                </div>
+                                            </td>
+                                        `;
+                                    }).join('')}
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3 flex justify-between text-xs text-gray-500">
+                <span>${students.length} students | ${classSubjects.length} subjects</span>
+                <span>💡 Enter marks (0–100), then click <strong>Save All</strong></span>
+            </div>
+        `}
+    `;
+}
+            // ==================== GENERATE REPORT CARDS TAB ====================
+            function buildGenerateReportCardsTab() {
+                const classId = state.selectedClassId;
+                const students = state.attendanceStudents || [];
+                const { currentYear, currentTerm } = currentAcademicSettings || { currentYear: new Date().getFullYear(), currentTerm: 1 };
+
+                return `
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-700"><i class="fas fa-file-alt mr-2"></i> Generate Report Cards</h3>
+                        <p class="text-xs text-gray-500">Generate report cards for students in this class</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Term</label>
+                            <select id="reportTerm" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="1" ${currentTerm === 1 ? 'selected' : ''}>First Term</option>
+                                <option value="2" ${currentTerm === 2 ? 'selected' : ''}>Second Term</option>
+                                <option value="3" ${currentTerm === 3 ? 'selected' : ''}>Third Term</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                            <select id="reportYear" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                ${[currentYear - 1, currentYear, currentYear + 1].map(y => `
+                                    <option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                            <select id="reportStudent" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="all">All Students</option>
+                                ${students.map(s => `
+                                    <option value="${s.id}">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="window.generateReportCards()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-medium transition flex items-center gap-2">
+                            <i class="fas fa-file-pdf"></i> Generate Report Cards
+                        </button>
+                        <button onclick="window.previewReportCard()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition flex items-center gap-2">
+                            <i class="fas fa-eye"></i> Preview
+                        </button>
+                    </div>
+
+                    <div id="reportCardPreviewContainer" class="mt-4 hidden">
+                        <div class="report-card-preview" id="reportCardPreview"></div>
+                    </div>
+                `;
+            }
+
+            // ==================== VIEW REPORT CARDS TAB ====================
+            function buildViewReportCardsTab() {
+                const reports = state.generatedReportCards || [];
+
+                return `
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-700"><i class="fas fa-eye mr-2"></i> View Report Cards</h3>
+                        <p class="text-xs text-gray-500">View and download generated report cards</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mb-4">
+                        <input type="text" id="reportSearch" placeholder="Search by student name..."
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none flex-1 min-w-[200px]"
+                               oninput="window.filterReportCards()">
+                        <button onclick="window.refreshReportCards()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm transition">
+                            <i class="fas fa-sync-alt mr-1"></i> Refresh
+                        </button>
+                    </div>
+
+                    ${reports.length === 0 ? `
+                        <div class="text-center py-12 text-gray-400">
+                            <i class="fas fa-file-alt text-4xl mb-3 text-gray-300"></i>
+                            <p>No report cards generated yet</p>
+                            <p class="text-sm">Go to "Generate Report Cards" to create one.</p>
+                        </div>
+                    ` : `
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Term</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Year</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Generated</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    ${reports.map((r, i) => `
+                                        <tr class="hover:bg-gray-50 transition" data-student-name="${(r.studentName || '').toLowerCase()}">
+                                            <td class="px-4 py-2.5 text-center text-gray-400 text-xs">${i + 1}</td>
+                                            <td class="px-4 py-2.5 font-medium text-gray-800">${escapeHtml(r.studentName)}</td>
+                                            <td class="px-4 py-2.5 text-gray-600">${getTermName(r.term)}</td>
+                                            <td class="px-4 py-2.5 text-gray-600">${r.year}</td>
+                                            <td class="px-4 py-2.5 text-gray-500 text-xs">${new Date(r.generatedAt).toLocaleDateString()}</td>
+                                            <td class="px-4 py-2.5 text-center">
+                                                <button onclick="window.viewReportCard('${r.id}')" class="text-blue-600 hover:text-blue-800 text-xs mr-2">
+                                                    <i class="fas fa-eye"></i> View
+                                                </button>
+                                                <button onclick="window.printReportCardById('${r.id}')" class="text-green-600 hover:text-green-800 text-xs">
+                                                    <i class="fas fa-print"></i> Print
+                                                </button>
+                                                <button onclick="window.deleteReportCard('${r.id}')" class="text-red-600 hover:text-red-800 text-xs ml-2">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">${reports.length} report cards</div>
+                    `}
+                `;
+            }
+
+            // ==================== REPORT SETTINGS TAB ====================
+            function buildReportSettingsTab() {
+                const template = state.reportCardTemplate || {};
+
+                return `
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-700"><i class="fas fa-cog mr-2"></i> Report Card Settings</h3>
+                        <p class="text-xs text-gray-500">Configure the report card template</p>
+                    </div>
+
+                    <form id="reportTemplateForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">School Name</label>
+                                <input type="text" id="templateSchoolName" value="${escapeHtml(template.schoolName || '')}"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">School Address</label>
+                                <input type="text" id="templateSchoolAddress" value="${escapeHtml(template.schoolAddress || '')}"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">School Logo URL</label>
+                                <input type="text" id="templateLogo" value="${escapeHtml(template.logo || '')}"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                                <input type="color" id="templatePrimaryColor" value="${template.primaryColor || '#2563eb'}"
+                                       class="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Footer Text</label>
+                            <input type="text" id="templateFooter" value="${escapeHtml(template.footer || '')}"
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" onclick="window.saveReportTemplate()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition">
+                                <i class="fas fa-save mr-2"></i> Save Template
+                            </button>
+                            <button type="button" onclick="window.resetReportTemplate()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition">
+                                Reset
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mt-6 border-t border-gray-200 pt-4">
+                        <h4 class="font-medium text-gray-700 mb-2">Preview</h4>
+                        <div class="report-card-preview" id="templatePreview">
+                            <div class="school-name" style="color: ${template.primaryColor || '#2563eb'}">
+                                ${template.schoolName || 'School Name'}
+                            </div>
+                            <div class="school-address">${template.schoolAddress || 'School Address'}</div>
+                            <div class="student-info mt-3">
+                                <p><strong>Student:</strong> ___________</p>
+                                <p><strong>Class:</strong> ___________</p>
+                                <p><strong>Term:</strong> ___________</p>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>Marks</th>
+                                        <th>Grade</th>
+                                        <th>Remark</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Mathematics</td>
+                                        <td>85</td>
+                                        <td class="grade-A">A</td>
+                                        <td>Excellent</td>
+                                    </tr>
+                                    <tr>
+                                        <td>English</td>
+                                        <td>72</td>
+                                        <td class="grade-B">B</td>
+                                        <td>Very Good</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Science</td>
+                                        <td>65</td>
+                                        <td class="grade-C">C</td>
+                                        <td>Good</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="mt-3 text-xs text-gray-400 text-center">${template.footer || 'Footer Text'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ==================== STUDENTS TAB ====================
+            function buildStudentsTab() {
+                const students = state.attendanceStudents;
+                return `
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold text-gray-700"><i class="fas fa-users mr-2"></i> Class Roster</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="studentSearchInput" placeholder="Search students..."
+                                   class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-48"
+                                   oninput="window.filterStudentList()">
+                            <button onclick="window.refreshStudentList()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm transition"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Admission</th>
+                                        <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Student Name</th>
+                                        <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Gender</th>
+                                        <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Parent</th>
+                                        <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100" id="studentTableBody">
+                                    ${students.length === 0 ? `
+                                        <tr><td colspan="6" class="text-center py-12 text-gray-400">No students in this class</td></tr>
+                                    ` : students.map((s, i) => `
+                                        <tr class="student-row hover:bg-gray-50 transition" data-student-name="${(s.firstName||'')+' '+(s.lastName||'')}".toLowerCase()>
+                                            <td class="px-4 py-2.5 text-center text-gray-400 text-xs">${i + 1}</td>
+                                            <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${s.admissionNumber || 'N/A'}</td>
+                                            <td class="px-4 py-2.5 font-medium text-gray-800">${s.firstName || ''} ${s.lastName || ''}</td>
+                                            <td class="px-4 py-2.5 text-gray-600">${s.gender || 'N/A'}</td>
+                                            <td class="px-4 py-2.5 text-gray-600">${s.parentInfo?.name || 'N/A'}</td>
+                                            <td class="px-4 py-2.5 text-gray-600">${s.parentInfo?.phone || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-2 border-t border-gray-200 text-xs text-gray-500">
+                            Total: <span id="studentTotalCount">${students.length}</span> students
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ==================== SWEEPING TAB ====================
+            function buildSweepingTab() {
+                const classId = state.selectedClassId;
+                const roster = state.sweepingRosters[classId] || {};
+                const students = state.attendanceStudents || [];
+
+                return `
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="font-semibold text-gray-700"><i class="fas fa-broom mr-2"></i> Sweeping Roster</h3>
+                            <p class="text-xs text-gray-500">Assign students to sweep on each day of the week</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.refreshSweepingTab()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm transition">
+                                <i class="fas fa-sync-alt mr-1"></i> Refresh
+                            </button>
+                            <button onclick="window.openSweepingModal()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm transition">
+                                <i class="fas fa-plus mr-1"></i> Manage Roster
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        ${DAYS.map((day, idx) => {
+                            const dayStudents = roster[day] || [];
+                            const dayStudentsData = dayStudents.map(sid => students.find(s => s.id === sid)).filter(Boolean);
+                            const isActive = state.sweepingSelectedDay === day;
+
+                            return `
+                                <div class="sweeping-day-card bg-white border ${isActive ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-200'} rounded-xl p-4 shadow-sm cursor-pointer"
+                                     onclick="window.selectSweepingDay('${day}')">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h4 class="font-bold text-gray-800">${day}</h4>
+                                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${dayStudents.length} students</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1 min-h-[40px]">
+                                        ${dayStudentsData.length > 0 ? dayStudentsData.map(s => `
+                                            <span class="sweeping-student-chip text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-200">
+                                                ${s.firstName || ''} ${s.lastName || ''}
+                                            </span>
+                                        `).join('') : `
+                                            <span class="text-xs text-gray-400 italic">No students assigned</span>
+                                        `}
+                                    </div>
+                                    <div class="mt-2 flex justify-end">
+                                        <button onclick="event.stopPropagation(); window.openSweepingModal('${day}')"
+                                                class="text-xs text-blue-600 hover:text-blue-800 transition">
+                                            <i class="fas fa-edit mr-1"></i> Edit
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <div class="mt-4 text-xs text-gray-400 border-t pt-3">
+                        <p>💡 Click on a day card to select it, or click "Manage Roster" to edit assignments.</p>
+                        <p>📅 Roster repeats weekly — assignments persist until changed.</p>
+                    </div>
+                `;
+            }
+
+            // ==================== HOMEWORK TAB ====================
+            function buildHomeworkTab() {
+                return `
+                    <div class="flex flex-col items-center justify-center py-16 text-gray-400">
+                        <i class="fas fa-book text-5xl mb-4 text-gray-300"></i>
+                        <p class="text-lg font-medium">Homework Assignments</p>
+                        <p class="text-sm">Coming soon — create and manage homework for this class.</p>
+                    </div>
+                `;
+            }
+
+            // ==================== ATTENDANCE TAB ====================
+            function buildAttendanceTab() {
+                const today = new Date().toISOString().split('T')[0];
+                state.attendanceDate = today;
+                const students = state.attendanceStudents;
+
+                return `
+                    <div class="bg-gray-50 rounded-xl p-4 mb-5 border border-gray-200">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="flex-1 min-w-[180px]">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">
+                                    <i class="far fa-calendar-alt mr-1"></i> Date
+                                </label>
+                                <input type="date" id="attendanceDate" value="${today}"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                            </div>
+                            <div class="flex flex-wrap gap-2 items-end">
+                                <button onclick="window.loadAttendanceForDate()"
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                                    <i class="fas fa-search text-xs"></i> Load
+                                </button>
+                                <button onclick="window.resetAttendanceForm()"
+                                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                                    <i class="fas fa-undo text-xs"></i> Reset
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <button onclick="window.loadAttendanceForDateFromHistory('${today}')"
+                                    class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200 transition">📅 Today</button>
+                            <button onclick="window.loadAttendanceForDateFromHistory('${getYesterdayDate()}')"
+                                    class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full hover:bg-gray-200 transition">⬅️ Yesterday</button>
+                            <button onclick="window.loadAttendanceForDateFromHistory('${getWeekAgoDate()}')"
+                                    class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full hover:bg-gray-200 transition">📆 Week Ago</button>
+                            <span id="attendanceStatus" class="text-xs text-gray-400 ml-auto self-center"></span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                        <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                            <p class="text-xs text-gray-500">✅ Present</p>
+                            <p class="text-2xl font-bold text-green-600" id="presentCount">0</p>
+                        </div>
+                        <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+                            <p class="text-xs text-gray-500">❌ Absent</p>
+                            <p class="text-2xl font-bold text-red-600" id="absentCount">0</p>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+                            <p class="text-xs text-gray-500">📊 Total</p>
+                            <p class="text-2xl font-bold text-gray-600" id="totalCount">0</p>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+                            <p class="text-xs text-gray-500">📈 Rate</p>
+                            <p class="text-2xl font-bold text-blue-600" id="attendanceRate">0%</p>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-xl overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+                            <span class="font-medium text-sm text-gray-700"><i class="fas fa-users mr-2"></i> Students</span>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="window.selectAllStudents()" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-check-double mr-1"></i> All Present</button>
+                                <button onclick="window.deselectAllStudents()" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-times mr-1"></i> All Absent</button>
+                                <button onclick="window.toggleAttendanceSelection()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-exchange-alt mr-1"></i> Toggle</button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto scrollable-table max-h-80 overflow-y-auto">
+                            ${students.length === 0 ? `
+                                <div class="flex flex-col items-center justify-center py-12 text-gray-400">
+                                    <i class="fas fa-users text-4xl mb-3 text-gray-300"></i>
+                                    <p class="text-sm">No students in this class</p>
+                                    <p class="text-xs">Select a different class or assign students</p>
+                                    <button onclick="window.refreshAttendanceStudents()" class="mt-3 text-blue-600 hover:text-blue-800 text-sm"><i class="fas fa-sync-alt mr-1"></i> Refresh</button>
+                                </div>
+                            ` : `
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admission</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100" id="attendanceTableBody">
+                                        ${students.map((s, i) => `
+                                            <tr class="attendance-row" data-student-id="${s.id}">
+                                                <td class="px-4 py-2.5 text-center text-gray-400 text-xs">${i + 1}</td>
+                                                <td class="px-4 py-2.5 font-mono text-xs text-gray-600">${s.admissionNumber || 'N/A'}</td>
+                                                <td class="px-4 py-2.5 font-medium text-gray-800">${s.firstName || ''} ${s.lastName || ''}</td>
+                                                <td class="px-4 py-2.5 text-center" id="status_${s.id}">
+                                                    <span class="status-badge text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">✅ Present</span>
+                                                </td>
+                                                <td class="px-4 py-2.5 text-center">
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" class="sr-only student-attendance-checkbox"
+                                                               data-student-id="${s.id}" checked>
+                                                        <div class="toggle-slider w-11 h-6 bg-gray-300 rounded-full transition"></div>
+                                                    </label>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            `}
+                        </div>
+                        <div class="bg-gray-50 px-4 py-2 border-t border-gray-200 flex justify-between text-xs text-gray-500">
+                            <span id="studentCountDisplay">${students.length} students</span>
+                            <span id="selectedCountDisplay">0 selected</span>
+                            <span>💡 Toggle to mark present/absent</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><i class="far fa-sticky-note mr-1"></i> Notes</label>
+                        <textarea id="attendanceNotes" rows="2"
+                                  class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                  placeholder="Add notes about today's attendance..."></textarea>
+                    </div>
+
+                    <button onclick="window.submitAttendance()"
+                            class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Save Attendance
+                    </button>
+
+                    <div class="mt-6 border-t border-gray-200 pt-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-semibold text-gray-700"><i class="fas fa-history mr-2"></i> Attendance History</h4>
+                            <button onclick="window.refreshAttendanceHistory()" class="text-xs text-blue-600 hover:text-blue-800 transition"><i class="fas fa-sync-alt mr-1"></i> Refresh</button>
+                        </div>
+                        <div id="attendanceHistory" class="border border-gray-200 rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-100">
+                            <div class="flex items-center justify-center py-8 text-gray-400 text-sm">
+                                <i class="fas fa-spinner fa-spin mr-2"></i> Loading history...
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ==================== BIND EVENTS ====================
+            function bindClassManagementEvents(classOptions) {
+                const selector = document.getElementById('classSelector');
+                if (selector) {
+                    const newSelector = selector.cloneNode(true);
+                    selector.parentNode.replaceChild(newSelector, selector);
+                    newSelector.addEventListener('change', async function() {
+                        state.selectedClassId = this.value;
+                        state.sweepingSelectedClass = state.selectedClassId;
+                        const cls = classOptions.find(c => c.id === state.selectedClassId);
+                        document.getElementById('classInfo').textContent = cls ? `${cls.studentCount} students` : '';
+                        await loadClassStudents(state.selectedClassId);
+                        await loadSweepingStats();
+
+                        // Reload the current tab content
+                        if (state.activeTab === 'attendance') {
+                            refreshAttendanceTab();
+                        } else if (state.activeTab === 'sweeping') {
+                            refreshSweepingTab();
+                        } else if (state.activeTab === 'reports') {
+                            await refreshReportsTab();
+                        } else if (state.activeTab === 'students') {
+                            refreshStudentTab();
+                        } else {
+                            const container = document.getElementById('tabContent');
+                            if (container) {
+                                container.innerHTML = buildTabContent(state.activeTab);
+                                bindTabEvents();
+                            }
+                        }
+                    });
+                }
+
+                // Main tabs
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const tab = this.dataset.tab;
+                        state.activeTab = tab;
+                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        const container = document.getElementById('tabContent');
+                        if (container) {
+                            if (tab === 'reports') {
+                                // Reports tab needs async loading
+                                container.innerHTML = '<div class="flex justify-center py-8"><div class="loading-spinner"></div></div>';
+                                await refreshReportsTab();
+                            } else {
+                                container.innerHTML = buildTabContent(tab);
+                                if (tab === 'attendance') {
+                                    setTimeout(() => {
+                                        deselectAllStudents();
+                                        loadAttendanceForDate();
+                                        loadAttendanceHistory();
+                                    }, 100);
+                                } else if (tab === 'sweeping') {
+                                    setTimeout(() => {
+                                        refreshSweepingTab();
+                                        loadSweepingStats();
+                                    }, 100);
+                                } else if (tab === 'students') {
+                                    refreshStudentTab();
+                                }
+                                bindTabEvents();
+                            }
+                        }
+                    });
+                });
+
+                // Sub-tabs (Reports)
+                document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const subTab = this.dataset.subtab;
+                        state.subTab = subTab;
+                        document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        const container = document.getElementById('reportSubContent');
+                        if (container) {
+                            container.innerHTML = buildReportSubContent(subTab);
+                            bindReportEvents();
+                            if (subTab === 'record') {
+                                setTimeout(() => loadMarksData(), 300);
+                            } else if (subTab === 'view') {
+                                setTimeout(() => refreshReportCards(), 300);
+                            }
+                        }
+                    });
+                });
+
+                bindTabEvents();
+                bindReportEvents();
+            }
+
+            function bindTabEvents() {
+                // Attendance checkboxes
+                const tableBody = document.getElementById('attendanceTableBody');
+                if (tableBody) {
+                    const newTableBody = tableBody.cloneNode(true);
+                    tableBody.parentNode.replaceChild(newTableBody, tableBody);
+                    newTableBody.addEventListener('change', function(e) {
+                        const cb = e.target.closest('.student-attendance-checkbox');
+                        if (cb) {
+                            const sid = cb.dataset.studentId;
+                            const statusEl = document.getElementById(`status_${sid}`);
+                            if (statusEl) {
+                                if (cb.checked) {
+                                    statusEl.innerHTML = `<span class="status-badge text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700">✅ Present</span>`;
+                                } else {
+                                    statusEl.innerHTML = `<span class="status-badge text-xs px-2.5 py-1 rounded-full bg-red-100 text-red-700">❌ Absent</span>`;
+                                }
+                            }
+                            updateAttendanceCounts();
+                            updateSelectedCount();
+                        }
+                    });
+                }
+
+                const searchInput = document.getElementById('studentSearchInput');
+                if (searchInput) {
+                    searchInput.removeEventListener('input', filterStudentList);
+                    searchInput.addEventListener('input', filterStudentList);
+                }
+            }
+
+            function bindReportEvents() {
+                const fields = ['templateSchoolName', 'templateSchoolAddress', 'templateLogo', 'templatePrimaryColor', 'templateFooter'];
+                fields.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.removeEventListener('input', updateTemplatePreview);
+                        el.addEventListener('input', updateTemplatePreview);
+                    }
+                });
+                updateTemplatePreview();
+            }
+
+            function updateTemplatePreview() {
+                const schoolName = document.getElementById('templateSchoolName')?.value || 'School Name';
+                const schoolAddress = document.getElementById('templateSchoolAddress')?.value || 'School Address';
+                const primaryColor = document.getElementById('templatePrimaryColor')?.value || '#2563eb';
+                const footer = document.getElementById('templateFooter')?.value || '';
+
+                const preview = document.getElementById('templatePreview');
+                if (preview) {
+                    preview.innerHTML = `
+                        <div class="school-name" style="color: ${primaryColor}">${escapeHtml(schoolName)}</div>
+                        <div class="school-address">${escapeHtml(schoolAddress)}</div>
+                        <div class="student-info mt-3">
+                            <p><strong>Student:</strong> ___________</p>
+                            <p><strong>Class:</strong> ___________</p>
+                            <p><strong>Term:</strong> ___________</p>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Marks</th>
+                                    <th>Grade</th>
+                                    <th>Remark</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Mathematics</td>
+                                    <td>85</td>
+                                    <td class="grade-A">A</td>
+                                    <td>Excellent</td>
+                                </tr>
+                                <tr>
+                                    <td>English</td>
+                                    <td>72</td>
+                                    <td class="grade-B">B</td>
+                                    <td>Very Good</td>
+                                </tr>
+                                <tr>
+                                    <td>Science</td>
+                                    <td>65</td>
+                                    <td class="grade-C">C</td>
+                                    <td>Good</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="mt-3 text-xs text-gray-400 text-center">${escapeHtml(footer)}</div>
+                    `;
+                }
+            }
+
+            // ==================== LOAD CLASS STUDENTS ====================
+            async function loadClassStudents(classId) {
+                if (!classId) return [];
+                if (state.classStudentsCache[classId]) {
+                    state.attendanceStudents = state.classStudentsCache[classId];
+                    return state.attendanceStudents;
+                }
+
+                try {
+                    const res = await fetch(`/api/classes/${classId}/students`);
+                    const data = await res.json();
+                    if (data.success) {
+                        state.attendanceStudents = data.students || [];
+                        state.classStudentsCache[classId] = state.attendanceStudents;
+                        const info = document.getElementById('classInfo');
+                        if (info) info.textContent = `${data.count} students`;
+                        console.log(`📚 Loaded ${state.attendanceStudents.length} students for class ${classId}`);
+                    } else {
+                        state.attendanceStudents = [];
+                    }
+                } catch (e) {
+                    console.error('Failed to load students:', e);
+                    state.attendanceStudents = [];
+                }
+                return state.attendanceStudents;
+            }
+
+            // ==================== REFRESH STUDENT TAB ====================
+            function refreshStudentTab() {
+                const container = document.getElementById('tabContent');
+                if (container && state.activeTab === 'students') {
+                    container.innerHTML = buildStudentsTab();
+                    bindTabEvents();
+                    // Re-bind search
+                    const searchInput = document.getElementById('studentSearchInput');
+                    if (searchInput) {
+                        searchInput.removeEventListener('input', filterStudentList);
+                        searchInput.addEventListener('input', filterStudentList);
+                    }
+                }
+            }
+
+            // ==================== ATTENDANCE HELPERS ====================
+            function refreshAttendanceTab() {
+                const container = document.getElementById('tabContent');
+                if (container && state.activeTab === 'attendance') {
+                    container.innerHTML = buildAttendanceTab();
+                    bindTabEvents();
+                    setTimeout(() => {
+                        deselectAllStudents();
+                        loadAttendanceForDate();
+                        loadAttendanceHistory();
+                    }, 100);
+                }
+            }
+
+            function refreshAttendanceStudents() {
+                delete state.classStudentsCache[state.selectedClassId];
+                loadClassStudents(state.selectedClassId).then(() => {
+                    refreshAttendanceTab();
+                    showToast('Students refreshed', 'success');
+                });
+            }
+
+            function updateAttendanceCounts() {
+                const cbs = document.querySelectorAll('.student-attendance-checkbox');
+                const total = cbs.length;
+                const present = Array.from(cbs).filter(cb => cb.checked).length;
+                const absent = total - present;
+                const rate = total > 0 ? ((present / total) * 100).toFixed(1) : 0;
+
+                const pEl = document.getElementById('presentCount');
+                const aEl = document.getElementById('absentCount');
+                const tEl = document.getElementById('totalCount');
+                const rEl = document.getElementById('attendanceRate');
+                if (pEl) pEl.textContent = present;
+                if (aEl) aEl.textContent = absent;
+                if (tEl) tEl.textContent = total;
+                if (rEl) rEl.textContent = rate + '%';
+            }
+
+            function updateSelectedCount() {
+                const cbs = document.querySelectorAll('.student-attendance-checkbox');
+                const checked = Array.from(cbs).filter(cb => cb.checked).length;
+                const el = document.getElementById('selectedCountDisplay');
+                if (el) el.textContent = `${checked} of ${cbs.length} selected`;
+            }
+
+            function selectAllStudents() {
+                document.querySelectorAll('.student-attendance-checkbox').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change')); });
+                updateAttendanceCounts(); updateSelectedCount();
+                showToast('All students marked present', 'success');
+            }
+
+            function deselectAllStudents() {
+                document.querySelectorAll('.student-attendance-checkbox').forEach(cb => { cb.checked = false; cb.dispatchEvent(new Event('change')); });
+                updateAttendanceCounts(); updateSelectedCount();
+                showToast('All students marked absent', 'info');
+            }
+
+            function toggleAttendanceSelection() {
+                document.querySelectorAll('.student-attendance-checkbox').forEach(cb => { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); });
+                updateAttendanceCounts(); updateSelectedCount();
+                showToast('Attendance toggled', 'info');
+            }
+
+            // ==================== LOAD ATTENDANCE FOR DATE ====================
+            async function loadAttendanceForDate() {
+                const dateInput = document.getElementById('attendanceDate');
+                if (!dateInput) return;
+                const date = dateInput.value;
+                if (!date || !state.selectedClassId) {
+                    showToast('Please select a class and date', 'warning');
+                    return;
+                }
+
+                const statusEl = document.getElementById('attendanceStatus');
+                if (statusEl) {
+                    statusEl.textContent = '⏳ Loading...';
+                    statusEl.className = 'text-xs text-blue-500';
+                }
+
+                try {
+                    const res = await fetch(`/api/attendance/class/${state.selectedClassId}?date=${date}`);
+                    const data = await res.json();
+
+                    const cbs = document.querySelectorAll('.student-attendance-checkbox');
+
+                    if (data.success && data.attendance && data.attendance.length > 0) {
+                        const att = data.attendance[0];
+                        const records = att.records || [];
+
+                        cbs.forEach(cb => {
+                            const sid = cb.dataset.studentId;
+                            const record = records.find(r => r.studentId === sid);
+                            cb.checked = record ? record.present === true : false;
+                            cb.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+
+                        const notesEl = document.getElementById('attendanceNotes');
+                        if (notesEl && att.notes) notesEl.value = att.notes;
+
+                        if (statusEl) {
+                            statusEl.textContent = `✅ Loaded for ${new Date(date).toLocaleDateString()}`;
+                            statusEl.className = 'text-xs text-green-600';
+                        }
+                        showToast(`Attendance loaded for ${new Date(date).toLocaleDateString()}`, 'success');
+                    } else {
+                        cbs.forEach(cb => {
+                            cb.checked = false;
+                            cb.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                        if (statusEl) {
+                            statusEl.textContent = `📋 No record for ${new Date(date).toLocaleDateString()}. All absent by default.`;
+                            statusEl.className = 'text-xs text-yellow-600';
+                        }
+                    }
+
+                    setTimeout(() => {
+                        updateAttendanceCounts();
+                        updateSelectedCount();
+                    }, 50);
+
+                    await loadAttendanceHistory();
+
+                } catch (e) {
+                    console.error('Error loading attendance:', e);
+                    if (statusEl) {
+                        statusEl.textContent = '❌ Error loading';
+                        statusEl.className = 'text-xs text-red-500';
+                    }
+                    showToast('Failed to load attendance', 'error');
+                }
+            }
+
+            // ==================== LOAD ATTENDANCE HISTORY ====================
+            async function loadAttendanceHistory() {
+                const container = document.getElementById('attendanceHistory');
+                if (!container || !state.selectedClassId) return;
+
+                try {
+                    const res = await fetch(`/api/attendance/class/${state.selectedClassId}`);
+                    const data = await res.json();
+
+                    if (data.success && data.attendance && data.attendance.length > 0) {
+                        const selectedDate = document.getElementById('attendanceDate')?.value || '';
+                        const html = data.attendance.slice(0, 25).map(record => {
+                            let presentCount = 0;
+                            let absentCount = 0;
+                            if (record.records && record.records.length > 0) {
+                                presentCount = record.records.filter(r => r.present === true).length;
+                                absentCount = record.records.filter(r => r.present === false).length;
+                            } else {
+                                presentCount = record.presentCount || 0;
+                                absentCount = record.absentCount || 0;
+                            }
+                            const total = presentCount + absentCount;
+                            const rate = total > 0 ? ((presentCount / total) * 100).toFixed(0) : 0;
+                            const rateColor = rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-yellow-600' : 'text-red-600';
+                            const isSelected = record.date === selectedDate;
+                            const d = new Date(record.date);
+                            const day = d.toLocaleDateString('en-US', { weekday: 'short' });
+                            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                            return `
+                                <div class="history-item ${isSelected ? 'selected' : ''} px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 cursor-pointer hover:bg-gray-50 transition"
+                                     onclick="window.viewAttendanceDetails('${record.date}')">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm font-medium text-gray-700">${day}</span>
+                                        <span class="text-sm text-gray-600">${dateStr}</span>
+                                        ${isSelected ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Selected</span>' : ''}
+                                    </div>
+                                    <div class="flex items-center gap-4 text-sm">
+                                        <span class="text-green-600">✅ ${presentCount}</span>
+                                        <span class="text-red-600">❌ ${absentCount}</span>
+                                        <span class="font-medium ${rateColor}">${rate}%</span>
+                                        ${record.notes ? `<span class="text-gray-400 text-xs" title="${record.notes}">📝</span>` : ''}
+                                        <button onclick="event.stopPropagation(); window.loadAttendanceForDateFromHistory('${record.date}')"
+                                                class="text-blue-500 hover:text-blue-700 text-xs underline">Load</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                        container.innerHTML = html || `<div class="text-center text-gray-400 text-sm py-6">No records found</div>`;
+                    } else {
+                        container.innerHTML = `<div class="text-center text-gray-400 text-sm py-6">No attendance records yet</div>`;
+                    }
+                } catch (e) {
+                    console.error('Error loading history:', e);
+                    container.innerHTML = `<div class="text-center text-red-400 text-sm py-6">Error loading history</div>`;
+                }
+            }
+
+            // ==================== VIEW ATTENDANCE DETAILS (MODAL) ====================
+            async function viewAttendanceDetails(date) {
+                const modal = document.getElementById('historyModal');
+                const body = document.getElementById('historyModalBody');
+                const title = document.getElementById('historyModalTitle');
+                if (!modal || !body || !title) return;
+
+                title.textContent = `Attendance Details - ${new Date(date).toLocaleDateString()}`;
+                modal.classList.remove('hidden');
+                body.innerHTML = `<div class="flex justify-center py-8"><div class="loading-spinner"></div></div>`;
+
+                try {
+                    const res = await fetch(`/api/attendance/class/${state.selectedClassId}?date=${date}`);
+                    const data = await res.json();
+                    if (data.success && data.attendance && data.attendance.length > 0) {
+                        const record = data.attendance[0];
+                        const students = record.records || [];
+                        const present = students.filter(s => s.present);
+                        const absent = students.filter(s => !s.present);
+
+                        let html = `
+                            <div class="mb-4 flex flex-wrap gap-4 text-sm">
+                                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full">✅ Present: ${present.length}</span>
+                                <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full">❌ Absent: ${absent.length}</span>
+                                <span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full">📊 Total: ${students.length}</span>
+                                ${record.notes ? `<span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full">📝 ${record.notes}</span>` : ''}
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        ${students.map((s, i) => `
+                                            <tr class="${s.present ? 'bg-green-50' : 'bg-red-50'}">
+                                                <td class="px-3 py-2 text-center text-gray-400 text-xs">${i+1}</td>
+                                                <td class="px-3 py-2 font-medium text-gray-800">${s.studentName || 'Unknown'}</td>
+                                                <td class="px-3 py-2 text-center">
+                                                    <span class="px-2 py-0.5 rounded-full text-xs ${s.present ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}">
+                                                        ${s.present ? '✅ Present' : '❌ Absent'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                        body.innerHTML = html;
+                    } else {
+                        body.innerHTML = `<p class="text-gray-500 text-center py-4">No attendance record for this date.</p>`;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    body.innerHTML = `<p class="text-red-500 text-center py-4">Error loading details.</p>`;
+                }
+            }
+
+            function closeHistoryModal() {
+                document.getElementById('historyModal').classList.add('hidden');
+            }
+
+            function loadAttendanceForDateFromHistory(date) {
+                const input = document.getElementById('attendanceDate');
+                if (input) { input.value = date; loadAttendanceForDate(); }
+                closeHistoryModal();
+            }
+
+            function refreshAttendanceHistory() {
+                loadAttendanceHistory();
+                showToast('History refreshed', 'info');
+            }
+
+            function resetAttendanceForm() {
+                const input = document.getElementById('attendanceDate');
+                if (input) input.value = new Date().toISOString().split('T')[0];
+                const notes = document.getElementById('attendanceNotes');
+                if (notes) notes.value = '';
+                deselectAllStudents();
+                const status = document.getElementById('attendanceStatus');
+                if (status) { status.textContent = 'Form reset (all absent)'; status.className = 'text-xs text-gray-400'; }
+                showToast('Form reset - all absent', 'info');
+            }
+
+            // ==================== SUBMIT ATTENDANCE ====================
+            async function submitAttendance() {
+                if (!state.selectedClassId) {
+                    showToast('Please select a class', 'warning');
+                    return;
+                }
+                const date = document.getElementById('attendanceDate')?.value;
+                if (!date) {
+                    showToast('Please select a date', 'warning');
+                    return;
+                }
+
+                const cbs = document.querySelectorAll('.student-attendance-checkbox');
+                const presentIds = Array.from(cbs).filter(cb => cb.checked).map(cb => cb.dataset.studentId);
+                const notes = document.getElementById('attendanceNotes')?.value || '';
+
+                if (presentIds.length === 0) {
+                    if (!confirm('⚠️ No students marked as present. Mark all as absent?')) return;
+                }
+
+                if (state.isSubmitting) return;
+                state.isSubmitting = true;
+
+                const btn = document.querySelector('#tabContent .bg-green-600');
+                const orig = btn?.innerHTML || 'Save';
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+                    btn.disabled = true;
+                }
+
+                try {
+                    const res = await fetch('/api/attendance/class', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            classId: state.selectedClassId,
+                            date: date,
+                            presentStudentIds: presentIds,
+                            teacherId: state.teacher?.id || null,
+                            notes: notes,
+                        }),
+                    });
+                    const data = await res.json();
+
+                    if (res.ok && data.success) {
+                        const d = new Date(date);
+                        alert(`✅ Attendance saved!\n\n📅 ${d.toLocaleDateString()}\n✅ Present: ${data.presentCount}\n❌ Absent: ${data.absentCount}`);
+
+                        if (data.attendance && data.attendance.records) {
+                            document.querySelectorAll('.student-attendance-checkbox').forEach(cb => {
+                                const sid = cb.dataset.studentId;
+                                const record = data.attendance.records.find(r => r.studentId === sid);
+                                cb.checked = record ? record.present === true : false;
+                                cb.dispatchEvent(new Event('change', { bubbles: true }));
+                            });
+                            const notesEl = document.getElementById('attendanceNotes');
+                            if (notesEl && data.attendance.notes) notesEl.value = data.attendance.notes;
+                            setTimeout(() => {
+                                updateAttendanceCounts();
+                                updateSelectedCount();
+                            }, 50);
+                        }
+
+                        const status = document.getElementById('attendanceStatus');
+                        if (status) {
+                            status.textContent = `✅ Saved: ${data.presentCount} present, ${data.absentCount} absent`;
+                            status.className = 'text-xs text-green-600';
+                        }
+
+                        await loadAttendanceHistory();
+                        showToast('✅ Attendance saved!', 'success');
+                    } else {
+                        alert('❌ Error: ' + (data.error || 'Unknown error'));
+                        showToast('❌ Failed to save', 'error');
+                    }
+                } catch (e) {
+                    console.error('Error saving attendance:', e);
+                    alert('❌ Network error. Please try again.');
+                    showToast('❌ Network error', 'error');
+                } finally {
+                    state.isSubmitting = false;
+                    if (btn) {
+                        btn.innerHTML = orig;
+                        btn.disabled = false;
+                    }
+                }
+            }
+
+            // ==================== STUDENT SEARCH ====================
+            function filterStudentList() {
+                const term = document.getElementById('studentSearchInput')?.value?.toLowerCase() || '';
+                const rows = document.querySelectorAll('.student-row');
+                let visible = 0;
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (term === '' || text.includes(term)) {
+                        row.style.display = '';
+                        visible++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                const total = document.getElementById('studentTotalCount');
+                if (total) total.textContent = visible;
+            }
+
+            function refreshStudentList() {
+                if (state.selectedClassId) {
+                    delete state.classStudentsCache[state.selectedClassId];
+                    loadClassStudents(state.selectedClassId).then(() => {
+                        refreshStudentTab();
+                        showToast('Student list refreshed', 'success');
+                    });
+                }
+            }
+
+            // ==================== SWEEPING ROSTER ====================
+            function refreshSweepingTab() {
+                const container = document.getElementById('tabContent');
+                if (container && state.activeTab === 'sweeping') {
+                    container.innerHTML = buildSweepingTab();
+                    bindTabEvents();
+                }
+            }
+
+            function selectSweepingDay(day) {
+                state.sweepingSelectedDay = day;
+                refreshSweepingTab();
+            }
+
+            async function openSweepingModal(selectedDay = null) {
+                const modal = document.getElementById('sweepingModal');
+                const body = document.getElementById('sweepingModalBody');
+                const title = document.getElementById('sweepingModalTitle');
+
+                if (!modal || !body || !title) return;
+
+                const classId = state.selectedClassId;
+                const roster = state.sweepingRosters[classId] || {};
+                const students = state.attendanceStudents || [];
+
+                const day = selectedDay || state.sweepingSelectedDay || DAYS[0];
+                const currentAssignments = roster[day] || [];
+
+                title.textContent = `Sweeping Roster - ${day}`;
+                modal.classList.remove('hidden');
+                body.innerHTML = `<div class="flex justify-center py-8"><div class="loading-spinner"></div></div>`;
+
+                const studentOptions = students.map(s => {
+                    const isAssigned = currentAssignments.includes(s.id);
+                    return `
+                        <div class="flex items-center gap-3 p-2 border-b border-gray-100 hover:bg-gray-50 rounded transition">
+                            <input type="checkbox" class="sweeping-student-checkbox w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                   data-student-id="${s.id}"
+                                   ${isAssigned ? 'checked' : ''}>
+                            <span class="font-medium text-gray-700 text-sm">${s.firstName || ''} ${s.lastName || ''}</span>
+                            <span class="text-xs text-gray-400 ml-auto">${s.admissionNumber || 'N/A'}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                const html = `
+                    <div class="mb-4">
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            ${DAYS.map(d => `
+                                <button class="day-selector-btn px-3 py-1.5 text-sm border rounded-lg transition ${d === day ? 'active-day' : 'bg-white text-gray-700 border-gray-300'}"
+                                        onclick="window.switchSweepingDay('${d}')">
+                                    ${d}
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <span>Select students who will sweep on <strong>${day}</strong>. This repeats weekly.</span>
+                            <span class="block text-xs text-blue-500 mt-1">Currently ${currentAssignments.length} student(s) assigned</span>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg max-h-64 overflow-y-auto p-2">
+                        ${studentOptions || '<p class="text-gray-400 text-center py-4">No students in this class</p>'}
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button onclick="window.selectAllSweepingStudents()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition">
+                            Select All
+                        </button>
+                        <button onclick="window.deselectAllSweepingStudents()" class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition">
+                            Deselect All
+                        </button>
+                        <button onclick="window.clearSweepingDay('${day}')" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200 transition">
+                            Clear Day
+                        </button>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t flex gap-3">
+                        <button onclick="window.saveSweepingRoster('${day}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-medium transition">
+                            <i class="fas fa-save mr-2"></i> Save Roster
+                        </button>
+                        <button onclick="window.closeSweepingModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2.5 rounded-lg font-medium transition">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+
+                body.innerHTML = html;
+            }
+
+            function closeSweepingModal() {
+                document.getElementById('sweepingModal').classList.add('hidden');
+                refreshSweepingTab();
+                loadSweepingStats();
+            }
+
+            function switchSweepingDay(day) {
+                state.sweepingSelectedDay = day;
+                openSweepingModal(day);
+            }
+
+            function selectAllSweepingStudents() {
+                document.querySelectorAll('.sweeping-student-checkbox').forEach(cb => cb.checked = true);
+            }
+
+            function deselectAllSweepingStudents() {
+                document.querySelectorAll('.sweeping-student-checkbox').forEach(cb => cb.checked = false);
+            }
+
+            async function clearSweepingDay(day) {
+                if (!confirm(`Remove all students from sweeping on ${day}?`)) return;
+                const classId = state.selectedClassId;
+                try {
+                    const res = await fetch(`/api/sweeping/class/${classId}/day/${day}`, {
+                        method: 'DELETE',
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (!state.sweepingRosters[classId]) state.sweepingRosters[classId] = {};
+                        state.sweepingRosters[classId][day] = [];
+                        showToast(`Cleared sweeping roster for ${day}`, 'success');
+                        openSweepingModal(day);
+                        refreshSweepingTab();
+                        loadSweepingStats();
+                    } else {
+                        showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast('Network error', 'error');
+                }
+            }
+
+            async function saveSweepingRoster(day) {
+                const classId = state.selectedClassId;
+                const checkboxes = document.querySelectorAll('.sweeping-student-checkbox:checked');
+                const studentIds = Array.from(checkboxes).map(cb => cb.dataset.studentId);
+
+                if (studentIds.length === 0) {
+                    if (!confirm(`No students selected for ${day}. Clear the roster?`)) return;
+                }
+
+                try {
+                    const res = await fetch(`/api/sweeping/class/${classId}/day/${day}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ studentIds }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (!state.sweepingRosters[classId]) state.sweepingRosters[classId] = {};
+                        state.sweepingRosters[classId][day] = studentIds;
+                        showToast(`✅ Sweeping roster saved for ${day} (${studentIds.length} students)`, 'success');
+                        closeSweepingModal();
+                        refreshSweepingTab();
+                        loadSweepingStats();
+                    } else {
+                        showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast('Network error', 'error');
+                }
+            }
+
+            async function loadSweepingStats() {
+                const classId = state.selectedClassId;
+                if (!classId) return;
+                try {
+                    const res = await fetch(`/api/sweeping/class/${classId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            state.sweepingRosters[classId] = data.roster || {};
+                            let total = 0;
+                            for (const day of DAYS) {
+                                if (data.roster[day]) total += data.roster[day].length;
+                            }
+                            document.getElementById('sweepingCount').textContent = total;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not load sweeping stats:', e);
+                }
+            }
+
+            // ==================== REPORTS - RECORD MARKS ====================
+            function getClassSubjects(classId) {
+                if (!classId) return [];
+                return state.subjects.filter(s =>
+                    s.classId === classId || s.classId === 'all' || s.classId === null
+                );
+            }
+
+            function getClassName(classId) {
+                const cls = state.classes.find(c => c.id === classId);
+                return cls ? cls.name : 'Unknown';
+            }
+
+            function getTermName(term) {
+                const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+                return names[term] || `Term ${term}`;
+            }
+
+            function calculateGrade(percentage) {
+                for (const [grade, range] of Object.entries(GRADING_SYSTEM)) {
+                    if (percentage >= range.min && percentage <= range.max) {
+                        return grade;
+                    }
+                }
+                return 'F';
+            }
+
+            function getGradeColorClass(grade) {
+                const colors = {
+                    'A': 'text-green-600',
+                    'B': 'text-blue-600',
+                    'C': 'text-yellow-600',
+                    'D': 'text-orange-600',
+                    'E': 'text-red-600',
+                    'F': 'text-red-800'
+                };
+                return colors[grade] || 'text-gray-600';
+            }
+
+       // ==================== LOAD MARKS DATA ====================
+// ==================== FIXED: LOAD MARKS DATA ====================
+// ==================== LOAD MARKS DATA (YEAR/TERM AWARE) ====================
+// ==================== LOAD MARKS DATA (FIXED) ====================
+async function loadMarksData() {
+    const classId = state.selectedClassId;
+    if (!classId) {
+        console.warn('⚠️ No class selected for loading marks');
+        return;
+    }
+
+    const { currentYear, currentTerm } = currentAcademicSettings || { currentYear: new Date().getFullYear(), currentTerm: 1 };
+
+    console.log(`📥 Loading marks for class: ${classId}, Term ${currentTerm}, Year ${currentYear}`);
+
+    try {
+        const url = `/api/report-cards/class/${classId}/marks?term=${currentTerm}&year=${currentYear}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        console.log('📊 Marks response:', data);
+
+        if (data.success) {
+            // Store marks in state
+            state.reportMarks[classId] = data.marks || {};
+            console.log(`✅ Loaded marks for ${Object.keys(state.reportMarks[classId]).length} students`);
+        } else {
+            state.reportMarks[classId] = {};
+            console.warn('⚠️ Marks response not successful:', data.error);
+        }
+
+        // Load initials
+        try {
+            const initUrl = `/api/report-cards/class/${classId}/initials?term=${currentTerm}&year=${currentYear}`;
+            const initRes = await fetch(initUrl);
+            if (initRes.ok) {
+                const initData = await initRes.json();
+                if (initData.success) {
+                    state.subjectInitials = initData.initials || {};
+                    console.log(`✅ Loaded ${Object.keys(state.subjectInitials).length} initials`);
+                }
+            }
+        } catch (initError) {
+            console.warn('⚠️ Could not load initials:', initError);
+        }
+
+        // Update the table display
+        updateMarksTableWithData();
+
+    } catch (error) {
+        console.error('❌ Error loading marks:', error);
+        showToast('Error loading marks: ' + error.message, 'error');
+    }
+}
+
+// ==================== UPDATE MARKS TABLE WITH DATA (FIXED) ====================
+function updateMarksTableWithData() {
+    const classId = state.selectedClassId;
+    if (!classId) {
+        console.warn('⚠️ No class selected for updating table');
+        return;
+    }
+
+    const students = state.attendanceStudents || [];
+    const classSubjects = getClassSubjects(classId);
+    const marksData = state.reportMarks[classId] || {};
+
+    console.log('🔄 Updating marks table with data...');
+    console.log('📊 Students:', students.length);
+    console.log('📚 Subjects:', classSubjects.length);
+    console.log('📝 Marks data:', Object.keys(marksData).length, 'students');
+
+    const tbody = document.getElementById('marksTableBody');
+    if (!tbody) {
+        console.warn('⚠️ marksTableBody not found, recreating table...');
+        // Rebuild the entire table if tbody missing
+        const container = document.getElementById('reportSubContent');
+        if (container && state.subTab === 'record') {
+            container.innerHTML = buildReportSubContent('record');
+            bindReportEvents();
+            // Try again after DOM update
+            setTimeout(() => updateMarksTableWithData(), 50);
+        }
+        return;
+    }
+
+    // If no students, show empty message
+    if (students.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="${classSubjects.length + 1}" class="text-center py-8 text-gray-400">
+                    No students in this class
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    let html = '';
+    
+    students.forEach((student, rowIdx) => {
+        const studentMarks = marksData[student.id] || {};
+        html += `
+            <tr class="hover:bg-gray-50 transition" data-student-id="${student.id}">
+                <td class="px-3 py-3 sticky left-0 bg-white" style="min-width: 140px;">
+                    <div class="font-medium text-gray-800">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</div>
+                    <div class="text-[10px] text-gray-400">${student.admissionNumber || 'N/A'}</div>
+                </td>
+                ${classSubjects.map(subject => {
+                    const subjectMarks = studentMarks[subject.id] || {};
+                    const mark = subjectMarks.mark !== undefined && subjectMarks.mark !== null ? subjectMarks.mark : '';
+                    const grade = mark !== '' && !isNaN(mark) ? calculateGrade(parseFloat(mark)) : '';
+                    const initialsKey = `${student.id}_${subject.id}`;
+                    const initials = state.subjectInitials[initialsKey] || '';
+
+                    return `
+                        <td class="px-3 py-2 border-l border-gray-200">
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="flex items-center gap-1.5 w-full">
+                                    <input type="number"
+                                           class="marks-input w-20 px-2 py-1.5 text-center text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${mark !== '' ? 'has-value' : ''}"
+                                           data-student="${student.id}"
+                                           data-subject="${subject.id}"
+                                           data-field="mark"
+                                           value="${mark !== '' ? mark : ''}"
+                                           min="0" max="100"
+                                           step="0.5"
+                                           placeholder="—"
+                                           onchange="window.updateMarksInput(this)"
+                                           oninput="window.updateMarksInput(this)">
+                                    <input type="text"
+                                           class="w-14 px-1 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                                           placeholder="Init"
+                                           value="${initials}"
+                                           data-student="${student.id}"
+                                           data-subject="${subject.id}"
+                                           data-field="initials"
+                                           onchange="window.updateSubjectInitials(this)"
+                                           title="Teacher Initials (e.g., W.D)">
+                                </div>
+                                ${grade ? `<span class="text-xs font-bold ${getGradeColorClass(grade)}">${grade}</span>` :
+                                         `<span class="text-xs text-gray-300">—</span>`}
+                            </div>
+                        </td>
+                    `;
+                }).join('')}
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+    console.log('✅ Marks table updated with', students.length, 'students');
+}
+
+// ==================== REFRESH REPORTS TAB (FIXED) ====================
+async function refreshReportsTab() {
+    console.log('🔄 Refreshing Reports Tab...');
+    
+    const container = document.getElementById('tabContent');
+    if (!container || state.activeTab !== 'reports') return;
+
+    // Ensure class data is loaded
+    if (!state.selectedClassId) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-500">Please select a class first.</div>`;
+        return;
+    }
+
+    // Load students for this class if not cached
+    if (!state.classStudentsCache[state.selectedClassId]) {
+        await loadClassStudents(state.selectedClassId);
+    }
+
+    // Ensure subTab is set
+    if (!state.subTab) state.subTab = 'record';
+
+    // Render the reports tab structure
+    container.innerHTML = buildReportsTab();
+
+    // Re-bind sub-tab events
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const subTab = this.dataset.subtab;
+            state.subTab = subTab;
+            document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const subContainer = document.getElementById('reportSubContent');
+            if (subContainer) {
+                subContainer.innerHTML = buildReportSubContent(subTab);
+                bindReportEvents();
+                if (subTab === 'record') {
+                    // Load marks after a short delay to ensure DOM is ready
+                    setTimeout(() => loadMarksData(), 100);
+                }
+            }
+        });
+    });
+
+    // Load marks if on record tab
+    if (state.subTab === 'record') {
+        setTimeout(() => loadMarksData(), 100);
+    }
+
+    bindReportEvents();
+}
+
+// ==================== SAVE ALL MARKS (FIXED) ====================
+async function saveAllMarks() {
+    const classId = state.selectedClassId;
+    if (!classId) {
+        showToast('Please select a class', 'warning');
+        return;
+    }
+
+    const { currentYear, currentTerm } = currentAcademicSettings || { currentYear: new Date().getFullYear(), currentTerm: 1 };
+
+    console.log(`💾 Saving marks for class: ${classId}, Term ${currentTerm}, Year ${currentYear}`);
+
+    const students = state.attendanceStudents || [];
+    const marksData = {};
+
+    // Collect all marks from the table
+    document.querySelectorAll('#marksTableBody tr').forEach(row => {
+        const studentId = row.dataset.studentId;
+        if (!studentId) return;
+        marksData[studentId] = {};
+
+        const inputs = row.querySelectorAll('.marks-input');
+        inputs.forEach(input => {
+            const subjectId = input.dataset.subject;
+            const value = input.value;
+            if (value !== '' && !isNaN(value)) {
+                if (!marksData[studentId][subjectId]) {
+                    marksData[studentId][subjectId] = {};
+                }
+                marksData[studentId][subjectId].mark = parseFloat(value);
+            }
+        });
+    });
+
+    // Collect initials
+    const initialsData = {};
+    document.querySelectorAll('#marksTableBody tr').forEach(row => {
+        const studentId = row.dataset.studentId;
+        if (!studentId) return;
+        const initInputs = row.querySelectorAll('input[data-field="initials"]');
+        initInputs.forEach(input => {
+            const subjectId = input.dataset.subject;
+            const value = input.value.trim();
+            if (value) {
+                const key = `${studentId}_${subjectId}`;
+                initialsData[key] = value;
+            }
+        });
+    });
+
+    if (Object.keys(marksData).length === 0 && Object.keys(initialsData).length === 0) {
+        showToast('No marks or initials to save', 'warning');
+        return;
+    }
+
+    try {
+        // Save marks with term/year
+        const marksPayload = { marks: marksData, term: currentTerm, year: currentYear };
+        const marksSaveRes = await fetch(`/api/report-cards/class/${classId}/marks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(marksPayload),
+        });
+
+        if (!marksSaveRes.ok) {
+            const errorText = await marksSaveRes.text();
+            throw new Error(`Failed to save marks: ${marksSaveRes.status} - ${errorText}`);
+        }
+
+        const marksResult = await marksSaveRes.json();
+        console.log('✅ Marks saved:', marksResult);
+
+        // Save initials with term/year
+        if (Object.keys(initialsData).length > 0) {
+            let allInitials = {};
+            try {
+                const initRes = await fetch(`/api/report-cards/class/${classId}/initials?term=${currentTerm}&year=${currentYear}`);
+                if (initRes.ok) {
+                    const initData = await initRes.json();
+                    if (initData.success) {
+                        allInitials = initData.initials || {};
+                    }
+                }
+            } catch (e) {}
+
+            for (const [key, value] of Object.entries(initialsData)) {
+                allInitials[key] = value;
+            }
+
+            const initPayload = { initials: allInitials, term: currentTerm, year: currentYear };
+            const initSaveRes = await fetch(`/api/report-cards/class/${classId}/initials`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(initPayload),
+            });
+
+            if (initSaveRes.ok) {
+                console.log('✅ Initials saved');
+            } else {
+                console.warn('⚠️ Initials save failed but marks were saved');
+            }
+        }
+
+        // Update local state
+        state.reportMarks[classId] = marksData;
+        for (const [key, value] of Object.entries(initialsData)) {
+            state.subjectInitials[key] = value;
+        }
+
+        const studentCount = Object.keys(marksData).length;
+        showToast(`✅ Saved marks for ${studentCount} student(s) for ${getTermName(currentTerm)} ${currentYear}!`, 'success');
+
+        // Update the table to show saved data
+        updateMarksTableWithData();
+
+        // Also update the server state in the debug info
+        console.log('✅ State updated. Marks:', state.reportMarks[classId]);
+
+    } catch (error) {
+        console.error('❌ Error saving marks:', error);
+        showToast('❌ Error saving: ' + error.message, 'error');
+    }
+}
+// ==================== SAVE ALL MARKS (YEAR/TERM AWARE) ====================
+// ==================== SAVE ALL MARKS (COMPLETE REBUILD) ====================
+async function saveAllMarks() {
+    const classId = state.selectedClassId;
+    if (!classId) {
+        showToast('Please select a class', 'warning');
+        return;
+    }
+
+    const { currentYear, currentTerm } = currentAcademicSettings || { currentYear: new Date().getFullYear(), currentTerm: 1 };
+
+    console.log(`💾 ===== SAVING MARKS =====`);
+    console.log(`📚 Class: ${classId}`);
+    console.log(`📅 Year: ${currentYear}, Term: ${currentTerm}`);
+
+    // ================================================================
+    // STEP 1: COLLECT MARKS FROM THE UI
+    // ================================================================
+    const marksData = {};
+    const studentIds = [];
+    
+    const rows = document.querySelectorAll('#marksTableBody tr');
+    console.log(`📋 Found ${rows.length} rows in the table`);
+
+    rows.forEach((row, rowIndex) => {
+        const studentId = row.dataset.studentId;
+        if (!studentId) {
+            console.warn(`⚠️ Row ${rowIndex} has no studentId`);
+            return;
+        }
+        
+        studentIds.push(studentId);
+        marksData[studentId] = {};
+        
+        // Find all mark inputs in this row
+        const inputs = row.querySelectorAll('.marks-input');
+        console.log(`   Student ${studentId}: found ${inputs.length} mark inputs`);
+        
+        let hasMarks = false;
+        inputs.forEach(input => {
+            const subjectId = input.dataset.subject;
+            const value = input.value;
+            
+            if (value !== '' && !isNaN(value) && parseFloat(value) >= 0 && parseFloat(value) <= 100) {
+                marksData[studentId][subjectId] = { mark: parseFloat(value) };
+                hasMarks = true;
+                console.log(`      Subject ${subjectId}: ${value}`);
+            } else if (value !== '') {
+                console.log(`      Subject ${subjectId}: invalid value "${value}" (skipping)`);
+            }
+        });
+        
+        if (!hasMarks) {
+            console.log(`   ⚠️ Student ${studentId} has no valid marks`);
+        }
+    });
+
+    // ================================================================
+    // STEP 2: COLLECT INITIALS
+    // ================================================================
+    const initialsData = {};
+    rows.forEach(row => {
+        const studentId = row.dataset.studentId;
+        if (!studentId) return;
+        
+        const initInputs = row.querySelectorAll('input[data-field="initials"]');
+        initInputs.forEach(input => {
+            const subjectId = input.dataset.subject;
+            const value = input.value.trim();
+            if (value) {
+                const key = `${studentId}_${subjectId}`;
+                initialsData[key] = value;
+                console.log(`   Initials: ${key} = ${value}`);
+            }
+        });
+    });
+
+    // ================================================================
+    // STEP 3: CHECK IF ANY DATA TO SAVE
+    // ================================================================
+    const totalMarks = Object.values(marksData).reduce((sum, student) => sum + Object.keys(student).length, 0);
+    
+    console.log(`📊 Collected ${totalMarks} marks from ${Object.keys(marksData).length} students`);
+    console.log(`🔤 Collected ${Object.keys(initialsData).length} initials`);
+
+    if (totalMarks === 0 && Object.keys(initialsData).length === 0) {
+        showToast('No marks or initials to save (enter a mark first)', 'warning');
+        return;
+    }
+
+    // ================================================================
+    // STEP 4: SAVE TO SERVER
+    // ================================================================
+    try {
+        // 4a: Save marks
+        const marksPayload = { 
+            marks: marksData, 
+            term: currentTerm, 
+            year: currentYear 
+        };
+        
+        console.log('📤 Sending marks payload:', JSON.stringify(marksPayload, null, 2));
+
+        const marksSaveRes = await fetch(`/api/report-cards/class/${classId}/marks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(marksPayload),
+        });
+
+        if (!marksSaveRes.ok) {
+            const errorText = await marksSaveRes.text();
+            console.error('❌ Marks save failed:', marksSaveRes.status, errorText);
+            throw new Error(`Server error (${marksSaveRes.status}): ${errorText}`);
+        }
+
+        const marksResult = await marksSaveRes.json();
+        console.log('✅ Marks saved:', marksResult);
+
+        // 4b: Save initials
+        if (Object.keys(initialsData).length > 0) {
+            // First get existing initials
+            let allInitials = {};
+            try {
+                const initRes = await fetch(`/api/report-cards/class/${classId}/initials?term=${currentTerm}&year=${currentYear}`);
+                if (initRes.ok) {
+                    const initData = await initRes.json();
+                    if (initData.success) {
+                        allInitials = initData.initials || {};
+                    }
+                }
+            } catch (e) {}
+
+            // Merge
+            for (const [key, value] of Object.entries(initialsData)) {
+                allInitials[key] = value;
+            }
+
+            const initPayload = { initials: allInitials, term: currentTerm, year: currentYear };
+            const initSaveRes = await fetch(`/api/report-cards/class/${classId}/initials`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(initPayload),
+            });
+
+            if (initSaveRes.ok) {
+                console.log('✅ Initials saved');
+            } else {
+                console.warn('⚠️ Initials save returned:', initSaveRes.status);
+            }
+        }
+
+        // ================================================================
+        // STEP 5: UPDATE LOCAL STATE
+        // ================================================================
+        state.reportMarks[classId] = marksData;
+        for (const [key, value] of Object.entries(initialsData)) {
+            state.subjectInitials[key] = value;
+        }
+
+        console.log('✅ Local state updated');
+        console.log(`   Marks in state: ${Object.keys(state.reportMarks[classId] || {}).length} students`);
+
+        // ================================================================
+        // STEP 6: VERIFY SAVE
+        // ================================================================
+        console.log('🔄 Verifying save...');
+        const verifyRes = await fetch(`/api/report-cards/class/${classId}/marks?term=${currentTerm}&year=${currentYear}`);
+        if (verifyRes.ok) {
+            const verifyData = await verifyRes.json();
+            const savedCount = Object.keys(verifyData.marks || {}).length;
+            console.log(`✅ Verification: ${savedCount} students saved on server`);
+            
+            if (savedCount === 0) {
+                console.warn('⚠️ WARNING: Server shows 0 students saved!');
+            }
+        }
+
+        const studentCount = Object.keys(marksData).length;
+        showToast(`✅ Saved marks for ${studentCount} student(s) for ${getTermName(currentTerm)} ${currentYear}!`, 'success');
+
+        // Update the table to reflect saved data
+        updateMarksTableWithData();
+
+    } catch (error) {
+        console.error('❌ Error saving marks:', error);
+        showToast('❌ Error saving: ' + error.message, 'error');
+    }
+}
+// ==================== UPDATE MARKS TABLE WITH DATA ====================
+function updateMarksTableWithData() {
+    const classId = state.selectedClassId;
+    if (!classId) return;
+
+    const students = state.attendanceStudents || [];
+    const classSubjects = getClassSubjects(classId);
+    const marksData = state.reportMarks[classId] || {};
+
+    console.log('🔄 Updating marks table with data...');
+
+    const tbody = document.getElementById('marksTableBody');
+    if (!tbody) {
+        console.warn('⚠️ marksTableBody not found');
+        return;
+    }
+
+    let html = '';
+    
+    students.forEach((student, rowIdx) => {
+        const studentMarks = marksData[student.id] || {};
+        html += `
+            <tr class="hover:bg-gray-50 transition" data-student-id="${student.id}">
+                <td class="px-3 py-3 sticky left-0 bg-white" style="min-width: 140px;">
+                    <div class="font-medium text-gray-800">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</div>
+                    <div class="text-[10px] text-gray-400">${student.admissionNumber || 'N/A'}</div>
+                </td>
+                ${classSubjects.map(subject => {
+                    const subjectMarks = studentMarks[subject.id] || {};
+                    const mark = subjectMarks.mark !== undefined && subjectMarks.mark !== null ? subjectMarks.mark : '';
+                    const grade = mark !== '' && !isNaN(mark) ? calculateGrade(parseFloat(mark)) : '';
+                    const initialsKey = `${student.id}_${subject.id}`;
+                    const initials = state.subjectInitials[initialsKey] || '';
+
+                    return `
+                        <td class="px-3 py-2 border-l border-gray-200">
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="flex items-center gap-1.5 w-full">
+                                    <input type="number"
+                                           class="marks-input w-20 px-2 py-1.5 text-center text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${mark !== '' ? 'has-value' : ''}"
+                                           data-student="${student.id}"
+                                           data-subject="${subject.id}"
+                                           data-field="mark"
+                                           value="${mark !== '' ? mark : ''}"
+                                           min="0" max="100"
+                                           step="0.5"
+                                           placeholder="—"
+                                           onchange="window.updateMarksInput(this)"
+                                           oninput="window.updateMarksInput(this)">
+                                    <input type="text"
+                                           class="w-14 px-1 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                                           placeholder="Init"
+                                           value="${initials}"
+                                           data-student="${student.id}"
+                                           data-subject="${subject.id}"
+                                           data-field="initials"
+                                           onchange="window.updateSubjectInitials(this)"
+                                           title="Teacher Initials (e.g., W.D)">
+                                </div>
+                                ${grade ? `<span class="text-xs font-bold ${getGradeColorClass(grade)}">${grade}</span>` :
+                                         `<span class="text-xs text-gray-300">—</span>`}
+                            </div>
+                        </td>
+                    `;
+                }).join('')}
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+    console.log('✅ Marks table updated');
+}
+// ==================== UPDATE MARKS TABLE WITH DATA ====================
+function updateMarksTableWithData() {
+    const classId = state.selectedClassId;
+    if (!classId) return;
+
+    const students = state.attendanceStudents || [];
+    const classSubjects = getClassSubjects(classId);
+    const marksData = state.reportMarks[classId] || {};
+
+    console.log('🔄 Updating marks table with data...');
+    console.log('📊 Students:', students.length);
+    console.log('📚 Subjects:', classSubjects.length);
+    console.log('📝 Marks data:', Object.keys(marksData).length, 'students');
+
+    const tbody = document.getElementById('marksTableBody');
+    if (!tbody) {
+        console.warn('⚠️ marksTableBody not found');
+        return;
+    }
+
+    // Rebuild the table body with loaded data
+    let html = '';
+    
+    students.forEach((student, rowIdx) => {
+        const studentMarks = marksData[student.id] || {};
+        html += `
+            <tr class="hover:bg-gray-50 transition" data-student-id="${student.id}">
+                <td class="px-3 py-3 sticky left-0 bg-white" style="min-width: 140px;">
+                    <div class="font-medium text-gray-800">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</div>
+                    <div class="text-[10px] text-gray-400">${student.admissionNumber || 'N/A'}</div>
+                </td>
+                ${classSubjects.map(subject => {
+                    const subjectMarks = studentMarks[subject.id] || {};
+                    // SINGLE MARK FIELD
+                    const mark = subjectMarks.mark !== undefined && subjectMarks.mark !== null ? subjectMarks.mark : '';
+                    const grade = mark !== '' && !isNaN(mark) ? calculateGrade(parseFloat(mark)) : '';
+                    const initialsKey = `${student.id}_${subject.id}`;
+                    const initials = state.subjectInitials[initialsKey] || '';
+
+                    return `
+                        <td class="px-3 py-2 border-l border-gray-200">
+                            <div class="flex flex-col items-center gap-1">
+                                <div class="flex items-center gap-1.5 w-full">
+                                    <input type="number"
+                                           class="marks-input w-20 px-2 py-1.5 text-center text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${mark !== '' ? 'has-value' : ''}"
+                                           data-student="${student.id}"
+                                           data-subject="${subject.id}"
+                                           data-field="mark"
+                                           value="${mark !== '' ? mark : ''}"
+                                           min="0" max="100"
+                                           step="0.5"
+                                           placeholder="—"
+                                           onchange="window.updateMarksInput(this)"
+                                           oninput="window.updateMarksInput(this)">
+                                    <input type="text"
+                                           class="w-14 px-1 py-1.5 text-[10px] border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-center"
+                                           placeholder="Init"
+                                           value="${initials}"
+                                           data-student="${student.id}"
+                                           data-subject="${subject.id}"
+                                           data-field="initials"
+                                           onchange="window.updateSubjectInitials(this)"
+                                           title="Teacher Initials (e.g., W.D)">
+                                </div>
+                                ${grade ? `<span class="text-xs font-bold ${getGradeColorClass(grade)}">${grade}</span>` :
+                                         `<span class="text-xs text-gray-300">—</span>`}
+                            </div>
+                        </td>
+                    `;
+                }).join('')}
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+    console.log('✅ Marks table updated');
+}
+// ==================== MARKS INPUT HANDLERS ====================
+           // ==================== UPDATE MARKS INPUT ====================
+function updateMarksInput(input) {
+    const studentId = input.dataset.student;
+    const subjectId = input.dataset.subject;
+    const value = input.value;
+
+    // Validate
+    if (value !== '' && (isNaN(value) || parseFloat(value) < 0 || parseFloat(value) > 100)) {
+        input.classList.add('has-error');
+        input.classList.remove('has-value');
+        return;
+    }
+    input.classList.remove('has-error');
+    if (value !== '') {
+        input.classList.add('has-value');
+    } else {
+        input.classList.remove('has-value');
+    }
+
+    // Find the grade cell next to this input
+    const cell = input.closest('td');
+    if (cell) {
+        const gradeSpan = cell.querySelector('.text-xs.font-bold');
+        if (gradeSpan) {
+            if (value !== '' && !isNaN(value)) {
+                const grade = calculateGrade(parseFloat(value));
+                gradeSpan.textContent = grade;
+                gradeSpan.className = `text-xs font-bold ${getGradeColorClass(grade)}`;
+            } else {
+                gradeSpan.textContent = '—';
+                gradeSpan.className = 'text-xs text-gray-300';
+            }
+        }
+    }
+}
+            function updateSubjectInitials(input) {
+                const studentId = input.dataset.student;
+                const subjectId = input.dataset.subject;
+                const value = input.value.trim();
+                const key = `${studentId}_${subjectId}`;
+
+                if (value) {
+                    state.subjectInitials[key] = value;
+                } else {
+                    delete state.subjectInitials[key];
+                }
+
+                saveInitials();
+            }
+
+            async function saveInitials() {
+                const classId = state.selectedClassId;
+                if (!classId) return;
+
+                try {
+                    await fetch(`/api/report-cards/class/${classId}/initials`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initials: state.subjectInitials }),
+                    });
+                } catch (e) {
+                    console.warn('Could not save initials:', e);
+                }
+            }
+
+         // ==================== FIXED: SAVE ALL MARKS ====================
+async function saveAllMarks() {
+    const classId = state.selectedClassId;
+    if (!classId) {
+        showToast('Please select a class', 'warning');
+        return;
+    }
+
+    console.log(`💾 Saving marks for class: ${classId}`);
+
+    const students = state.attendanceStudents || [];
+    const marksData = {};
+
+    // Collect all marks from the table
+    document.querySelectorAll('#marksTableBody tr').forEach(row => {
+        const studentId = row.dataset.studentId;
+        if (!studentId) return;
+        marksData[studentId] = {};
+
+        // Find all mark inputs in this row
+        const inputs = row.querySelectorAll('.marks-input');
+        inputs.forEach(input => {
+            const subjectId = input.dataset.subject;
+            const value = input.value;
+            if (value !== '' && !isNaN(value)) {
+                if (!marksData[studentId][subjectId]) {
+                    marksData[studentId][subjectId] = {};
+                }
+                // Store as 'mark' (single value)
+                marksData[studentId][subjectId].mark = parseFloat(value);
+            }
+        });
+    });
+
+    // Also collect initials
+    const initialsData = {};
+    document.querySelectorAll('#marksTableBody tr').forEach(row => {
+        const studentId = row.dataset.studentId;
+        if (!studentId) return;
+        const initInputs = row.querySelectorAll('input[data-field="initials"]');
+        initInputs.forEach(input => {
+            const subjectId = input.dataset.subject;
+            const value = input.value.trim();
+            if (value) {
+                const key = `${studentId}_${subjectId}`;
+                initialsData[key] = value;
+            }
+        });
+    });
+
+    if (Object.keys(marksData).length === 0 && Object.keys(initialsData).length === 0) {
+        showToast('No marks or initials to save', 'warning');
+        return;
+    }
+
+    try {
+        // Save marks
+        const marksPayload = { marks: marksData };
+        console.log('📤 Saving marks payload:', JSON.stringify(marksPayload, null, 2));
+
+        const marksSaveRes = await fetch(`/api/report-cards/class/${classId}/marks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(marksPayload),
+        });
+
+        if (!marksSaveRes.ok) {
+            const errorText = await marksSaveRes.text();
+            throw new Error(`Failed to save marks: ${marksSaveRes.status} - ${errorText}`);
+        }
+
+        const marksResult = await marksSaveRes.json();
+        console.log('✅ Marks saved:', marksResult);
+
+        // Save initials
+        if (Object.keys(initialsData).length > 0) {
+            // First get existing initials to merge
+            let allInitials = {};
+            try {
+                const initRes = await fetch(`/api/report-cards/class/${classId}/initials`);
+                if (initRes.ok) {
+                    const initData = await initRes.json();
+                    if (initData.success) {
+                        allInitials = initData.initials || {};
+                    }
+                }
+            } catch (e) {}
+
+            // Merge
+            for (const [key, value] of Object.entries(initialsData)) {
+                allInitials[key] = value;
+            }
+
+            const initSaveRes = await fetch(`/api/report-cards/class/${classId}/initials`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initials: allInitials }),
+            });
+
+            if (initSaveRes.ok) {
+                console.log('✅ Initials saved');
+            } else {
+                console.warn('⚠️ Initials save failed but marks were saved');
+            }
+        }
+
+        // Update local state
+        state.reportMarks[classId] = marksData;
+        for (const [key, value] of Object.entries(initialsData)) {
+            state.subjectInitials[key] = value;
+        }
+
+        const studentCount = Object.keys(marksData).length;
+        showToast(`✅ Saved marks for ${studentCount} student(s)!`, 'success');
+
+        // Update the table to show saved data
+        updateMarksTableWithData();
+
+    } catch (error) {
+        console.error('❌ Error saving marks:', error);
+        showToast('❌ Error saving: ' + error.message, 'error');
+    }
+}
+            function bulkUploadMarks() {
+                showToast('Bulk upload feature coming soon', 'info');
+            }
+
+            async function loadStudentMarks() {
+                await loadMarksData();
+                showToast('Marks loaded', 'success');
+            }
+
+            // ==================== REPORT CARD GENERATION ====================
+            async function generateReportCards() {
+                const classId = state.selectedClassId;
+                if (!classId) {
+                    showToast('Please select a class', 'warning');
+                    return;
+                }
+
+                const term = document.getElementById('reportTerm')?.value || 1;
+                const year = document.getElementById('reportYear')?.value || new Date().getFullYear();
+                const studentId = document.getElementById('reportStudent')?.value || 'all';
+
+                showToast('Generating report cards...', 'info');
+
+                try {
+                    const url = `/api/report-cards/class/${classId}/generate?term=${term}&year=${year}${studentId !== 'all' ? `&studentId=${studentId}` : ''}`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            state.generatedReportCards = data.reportCards || [];
+                            // Switch to View tab
+                            state.subTab = 'view';
+                            await refreshReportsTab();
+                            showToast(`✅ ${data.reportCards?.length || 0} report card(s) generated!`, 'success');
+                        } else {
+                            showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                        }
+                    } else {
+                        showToast('Failed to generate report cards', 'error');
+                    }
+                } catch (e) {
+                    console.error('Error generating report cards:', e);
+                    showToast('Network error', 'error');
+                }
+            }
+
+            async function previewReportCard() {
+                const classId = state.selectedClassId;
+                if (!classId) {
+                    showToast('Please select a class', 'warning');
+                    return;
+                }
+
+                const term = document.getElementById('reportTerm')?.value || 1;
+                const year = document.getElementById('reportYear')?.value || new Date().getFullYear();
+                const studentId = document.getElementById('reportStudent')?.value || 'all';
+
+                if (studentId === 'all') {
+                    showToast('Please select a specific student for preview', 'warning');
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`/api/report-cards/student/${studentId}/preview?term=${term}&year=${year}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            showReportCardModal(data.reportCard);
+                        } else {
+                            showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+                        }
+                    } else {
+                        showToast('Failed to preview report card', 'error');
+                    }
+                } catch (e) {
+                    console.error('Error previewing report card:', e);
+                    showToast('Network error', 'error');
+                }
+            }
+
+            function showReportCardModal(reportCard) {
+                const modal = document.getElementById('reportModal');
+                const body = document.getElementById('reportModalBody');
+                const title = document.getElementById('reportModalTitle');
+
+                if (!modal || !body || !title) return;
+
+                title.textContent = `Report Card - ${reportCard.studentName || 'Student'}`;
+                modal.classList.remove('hidden');
+
+                let html = `
+                    <div class="report-card-preview" id="reportCardPrint">
+                        <div class="school-name" style="color: ${state.reportCardTemplate?.primaryColor || '#2563eb'}">
+                            ${state.reportCardTemplate?.schoolName || 'School Name'}
+                        </div>
+                        <div class="school-address">${state.reportCardTemplate?.schoolAddress || 'School Address'}</div>
+                        <hr class="my-3 border-gray-300">
+                        <div class="student-info">
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <p><strong>Student:</strong> ${escapeHtml(reportCard.studentName)}</p>
+                                <p><strong>Admission:</strong> ${escapeHtml(reportCard.admissionNumber || 'N/A')}</p>
+                                <p><strong>Class:</strong> ${escapeHtml(reportCard.className)}</p>
+                                <p><strong>Term:</strong> ${getTermName(reportCard.term)} ${reportCard.year}</p>
+                            </div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>CAT 1</th>
+                                    <th>CAT 2</th>
+                                    <th>Exam</th>
+                                    <th>Total</th>
+                                    <th>Grade</th>
+                                    <th>Remark</th>
+                                    <th>Init</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${reportCard.subjects && reportCard.subjects.length > 0 ? reportCard.subjects.map(subj => {
+                                    const total = (subj.cat1 || 0) + (subj.cat2 || 0) + (subj.exam || 0);
+                                    const avg = ((subj.cat1 || 0) + (subj.cat2 || 0) + (subj.exam || 0)) / 3;
+                                    const grade = calculateGrade(avg);
+                                    const remark = GRADING_SYSTEM[grade]?.remark || '';
+                                    return `
+                                        <tr>
+                                            <td>${escapeHtml(subj.subjectName)}</td>
+                                            <td>${subj.cat1 || '-'}</td>
+                                            <td>${subj.cat2 || '-'}</td>
+                                            <td>${subj.exam || '-'}</td>
+                                            <td>${total > 0 ? total.toFixed(1) : '-'}</td>
+                                            <td class="grade-${grade}">${grade || '-'}</td>
+                                            <td>${remark}</td>
+                                            <td>${subj.initials || '-'}</td>
+                                        </tr>
+                                    `;
+                                }).join('') : `
+                                    <tr><td colspan="8" class="text-center text-gray-400">No subjects found</td></tr>
+                                `}
+                            </tbody>
+                        </table>
+                        <div class="mt-4 flex justify-between text-sm">
+                            <div>
+                                <p><strong>Total Score:</strong> ${reportCard.totalScore || 0}</p>
+                                <p><strong>Average:</strong> ${reportCard.average || 0}%</p>
+                            </div>
+                            <div>
+                                <p><strong>Overall Grade:</strong> <span class="grade-${reportCard.overallGrade} font-bold">${reportCard.overallGrade || '-'}</span></p>
+                                <p><strong>Remark:</strong> ${reportCard.overallRemark || ''}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 text-xs text-gray-400 text-center">${state.reportCardTemplate?.footer || ''}</div>
+                    </div>
+                `;
+
+                body.innerHTML = html;
+            }
+
+            function closeReportModal() {
+                document.getElementById('reportModal').classList.add('hidden');
+            }
+
+            function printReportCard() {
+                const content = document.getElementById('reportCardPrint');
+                if (!content) return;
+
+                const printWindow = window.open('', '_blank');
+                if (!printWindow) {
+                    showToast('Please allow popups to print', 'warning');
+                    return;
+                }
+
+                const styles = document.querySelector('style').innerHTML;
+                printWindow.document.write(`
+                    <html><head><title>Report Card</title>
+                    <style>${styles}</style>
+                    </head><body>
+                    <div class="max-w-4xl mx-auto p-8">${content.outerHTML}</div>
+                    <script>
+                        window.onload = function() { window.print(); window.close(); };
+                    <\/script>
+                    </body></html>
+                `);
+                printWindow.document.close();
+            }
+
+            function printReportCardById(id) {
+                const report = state.generatedReportCards.find(r => r.id === id);
+                if (report) {
+                    showReportCardModal(report);
+                    setTimeout(() => printReportCard(), 300);
+                } else {
+                    showToast('Report card not found', 'error');
+                }
+            }
+
+            function viewReportCard(id) {
+                const report = state.generatedReportCards.find(r => r.id === id);
+                if (report) {
+                    showReportCardModal(report);
+                } else {
+                    showToast('Report card not found', 'error');
+                }
+            }
+
+            async function deleteReportCard(id) {
+                if (!confirm('Are you sure you want to delete this report card?')) return;
+                try {
+                    const res = await fetch(`/api/report-cards/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        state.generatedReportCards = state.generatedReportCards.filter(r => r.id !== id);
+                        await refreshReportsTab();
+                        showToast('Report card deleted', 'success');
+                    } else {
+                        showToast('Failed to delete report card', 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast('Network error', 'error');
+                }
+            }
+
+            function filterReportCards() {
+                const term = document.getElementById('reportSearch')?.value?.toLowerCase() || '';
+                const rows = document.querySelectorAll('#reportSubContent table tbody tr');
+                let visible = 0;
+                rows.forEach(row => {
+                    const text = row.dataset.studentName || '';
+                    if (term === '' || text.includes(term)) {
+                        row.style.display = '';
+                        visible++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            async function refreshReportCards() {
+                const classId = state.selectedClassId;
+                if (!classId) return;
+                try {
+                    const res = await fetch(`/api/report-cards/class/${classId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            state.generatedReportCards = data.reportCards || [];
+                            const container = document.getElementById('reportSubContent');
+                            if (container && state.subTab === 'view') {
+                                container.innerHTML = buildViewReportCardsTab();
+                                bindReportEvents();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error refreshing report cards:', e);
+                }
+            }
+
+            // ==================== REPORT SETTINGS ====================
+            async function saveReportTemplate() {
+                const template = {
+                    schoolName: document.getElementById('templateSchoolName')?.value || '',
+                    schoolAddress: document.getElementById('templateSchoolAddress')?.value || '',
+                    logo: document.getElementById('templateLogo')?.value || '',
+                    primaryColor: document.getElementById('templatePrimaryColor')?.value || '#2563eb',
+                    footer: document.getElementById('templateFooter')?.value || '',
+                };
+
+                try {
+                    const res = await fetch('/api/report-cards/template', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ template }),
+                    });
+                    if (res.ok) {
+                        state.reportCardTemplate = template;
+                        showToast('✅ Template saved!', 'success');
+                    } else {
+                        showToast('Failed to save template', 'error');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast('Network error', 'error');
+                }
+            }
+
+            function resetReportTemplate() {
+                document.getElementById('templateSchoolName').value = '';
+                document.getElementById('templateSchoolAddress').value = '';
+                document.getElementById('templateLogo').value = '';
+                document.getElementById('templatePrimaryColor').value = '#2563eb';
+                document.getElementById('templateFooter').value = '';
+                updateTemplatePreview();
+                showToast('Template reset', 'info');
+            }
+
+            // ==================== DATE HELPERS ====================
+            function getYesterdayDate() {
+                const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0];
+            }
+            function getWeekAgoDate() {
+                const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];
+            }
+
+            // ==================== TOAST ====================
+            function showToast(message, type = 'success') {
+                const existing = document.querySelector('.toast');
+                if (existing) existing.remove();
+                const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
+                const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+                const el = document.createElement('div');
+                el.className = `toast fixed bottom-4 right-4 ${colors[type] || 'bg-gray-700'} text-white px-5 py-3 rounded-xl shadow-lg z-50 max-w-md flex items-center gap-3`;
+                el.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'} text-lg"></i><span class="text-sm">${message}</span>`;
+                document.body.appendChild(el);
+                setTimeout(() => {
+                    el.classList.add('toast-out');
+                    setTimeout(() => el.remove(), 300);
+                }, 4000);
+            }
+
+            function logoutTeacher() {
+                if (confirm('Are you sure you want to logout?')) {
+                    localStorage.removeItem('teacherData');
+                    localStorage.removeItem('teacherLoginTime');
+                    window.location.href = '/teacher-login.html';
+                }
+            }
+
+            // ==================== CURRENT ACADEMIC SETTINGS ====================
+            const currentAcademicSettings = {
+                currentYear: new Date().getFullYear(),
+                currentTerm: 1,
+            };
+
+            try {
+                const year = localStorage.getItem('currentAcademicYear');
+                const term = localStorage.getItem('currentAcademicTerm');
+                if (year) currentAcademicSettings.currentYear = parseInt(year);
+                if (term) currentAcademicSettings.currentTerm = parseInt(term);
+            } catch (e) {}
+
+            // ==================== HTML ESCAPE ====================
+            function escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // ==================== EXPOSE GLOBALLY ====================
+            window.init = init;
+            window.logoutTeacher = logoutTeacher;
+            window.showToast = showToast;
+            window.loadAttendanceForDate = loadAttendanceForDate;
+            window.loadAttendanceHistory = loadAttendanceHistory;
+            window.loadAttendanceForDateFromHistory = loadAttendanceForDateFromHistory;
+            window.refreshAttendanceHistory = refreshAttendanceHistory;
+            window.resetAttendanceForm = resetAttendanceForm;
+            window.submitAttendance = submitAttendance;
+            window.selectAllStudents = selectAllStudents;
+            window.deselectAllStudents = deselectAllStudents;
+            window.toggleAttendanceSelection = toggleAttendanceSelection;
+            window.filterStudentList = filterStudentList;
+            window.refreshStudentList = refreshStudentList;
+            window.getYesterdayDate = getYesterdayDate;
+            window.getWeekAgoDate = getWeekAgoDate;
+            window.updateAttendanceCounts = updateAttendanceCounts;
+            window.updateSelectedCount = updateSelectedCount;
+            window.loadClassStudents = loadClassStudents;
+            window.refreshAttendanceStudents = refreshAttendanceStudents;
+            window.refreshAttendanceTab = refreshAttendanceTab;
+            window.viewAttendanceDetails = viewAttendanceDetails;
+            window.closeHistoryModal = closeHistoryModal;
+            window.buildSweepingTab = buildSweepingTab;
+            window.refreshSweepingTab = refreshSweepingTab;
+            window.selectSweepingDay = selectSweepingDay;
+            window.openSweepingModal = openSweepingModal;
+            window.closeSweepingModal = closeSweepingModal;
+            window.switchSweepingDay = switchSweepingDay;
+            window.selectAllSweepingStudents = selectAllSweepingStudents;
+            window.deselectAllSweepingStudents = deselectAllSweepingStudents;
+            window.clearSweepingDay = clearSweepingDay;
+            window.saveSweepingRoster = saveSweepingRoster;
+            window.loadSweepingStats = loadSweepingStats;
+            window.refreshReportsTab = refreshReportsTab;
+            window.loadMarksData = loadMarksData;
+            window.updateMarksInput = updateMarksInput;
+            window.updateSubjectInitials = updateSubjectInitials;
+            window.saveAllMarks = saveAllMarks;
+            window.bulkUploadMarks = bulkUploadMarks;
+            window.loadStudentMarks = loadStudentMarks;
+            window.generateReportCards = generateReportCards;
+            window.previewReportCard = previewReportCard;
+            window.closeReportModal = closeReportModal;
+            window.printReportCard = printReportCard;
+            window.printReportCardById = printReportCardById;
+            window.viewReportCard = viewReportCard;
+            window.deleteReportCard = deleteReportCard;
+            window.filterReportCards = filterReportCards;
+            window.refreshReportCards = refreshReportCards;
+            window.saveReportTemplate = saveReportTemplate;
+            window.resetReportTemplate = resetReportTemplate;
+            window.updateTemplatePreview = updateTemplatePreview;
+            window.escapeHtml = escapeHtml;
+
+            document.addEventListener('DOMContentLoaded', init);
+
+        })();
+    </script>
+
+</body>
+</html>

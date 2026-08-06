@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parent Portal - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast {
+            animation: toastIn 0.4s ease-out;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .toast-out {
+            animation: toastOut 0.3s ease-in forwards;
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(20px) scale(0.95); }
+        }
+        .input-focus:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+        }
+        .password-requirement {
+            transition: all 0.2s ease;
+        }
+        .password-requirement.valid {
+            color: #22c55e;
+        }
+        .password-requirement.invalid {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+    <div class="w-full max-w-md px-4">
+        <!-- Logo/Header -->
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg mx-auto mb-3">
+                <i class="fas fa-users"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">Parent Portal</h1>
+            <p class="text-sm text-gray-500">Access your child's academic information</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-200" id="loginCard">
+            <div id="loginFormContainer">
+                <!-- Step 1: Login Form -->
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-user mr-1 text-blue-500"></i> Parent/Guardian Name
+                        </label>
+                        <input type="text" id="parentName" 
+                               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm input-focus outline-none transition"
+                               placeholder="Enter your full name as registered" required>
+                        <p class="text-xs text-gray-400 mt-1">Use the name you provided during registration</p>
+                    </div>
+
+                    <div id="dobField" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-calendar-alt mr-1 text-blue-500"></i> Student's Date of Birth
+                        </label>
+                        <input type="date" id="studentDob" 
+                               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm input-focus outline-none transition">
+                        <p class="text-xs text-gray-400 mt-1">For first-time login verification</p>
+                    </div>
+
+                    <div id="passwordField" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-lock mr-1 text-blue-500"></i> Password
+                        </label>
+                        <input type="password" id="parentPassword" 
+                               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm input-focus outline-none transition"
+                               placeholder="Enter your password">
+                    </div>
+
+                    <button type="submit" id="loginBtn" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Continue</span>
+                    </button>
+
+                    <div id="loginMessage" class="text-center text-sm mt-2 hidden"></div>
+
+                    <div class="text-center text-xs text-gray-400 border-t pt-3 mt-2">
+                        <p>Having trouble? Contact the school administration.</p>
+                    </div>
+                </form>
+
+                <!-- Step 2: Password Setup (First Time) -->
+                <div id="passwordSetupForm" class="hidden space-y-4">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-700">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>First time logging in? Set up your password below.</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-lock mr-1 text-blue-500"></i> New Password
+                        </label>
+                        <input type="password" id="newPassword" 
+                               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm input-focus outline-none transition"
+                               placeholder="Create a password (min 5 chars, letters & numbers)" 
+                               oninput="validatePassword(this.value)">
+                        <div class="mt-2 space-y-1 text-xs" id="passwordRequirements">
+                            <div class="password-requirement invalid" id="reqLength">
+                                <i class="fas fa-circle mr-1.5 text-[6px]"></i> At least 5 characters
+                            </div>
+                            <div class="password-requirement invalid" id="reqLetters">
+                                <i class="fas fa-circle mr-1.5 text-[6px]"></i> Contains letters
+                            </div>
+                            <div class="password-requirement invalid" id="reqNumbers">
+                                <i class="fas fa-circle mr-1.5 text-[6px]"></i> Contains numbers
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-check-circle mr-1 text-blue-500"></i> Confirm Password
+                        </label>
+                        <input type="password" id="confirmPassword" 
+                               class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm input-focus outline-none transition"
+                               placeholder="Confirm your password">
+                    </div>
+
+                    <button id="setupPasswordBtn" 
+                            class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-key"></i>
+                        <span>Set Up Password</span>
+                    </button>
+
+                    <div id="setupMessage" class="text-center text-sm mt-2 hidden"></div>
+
+                    <button id="backToLoginBtn" class="w-full text-gray-500 hover:text-gray-700 text-sm font-medium transition">
+                        <i class="fas fa-arrow-left mr-1"></i> Back to Login
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== PARENT LOGIN SYSTEM ====================
+        (function() {
+            'use strict';
+
+            // DOM Elements
+            const loginForm = document.getElementById('loginForm');
+            const parentNameInput = document.getElementById('parentName');
+            const dobField = document.getElementById('dobField');
+            const studentDobInput = document.getElementById('studentDob');
+            const passwordField = document.getElementById('passwordField');
+            const parentPasswordInput = document.getElementById('parentPassword');
+            const loginBtn = document.getElementById('loginBtn');
+            const loginMessage = document.getElementById('loginMessage');
+            
+            const passwordSetupForm = document.getElementById('passwordSetupForm');
+            const newPasswordInput = document.getElementById('newPassword');
+            const confirmPasswordInput = document.getElementById('confirmPassword');
+            const setupPasswordBtn = document.getElementById('setupPasswordBtn');
+            const setupMessage = document.getElementById('setupMessage');
+            const backToLoginBtn = document.getElementById('backToLoginBtn');
+
+            // Password requirement elements
+            const reqLength = document.getElementById('reqLength');
+            const reqLetters = document.getElementById('reqLetters');
+            const reqNumbers = document.getElementById('reqNumbers');
+
+            let currentParentName = '';
+            let currentStudents = [];
+
+            // ==================== TOAST ====================
+            function showToast(message, type = 'success') {
+                const existing = document.querySelector('.toast');
+                if (existing) existing.remove();
+                
+                const colors = { 
+                    success: 'bg-green-500', 
+                    error: 'bg-red-500', 
+                    warning: 'bg-yellow-500', 
+                    info: 'bg-blue-500' 
+                };
+                const icons = { 
+                    success: 'fa-check-circle', 
+                    error: 'fa-exclamation-circle', 
+                    warning: 'fa-exclamation-triangle', 
+                    info: 'fa-info-circle' 
+                };
+                
+                const el = document.createElement('div');
+                el.className = `toast fixed bottom-4 right-4 ${colors[type] || 'bg-gray-700'} text-white px-5 py-3 rounded-xl shadow-lg z-50 max-w-md flex items-center gap-3`;
+                el.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'} text-lg"></i><span class="text-sm">${message}</span>`;
+                document.body.appendChild(el);
+                
+                setTimeout(() => {
+                    el.classList.add('toast-out');
+                    setTimeout(() => el.remove(), 300);
+                }, 4000);
+            }
+
+            // ==================== PASSWORD VALIDATION ====================
+            function validatePassword(password) {
+                const hasLength = password.length >= 5;
+                const hasLetters = /[A-Za-z]/.test(password);
+                const hasNumbers = /\d/.test(password);
+                
+                reqLength.className = `password-requirement ${hasLength ? 'valid' : 'invalid'}`;
+                reqLength.innerHTML = `<i class="fas ${hasLength ? 'fa-check-circle' : 'fa-circle'} mr-1.5 text-[6px]"></i> At least 5 characters`;
+                
+                reqLetters.className = `password-requirement ${hasLetters ? 'valid' : 'invalid'}`;
+                reqLetters.innerHTML = `<i class="fas ${hasLetters ? 'fa-check-circle' : 'fa-circle'} mr-1.5 text-[6px]"></i> Contains letters`;
+                
+                reqNumbers.className = `password-requirement ${hasNumbers ? 'valid' : 'invalid'}`;
+                reqNumbers.innerHTML = `<i class="fas ${hasNumbers ? 'fa-check-circle' : 'fa-circle'} mr-1.5 text-[6px]"></i> Contains numbers`;
+                
+                return hasLength && hasLetters && hasNumbers;
+            }
+
+            window.validatePassword = validatePassword;
+
+            // ==================== SETUP PASSWORD ====================
+            async function setupPassword() {
+                const password = newPasswordInput.value;
+                const confirm = confirmPasswordInput.value;
+                
+                if (password !== confirm) {
+                    showToast('Passwords do not match. Please try again.', 'error');
+                    return;
+                }
+                
+                if (!validatePassword(password)) {
+                    showToast('Password must be at least 5 characters with letters and numbers.', 'error');
+                    return;
+                }
+                
+                setupPasswordBtn.disabled = true;
+                setupPasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up...';
+                
+                try {
+                    const res = await fetch('/api/parent/setup-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: currentParentName,
+                            password: password
+                        })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        setupMessage.className = 'text-center text-sm mt-2 text-green-600';
+                        setupMessage.textContent = '✅ Password set up successfully! Redirecting...';
+                        showToast('✅ Password set up successfully!', 'success');
+                        
+                        setTimeout(() => {
+                            window.location.href = '/parent-dashboard.html';
+                        }, 1500);
+                    } else {
+                        setupMessage.className = 'text-center text-sm mt-2 text-red-600';
+                        setupMessage.textContent = '❌ ' + (data.error || 'Failed to set up password');
+                        showToast('❌ ' + (data.error || 'Failed to set up password'), 'error');
+                        setupPasswordBtn.disabled = false;
+                        setupPasswordBtn.innerHTML = '<i class="fas fa-key"></i> Set Up Password';
+                    }
+                } catch (error) {
+                    console.error('Password setup error:', error);
+                    showToast('❌ Network error. Please try again.', 'error');
+                    setupPasswordBtn.disabled = false;
+                    setupPasswordBtn.innerHTML = '<i class="fas fa-key"></i> Set Up Password';
+                }
+            }
+
+            // ==================== CHECK NAME EXISTS ====================
+            async function checkNameExists(name) {
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+                loginMessage.className = 'text-center text-sm mt-2 hidden';
+                
+                try {
+                    const res = await fetch('/api/parent/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        // Name exists
+                        currentParentName = name;
+                        currentStudents = data.students;
+                        
+                        if (data.hasPassword) {
+                            // Password exists - show password field
+                            dobField.classList.add('hidden');
+                            passwordField.classList.remove('hidden');
+                            parentPasswordInput.focus();
+                            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                            loginBtn.disabled = false;
+                            loginMessage.className = 'text-center text-sm mt-2 text-blue-600';
+                            loginMessage.textContent = '🔐 Enter your password to continue.';
+                        } else {
+                            // No password - show DOB field
+                            dobField.classList.remove('hidden');
+                            passwordField.classList.add('hidden');
+                            studentDobInput.focus();
+                            loginBtn.innerHTML = '<i class="fas fa-check"></i> Verify DOB';
+                            loginBtn.disabled = false;
+                            loginMessage.className = 'text-center text-sm mt-2 text-blue-600';
+                            loginMessage.textContent = '📝 Verify your identity with the student\'s date of birth.';
+                        }
+                    } else {
+                        // Name not found
+                        loginMessage.className = 'text-center text-sm mt-2 text-red-600';
+                        loginMessage.textContent = '❌ ' + (data.error || 'Parent not found. Please check the name.');
+                        showToast('❌ Parent not found. Please check the name.', 'error');
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Continue';
+                    }
+                } catch (error) {
+                    console.error('Check name error:', error);
+                    showToast('❌ Network error. Please try again.', 'error');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Continue';
+                }
+            }
+
+            // ==================== HANDLE LOGIN ====================
+            async function handleLogin(e) {
+                e.preventDefault();
+                
+                const name = parentNameInput.value.trim();
+                if (!name) {
+                    showToast('Please enter your name.', 'warning');
+                    return;
+                }
+                
+                // Check if password field is visible (existing user)
+                const isPasswordMode = !passwordField.classList.contains('hidden');
+                const isDobMode = !dobField.classList.contains('hidden');
+                
+                let payload = { name: name };
+                
+                if (isPasswordMode) {
+                    const password = parentPasswordInput.value;
+                    if (!password) {
+                        showToast('Please enter your password.', 'warning');
+                        return;
+                    }
+                    payload.password = password;
+                } else if (isDobMode) {
+                    const dob = studentDobInput.value;
+                    if (!dob) {
+                        showToast('Please enter the student\'s date of birth.', 'warning');
+                        return;
+                    }
+                    payload.dob = dob;
+                } else {
+                    // First step - check name
+                    await checkNameExists(name);
+                    return;
+                }
+                
+                // Proceed with login (password or DOB)
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+                loginMessage.className = 'text-center text-sm mt-2 hidden';
+                
+                try {
+                    const res = await fetch('/api/parent/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        if (data.isFirstLogin && data.requiresPasswordSetup) {
+                            // Show password setup
+                            currentParentName = name;
+                            currentStudents = data.students;
+                            loginForm.classList.add('hidden');
+                            passwordSetupForm.classList.remove('hidden');
+                            const studentNames = data.students.map(s => `${s.firstName} ${s.lastName}`).join(', ');
+                            document.querySelector('#passwordSetupForm .bg-yellow-50 span').textContent = 
+                                `First time logging in for ${studentNames}? Set up your password below.`;
+                            newPasswordInput.focus();
+                            loginBtn.disabled = false;
+                            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Continue';
+                        } else {
+                            // Login successful - store session and redirect
+                            localStorage.setItem('parentName', name);
+                            localStorage.setItem('parentStudents', JSON.stringify(data.students));
+                            localStorage.setItem('parentLoginTime', new Date().toISOString());
+                            
+                            showToast('✅ Login successful!', 'success');
+                            setTimeout(() => {
+                                window.location.href = '/parent-dashboard.html';
+                            }, 500);
+                        }
+                    } else {
+                        loginMessage.className = 'text-center text-sm mt-2 text-red-600';
+                        loginMessage.textContent = '❌ ' + (data.error || 'Login failed');
+                        showToast('❌ ' + (data.error || 'Login failed'), 'error');
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = isPasswordMode ? '<i class="fas fa-sign-in-alt"></i> Login' : '<i class="fas fa-check"></i> Verify DOB';
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showToast('❌ Network error. Please try again.', 'error');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = isPasswordMode ? '<i class="fas fa-sign-in-alt"></i> Login' : '<i class="fas fa-check"></i> Verify DOB';
+                }
+            }
+
+            // ==================== EVENT LISTENERS ====================
+            loginForm.addEventListener('submit', handleLogin);
+            
+            setupPasswordBtn.addEventListener('click', setupPassword);
+            
+            confirmPasswordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setupPassword();
+                }
+            });
+            
+            newPasswordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    confirmPasswordInput.focus();
+                }
+            });
+
+            backToLoginBtn.addEventListener('click', function() {
+                passwordSetupForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+                dobField.classList.add('hidden');
+                passwordField.classList.add('hidden');
+                loginMessage.className = 'text-center text-sm mt-2 hidden';
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Continue';
+                loginBtn.disabled = false;
+                parentNameInput.focus();
+            });
+
+            // Check if already logged in
+            const parentName = localStorage.getItem('parentName');
+            if (parentName) {
+                window.location.href = '/parent-dashboard.html';
+            }
+
+            console.log('✅ Parent Portal Login loaded');
+
+        })();
+    </script>
+
+</body>
+</html>
