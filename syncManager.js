@@ -1,5 +1,7 @@
-// syncManager.js - COMPLETE REBUILT v2.0
-// Full bidirectional sync with conflict resolution
+// syncManager.js - DEVELOPER VERSION v5.0
+// Pushes code to GitHub, excludes data files
+// Use this on the developer's computer
+
 const simpleGit = require('simple-git');
 const fs = require('fs-extra');
 const path = require('path');
@@ -22,11 +24,22 @@ class SyncManager {
         this._syncQueue = [];
         this._isProcessingQueue = false;
         
+        // Exclude all data files
+        this.excludePatterns = [
+            /^data\//,
+            /\.json$/,
+            /\.csv$/,
+            /\.xlsx$/,
+            /node_modules/,
+            /\.git/
+        ];
+        
         this._init();
     }
 
     async _init() {
-        console.log('🔄 Initializing Sync Manager v2.0...');
+        console.log('🔄 Initializing Sync Manager v5.0 (Developer - Push Code Only)');
+        console.log('📁 Data files will NOT be pushed to GitHub');
         try {
             this.git = simpleGit();
             await this.git.version();
@@ -42,7 +55,7 @@ class SyncManager {
         this._scheduleAutoSync();
         
         setTimeout(() => this.sync(), 3000);
-        console.log('✅ Sync Manager initialized');
+        console.log('✅ Sync Manager initialized (Developer)');
     }
 
     async _checkConnectivity() {
@@ -70,6 +83,7 @@ class SyncManager {
             try {
                 await this.git.clone(this.repoUrl, this.repoPath);
                 console.log('✅ Repository cloned');
+                await this._cleanRemoteDataFolder();
             } catch (error) {
                 console.log('⚠️ Clone failed, creating local repo...');
                 await fs.ensureDir(this.repoPath);
@@ -81,25 +95,40 @@ class SyncManager {
         }
     }
 
+    async _cleanRemoteDataFolder() {
+        try {
+            const remoteDataPath = path.join(this.repoPath, 'data');
+            if (await fs.pathExists(remoteDataPath)) {
+                await fs.remove(remoteDataPath);
+                console.log('  🗑️ Removed data folder from repo');
+            }
+            const files = await fs.readdir(this.repoPath);
+            for (const file of files) {
+                if (file.endsWith('.json') && file !== 'package.json' && file !== 'package-lock.json') {
+                    await fs.remove(path.join(this.repoPath, file));
+                    console.log(`  🗑️ Removed ${file} from repo`);
+                }
+            }
+        } catch (error) {
+            console.warn('  ⚠️ Could not clean remote data folder:', error.message);
+        }
+    }
+
     // ================================================================
-    // PULL with conflict resolution
+    // PULL (with data exclusion)
     // ================================================================
     async _pull() {
         if (!this.isOnline) return false;
         try {
             this.git = simpleGit(this.repoPath);
-            
-            // Fetch latest changes
             await this.git.fetch('origin', this.branch);
-            
-            // Check if there are remote changes
             const status = await this.git.status();
             const behind = status.behind || 0;
-            
             if (behind > 0) {
                 console.log(`📥 ${behind} commits behind, pulling...`);
                 await this.git.pull('origin', this.branch, ['--rebase']);
                 console.log('✅ Pulled latest changes');
+                await this._cleanRemoteDataFolder();
                 return true;
             } else {
                 console.log('📥 Already up to date');
@@ -111,6 +140,7 @@ class SyncManager {
                 console.log('🔄 Attempting reset...');
                 await this.git.reset(['--hard', `origin/${this.branch}`]);
                 console.log('✅ Reset to origin/main');
+                await this._cleanRemoteDataFolder();
                 return true;
             } catch (resetError) {
                 console.error('❌ Reset failed:', resetError.message);
@@ -120,29 +150,33 @@ class SyncManager {
     }
 
     // ================================================================
-    // PUSH with conflict check
+    // PUSH – EXCLUDES DATA FILES
     // ================================================================
     async _push() {
         if (!this.isOnline) return false;
         try {
             this.git = simpleGit(this.repoPath);
             
+            // Check status, filter out data files
             const status = await this.git.status();
-            const hasChanges = status.files && status.files.length > 0;
+            const hasChanges = status.files && status.files.some(f => !this._shouldExclude(f.path));
             
             if (!hasChanges) {
-                console.log('📝 No changes to commit');
+                console.log('📝 No code changes to commit');
                 return true;
             }
             
+            // Add only code files
+            console.log('📝 Adding code files (data excluded)...');
             await this.git.add('.');
-            const commitMsg = `Auto-sync: ${new Date().toISOString()}`;
+            const commitMsg = `Developer sync: ${new Date().toISOString()}`;
             await this.git.commit(commitMsg);
             console.log(`📝 Committed: ${commitMsg}`);
             
+            // Pull before push to avoid conflicts
             await this._pull();
             await this.git.push('origin', this.branch);
-            console.log('✅ Pushed changes');
+            console.log('✅ Pushed changes (data excluded)');
             return true;
         } catch (error) {
             console.error('❌ Push failed:', error.message);
@@ -159,7 +193,7 @@ class SyncManager {
     }
 
     // ================================================================
-    // MAIN SYNC - Bidirectional with file comparison
+    // SYNC – BIDIRECTIONAL BUT DATA EXCLUDED
     // ================================================================
     async sync() {
         if (this.syncInProgress) {
@@ -167,29 +201,24 @@ class SyncManager {
             return;
         }
         
-        console.log('🔄 Starting sync...');
+        console.log('🔄 Starting sync (Developer)...');
         this.syncInProgress = true;
         
         try {
             await this._checkConnectivity();
             if (this.isOnline) {
-                // 1. Pull latest changes FIRST
+                // 1. Pull latest changes
                 await this._pull();
                 
-                // 2. Sync data files (bidirectional)
-                await this._syncDataFiles();
+                // 2. Sync local code changes to repo (data excluded)
+                await this._syncLocalToRemote();
                 
-                // 3. Sync frontend files
-                await this._syncFrontendFiles();
-                
-                // 4. Sync backend file
-                await this._syncBackendFile();
-                
-                // 5. Push changes if any
+                // 3. Push changes
                 await this._push();
                 
                 this.lastSyncTime = new Date();
                 console.log(`✅ Sync completed at ${this.lastSyncTime.toISOString()}`);
+                console.log('📁 Data files remain LOCAL ONLY');
             } else {
                 console.log('⏭️ Offline, sync skipped');
             }
@@ -205,223 +234,101 @@ class SyncManager {
     }
 
     // ================================================================
-    // FIXED: Bidirectional Data Sync with file comparison
+    // COPY LOCAL CODE CHANGES TO REPO (exclude data)
     // ================================================================
-    async _syncDataFiles() {
-        console.log('📁 Syncing data files...');
-        const files = await fs.readdir(this.dataPath);
+    async _syncLocalToRemote() {
+        console.log('📁 Syncing local code to repo (data excluded)...');
         
-        for (const file of files) {
-            if (!file.endsWith('.json')) continue;
-            
-            const localPath = path.join(this.dataPath, file);
-            const remotePath = path.join(this.repoPath, 'data', file);
-            await fs.ensureDir(path.dirname(remotePath));
-            
-            try {
-                const localExists = await fs.pathExists(localPath);
-                const remoteExists = await fs.pathExists(remotePath);
-                
-                if (!localExists && !remoteExists) continue;
-                
-                if (!localExists && remoteExists) {
-                    // Remote exists, local doesn't → copy remote to local
-                    await fs.copy(remotePath, localPath);
-                    console.log(`  ✅ Pulled (new): ${file}`);
-                    continue;
-                }
-                
-                if (localExists && !remoteExists) {
-                    // Local exists, remote doesn't → copy local to remote
-                    await fs.copy(localPath, remotePath);
-                    console.log(`  ✅ Pushed (new): ${file}`);
-                    continue;
-                }
-                
-                // Both exist → compare content
-                const localContent = await fs.readFile(localPath, 'utf8');
-                const remoteContent = await fs.readFile(remotePath, 'utf8');
-                
-                if (localContent === remoteContent) {
-                    console.log(`  ⏭️ No changes: ${file}`);
-                    continue;
-                }
-                
-                // Files differ → determine which is newer
-                const localStat = await fs.stat(localPath);
-                const remoteStat = await fs.stat(remotePath);
-                
-                if (remoteStat.mtime > localStat.mtime) {
-                    // Remote is newer → copy remote to local
-                    await fs.copy(remotePath, localPath, { overwrite: true });
-                    console.log(`  ✅ Pulled: ${file} (remote newer)`);
-                } else {
-                    // Local is newer → copy local to remote
-                    await fs.copy(localPath, remotePath, { overwrite: true });
-                    console.log(`  ✅ Pushed: ${file} (local newer)`);
-                }
-            } catch (error) {
-                console.error(`  ❌ Error syncing ${file}:`, error.message);
-            }
-        }
-    }
-
-    // ================================================================
-    // FRONTEND SYNC
-    // ================================================================
-    async _syncFrontendFiles() {
-        console.log('📁 Syncing frontend files...');
+        // 1. Sync frontend files
         const remotePublicPath = path.join(this.repoPath, 'public');
-        
-        try {
-            await fs.ensureDir(remotePublicPath);
-            
-            // Check if there are changes
-            const localFiles = await fs.readdir(this.frontendPath);
-            let hasChanges = false;
-            
-            for (const file of localFiles) {
-                if (['node_modules', '.git', '.DS_Store'].includes(file)) continue;
-                
-                const localPath = path.join(this.frontendPath, file);
-                const remotePath = path.join(remotePublicPath, file);
-                
-                const stat = await fs.stat(localPath);
-                if (stat.isDirectory()) continue;
-                
-                if (await fs.pathExists(remotePath)) {
-                    const localContent = await fs.readFile(localPath, 'utf8');
-                    const remoteContent = await fs.readFile(remotePath, 'utf8');
-                    if (localContent !== remoteContent) {
-                        hasChanges = true;
-                        await fs.copy(localPath, remotePath, { overwrite: true });
-                        console.log(`  ✅ Synced: ${file}`);
-                    }
-                } else {
-                    hasChanges = true;
-                    await fs.copy(localPath, remotePath, { overwrite: true });
-                    console.log(`  ✅ Synced (new): ${file}`);
-                }
-            }
-            
-            if (!hasChanges) {
-                console.log('  ⏭️ No frontend changes');
-            }
-        } catch (error) {
-            console.error('  ❌ Failed to sync public folder:', error.message);
-        }
-    }
-
-    // ================================================================
-    // BACKEND SYNC
-    // ================================================================
-    async _syncBackendFile() {
-        console.log('📁 Syncing backend file...');
-        const remotePath = path.join(this.repoPath, 'backend', 'server.js');
-        
-        try {
-            await fs.ensureDir(path.dirname(remotePath));
-            
-            const localExists = await fs.pathExists(this.backendPath);
-            const remoteExists = await fs.pathExists(remotePath);
-            
-            if (!localExists && !remoteExists) {
-                console.log('  ⏭️ No backend file');
-                return;
-            }
-            
-            if (!localExists && remoteExists) {
-                await fs.copy(remotePath, this.backendPath);
-                console.log('  ✅ Pulled: server.js (remote exists)');
-                return;
-            }
-            
-            if (localExists && !remoteExists) {
-                await fs.copy(this.backendPath, remotePath);
-                console.log('  ✅ Pushed: server.js (local exists)');
-                return;
-            }
-            
-            // Both exist → compare
-            const localContent = await fs.readFile(this.backendPath, 'utf8');
-            const remoteContent = await fs.readFile(remotePath, 'utf8');
-            
-            if (localContent === remoteContent) {
-                console.log('  ⏭️ No changes: server.js');
-                return;
-            }
-            
-            // Files differ → determine which is newer
-            const localStat = await fs.stat(this.backendPath);
-            const remoteStat = await fs.stat(remotePath);
-            
-            if (remoteStat.mtime > localStat.mtime) {
-                await fs.copy(remotePath, this.backendPath, { overwrite: true });
-                console.log('  ✅ Pulled: server.js (remote newer)');
+        await fs.ensureDir(remotePublicPath);
+        const publicFiles = await fs.readdir(this.frontendPath);
+        for (const file of publicFiles) {
+            if (this._shouldExclude(file)) continue;
+            if (['node_modules', '.git', '.DS_Store'].includes(file)) continue;
+            const src = path.join(this.frontendPath, file);
+            const dest = path.join(remotePublicPath, file);
+            const stat = await fs.stat(src);
+            if (stat.isDirectory()) {
+                await fs.copy(src, dest, { overwrite: true });
             } else {
-                await fs.copy(this.backendPath, remotePath, { overwrite: true });
-                console.log('  ✅ Pushed: server.js (local newer)');
+                await fs.copy(src, dest, { overwrite: true });
             }
-        } catch (error) {
-            console.error('  ❌ Failed to sync backend file:', error.message);
+            console.log(`  ✅ Copied: ${file}`);
+        }
+        
+        // 2. Sync backend file
+        const remoteBackendPath = path.join(this.repoPath, 'backend', 'server.js');
+        await fs.ensureDir(path.dirname(remoteBackendPath));
+        await fs.copy(this.backendPath, remoteBackendPath, { overwrite: true });
+        console.log('  ✅ Copied: server.js');
+        
+        // 3. Also copy syncManager.js itself if changed (for updates)
+        const syncMgrSrc = path.join(__dirname, 'syncManager.js');
+        const syncMgrDest = path.join(this.repoPath, 'syncManager.js');
+        if (await fs.pathExists(syncMgrSrc)) {
+            await fs.copy(syncMgrSrc, syncMgrDest, { overwrite: true });
+            console.log('  ✅ Copied: syncManager.js');
         }
     }
 
     // ================================================================
-    // FORCE SYNC
+    // CHECK IF FILE SHOULD BE EXCLUDED
     // ================================================================
-    async forceSync() {
-        console.log('🔄 Force sync triggered');
-        await this.sync();
+    _shouldExclude(filePath) {
+        for (const pattern of this.excludePatterns) {
+            if (pattern.test(filePath)) {
+                return true;
+            }
+        }
+        const normalizedPath = filePath.replace(/\\/g, '/');
+        if (normalizedPath.includes('/data/')) {
+            return true;
+        }
+        return false;
     }
 
     // ================================================================
-    // FILE WATCHER
+    // FILE WATCHER – PUSH ON CODE CHANGES
     // ================================================================
     async _startFileWatcher() {
-        console.log('👁️ Starting file watcher...');
+        console.log('👁️ Starting file watcher (Developer)...');
         try {
             const chokidar = await import('chokidar');
-            
             const watchPaths = [
-                this.dataPath,
                 this.frontendPath,
-                this.backendPath
+                this.backendPath,
+                __filename  // watch syncManager.js itself
             ];
             
             this.fileWatcher = chokidar.watch(watchPaths, {
-                ignored: /(^|[\/\\])\..|node_modules/,
+                ignored: /(^|[\/\\])\..|node_modules|\.json$|\.csv$|\.xlsx$/,
                 persistent: true,
                 ignoreInitial: true,
                 awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 }
             });
             
             this.fileWatcher.on('change', (filePath) => {
-                console.log(`📝 File changed: ${filePath}`);
+                if (this._shouldExclude(filePath)) {
+                    console.log(`📝 Data file changed (ignored): ${filePath}`);
+                    return;
+                }
+                console.log(`📝 Code changed: ${filePath}`);
                 clearTimeout(this._debounceTimer);
                 this._debounceTimer = setTimeout(() => {
-                    console.log('🔄 Queueing sync due to file change...');
+                    console.log('🔄 Queueing sync due to code change...');
                     this._queueSync();
                 }, 3000);
             });
             
-            this.fileWatcher.on('add', (filePath) => {
-                console.log(`➕ File added: ${filePath}`);
-                clearTimeout(this._debounceTimer);
-                this._debounceTimer = setTimeout(() => {
-                    console.log('🔄 Queueing sync due to file add...');
-                    this._queueSync();
-                }, 3000);
-            });
-            
-            console.log('✅ File watcher started');
+            console.log('✅ File watcher started (Developer)');
         } catch (error) {
             console.warn('⚠️ File watcher not available:', error.message);
         }
     }
 
     // ================================================================
-    // QUEUE SYSTEM
+    // QUEUE & SCHEDULE
     // ================================================================
     _queueSync() {
         if (!this._syncQueue.includes('pending')) {
@@ -435,19 +342,14 @@ class SyncManager {
     async _processQueue() {
         if (this._isProcessingQueue) return;
         this._isProcessingQueue = true;
-        
         while (this._syncQueue.length > 0) {
             this._syncQueue.shift();
             await this.sync();
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        
         this._isProcessingQueue = false;
     }
 
-    // ================================================================
-    // AUTO-SYNC SCHEDULE
-    // ================================================================
     _scheduleAutoSync() {
         console.log('⏰ Scheduling auto-sync...');
         cron.schedule('*/5 * * * *', () => {
@@ -457,15 +359,19 @@ class SyncManager {
         console.log('✅ Auto-sync scheduled');
     }
 
-    // ================================================================
-    // STATUS
-    // ================================================================
+    async forceSync() {
+        console.log('🔄 Force sync triggered');
+        await this.sync();
+    }
+
     getStatus() {
         return {
             isOnline: this.isOnline,
             lastSyncTime: this.lastSyncTime,
             syncInProgress: this.syncInProgress,
-            queueLength: this._syncQueue.length
+            queueLength: this._syncQueue.length,
+            mode: 'DEVELOPER (Push Code Only)',
+            dataSync: 'LOCAL ONLY'
         };
     }
 }

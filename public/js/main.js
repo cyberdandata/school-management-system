@@ -3575,7 +3575,7 @@ function injectStatusModalDesignSystem() {
 }
 
 window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
-    console.log('=== showStatusGroupItemDetailsModal v13.0 — restyled, same scoping logic ===');
+    console.log('=== showStatusGroupItemDetailsModal v14.0 — period‑aware removal ===');
     console.log('Student:', studentId, 'Status Group:', statusGroupName);
 
     injectStatusModalDesignSystem();
@@ -3649,11 +3649,30 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
         const removedItems = student.removedItems || {};
         const customOverrides = student.customItemOverrides || {};
 
-        // ========== HELPER FUNCTIONS (unchanged) ==========
-        function isItemRemoved(itemId) {
-            return removedItems[itemId] && removedItems[itemId].isActive !== false;
+        // ========== PERIOD‑AWARE REMOVAL CHECK ==========
+        function isItemRemovedForPeriod(itemId, periodYear, periodTerm) {
+            const removed = removedItems[itemId];
+            if (!removed || removed.isActive === false) return false;
+
+            // Legacy removals without period stamp → treat as always removed
+            if (removed.academicYear === undefined || removed.academicYear === null) {
+                return true;
+            }
+
+            const removedYear = parseInt(removed.academicYear);
+            const removedTerm = parseInt(removed.term) || 1;
+            const checkYear = parseInt(periodYear);
+            const checkTerm = parseInt(periodTerm);
+
+            // Removed in a later period → this period is BEFORE removal → show item
+            if (checkYear < removedYear) return false;
+            if (checkYear === removedYear && checkTerm < removedTerm) return false;
+
+            // This period is the removal period or later → hide item
+            return true;
         }
 
+        // ========== HELPER FUNCTIONS ==========
         function getCustomizedItemValue(itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
             if (customOverrides[itemId] && customOverrides[itemId].isActive !== false) {
                 const custom = customOverrides[itemId];
@@ -3739,7 +3758,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             if (modal) modal.remove();
         }
 
-        // ========== GET PAID AMOUNTS FOR ITEM WITH PERIOD SCOPE (unchanged) ==========
+        // ========== GET PAID AMOUNTS FOR ITEM WITH PERIOD SCOPE ==========
         function getPaidAmountsForItem(studentId, componentName, itemName, periodType, year, term) {
             let scopedPayments = [];
 
@@ -3858,34 +3877,16 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
 
-        // ========== BUILD STATUS GROUP ITEMS (unchanged) ==========
+        // ========== BUILD STATUS GROUP ITEMS ==========
+        // We keep all items, even those that are globally removed.
+        // Period-aware filtering happens later.
         function buildStatusGroupItems(component, periodType) {
             const items = [];
 
             for (const item of (component.items || [])) {
                 const itemId = item.id || item.name;
 
-                if (isItemRemoved(itemId)) {
-                    items.push({
-                        id: itemId,
-                        name: item.name,
-                        isRemoved: true,
-                        total: 0,
-                        quantity: 0,
-                        unitPrice: 0,
-                        paymentOption: item.paymentOption || 'either',
-                        periodType: periodType,
-                        isCustomized: false,
-                        cashPaid: 0,
-                        itemsBrought: 0,
-                        remaining: 0,
-                        remainingItems: 0,
-                        isFullyPaid: false,
-                        paymentHistories: []
-                    });
-                    continue;
-                }
-
+                // Always include, even if globally removed — will be handled per period
                 const defaultAmount = item.totalAmount || 0;
                 const defaultQuantity = item.quantity || 1;
                 const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
@@ -3905,22 +3906,36 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
 
                 if (isTransportation && student.customTransportation) {
                     if (student.customTransportation.hasTransportation === false) {
+                        // Treat as removed globally for this student? We'll still keep it, but mark as removed.
+                        // We'll handle per period.
+                        // We'll keep it and let period handling decide.
+                        // But we need to know it's disabled; we can set a flag.
+                        // We'll just keep it with totalAmount = 0? Better: we'll keep it and later check.
+                        // Since it's disabled, we'll treat it as removed for all periods.
+                        // So we'll set a flag isTransportDisabled = true.
+                        // We'll store that in the item object.
                         items.push({
                             id: itemId,
                             name: item.name,
-                            isRemoved: true,
+                            isRemoved: false, // we'll rely on period check later
+                            isTransportDisabled: true,
                             total: 0,
                             quantity: 0,
                             unitPrice: 0,
                             paymentOption: paymentOption,
                             periodType: periodType,
                             isCustomized: false,
+                            customReason: null,
+                            defaultTotal: defaultAmount,
+                            defaultQuantity: defaultQuantity,
                             cashPaid: 0,
                             itemsBrought: 0,
                             remaining: 0,
                             remainingItems: 0,
                             isFullyPaid: false,
-                            paymentHistories: []
+                            paymentHistories: [],
+                            originalAmount: defaultAmount,
+                            originalQuantity: defaultQuantity
                         });
                         continue;
                     } else if (student.customTransportation.amount) {
@@ -3932,7 +3947,8 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
                 items.push({
                     id: itemId,
                     name: item.name,
-                    isRemoved: false,
+                    isRemoved: false, // we'll handle per period
+                    isTransportDisabled: false,
                     total: totalAmount,
                     quantity: quantity,
                     unitPrice: unitPrice,
@@ -3956,7 +3972,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             return items;
         }
 
-        // ========== FIND THE SPECIFIC STATUS GROUP (unchanged) ==========
+        // ========== FIND THE SPECIFIC STATUS GROUP ==========
         let targetComponent = null;
         let targetItems = [];
         let componentName = '';
@@ -3977,7 +3993,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             return;
         }
 
-        // ========== GET ALL PERIODS FROM ENROLLMENT DATE (unchanged) ==========
+        // ========== GET ALL PERIODS FROM ENROLLMENT DATE ==========
         const allPeriods = [];
         const currentYear = currentAcademicSettings?.currentYear || new Date().getFullYear();
         const currentTerm = currentAcademicSettings?.currentTerm || 1;
@@ -4030,7 +4046,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
 
         console.log(`📅 Found ${allPeriods.length} periods from enrollment`);
 
-        // ========== SCOPE DETERMINATION (unchanged) ==========
+        // ========== SCOPE DETERMINATION ==========
         const oldestPeriod = allPeriods.length > 0 ? allPeriods[0] : null;
         const oldestPeriodKey = oldestPeriod ? oldestPeriod.periodKey : null;
 
@@ -4044,7 +4060,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
         console.log('📅 Oldest period:', oldestPeriodKey);
         console.log('📅 Max term per year:', maxTermByYear);
 
-        // ========== BUILD PERIOD HTML — RESTYLED ==========
+        // ========== BUILD PERIOD HTML ==========
         function buildPeriodHtml(period, index) {
             const { year, term, periodKey, isCurrent } = period;
             const termName = getTermName(term);
@@ -4062,7 +4078,15 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             const uniquePaymentIds = new Set();
 
             for (const item of targetItems) {
-                if (item.isRemoved) {
+                // ========== PERIOD‑AWARE REMOVAL CHECK ==========
+                const isRemovedForPeriod = isItemRemovedForPeriod(item.id, year, term);
+                // Also check if transportation is disabled (global)
+                const isTransportDisabled = item.isTransportDisabled || false;
+
+                // If item is removed for this period OR transport disabled, treat as removed for this period
+                const isPeriodRemoved = isRemovedForPeriod || isTransportDisabled;
+
+                if (isPeriodRemoved) {
                     periodItems.push({
                         ...item,
                         periodCashPaid: 0,
@@ -4070,7 +4094,8 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
                         periodRemaining: 0,
                         periodRemainingItems: 0,
                         periodIsFullyPaid: true,
-                        periodPaymentHistories: []
+                        periodPaymentHistories: [],
+                        periodIsRemoved: true
                     });
                     continue;
                 }
@@ -4171,7 +4196,8 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
                     periodIsPaidByCash: isPaidByCash,
                     periodIsPaidByItems: isPaidByItems,
                     periodPaymentHistories: uniqueHistories,
-                    periodSkipped: false
+                    periodSkipped: false,
+                    periodIsRemoved: false
                 });
             }
 
@@ -4285,7 +4311,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             `;
         }
 
-        // ========== BUILD ITEM HTML — RESTYLED ==========
+        // ========== BUILD ITEM HTML ==========
         function buildItemHtml(item, period) {
             if (item.periodSkipped) {
                 return `
@@ -4299,14 +4325,14 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
                 `;
             }
 
-            if (item.isRemoved) {
+            if (item.periodIsRemoved) {
                 return `
                     <div class="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="line-through text-slate-400 text-sm">📦 ${escapeHtml(item.name)}</span>
-                            <span class="bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">Removed</span>
+                            <span class="bg-rose-100 text-rose-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">Removed for this period</span>
                         </div>
-                        <p class="text-[11px] text-rose-500 mt-1.5">This item will not be charged</p>
+                        <p class="text-[11px] text-rose-500 mt-1.5">This item was removed from this period onwards</p>
                     </div>
                 `;
             }
@@ -4505,10 +4531,8 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
             `;
         }
 
-        // ========== TOTALS ACROSS ALL PERIODS (unchanged logic) ==========
-        const removedItemsCount = targetItems.filter(i => i.isRemoved).length;
-        const customItemsCount = targetItems.filter(i => i.isCustomized).length;
-
+        // ========== TOTALS ACROSS ALL PERIODS ==========
+        // We need to compute totals only for periods where the item is NOT removed for that period.
         let totalOutstanding = 0;
         let totalItemsOutstanding = 0;
         let totalPaymentCount = 0;
@@ -4516,7 +4540,9 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
 
         for (const period of allPeriods) {
             for (const item of targetItems) {
-                if (item.isRemoved) continue;
+                // Check if removed for this period
+                const isRemovedForPeriod = isItemRemovedForPeriod(item.id, period.year, period.term);
+                if (isRemovedForPeriod || item.isTransportDisabled) continue;
 
                 const itemPeriodType = item.periodType || 'termly';
                 let shouldInclude = false;
@@ -4575,9 +4601,19 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
 
         totalPaymentCount = allPaymentIds.size;
 
+        // Count removed items (global, but we'll show only those that are removed globally; but we have no global flag now.
+        // We can count items that are removed for the current period? Better: count items that have a removal entry.
+        const globalRemovedCount = Object.keys(removedItems).filter(id => {
+            const removed = removedItems[id];
+            return removed && removed.isActive !== false;
+        }).length;
+
+        // For the modal, we'll show global removed count? But we want to show period-specific removed count? We'll just show total items and some stats.
+        // We'll use the removedItems count globally.
+
         let periodsHtml = allPeriods.map((period, index) => buildPeriodHtml(period, index)).join('');
 
-        // ========== MODAL — RESTYLED ==========
+        // ========== MODAL ==========
         const modalHtml = `
             <div class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4 sgm-backdrop" id="statusGroupModal">
                 <div class="sgm-panel bg-white rounded-2xl w-full max-w-4xl my-8 max-h-[90vh] overflow-y-auto sgm-scroll shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200" id="sgmPanel">
@@ -4594,8 +4630,8 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
                             <p class="text-[13px] text-slate-500 mt-1">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)} <span class="text-slate-300 mx-1">·</span> ${escapeHtml(student.admissionNumber)}</p>
 
                             <div class="flex flex-wrap gap-1.5 mt-2.5">
-                                ${removedItemsCount > 0 ? `<span class="text-[11px] font-medium bg-rose-50 text-rose-700 ring-1 ring-rose-100 px-2 py-0.5 rounded-full">${removedItemsCount} removed</span>` : ''}
-                                ${customItemsCount > 0 ? `<span class="text-[11px] font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2 py-0.5 rounded-full">⚡ ${customItemsCount} customized</span>` : ''}
+                                ${globalRemovedCount > 0 ? `<span class="text-[11px] font-medium bg-rose-50 text-rose-700 ring-1 ring-rose-100 px-2 py-0.5 rounded-full">${globalRemovedCount} removed globally</span>` : ''}
+                                ${targetItems.filter(i => i.isCustomized).length > 0 ? `<span class="text-[11px] font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2 py-0.5 rounded-full">⚡ ${targetItems.filter(i => i.isCustomized).length} customized</span>` : ''}
                                 <span class="text-[11px] font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 px-2 py-0.5 rounded-full">${allPeriods.length} period${allPeriods.length === 1 ? '' : 's'}</span>
                                 <span class="text-[11px] font-medium bg-rose-50 text-rose-700 ring-1 ring-rose-100 px-2 py-0.5 rounded-full">Outstanding: UGX ${formatMoney(totalOutstanding)}</span>
                                 ${totalItemsOutstanding > 0 ? `<span class="text-[11px] font-medium bg-orange-50 text-orange-700 ring-1 ring-orange-100 px-2 py-0.5 rounded-full">${totalItemsOutstanding} items</span>` : ''}
@@ -4617,24 +4653,6 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
                             <span>${getTermName(enrollmentTerm)} ${enrollmentYear}</span>
                             <span class="ml-auto text-slate-400 text-[12px]">⭐ one-time counted once · 📆 yearly once per year</span>
                         </div>
-
-                        <!-- Removed items warning -->
-                        ${removedItemsCount > 0 ? `
-                            <div class="border border-rose-200 rounded-xl p-4 bg-rose-50 mb-4">
-                                <div class="flex items-start gap-3">
-                                    <i class="fas fa-exclamation-circle text-rose-500 text-lg mt-0.5"></i>
-                                    <div>
-                                        <h4 class="font-semibold text-rose-700 text-[13px]">${removedItemsCount} item${removedItemsCount === 1 ? '' : 's'} removed</h4>
-                                        <p class="text-[12px] text-rose-500 mt-0.5">These items will not be charged:</p>
-                                        <ul class="text-[12px] text-rose-600 mt-1.5 space-y-0.5">
-                                            ${targetItems.filter(i => i.isRemoved).map(i => `
-                                                <li>📦 ${escapeHtml(i.name)}</li>
-                                            `).join('')}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        ` : ''}
 
                         <!-- Periods -->
                         <h4 class="font-semibold text-slate-700 text-[15px] mb-3 flex items-center gap-2">
@@ -4689,7 +4707,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
     });
 };
 
-// ========== TOGGLE FUNCTIONS (unchanged behavior, chevron rotates via class now) ==========
+// ========== TOGGLE FUNCTIONS ==========
 window.togglePeriodDetails = function(collapseId) {
     const element = document.getElementById(collapseId);
     const icon = document.getElementById('icon_' + collapseId);
@@ -4721,7 +4739,7 @@ window.closeModal = function() {
     if (modal) modal.remove();
 };
 
-// ========== MAKE PAYMENT FOR STUDENT (unchanged) ==========
+// ========== MAKE PAYMENT FOR STUDENT ==========
 window.makePaymentForStudent = function(studentId) {
     closeModal();
     const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
@@ -5575,6 +5593,30 @@ async function viewStudentDetailsList(studentId) {
         return student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
     }
 
+    // ==================== HELPER: CHECK IF ITEM IS REMOVED FOR A SPECIFIC PERIOD ====================
+    // An item removed during a given academic year/term stays hidden from that period
+    // and every period after it, but remains visible (with its payment history) in
+    // periods that came BEFORE the removal was made.
+    function isItemRemovedForPeriod(student, itemId, periodYear, periodTerm) {
+        if (!student || !student.removedItems) return false;
+        const removed = student.removedItems[itemId];
+        if (!removed || removed.isActive === false) return false;
+
+        // Legacy removals with no period stamp: treat as always removed (old behavior)
+        if (removed.academicYear === undefined || removed.academicYear === null) {
+            return true;
+        }
+
+        const removedYear = parseInt(removed.academicYear);
+        const removedTerm = parseInt(removed.term) || 1;
+        const checkYear = parseInt(periodYear);
+        const checkTerm = parseInt(periodTerm);
+
+        if (checkYear > removedYear) return true;
+        if (checkYear === removedYear && checkTerm >= removedTerm) return true;
+        return false;
+    }
+
     // ==================== HELPER: DEDUPLICATE HISTORIES ====================
     function deduplicateHistories(histories) {
         if (!histories || histories.length === 0) return [];
@@ -6089,7 +6131,7 @@ async function viewStudentDetailsList(studentId) {
         for (const item of filteredItems) {
             const itemId = item.id || item.name;
 
-            if (isItemRemoved(student, itemId)) {
+            if (isItemRemovedForPeriod(student, itemId, periodYear, periodTerm)) {
                 removedItemsSkipped++;
                 continue;
             }
@@ -7081,10 +7123,10 @@ async function viewStudentDetailsList(studentId) {
                 for (const item of (component.items || [])) {
                     const itemId = item.id || item.name;
 
-                    if (isItemRemoved(student, itemId)) {
-                        console.log(`⏭️ Skipping removed item: ${item.name}`);
-                        continue;
-                    }
+                    // NOTE: We no longer skip removed items here — removal is now
+                    // period-aware, so the item must stay available for periods
+                    // BEFORE its removal date. Period-level filtering happens below
+                    // inside the "PROCESS EACH PERIOD" loop via isItemRemovedForPeriod().
 
                     const defaultAmount = item.totalAmount || 0;
                     const defaultQuantity = item.quantity || 1;
@@ -7179,6 +7221,14 @@ async function viewStudentDetailsList(studentId) {
 
                     for (const item of groupData.items) {
                         const itemPeriodType = item.periodType || 'termly';
+
+                        // ========================================================
+                        // NEW: Skip this item for this period (and any period from
+                        // its removal date onward) if it was removed for this period
+                        // ========================================================
+                        if (isItemRemovedForPeriod(student, item.id, year, term)) {
+                            continue;
+                        }
 
                         // ========================================================
                         // FIX: Only include items based on period type
@@ -7451,106 +7501,152 @@ async function viewStudentDetailsList(studentId) {
         document.head.appendChild(scriptTag);
 
         // ========== BUILD THE CUSTOMIZED ITEMS DISPLAY ==========
-        let customizedItemsHtml = '';
-        if (student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0) {
-            const customizationItems = [];
+       // ========== BUILD THE CUSTOMIZED ITEMS DISPLAY (FIXED) ==========
+let customizedItemsHtml = '';
+if (student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0) {
+    const customizationItems = [];
 
-            for (const [itemId, custom] of Object.entries(student.customItemOverrides)) {
-                let itemName = custom.itemName || null;
+    // Helper: find custom item name from various sources
+    function findCustomItemName(itemId, fallbackName) {
+        // 1. Check customItemOverrides for itemName
+        if (student.customItemOverrides[itemId]?.itemName) {
+            return student.customItemOverrides[itemId].itemName;
+        }
 
-                if (!itemName && feeStructure && feeStructure.activityComponents) {
-                    for (const component of feeStructure.activityComponents) {
-                        for (const item of (component.items || [])) {
-                            const compItemId = item.id || item.name;
-                            if (compItemId === itemId) {
-                                itemName = item.name;
-                                break;
-                            }
+        // 2. Search in customGroups (array of groups with items)
+        if (Array.isArray(student.customGroups)) {
+            for (const group of student.customGroups) {
+                if (group.items && Array.isArray(group.items)) {
+                    for (const item of group.items) {
+                        if (item.id === itemId && item.name) {
+                            return item.name;
                         }
-                        if (itemName) break;
                     }
                 }
+            }
+        }
 
-                if (!itemName) {
-                    itemName = itemId;
+        // 3. Search in customAddedItems (array of custom items)
+        if (Array.isArray(student.customAddedItems)) {
+            for (const item of student.customAddedItems) {
+                if (item.id === itemId && item.name) {
+                    return item.name;
                 }
+            }
+        }
 
-                const defaultAmount = custom.defaultAmount || 0;
-                const customAmount = custom.customAmount || defaultAmount;
-                const defaultQuantity = custom.defaultQuantity || 1;
-                const customQuantity = custom.customQuantity || defaultQuantity;
+        // 4. Search in fee structure (for overrides of existing items)
+        if (feeStructure && feeStructure.activityComponents) {
+            for (const component of feeStructure.activityComponents) {
+                for (const item of (component.items || [])) {
+                    const compItemId = item.id || item.name;
+                    if (compItemId === itemId || item.name === fallbackName) {
+                        return item.name;
+                    }
+                }
+            }
+            // Try partial match (remove random suffix)
+            const baseId = itemId.replace(/_[a-z0-9]+$/, '');
+            for (const component of feeStructure.activityComponents) {
+                for (const item of (component.items || [])) {
+                    const compItemId = item.id || item.name;
+                    if (compItemId === baseId || compItemId.startsWith(baseId + '_')) {
+                        return item.name;
+                    }
+                }
+            }
+        }
 
-                const amountChanged = customAmount !== defaultAmount;
-                const qtyChanged = customQuantity !== defaultQuantity;
+        // 5. Fallback: clean up the ID
+        let clean = itemId.replace(/^custom_/, '').replace(/^item_/, '');
+        clean = clean.replace(/_[a-z0-9]+$/, '');
+        clean = clean.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+        if (clean && clean.length > 2) {
+            return clean.charAt(0).toUpperCase() + clean.slice(1);
+        }
+        return 'Custom Item';
+    }
 
-                customizationItems.push(`
+    for (const [itemId, custom] of Object.entries(student.customItemOverrides)) {
+        // Get the item name using the helper
+        const itemName = findCustomItemName(itemId, custom.itemName || null);
+
+        const defaultAmount = custom.defaultAmount || 0;
+        const customAmount = custom.customAmount !== undefined && custom.customAmount !== null ? custom.customAmount : defaultAmount;
+        const defaultQuantity = custom.defaultQuantity || 1;
+        const customQuantity = custom.customQuantity !== undefined && custom.customQuantity !== null ? custom.customQuantity : defaultQuantity;
+
+        const amountChanged = customAmount !== defaultAmount;
+        const qtyChanged = customQuantity !== defaultQuantity;
+
+        customizationItems.push(`
+            <div class="db-card p-3 border-orange-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-medium text-slate-700">📦 ${escapeHtml(itemName)}</p>
+                            <span class="db-badge bg-orange-50 text-orange-700">⚡ Custom</span>
+                        </div>
+                        <div class="text-xs text-slate-500 mt-1">
+                            ${amountChanged ? `
+                                <span class="text-rose-500 line-through font-mono-num">UGX ${formatMoney(defaultAmount)}</span>
+                                <span class="text-emerald-600 font-semibold font-mono-num">→ UGX ${formatMoney(customAmount)}</span>
+                            ` : `UGX ${formatMoney(defaultAmount)}`}
+                            ${qtyChanged ? `
+                                <span class="ml-2 text-rose-500 line-through">Qty: ${defaultQuantity}</span>
+                                <span class="text-emerald-600 font-semibold">→ ${customQuantity}</span>
+                            ` : defaultQuantity > 1 ? `| Qty: ${defaultQuantity}` : ''}
+                        </div>
+                        ${custom.reason ? `<p class="text-xs text-slate-500 mt-1">📝 ${escapeHtml(custom.reason)}</p>` : ''}
+                    </div>
+                    <div class="text-right text-xs text-slate-400">
+                        ${custom.updatedAt ? `Updated: ${new Date(custom.updatedAt).toLocaleDateString()}` : ''}
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+
+    customizedItemsHtml = `
+        <div class="border-2 border-orange-200 rounded-2xl p-4 bg-orange-50/60 mb-6 db-fade-in">
+            <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+                <h4 class="font-display font-bold text-lg flex items-center gap-2 text-slate-800">
+                    <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                        <i class="fas fa-sliders-h text-sm"></i>
+                    </div>
+                    Customized Items (${customizationItems.length})
+                </h4>
+                <span class="text-xs text-slate-500">Items with student-specific overrides</span>
+            </div>
+            <div class="space-y-2">
+                ${customizationItems.join('')}
+
+                ${student.customTransportation ? `
                     <div class="db-card p-3 border-orange-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
                         <div class="flex justify-between items-start">
                             <div>
                                 <div class="flex items-center gap-2">
-                                    <p class="font-medium text-slate-700">📦 ${escapeHtml(itemName)}</p>
+                                    <p class="font-medium text-slate-700">🚌 Transportation Fee</p>
                                     <span class="db-badge bg-orange-50 text-orange-700">⚡ Custom</span>
                                 </div>
                                 <div class="text-xs text-slate-500 mt-1">
-                                    ${amountChanged ? `
-                                        <span class="text-rose-500 line-through font-mono-num">UGX ${formatMoney(defaultAmount)}</span>
-                                        <span class="text-emerald-600 font-semibold font-mono-num">→ UGX ${formatMoney(customAmount)}</span>
-                                    ` : `UGX ${formatMoney(defaultAmount)}`}
-                                    ${qtyChanged ? `
-                                        <span class="ml-2 text-rose-500 line-through">Qty: ${defaultQuantity}</span>
-                                        <span class="text-emerald-600 font-semibold">→ ${customQuantity}</span>
-                                    ` : defaultQuantity > 1 ? `| Qty: ${defaultQuantity}` : ''}
+                                    ${student.customTransportation.hasTransportation !== false ?
+                                        `<span class="text-emerald-600 font-semibold font-mono-num">UGX ${formatMoney(student.customTransportation.amount || 0)}</span>` :
+                                        `<span class="text-rose-600">❌ Disabled (Student does not use school transport)</span>`
+                                    }
                                 </div>
-                                ${custom.reason ? `<p class="text-xs text-slate-500 mt-1">📝 ${escapeHtml(custom.reason)}</p>` : ''}
+                                ${student.customTransportation.description ? `<p class="text-xs text-slate-500 mt-1">📝 ${escapeHtml(student.customTransportation.description)}</p>` : ''}
                             </div>
                             <div class="text-right text-xs text-slate-400">
-                                ${custom.updatedAt ? `Updated: ${new Date(custom.updatedAt).toLocaleDateString()}` : ''}
+                                ${student.customTransportation.updatedAt ? `Updated: ${new Date(student.customTransportation.updatedAt).toLocaleDateString()}` : ''}
                             </div>
                         </div>
                     </div>
-                `);
-            }
-
-            customizedItemsHtml = `
-                <div class="border-2 border-orange-200 rounded-2xl p-4 bg-orange-50/60 mb-6 db-fade-in">
-                    <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-                        <h4 class="font-display font-bold text-lg flex items-center gap-2 text-slate-800">
-                            <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                                <i class="fas fa-sliders-h text-sm"></i>
-                            </div>
-                            Customized Items (${customizationItems.length})
-                        </h4>
-                        <span class="text-xs text-slate-500">Items with student-specific overrides</span>
-                    </div>
-                    <div class="space-y-2">
-                        ${customizationItems.join('')}
-
-                        ${student.customTransportation ? `
-                            <div class="db-card p-3 border-orange-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <p class="font-medium text-slate-700">🚌 Transportation Fee</p>
-                                            <span class="db-badge bg-orange-50 text-orange-700">⚡ Custom</span>
-                                        </div>
-                                        <div class="text-xs text-slate-500 mt-1">
-                                            ${student.customTransportation.hasTransportation !== false ?
-                                                `<span class="text-emerald-600 font-semibold font-mono-num">UGX ${formatMoney(student.customTransportation.amount || 0)}</span>` :
-                                                `<span class="text-rose-600">❌ Disabled (Student does not use school transport)</span>`
-                                            }
-                                        </div>
-                                        ${student.customTransportation.description ? `<p class="text-xs text-slate-500 mt-1">📝 ${escapeHtml(student.customTransportation.description)}</p>` : ''}
-                                    </div>
-                                    <div class="text-right text-xs text-slate-400">
-                                        ${student.customTransportation.updatedAt ? `Updated: ${new Date(student.customTransportation.updatedAt).toLocaleDateString()}` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
 
         // ========== BUILD THE FINAL MODAL HTML ==========
         const modalHtml = `
@@ -25053,6 +25149,34 @@ async function loadMultiPeriodCollectionForm(studentId) {
         `;
     }
 }
+
+// ========== HELPER: PERIOD-AWARE REMOVED ITEM CHECK ==========
+// An item is only "removed" for the exact academicYear/term it was removed in.
+// Legacy entries with no period stamp are treated as removed everywhere (backward compat).
+function isItemRemovedForPeriod(student, itemId, year, term) {
+    if (!student || !student.removedItems) return false;
+    const removed = student.removedItems[itemId];
+    if (!removed || removed.isActive === false) return false;
+
+    if (removed.academicYear === undefined || removed.term === undefined) {
+        return true; // legacy — no period info, treat as globally removed
+    }
+
+    return removed.academicYear === parseInt(year) && removed.term === parseInt(term);
+}
+
+// ========== HELPER: PERIOD-SCOPED REMOVED COUNT ==========
+function getRemovedCountForPeriod(student, year, term) {
+    if (!student || !student.removedItems) return 0;
+    return Object.values(student.removedItems).filter(r => {
+        if (r.isActive === false) return false;
+        if (r.academicYear === undefined || r.term === undefined) return true;
+        return r.academicYear === parseInt(year) && r.term === parseInt(term);
+    }).length;
+}
+
+window.isItemRemovedForPeriod = isItemRemovedForPeriod;
+window.getRemovedCountForPeriod = getRemovedCountForPeriod;
 function buildPeriodData(student, feeStructure, allPayments, currentYear, currentTerm, feeStructureMapByYear) {
     console.log('=== buildPeriodData v25.0 - FIXED ONE-TIME ALL PERIODS ===');
     
@@ -25292,7 +25416,6 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
     // BUILD ITEMS FOR A PERIOD (USES PERIOD-SPECIFIC FEE STRUCTURE)
     // ================================================================
    function buildPeriodItems(periodKey, year, term, periodFeeStructure) {
-    // ─── Scoping flags ───
     const isOldest = (periodKey === oldestPeriodKey);
     const latestTermForYear = maxTermByYear[year] || 0;
     const isLatestTermForYear = (term === latestTermForYear);
@@ -25308,17 +25431,12 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
     for (const component of periodFeeStructure.activityComponents) {
         const periodType = component.periodType || 'termly';
 
-        // ============================================================
-        // SCOPING RULES – THE ONLY CHANGE
-        // ============================================================
         let shouldInclude = false;
         if (periodType === 'termly') {
             shouldInclude = true;
         } else if (periodType === 'one_time') {
-            // One-time: only in the oldest period
             shouldInclude = isOldest;
         } else if (periodType === 'yearly') {
-            // Yearly: only in the latest term of this year
             shouldInclude = isLatestTermForYear;
         }
         if (!shouldInclude) continue;
@@ -25345,17 +25463,14 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
         for (const item of (component.items || [])) {
             const itemId = item.id || item.name;
 
-            // Skip removed items
-            if (removedItems[itemId] && removedItems[itemId].isActive !== false) continue;
+            // ========== SKIP REMOVED ITEMS — PERIOD-AWARE ==========
+            if (isItemRemovedForPeriod(student, itemId, year, term)) continue;
 
             let totalAmount = item.totalAmount || 0;
             let quantity = item.quantity || 1;
             let unitPrice = item.unitPrice || (totalAmount / quantity);
             let paymentOption = item.paymentOption || 'either';
 
-            // ============================================================
-            // APPLY CUSTOM OVERRIDES
-            // ============================================================
             if (customOverrides && customOverrides[itemId]) {
                 const custom = customOverrides[itemId];
                 if (custom.isActive !== false) {
@@ -25371,9 +25486,6 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
                 }
             }
 
-            // ============================================================
-            // APPLY CUSTOM TRANSPORTATION
-            // ============================================================
             if (isTransportation && customTransportation) {
                 if (customTransportation.hasTransportation === false) continue;
                 if (customTransportation.amount) {
@@ -25382,50 +25494,30 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
                 }
             }
 
-            // ============================================================
-            // GET PAYMENT DATA BASED ON PERIOD TYPE
-            // ============================================================
             let cashPaid = 0, itemsBrought = 0, histories = [];
 
             if (periodType === 'one_time') {
-                // One-time: check ALL periods (including current)
-                let totalCashPaid = 0;
-                let totalItemsBrought = 0;
-                let allHistories = [];
-                for (const [pKey, pData] of Object.entries(paymentsByPeriod)) {
+                let totalCash = 0, totalItems = 0, allH = [];
+                for (const [pKey] of Object.entries(paymentsByPeriod)) {
                     const result = getItemPayment(item.name, component.name, periodType, pKey);
-                    totalCashPaid += result.cashPaid;
-                    totalItemsBrought += result.itemsBrought;
-                    allHistories = allHistories.concat(result.histories);
+                    totalCash += result.cashPaid;
+                    totalItems += result.itemsBrought;
+                    allH = allH.concat(result.histories);
                 }
-                cashPaid = totalCashPaid;
-                itemsBrought = totalItemsBrought;
-                histories = allHistories;
+                cashPaid = totalCash; itemsBrought = totalItems; histories = allH;
             } else if (periodType === 'yearly') {
-                // Yearly: check ALL terms in the SAME year
                 const yearlyResult = getYearlyItemPayment(item.name, component.name, periodType, year);
-                cashPaid = yearlyResult.cashPaid;
-                itemsBrought = yearlyResult.itemsBrought;
-                histories = yearlyResult.histories;
+                cashPaid = yearlyResult.cashPaid; itemsBrought = yearlyResult.itemsBrought; histories = yearlyResult.histories;
             } else {
-                // Termly: check ONLY current term
                 const curr = getItemPayment(item.name, component.name, periodType, periodKey);
-                cashPaid = curr.cashPaid;
-                itemsBrought = curr.itemsBrought;
-                histories = curr.histories;
+                cashPaid = curr.cashPaid; itemsBrought = curr.itemsBrought; histories = curr.histories;
             }
 
-            // ============================================================
-            // CALCULATE REMAINING
-            // ============================================================
             const result = calculateRemaining({ quantity, totalAmount, unitPrice, paymentOption }, cashPaid, itemsBrought);
 
             const cashExpected = (paymentOption === 'cash_only') ? totalAmount :
                                  (paymentOption === 'either') ? Math.max(0, totalAmount - (Math.min(itemsBrought, quantity) * unitPrice)) : 0;
 
-            // ============================================================
-            // BUILD ITEM DATA
-            // ============================================================
             const itemData = {
                 componentId: component.id || component.name,
                 componentName: component.name,
@@ -25447,15 +25539,7 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
                 statusGroupName: groupName,
                 isTransportation: isTransportation,
                 isSpecialItem: isTransportation || paymentOption === 'cash_only' || paymentOption === 'item_only',
-                paymentHistories: histories,
-                _debug: {
-                    periodType: periodType,
-                    year: year,
-                    term: term,
-                    cashPaid: cashPaid,
-                    itemsBrought: itemsBrought,
-                    historiesCount: histories.length
-                }
+                paymentHistories: histories
             };
 
             items.push(itemData);
@@ -25475,15 +25559,7 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
         }
     }
 
-    return {
-        items,
-        totalCashExpected,
-        totalCashPaid,
-        totalItemsBrought,
-        totalItemsRequired,
-        totalItemsRemaining,
-        statusGroupMap
-    };
+    return { items, totalCashExpected, totalCashPaid, totalItemsBrought, totalItemsRequired, totalItemsRemaining, statusGroupMap };
 }
 
     // ================================================================
@@ -25558,7 +25634,7 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
         feeStructure: currentPeriodFeeStructure,
         hasCustomizations: Object.keys(customOverrides).length > 0,
         customizationCount: Object.keys(customOverrides).length,
-        removedItemsCount: Object.keys(removedItems).length
+        removedItemsCount: getRemovedCountForPeriod(student, currentYear, currentTerm)  // ✅ PERIOD-AWARE
     };
     
     currentPeriod.hasBalance = currentPeriod.total.balance > 0 || currentPeriod.activity.itemsRemaining > 0;
@@ -25621,7 +25697,7 @@ function buildPeriodData(student, feeStructure, allPayments, currentYear, curren
             feeStructure: periodFeeStructure,
             hasCustomizations: Object.keys(customOverrides).length > 0,
             customizationCount: Object.keys(customOverrides).length,
-            removedItemsCount: Object.keys(removedItems).length
+            removedItemsCount: getRemovedCountForPeriod(student, year, term)  // ✅ PERIOD-AWARE
         };
         
         period.hasBalance = period.total.balance > 0 || period.activity.itemsRemaining > 0;
@@ -25726,12 +25802,10 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
     console.log(`📋 Building period: ${year} Term ${term}`);
     
     const isFirstTerm = term === 1;
-    const removedItems = student.removedItems || {};
     const customOverrides = student.customItemOverrides || {};
     const customTransportation = student.customTransportation || null;
     const customBursary = student.customBursary || null;
     
-    // Calculate tuition with bursary
     let tuitionExpected = feeStructure?.tuition || 0;
     let bursaryAmount = 0;
     let bursaryName = null;
@@ -25744,7 +25818,6 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
         tuitionExpected = Math.max(0, tuitionExpected - bursaryAmount);
     }
     
-    // Build activity items
     const activityItems = [];
     let totalActivityExpected = 0;
     let totalActivityCashExpected = 0;
@@ -25759,7 +25832,6 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
         for (const component of feeStructure.activityComponents) {
             const periodType = component.periodType || 'termly';
             
-            // Determine if this component should be included
             let shouldInclude = false;
             if (periodType === 'termly') shouldInclude = true;
             else if (periodType === 'one_time') shouldInclude = true;
@@ -25789,9 +25861,9 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
             for (const item of (component.items || [])) {
                 const itemId = item.id || item.name;
                 
-                // Skip removed items
-                if (removedItems[itemId] && removedItems[itemId].isActive !== false) {
-                    console.log(`⏭️ Skipping removed item: ${item.name}`);
+                // ========== PERIOD‑AWARE REMOVAL CHECK ==========
+                if (isItemRemovedForPeriod(student, itemId, year, term)) {
+                    console.log(`⏭️ Skipping removed item for ${year} T${term}: ${item.name}`);
                     continue;
                 }
                 
@@ -25800,7 +25872,6 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
                 let unitPrice = item.unitPrice || (totalAmount / quantity);
                 let paymentOption = item.paymentOption || 'either';
                 
-                // Apply custom override
                 if (customOverrides && customOverrides[itemId]) {
                     const custom = customOverrides[itemId];
                     if (custom.isActive !== false) {
@@ -25816,81 +25887,18 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
                     }
                 }
                 
-                // Handle custom transportation
                 if (isTransportation && customTransportation) {
-                    if (customTransportation.hasTransportation === false) {
-                        console.log(`🚌 Transportation disabled: ${item.name}`);
-                        continue;
-                    }
+                    if (customTransportation.hasTransportation === false) continue;
                     if (customTransportation.amount) {
                         totalAmount = customTransportation.amount;
                         unitPrice = totalAmount / quantity;
                     }
                 }
                 
-                // Determine if this item has been paid
-                let cashPaid = 0;
-                let itemsBrought = 0;
+                // Fresh period – no payments yet
+                const cashPaid = 0;
+                const itemsBrought = 0;
                 
-                // Check payments in this period
-                if (currentPeriod && currentPeriod.payments) {
-                    for (const payment of currentPeriod.payments) {
-                        // Check activityItemPayments
-                        if (payment.activityItemPayments) {
-                            for (const paidItem of payment.activityItemPayments) {
-                                if (paidItem.itemName === item.name && 
-                                    paidItem.componentName === component.name &&
-                                    paidItem.periodType === periodType) {
-                                    if (paidItem.paymentType === 'paid_cash') {
-                                        cashPaid += paidItem.amountPaid || 0;
-                                    } else if (paidItem.paymentType === 'brought_item') {
-                                        itemsBrought += paidItem.itemsBrought || 0;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Check paymentsByPeriodType
-                        if (payment.paymentsByPeriodType) {
-                            const periodItems = payment.paymentsByPeriodType[periodType] || [];
-                            for (const paidItem of periodItems) {
-                                if (paidItem.itemName === item.name && 
-                                    paidItem.componentName === component.name) {
-                                    if (paidItem.paymentType === 'paid_cash') {
-                                        cashPaid += paidItem.amountPaid || 0;
-                                    } else if (paidItem.paymentType === 'brought_item') {
-                                        itemsBrought += paidItem.itemsBrought || 0;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Also check previous periods for one-time items
-                if (periodType === 'one_time' && periodData && periodData.previousPeriods) {
-                    for (const prevPeriod of periodData.previousPeriods) {
-                        if (prevPeriod.payments) {
-                            for (const payment of prevPeriod.payments) {
-                                if (payment.activityItemPayments) {
-                                    for (const paidItem of payment.activityItemPayments) {
-                                        if (paidItem.itemName === item.name && 
-                                            paidItem.componentName === component.name &&
-                                            paidItem.periodType === periodType) {
-                                            if (paidItem.paymentType === 'paid_cash') {
-                                                cashPaid += paidItem.amountPaid || 0;
-                                            } else if (paidItem.paymentType === 'brought_item') {
-                                                itemsBrought += paidItem.itemsBrought || 0;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Calculate remaining using OR logic
                 const result = calculateRemainingWithORLogic(
                     { quantity, totalAmount, unitPrice, paymentOption },
                     cashPaid,
@@ -25901,7 +25909,6 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
                 const remainingQuantity = result.remainingItems;
                 const isFullyPaid = result.isFullyPaid;
                 
-                // Calculate cash expected for this item
                 let cashExpected = 0;
                 if (paymentOption === 'cash_only') {
                     cashExpected = totalAmount;
@@ -25912,7 +25919,6 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
                     cashExpected = 0;
                 }
                 
-                // Update totals
                 totalActivityExpected += totalAmount;
                 totalActivityCashExpected += cashExpected;
                 totalCashPaid += cashPaid;
@@ -25956,7 +25962,6 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
         }
     }
     
-    // Build the period object
     const period = {
         periodKey: `${year}_${term}`,
         year: year,
@@ -25989,24 +25994,19 @@ function buildPeriodFromFeeStructure(student, feeStructure, year, term) {
             balance: tuitionExpected + totalActivityCashExpected - totalCashPaid
         },
         statusGroupBreakdown: statusGroupBreakdown,
-        payments: currentPeriod?.payments || [],
+        payments: [],
         itemCount: activityItems.length,
         feeStructure: feeStructure,
         hasCustomizations: Object.keys(customOverrides).length > 0,
-        customizationCount: Object.keys(customOverrides).length
+        customizationCount: Object.keys(customOverrides).length,
+        removedItemsCount: getRemovedCountForPeriod(student, year, term)   // period‑scoped
     };
     
-    // Set flags
     period.hasBalance = period.total.balance > 0 || period.activity.itemsRemaining > 0;
     period.isFullyPaid = !period.hasBalance && period.total.paid > 0;
     
     console.log(`✅ Period built: ${year} Term ${term}`);
-    console.log(`   Total Expected: UGX ${formatMoney(period.total.expected)}`);
-    console.log(`   Total Paid: UGX ${formatMoney(period.total.paid)}`);
-    console.log(`   Total Balance: UGX ${formatMoney(period.total.balance)}`);
-    console.log(`   Items Remaining: ${period.activity.itemsRemaining}`);
-    console.log(`   Items Brought: ${period.activity.itemsBrought}`);
-    
+    console.log(`   Removed items this period: ${period.removedItemsCount}`);
     return period;
 }
 
@@ -26014,36 +26014,37 @@ function recalculatePeriodTotals(period, student) {
     if (!period || !period.activity || !period.activity.items) {
         return period;
     }
-    
+
     console.log(`🔄 Recalculating totals for ${period.year} Term ${period.term}`);
-    
-    const removedItems = student?.removedItems || {};
+
+    const year = period.year;
+    const term = period.term;
+
     let totalCashPaid = 0;
     let totalItemsBrought = 0;
     let totalItemsRemaining = 0;
     let totalBalance = 0;
-    
-    // Filter out removed items and recalculate
+
+    // ========== PERIOD‑AWARE FILTER ==========
     const filteredItems = period.activity.items.filter(item => {
         const itemId = item.itemId || item.name;
-        return !(removedItems[itemId] && removedItems[itemId].isActive !== false);
+        return !isItemRemovedForPeriod(student, itemId, year, term);
     });
-    
-    // Recalculate each item
+
     const recalculatedItems = filteredItems.map(item => {
         const { quantity, totalAmount, unitPrice, paymentOption, cashPaid, itemsBrought } = item;
-        
+
         const result = calculateRemainingWithORLogic(
             { quantity, totalAmount, unitPrice, paymentOption },
             cashPaid,
             itemsBrought
         );
-        
+
         totalCashPaid += cashPaid;
         totalItemsBrought += Math.min(itemsBrought, quantity);
         totalItemsRemaining += result.remainingItems;
         totalBalance += result.remainingCash;
-        
+
         return {
             ...item,
             remainingAmount: result.remainingCash,
@@ -26051,33 +26052,26 @@ function recalculatePeriodTotals(period, student) {
             isFullyPaid: result.isFullyPaid
         };
     });
-    
-    // Update period totals
+
     period.activity.items = recalculatedItems;
     period.activity.itemsRemaining = totalItemsRemaining;
     period.activity.itemsBrought = totalItemsBrought;
     period.activity.balance = totalBalance;
     period.activity.paid = totalCashPaid;
-    
+
     period.total.balance = (period.tuition?.balance || 0) + totalBalance;
     period.total.paid = totalCashPaid;
-    
+
     period.hasBalance = period.total.balance > 0 || period.activity.itemsRemaining > 0;
     period.isFullyPaid = !period.hasBalance && period.total.paid > 0;
-    
-    // Recalculate status groups
+
     if (period.statusGroupBreakdown) {
         for (const [sgName, sgData] of Object.entries(period.statusGroupBreakdown)) {
             const sgItems = sgData.items || [];
-            let sgTotalExpected = 0;
-            let sgTotalPaid = 0;
-            let sgTotalBalance = 0;
-            let sgItemsRemaining = 0;
-            let sgItemsBrought = 0;
-            let sgItemsRequired = 0;
-            
+            let sgTotalExpected = 0, sgTotalPaid = 0, sgTotalBalance = 0;
+            let sgItemsRemaining = 0, sgItemsBrought = 0, sgItemsRequired = 0;
+
             for (const item of sgItems) {
-                // Find the recalculated item
                 const recalcItem = recalculatedItems.find(i => i.itemId === item.itemId && i.itemName === item.itemName);
                 if (recalcItem) {
                     sgTotalExpected += recalcItem.totalAmount || 0;
@@ -26088,7 +26082,7 @@ function recalculatePeriodTotals(period, student) {
                     sgItemsRequired += recalcItem.quantity || 1;
                 }
             }
-            
+
             sgData.totalExpected = sgTotalExpected;
             sgData.totalPaid = sgTotalPaid;
             sgData.totalBalance = sgTotalBalance;
@@ -26097,7 +26091,7 @@ function recalculatePeriodTotals(period, student) {
             sgData.itemsRequired = sgItemsRequired;
         }
     }
-    
+
     return period;
 }
 
@@ -26462,24 +26456,24 @@ function buildPeriodSummaryCards(currentPeriod, previousPeriods, totalPreviousBa
     `;
 }
 
-// ========== HELPER: BUILD STUDENT INFO HEADER ==========
 function buildStudentInfoHeader(student, feeStructure) {
-    const removedCount = student.removedItems ? Object.keys(student.removedItems).length : 0;
+    const { currentYear, currentTerm } = currentAcademicSettings;
+    const removedCount = getRemovedCountForPeriod(student, currentYear, currentTerm);
     const customCount = student.customItemOverrides ? Object.keys(student.customItemOverrides).length : 0;
     const hasCustomBursary = student.customBursary && student.customBursary.amount > 0;
     const hasCustomTransport = student.customTransportation && student.customTransportation.hasTransportation !== false;
-    
+
     let warningsHtml = '';
     if (removedCount > 0) {
         warningsHtml += `
             <div class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200 flex items-center gap-2">
                 <i class="fas fa-exclamation-circle text-red-500"></i>
-                ⚠️ ${removedCount} item(s) removed for this student (not charged)
+                ⚠️ ${removedCount} item(s) removed for ${getTermName(currentTerm)} ${currentYear} (not charged this period)
                 <button onclick="showRemovedItemsDetails()" class="text-xs text-red-700 underline hover:text-red-900">View</button>
             </div>
         `;
     }
-    
+
     if (hasCustomBursary) {
         warningsHtml += `
             <div class="mt-2 text-sm text-green-600 bg-green-50 p-2 rounded border border-green-200 flex items-center gap-2">
@@ -26488,7 +26482,7 @@ function buildStudentInfoHeader(student, feeStructure) {
             </div>
         `;
     }
-    
+
     if (hasCustomTransport && student.customTransportation.amount) {
         warningsHtml += `
             <div class="mt-2 text-sm text-orange-600 bg-orange-50 p-2 rounded border border-orange-200 flex items-center gap-2">
@@ -26497,7 +26491,7 @@ function buildStudentInfoHeader(student, feeStructure) {
             </div>
         `;
     }
-    
+
     if (customCount > 0) {
         warningsHtml += `
             <div class="mt-2 text-sm text-blue-600 bg-blue-50 p-2 rounded border border-blue-200 flex items-center gap-2">
@@ -26507,89 +26501,7 @@ function buildStudentInfoHeader(student, feeStructure) {
             </div>
         `;
     }
-    
-    const currentClass = student.currentClass || 'N/A';
-    const classLevel = student.classLevel || 'Unknown';
-    const levelDisplay = classLevel === 'Nursery' ? 'Nursery' : 
-                        classLevel === 'LowerPrimary' ? 'Lower Primary' : 
-                        classLevel === 'UpperPrimary' ? 'Upper Primary' : 'N/A';
-    
-    return `
-        <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
-            <div class="flex justify-between items-center flex-wrap gap-4">
-                <div>
-                    <h3 class="text-xl font-bold flex items-center gap-2">
-                        <i class="fas fa-user-graduate text-blue-600"></i>
-                        ${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}
-                        ${student.hasCustomizations ? '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">⚡ Custom</span>' : ''}
-                    </h3>
-                    <div class="flex flex-wrap gap-3 mt-1">
-                        <span class="text-sm text-gray-600">📋 ${student.admissionNumber}</span>
-                        <span class="text-sm text-gray-600">📚 ${currentClass}</span>
-                        <span class="text-sm text-gray-600">🏷️ ${levelDisplay}</span>
-                        <span class="text-sm text-gray-600">💰 ${feeStructure?.name || 'No Fee Structure'}</span>
-                        <span class="text-sm text-gray-600">📅 ${getTermName(currentAcademicSettings.currentTerm)} ${currentAcademicSettings.currentYear}</span>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm text-gray-500">Status</p>
-                    <span class="px-3 py-1 rounded-full text-sm ${student.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
-                        ${student.status || 'Active'}
-                    </span>
-                </div>
-            </div>
-            ${warningsHtml}
-        </div>
-    `;
-}
 
-
-// ========== BUILD STUDENT INFO HEADER ==========
-function buildStudentInfoHeader(student, feeStructure) {
-    const removedCount = student.removedItems ? Object.keys(student.removedItems).length : 0;
-    const customCount = student.customItemOverrides ? Object.keys(student.customItemOverrides).length : 0;
-    const hasCustomBursary = student.customBursary && student.customBursary.amount > 0;
-    const hasCustomTransport = student.customTransportation && student.customTransportation.hasTransportation !== false;
-    
-    let warningsHtml = '';
-    if (removedCount > 0) {
-        warningsHtml += `
-            <div class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200 flex items-center gap-2">
-                <i class="fas fa-exclamation-circle text-red-500"></i>
-                ⚠️ ${removedCount} item(s) removed for this student (not charged)
-                <button onclick="showRemovedItemsDetails()" class="text-xs text-red-700 underline hover:text-red-900">View</button>
-            </div>
-        `;
-    }
-    
-    if (hasCustomBursary) {
-        warningsHtml += `
-            <div class="mt-2 text-sm text-green-600 bg-green-50 p-2 rounded border border-green-200 flex items-center gap-2">
-                <i class="fas fa-ticket-alt text-green-500"></i>
-                🎖️ Custom Bursary: UGX ${(student.customBursary.amount || 0).toLocaleString()} off tuition
-            </div>
-        `;
-    }
-    
-    if (hasCustomTransport && student.customTransportation.amount) {
-        warningsHtml += `
-            <div class="mt-2 text-sm text-orange-600 bg-orange-50 p-2 rounded border border-orange-200 flex items-center gap-2">
-                <i class="fas fa-bus text-orange-500"></i>
-                🚌 Custom Transportation: UGX ${(student.customTransportation.amount || 0).toLocaleString()} per term
-            </div>
-        `;
-    }
-    
-    if (customCount > 0) {
-        warningsHtml += `
-            <div class="mt-2 text-sm text-blue-600 bg-blue-50 p-2 rounded border border-blue-200 flex items-center gap-2">
-                <i class="fas fa-sliders-h text-blue-500"></i>
-                ⚡ ${customCount} item(s) have custom overrides
-                <button onclick="showCustomItemsDetails()" class="text-xs text-blue-700 underline hover:text-blue-900">View</button>
-            </div>
-        `;
-    }
-    
     return `
         <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
             <div class="flex justify-between items-center flex-wrap gap-4">
@@ -26602,7 +26514,7 @@ function buildStudentInfoHeader(student, feeStructure) {
                         <span class="text-sm text-gray-600">📋 ${student.admissionNumber}</span>
                         <span class="text-sm text-gray-600">📚 ${student.currentClass || 'N/A'}</span>
                         <span class="text-sm text-gray-600">💰 ${feeStructure?.name || 'No Fee Structure'}</span>
-                        <span class="text-sm text-gray-600">📅 ${getTermName(currentAcademicSettings.currentTerm)} ${currentAcademicSettings.currentYear}</span>
+                        <span class="text-sm text-gray-600">📅 ${getTermName(currentTerm)} ${currentYear}</span>
                     </div>
                 </div>
                 <div class="text-right">
@@ -26708,6 +26620,34 @@ function buildPeriodSummaryCards(currentPeriod, previousPeriods, totalPreviousBa
     `;
 }
 
+
+// ========== HELPER: PERIOD-AWARE REMOVED ITEM CHECK ==========
+// An item is only "removed" for the exact academicYear/term it was removed in.
+// Legacy entries with no period stamp are treated as removed everywhere (backward compat).
+function isItemRemovedForPeriod(student, itemId, year, term) {
+    if (!student || !student.removedItems) return false;
+    const removed = student.removedItems[itemId];
+    if (!removed || removed.isActive === false) return false;
+
+    if (removed.academicYear === undefined || removed.term === undefined) {
+        return true; // legacy — no period info, treat as globally removed
+    }
+
+    return removed.academicYear === parseInt(year) && removed.term === parseInt(term);
+}
+
+// ========== HELPER: PERIOD-SCOPED REMOVED COUNT ==========
+function getRemovedCountForPeriod(student, year, term) {
+    if (!student || !student.removedItems) return 0;
+    return Object.values(student.removedItems).filter(r => {
+        if (r.isActive === false) return false;
+        if (r.academicYear === undefined || r.term === undefined) return true;
+        return r.academicYear === parseInt(year) && r.term === parseInt(term);
+    }).length;
+}
+
+window.isItemRemovedForPeriod = isItemRemovedForPeriod;
+window.getRemovedCountForPeriod = getRemovedCountForPeriod;
 // ==================== HELPER: FORMAT MONEY ====================
 function formatMoney(amount) {
     const num = Math.round(amount || 0);
@@ -26754,12 +26694,11 @@ function buildPeriodForm(periodData, periodKey, isCurrent, student, feeStructure
     const rateColor = collectionRate >= 80 ? 'text-green-600' : collectionRate >= 50 ? 'text-yellow-600' : 'text-red-600';
 
     // Filter removed items
-    const removedItems = student?.removedItems || {};
     const allItems = activity?.items || [];
-    const filteredItems = allItems.filter(item => {
-        const id = item.itemId || item.name;
-        return !(removedItems[id] && removedItems[id].isActive !== false);
-    });
+const filteredItems = allItems.filter(item => {
+    const id = item.itemId || item.name;
+    return !isItemRemovedForPeriod(student, id, year, term);
+});
     const filteredItemsRemaining = filteredItems.reduce((s, i) => s + (i.remainingQuantity || 0), 0);
     const filteredItemsBrought = filteredItems.reduce((s, i) => s + (i.itemsBrought || 0), 0);
     const filteredItemsRequired = filteredItems.reduce((s, i) => s + (i.quantity || 0), 0);
@@ -27083,13 +27022,17 @@ function buildItemsForPeriod(periodKey, items, isCurrent, student) {
     if (!items || !items.length) {
         return `<div class="text-center text-gray-500 py-4 border-2 border-dashed border-gray-300 rounded-lg"><i class="fas fa-inbox text-3xl mb-2 text-gray-300"></i><p>No items for this period</p></div>`;
     }
-    const removedItems = student?.removedItems || {};
+
+    // ========== PERIOD-AWARE FILTER ==========
+    const [year, term] = periodKey.split('_').map(Number);
     const filtered = items.filter(item => {
         const id = item.itemId || item.name;
-        return !(removedItems[id] && removedItems[id].isActive !== false);
+        return !isItemRemovedForPeriod(student, id, year, term);
     });
+
     if (!filtered.length) {
-        return `<div class="text-center text-gray-500 py-4 border-2 border-dashed border-gray-300 rounded-lg"><i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i><p>All items removed</p><p class="text-xs text-gray-400">${Object.keys(removedItems).length} item(s) removed</p></div>`;
+        const removedCount = getRemovedCountForPeriod(student, year, term);
+        return `<div class="text-center text-gray-500 py-4 border-2 border-dashed border-gray-300 rounded-lg"><i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i><p>All items removed for this period</p><p class="text-xs text-gray-400">${removedCount} item(s) removed for this period</p></div>`;
     }
 
     const grouped = {};
@@ -29370,31 +29313,36 @@ function showRemovedItemsDetails() {
         showToast('No removed items for this student', 'info');
         return;
     }
-    
+
     const removedItems = student.removedItems;
-    const count = Object.keys(removedItems).length;
-    
-    let itemsHtml = Object.entries(removedItems).map(([id, data]) => {
+    const activeEntries = Object.entries(removedItems).filter(([id, data]) => data.isActive !== false);
+    const count = activeEntries.length;
+
+    let itemsHtml = activeEntries.map(([id, data]) => {
         const itemName = data.itemName || id;
         const reason = data.reason || 'No reason provided';
         const removedAt = data.removedAt ? new Date(data.removedAt).toLocaleDateString() : '';
+        const periodLabel = (data.academicYear !== undefined && data.term !== undefined)
+            ? `${getTermName(data.term)} ${data.academicYear}`
+            : 'All periods (legacy)';
         return `
             <div class="flex justify-between items-center p-2 border-b last:border-0 hover:bg-gray-50">
                 <span>📦 ${escapeHtml(itemName)}</span>
+                <span class="text-xs text-purple-600 font-medium">${periodLabel}</span>
                 <span class="text-xs text-red-500">${escapeHtml(reason)}</span>
                 <span class="text-xs text-gray-400">${removedAt}</span>
             </div>
         `;
     }).join('');
-    
+
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-            <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 my-8">
+            <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 my-8">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-red-600">❌ Removed Items (${count})</h3>
                     <button onclick="closeModal()" class="text-gray-500 text-2xl hover:text-gray-700">&times;</button>
                 </div>
-                <p class="text-sm text-gray-600 mb-4">These items will NOT be charged for this student:</p>
+                <p class="text-sm text-gray-600 mb-4">Each item is only removed for the period shown — it still applies in other periods:</p>
                 <div class="max-h-60 overflow-y-auto border rounded-lg">
                     ${itemsHtml || '<p class="text-center text-gray-400 py-4">No removed items</p>'}
                 </div>
@@ -29402,7 +29350,7 @@ function showRemovedItemsDetails() {
             </div>
         </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
@@ -31599,6 +31547,7 @@ window.generateAutoReceiptNumberFixed = generateAutoReceiptNumberFixed;
 
 console.log('✅ Complete Fee Collection System v3.0 — With Payment Deduplication!');
 
+
 // ==================== SUBMIT COLLECTION PAYMENT ====================
 
 // ==================== COMPLETELY REBUILT SUBMIT COLLECTION PAYMENT ====================
@@ -31786,77 +31735,74 @@ async function editStudentInfoList(studentId) {
         }
 
         // ========== CONFIRM REMOVE ITEM FROM EDIT (PRESERVES CUSTOMIZATION) ==========
-        async function confirmRemoveItemFromEdit(itemId, itemName, componentName) {
-            console.log('confirmRemoveItemFromEdit called:', { itemId, itemName, componentName });
+    async function confirmRemoveItemFromEdit(itemId, itemName, componentName) {
+    console.log('confirmRemoveItemFromEdit called:', { itemId, itemName, componentName });
 
-            if (!confirm(`⚠️ Remove "${itemName}" from ${componentName}?\n\nThis item will NOT be charged for this student.\n\nDo you want to remove this item for this student?`)) {
-                return;
-            }
+    // Get current academic period from the global settings
+    const { currentYear, currentTerm } = currentAcademicSettings;
+    const termName = getTermName(currentTerm);
 
-            const student = window.currentEditStudent;
-            if (!student) {
-                showToast('Error: Student data not loaded', 'error');
-                return;
-            }
+    if (!confirm(`⚠️ Remove "${itemName}" from ${componentName}?\n\nThis will ONLY remove it for ${termName} ${currentYear}.\n\nContinue?`)) {
+        return;
+    }
 
-            try {
-                if (!student.removedItems) {
-                    student.removedItems = {};
-                }
+    const student = window.currentEditStudent;
+    if (!student) {
+        showToast('Error: Student data not loaded', 'error');
+        return;
+    }
 
-                student.removedItems[itemId] = {
-                    itemId: itemId,
-                    itemName: itemName,
-                    componentName: componentName,
-                    removedAt: new Date().toISOString(),
-                    reason: 'Removed during edit',
-                    isActive: true
-                };
-
-                window.currentEditStudent = student;
-
-                const updateData = {
-                    removedItems: student.removedItems,
-                    customItemOverrides: student.customItemOverrides || {},
-                    updatedAt: new Date().toISOString()
-                };
-
-                console.log('Removing item (preserving customization):', itemId);
-                console.log('Updated removedItems:', updateData.removedItems);
-
-                const response = await fetch(`/api/students/${student.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(updateData)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to remove item: ${response.status}`);
-                }
-
-                const result = await response.json();
-                console.log('Remove response:', result);
-
-                updateEditItemDisplay(itemId, true);
-                updateEditCustomizationBadgeCount();
-
-                const container = document.getElementById('editItemsCustomizationContainer');
-                if (container && selectedFeeStructure) {
-                    const scrollPos = container.scrollTop;
-                    container.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
-                    container.scrollTop = scrollPos;
-                }
-
-                showToast(`✅ Removed "${itemName}" (customization preserved)`, 'success');
-
-            } catch (error) {
-                console.error('Error removing item:', error);
-                showToast(`❌ Failed to remove "${itemName}": ${error.message}`, 'error');
-            }
+    try {
+        if (!student.removedItems) {
+            student.removedItems = {};
         }
+
+        // ✅ STAMP WITH CURRENT PERIOD
+        student.removedItems[itemId] = {
+            itemId: itemId,
+            itemName: itemName,
+            componentName: componentName,
+            removedAt: new Date().toISOString(),
+            reason: 'Removed during edit',
+            isActive: true,
+            academicYear: currentYear,   // 🔑
+            term: currentTerm            // 🔑
+        };
+
+        window.currentEditStudent = student;
+
+        const updateData = {
+            removedItems: student.removedItems,
+            customItemOverrides: student.customItemOverrides || {},
+            updatedAt: new Date().toISOString()
+        };
+
+        const response = await fetch(`/api/students/${student.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+        });
+
+        if (!response.ok) throw new Error(`Failed to remove item: ${response.status}`);
+
+        // Update UI (hide item, refresh badges, etc.)
+        updateEditItemDisplay(itemId, true);
+        updateEditCustomizationBadgeCount();
+
+        const container = document.getElementById('editItemsCustomizationContainer');
+        if (container && selectedFeeStructure) {
+            const scrollPos = container.scrollTop;
+            container.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
+            container.scrollTop = scrollPos;
+        }
+
+        showToast(`✅ Removed "${itemName}" for ${termName} ${currentYear}`, 'success');
+
+    } catch (error) {
+        console.error('Error removing item:', error);
+        showToast(`❌ Failed to remove "${itemName}": ${error.message}`, 'error');
+    }
+}
 
         // ========== CONFIRM DELETE REMOVED ITEM (PERMANENT) ==========
         async function confirmDeleteRemovedItem(itemId) {
@@ -43656,6 +43602,7 @@ function deleteBursaryItem(id) {
 // Version: 2.0 - With Load Existing Fee Structure Feature
 
 async function editFeeStructureItem(id) {
+     window.currentEditingFeeStructureId = id;
     console.log('editFeeStructureItem called for ID:', id);
     
     try {
@@ -46609,16 +46556,40 @@ function updateExistingActivityGroup() {
 
 // ==================== DELETE EXISTING ACTIVITY GROUP ====================
 
-function deleteExistingActivityGroup(groupId) {
-    if (!confirm('Are you sure you want to delete this activity group?')) return;
+async function deleteExistingActivityGroup(groupId) {
+    const group = window.activityGroupsData.find(g => g.id === groupId);
+    if (!group) return;
+
+    const confirmed = confirm(
+        `⚠️ Delete activity group "${group.name}"?\n\n` +
+        `This will PERMANENTLY delete ALL payments recorded for EVERY item in this group, ` +
+        `for students on THIS fee structure only, and reverse any related inventory stock.\n\n` +
+        `This cannot be undone. Continue?`
+    );
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch('/api/fee/structures/items/purge-payments', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ componentName: group.name, feeStructureId: window.currentEditingFeeStructureId })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            alert(`✅ "${group.name}" deleted. Purged ${result.deletedPaymentRecords + result.modifiedPaymentRecords} payment record(s), reversed ${result.inventoryUnitsReversed} inventory unit(s).`);
+        } else {
+            alert('⚠️ Group removed locally, but purging payments failed: ' + (result.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('⚠️ Group removed locally, but purging payments failed (network error): ' + e.message);
+    }
+
     const groupIndex = window.activityGroupsData.findIndex(g => g.id === groupId);
     if (groupIndex !== -1) {
-        const groupName = window.activityGroupsData[groupIndex].name;
         window.activityGroupsData.splice(groupIndex, 1);
         const container = document.getElementById('editActivityGroupsContainer');
         if (container) container.innerHTML = renderEditActivityGroupsList();
         updateEditSummaryTotals();
-        alert(`✅ "${groupName}" deleted!`);
     }
 }
 
@@ -47228,6 +47199,37 @@ window.addEditTangibleRequirement = addEditTangibleRequirement;
 window.calculateEditTotals = calculateEditTotals;
 
 console.log('Fee Management System fully loaded!');
+
+// ==================== CONFIRM + PURGE ITEM PAYMENTS ====================
+async function confirmDeleteItemWithPayments(itemName, componentName, feeStructureId, onConfirmedLocalRemove) {
+    const confirmed = confirm(
+        `⚠️ Delete "${itemName}"?\n\n` +
+        `This will PERMANENTLY delete ALL payments recorded for this item by students on THIS fee structure only, ` +
+        `and reverse any related inventory stock that was added from those payments.\n\n` +
+        `This action cannot be undone. Continue?`
+    );
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch('/api/fee/structures/items/purge-payments', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemName, componentName: componentName || '', feeStructureId })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            alert(`✅ "${itemName}" removed. Purged ${result.deletedPaymentRecords + result.modifiedPaymentRecords} payment record(s), reversed ${result.inventoryUnitsReversed} inventory unit(s).`);
+        } else {
+            alert('⚠️ Removed locally, but purging payments failed: ' + (result.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('⚠️ Removed locally, but purging payments failed (network error): ' + e.message);
+    }
+
+    onConfirmedLocalRemove();
+}
+window.confirmDeleteItemWithPayments = confirmDeleteItemWithPayments;
+
 
 // Simple render functions
 function renderSimpleFeeStructuresList(structures) {
@@ -53003,30 +53005,33 @@ function closeEditItemModal() {
 // ==================== REMOVE EDIT TEMP ITEM (UPDATED) ====================
 
 function removeEditTempItem(index) {
-    console.log('removeEditTempItem called for index:', index);
-    
-    if (!window.tempGroupItems || index >= window.tempGroupItems.length) {
-        console.error('Invalid index or tempGroupItems not found');
-        return;
+    const item = window.tempGroupItems?.[index];
+    if (!item) return;
+
+    const doRemove = () => {
+        window.tempGroupItems.splice(index, 1);
+        renderEditCurrentGroupItems();
+    };
+
+    if (window.isEditingGroup) {
+        const componentName = document.getElementById('editExistingGroupName')?.value?.trim()
+            || document.getElementById('editGroupName')?.value?.trim() || '';
+        confirmDeleteItemWithPayments(item.name, componentName, window.currentEditingFeeStructureId, doRemove);
+    } else {
+        doRemove();
     }
-    
-    const itemName = window.tempGroupItems[index]?.name || 'Item';
-    
-    if (!confirm(`⚠️ Remove "${itemName}" from this group?`)) {
-        return;
-    }
-    
-    // Remove the item
-    window.tempGroupItems.splice(index, 1);
-    console.log('Remaining items:', window.tempGroupItems.length);
-    
-    // Update the display
-    const container = document.getElementById('editGroupItemsContainer');
-    if (container) {
-        container.innerHTML = renderEditGroupItems();
-    }
-    
-    showToast(`✅ "${itemName}" removed`, 'info');
+}
+
+function removeEditExistingItem(index) {
+    const item = window.tempGroupItems?.[index];
+    if (!item) return;
+
+    const componentName = document.getElementById('editExistingGroupName')?.value?.trim() || '';
+
+    confirmDeleteItemWithPayments(item.name, componentName, window.currentEditingFeeStructureId, () => {
+        window.tempGroupItems.splice(index, 1);
+        document.getElementById('editExistingGroupItemsContainer').innerHTML = renderEditExistingGroupItems();
+    });
 }
 
 // ==================== SHOW TOAST ====================
@@ -61978,7 +61983,7 @@ function buildSummaryCardsV3(totals, studentCount) {
 
 
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
-    console.log('=== BUILD REPORT TABLE v20.0 - FIXED PERIOD SCOPING ===');
+    console.log('=== BUILD REPORT TABLE v21.0 - PERIOD-AWARE REMOVAL ===');
     
     // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
     function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
@@ -62047,12 +62052,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             defaultAmount: defaultAmount || 0,
             defaultQuantity: defaultQuantity || 1
         };
-    }
-
-    // ========== HELPER: CHECK IF ITEM IS REMOVED ==========
-    function isItemRemoved(student, itemId) {
-        if (!student || !student.removedItems) return false;
-        return student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
     }
 
     // ========== HELPER: DEDUPLICATE HISTORIES ==========
@@ -62218,7 +62217,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         return a.localeCompare(b);
     });
     
-    // ========== BUILD STATUS GROUP ITEMS WITH CORRECT PERIOD SCOPING ==========
+    // ========== BUILD STATUS GROUP ITEMS ==========
+    // NOTE: The global removal skip has been removed.
+    // Period-aware removal is handled by the backend's periodBreakdown data,
+    // where each period has isNotApplicable: true for removed periods.
     var statusGroupItems = {};
     var itemCustomizationMap = {};
     var periodBreakdownData = {};
@@ -62238,10 +62240,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         var itemData = groupItems[itemName];
                         var itemId = itemData.id || itemName;
                         
-                        // Skip removed items
-                        if (isItemRemoved(student, itemId)) {
-                            continue;
-                        }
+                        // ============================================================
+                        // REMOVED: global removal skip – now period-aware via periodBreakdown
+                        // if (isItemRemoved(student, itemId)) { continue; }
+                        // ============================================================
                         
                         var customValues = getCustomizedItemValue(
                             student,
@@ -62271,13 +62273,13 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         var periodType = itemData.periodType || 'termly';
                         
                         // ================================================================
-                        // FIX: CRITICAL - Get the correct period breakdown from the item
+                        // Get the correct period breakdown from the item
                         // ================================================================
                         var periodBreakdown = itemData.periodBreakdown || {};
                         var periodKeys = Object.keys(periodBreakdown);
                         
                         // ================================================================
-                        // FIX: Determine which periods this item should appear in
+                        // Determine which periods this item should appear in
                         // ================================================================
                         var applicablePeriods = [];
                         
@@ -62290,7 +62292,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             }
                             
                             // ================================================================
-                            // FIX: Apply period scoping rules (matches viewStudentDetailsList)
+                            // Apply period scoping rules (matches viewStudentDetailsList)
                             // ================================================================
                             var shouldIncludePeriod = false;
                             
@@ -62317,7 +62319,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         }
                         
                         // ================================================================
-                        // FIX: If no applicable periods, check if it's a one-time or yearly with no data
+                        // If no applicable periods, check if it's a one-time or yearly with no data
                         // ================================================================
                         if (applicablePeriods.length === 0) {
                             var hasDirectData = itemData.quantityCollected > 0 || 
@@ -62359,7 +62361,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         }
                         
                         // ================================================================
-                        // FIX: AGGREGATE ACROSS APPLICABLE PERIODS ONLY
+                        // AGGREGATE ACROSS APPLICABLE PERIODS ONLY
                         // ================================================================
                         var totalCashExpected = 0;
                         var totalCashPaid = 0;
@@ -63470,7 +63472,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         </div>
     `;
     
-    console.log('✅ Report table built with CORRECT PERIOD SCOPING v20.0');
+    console.log('✅ Report table built with PERIOD-AWARE REMOVAL v21.0');
     console.log('   ⭐ One-Time items ONLY in oldest period: ' + oldestPeriodKey);
     console.log('   📆 Yearly items ONLY in latest term of each year');
     console.log('   📋 Periods: ' + allPeriodKeys.join(', '));
@@ -82052,17 +82054,62 @@ window.deletePaymentRecord = deletePaymentRecord;
 window.deletePaymentRecord = deletePaymentRecord;
 
 function confirmDeletePayment(paymentId, periodKey) {
-    if (!paymentId || paymentId === 'undefined' || paymentId === 'null' || paymentId === '') {
-        showToast('⚠️ Cannot delete: This payment does not have a valid ID', 'warning');
-        console.warn('Delete attempted with invalid payment ID:', paymentId);
-        return;
-    }
+    const btn = event.target.closest('button');
+    const entryEl = btn ? btn.closest('.history-entry, [id^="tuition_he_"]') : null;
+    if (!entryEl) return;
 
-    if (!confirm('⚠️ Are you sure you want to delete this payment record?\n\nThis action cannot be undone.')) {
-        return;
-    }
+    const isTuitionRow = entryEl.id.startsWith('tuition_he_');
+    const itemName = entryEl.dataset.itemName;
+    const componentName = entryEl.dataset.component;
+    const paymentType = entryEl.dataset.type === 'cash' ? 'paid_cash' : 'brought_item';
+    const amount = parseFloat(entryEl.dataset.amount) || 0;
+    const quantity = parseFloat(entryEl.dataset.quantity) || 0;
 
-    deletePaymentRecord(paymentId, periodKey);
+    const confirmMsg = isTuitionRow
+        ? `Delete this tuition payment of UGX ${formatMoney(amount)}?\n\nOnly this entry is removed — other items in the same receipt are untouched.`
+        : `Delete this payment for "${itemName}"?\n\nOnly this entry is removed — other items in the same receipt are untouched.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    if (isTuitionRow) {
+        deleteTuitionEntry(paymentId, periodKey);
+    } else {
+        deleteItemEntry(paymentId, itemName, componentName, paymentType, amount, quantity, periodKey);
+    }
+}
+
+async function deleteItemEntry(paymentId, itemName, componentName, paymentType, amount, quantity, periodKey) {
+    try {
+        const res = await fetch(`/api/fee/payments/${paymentId}/item`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemName, componentName, paymentType, amount, quantity })
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast(`✅ Payment for "${itemName}" removed`, 'success');
+            if (window.currentStudent) await loadMultiPeriodCollectionForm(window.currentStudent.id);
+        } else {
+            showToast('❌ ' + (result.error || 'Delete failed'), 'error');
+        }
+    } catch (e) {
+        showToast('Network error: ' + e.message, 'error');
+    }
+}
+
+async function deleteTuitionEntry(paymentId, periodKey) {
+    try {
+        const res = await fetch(`/api/fee/payments/${paymentId}/tuition`, { method: 'DELETE' });
+        const result = await res.json();
+        if (res.ok) {
+            showToast('✅ Tuition payment removed', 'success');
+            if (window.currentStudent) await loadMultiPeriodCollectionForm(window.currentStudent.id);
+        } else {
+            showToast('❌ ' + (result.error || 'Delete failed'), 'error');
+        }
+    } catch (e) {
+        showToast('Network error: ' + e.message, 'error');
+    }
 }
 window.confirmDeletePayment = confirmDeletePayment;
 window.confirmDeletePayment = confirmDeletePayment;

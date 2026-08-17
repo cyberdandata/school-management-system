@@ -2688,39 +2688,478 @@ app.post('/api/students/register', async (req, res) => {
 
 // ==================== UPDATED STUDENT UPDATE WITH CUSTOMIZATIONS ====================
 
+// ==================== HELPER: DELETE PAYMENTS FOR REMOVED ITEMS (PERIOD‑AWARE) ====================
+function deletePaymentsForItems(studentId, itemsToRemove, period) {
+    const { year, term } = period;
+    console.log(`🗑️ deletePaymentsForItems: Student ${studentId}, Period ${year} Term ${term}`);
+    console.log(`   Items: ${itemsToRemove.map(i => i.itemName).join(', ')}`);
+
+    if (!itemsToRemove || itemsToRemove.length === 0) return;
+
+    let payments = readFile(files.feePayments);
+    let termRecords = readFile(files.studentTermRecords);
+
+    // Normalize removed items for matching (case‑insensitive, trimmed)
+    const normalizedItems = itemsToRemove.map(item => ({
+        itemName: (item.itemName || item.itemId || '').trim().toLowerCase(),
+        componentName: (item.componentName || '').trim().toLowerCase()
+    }));
+
+    let anyPaymentDeleted = false;
+    let updatedPayments = [];
+
+    // Matching logic: case‑insensitive, component‑name tolerant
+    function matchesRemoved(paymentItem) {
+        if (!paymentItem) return false;
+        const paidItemName = (paymentItem.itemName || paymentItem.name || '').trim().toLowerCase();
+        const paidComponentName = (paymentItem.componentName || '').trim().toLowerCase();
+
+        for (const removed of normalizedItems) {
+            if (paidItemName !== removed.itemName) continue;
+            if (removed.componentName) {
+                if (paidComponentName === removed.componentName ||
+                    paidComponentName.includes(removed.componentName) ||
+                    removed.componentName.includes(paidComponentName)) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    for (const payment of payments) {
+        // Only process payments for this student in the given period
+        if (payment.studentId !== studentId ||
+            payment.term !== term ||
+            parseInt(payment.academicYear) !== year) {
+            updatedPayments.push(payment);
+            continue;
+        }
+
+        let paymentChanged = false;
+
+        function filterItems(itemsArray) {
+            if (!itemsArray || !Array.isArray(itemsArray)) return [];
+            return itemsArray.filter(item => {
+                if (!item) return false;
+                const match = matchesRemoved(item);
+                if (match) {
+                    console.log(`   ✅ Removing item: ${item.itemName || item.name} (${item.componentName})`);
+                    paymentChanged = true;
+                }
+                return !match;
+            });
+        }
+
+        // Remove from all known payment structures
+        if (payment.activityItemPayments) {
+            payment.activityItemPayments = filterItems(payment.activityItemPayments);
+        }
+        if (payment.paymentsByPeriodType) {
+            for (const periodType of ['one_time', 'termly', 'yearly']) {
+                if (payment.paymentsByPeriodType[periodType]) {
+                    payment.paymentsByPeriodType[periodType] = filterItems(payment.paymentsByPeriodType[periodType]);
+                }
+            }
+        }
+        if (payment.individualPayments) {
+            payment.individualPayments = filterItems(payment.individualPayments);
+        }
+
+        if (paymentChanged) {
+            anyPaymentDeleted = true;
+
+            // Recalculate totals
+            let newActivityTotal = 0;
+            if (payment.activityItemPayments) {
+                for (const item of payment.activityItemPayments) {
+                    newActivityTotal += (item.amountPaid || item.cashEquivalent || 0);
+                }
+            }
+            if (payment.paymentsByPeriodType) {
+                for (const periodType of ['one_time', 'termly', 'yearly']) {
+                    for (const item of (payment.paymentsByPeriodType[periodType] || [])) {
+                        newActivityTotal += (item.amountPaid || item.cashEquivalent || 0);
+                    }
+                }
+            }
+            payment.activityTotalPaid = newActivityTotal;
+            payment.totalAmount = (payment.tuitionPaid || 0) + newActivityTotal;
+
+            // If payment becomes empty, delete the entire record
+            if (payment.totalAmount === 0 &&
+                (payment.activityItemPayments || []).length === 0 &&
+                (payment.individualPayments || []).length === 0) {
+                console.log(`   🗑️ Deleting empty payment record: ${payment.receiptNumber}`);
+                continue;
+            }
+        }
+
+        updatedPayments.push(payment);
+    }
+
+    // ---- Update studentTermRecords for the same period ----
+    const termRecordKey = `${studentId}_${year}_${term}`;
+    if (termRecords[termRecordKey]) {
+        const termRecord = termRecords[termRecordKey];
+        let termRecordChanged = false;
+
+        function filterTermItems(itemsArray) {
+            if (!itemsArray || !Array.isArray(itemsArray)) return [];
+            return itemsArray.filter(item => {
+                if (!item) return false;
+                const match = matchesRemoved(item);
+                if (match) {
+                    console.log(`   ✅ Removing from term record: ${item.itemName || item.name}`);
+                    termRecordChanged = true;
+                }
+                return !match;
+            });
+        }
+
+        for (const periodType of ['one_time', 'termly', 'yearly']) {
+            if (termRecord.activityItemsPaid && termRecord.activityItemsPaid[periodType]) {
+                termRecord.activityItemsPaid[periodType] = filterTermItems(termRecord.activityItemsPaid[periodType]);
+            }
+        }
+
+        if (termRecordChanged) {
+            let newActivityTotal = 0;
+            for (const periodType of ['one_time', 'termly', 'yearly']) {
+                const items = termRecord.activityItemsPaid[periodType] || [];
+                for (const item of items) {
+                    newActivityTotal += (item.amountPaid || item.cashEquivalent || 0);
+                }
+            }
+            termRecord.activityTotalPaid = newActivityTotal;
+            termRecords[termRecordKey] = termRecord;
+            console.log(`   ✅ Updated term record for ${termRecordKey}`);
+        }
+    }
+
+    // Save if anything changed
+    if (anyPaymentDeleted) {
+        saveFile(files.feePayments, updatedPayments);
+        saveFile(files.studentTermRecords, termRecords);
+        console.log(`✅ Payment records updated for student ${studentId} (${year} Term ${term})`);
+    } else {
+        console.log(`ℹ️ No payments found for removed items in ${year} Term ${term}`);
+    }
+}
+// ==================== HELPER: REVERSE INVENTORY FOR REMOVED ITEMS (PERIOD-AWARE) ====================
+// When a scholastic item is removed from a student for a specific academic period,
+// any inventory stock that was added because of THAT student's payment (for that
+// exact item, in that exact period) must be pulled back out of inventoryStock.json,
+// and the originating inventoryTransactions.json entry marked as reversed.
+// Non-scholastic items simply won't have matching inventory transactions, so this
+// is safe to call for every removed item — it only acts on ones that actually
+// exist in the inventory system.
+function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
+    const { year, term } = period;
+    console.log(`📦 reverseInventoryForRemovedItems: Student ${studentId}, Period ${year} Term ${term}`);
+    console.log(`   Items: ${itemsToRemove.map(i => i.itemName).join(', ')}`);
+
+    if (!itemsToRemove || itemsToRemove.length === 0) return;
+
+    const inventoryStockPath = path.join(dataDir, 'inventoryStock.json');
+    const inventoryTransactionsPath = path.join(dataDir, 'inventoryTransactions.json');
+
+    let stock = readFile(inventoryStockPath);
+    if (!stock || Array.isArray(stock)) stock = {};
+
+    let transactions = readFile(inventoryTransactionsPath);
+    if (!Array.isArray(transactions)) transactions = [];
+
+    // Normalize removed item names for matching (case-insensitive, trimmed)
+    const normalizedItemNames = itemsToRemove.map(item =>
+        (item.itemName || item.itemId || '').trim().toLowerCase()
+    );
+
+    let anyReversed = false;
+    const updatedTransactions = [];
+
+    for (const tx of transactions) {
+        // Only touch inventory RECEIPT transactions that were auto-created from
+        // THIS student's payment, in THIS exact academic year/term, and not
+        // already reversed.
+        const isCandidate = tx &&
+            tx.isInventory === true &&
+            tx.transactionType === 'receipt' &&
+            tx.studentId === studentId &&
+            tx.academicYear !== undefined && parseInt(tx.academicYear) === parseInt(year) &&
+            tx.term !== undefined && parseInt(tx.term) === parseInt(term) &&
+            !tx.reversed;
+
+        if (!isCandidate) {
+            updatedTransactions.push(tx);
+            continue;
+        }
+
+        const txItemName = (tx.itemName || '').trim().toLowerCase();
+        const matches = normalizedItemNames.some(name =>
+            txItemName === name || txItemName.includes(name) || name.includes(txItemName)
+        );
+
+        if (!matches) {
+            updatedTransactions.push(tx);
+            continue;
+        }
+
+        // ========== REVERSE THE STOCK THIS TRANSACTION ADDED ==========
+        const qty = tx.quantity || 0;
+        const stockKey = `${tx.itemName}_${tx.academicYear}_${tx.term}`;
+
+        if (stock[stockKey]) {
+            stock[stockKey].totalReceived = Math.max(0, (stock[stockKey].totalReceived || 0) - qty);
+            stock[stockKey].available = Math.max(0, (stock[stockKey].available || 0) - qty);
+            stock[stockKey].lastUpdated = new Date().toISOString();
+        }
+
+        // Also adjust the legacy (name-only) stock entry if it exists
+        if (stock[tx.itemName]) {
+            stock[tx.itemName].totalReceived = Math.max(0, (stock[tx.itemName].totalReceived || 0) - qty);
+            stock[tx.itemName].available = Math.max(0, (stock[tx.itemName].available || 0) - qty);
+            stock[tx.itemName].lastUpdated = new Date().toISOString();
+        }
+
+        console.log(`   🗑️ Reversed inventory receipt: "${tx.itemName}" qty ${qty} (student ${studentId}, ${year} Term ${term})`);
+        anyReversed = true;
+
+        // Keep the transaction for audit purposes, but mark it reversed so it
+        // no longer counts toward stock totals or shows as active in reports.
+        tx.reversed = true;
+        tx.reversedAt = new Date().toISOString();
+        tx.reverseReason = 'Item removed from student for this academic period';
+        updatedTransactions.push(tx);
+    }
+
+    if (anyReversed) {
+        saveFile(inventoryStockPath, stock);
+        saveFile(inventoryTransactionsPath, updatedTransactions);
+        console.log(`✅ Inventory reversed for removed items (student ${studentId}, ${year} Term ${term})`);
+    } else {
+        console.log(`ℹ️ No matching inventory receipts found to reverse for ${year} Term ${term}`);
+    }
+}
+
+// ==================== HELPER: REVERSE INVENTORY FOR A DELETED PAYMENT ITEM ====================
+// When a "brought_item" payment is deleted (single item, reset-item, or whole receipt),
+// pull the matching stock back out and mark the originating receipt transaction(s) as reversed.
+// ==================== HELPER: REVERSE INVENTORY FOR A DELETED PAYMENT ITEM ====================
+// Deducts stock directly (same key pattern used when stock was added), regardless of
+// whether a matching receipt transaction can be found. Transaction matching is used
+// only for audit-trail marking, never to gate the actual stock deduction.
+function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear, term, quantityToReverse) {
+    if (!quantityToReverse || quantityToReverse <= 0 || !itemName) return;
+
+    const inventoryStockPath = path.join(dataDir, 'inventoryStock.json');
+    const inventoryTransactionsPath = path.join(dataDir, 'inventoryTransactions.json');
+
+    let stock = readFile(inventoryStockPath);
+    if (!stock || Array.isArray(stock)) stock = {};
+
+    let transactions = readFile(inventoryTransactionsPath);
+    if (!Array.isArray(transactions)) transactions = [];
+
+    const normalizedItemName = (itemName || '').trim().toLowerCase();
+    const year = parseInt(academicYear);
+    const termNum = parseInt(term);
+
+    // ========== 1. DIRECT STOCK DEDUCTION (always happens) ==========
+    const stockKey = `${itemName}_${year}_${termNum}`;
+    let deducted = 0;
+
+    if (stock[stockKey]) {
+        const before = stock[stockKey].available || 0;
+        const qty = Math.min(quantityToReverse, before);
+        stock[stockKey].totalReceived = Math.max(0, (stock[stockKey].totalReceived || 0) - qty);
+        stock[stockKey].available = Math.max(0, (stock[stockKey].available || 0) - qty);
+        stock[stockKey].lastUpdated = new Date().toISOString();
+        deducted = qty;
+    } else {
+        // fallback: try matching by name+year+term case-insensitively
+        const fallbackKey = Object.keys(stock).find(k => {
+            const entry = stock[k];
+            return entry && entry.name &&
+                entry.name.trim().toLowerCase() === normalizedItemName &&
+                parseInt(entry.academicYear) === year &&
+                parseInt(entry.term) === termNum;
+        });
+        if (fallbackKey) {
+            const before = stock[fallbackKey].available || 0;
+            const qty = Math.min(quantityToReverse, before);
+            stock[fallbackKey].totalReceived = Math.max(0, (stock[fallbackKey].totalReceived || 0) - qty);
+            stock[fallbackKey].available = Math.max(0, (stock[fallbackKey].available || 0) - qty);
+            stock[fallbackKey].lastUpdated = new Date().toISOString();
+            deducted = qty;
+        }
+    }
+
+    // Also deduct the legacy (name-only) stock entry if it exists
+    if (stock[itemName]) {
+        const before = stock[itemName].available || 0;
+        const qty = Math.min(quantityToReverse, before);
+        stock[itemName].totalReceived = Math.max(0, (stock[itemName].totalReceived || 0) - qty);
+        stock[itemName].available = Math.max(0, (stock[itemName].available || 0) - qty);
+        stock[itemName].lastUpdated = new Date().toISOString();
+    }
+
+    // ========== 2. BEST-EFFORT: mark matching receipt transactions as reversed (audit only) ==========
+    let remaining = quantityToReverse;
+    const candidates = transactions
+        .map((tx, idx) => ({ tx, idx }))
+        .filter(({ tx }) =>
+            tx &&
+            tx.isInventory === true &&
+            tx.transactionType === 'receipt' &&
+            tx.studentId === studentId &&
+            !tx.reversed &&
+            (tx.itemName || '').trim().toLowerCase() === normalizedItemName &&
+            tx.academicYear !== undefined && parseInt(tx.academicYear) === year &&
+            tx.term !== undefined && parseInt(tx.term) === termNum
+        )
+        .sort((a, b) => new Date(b.tx.timestamp) - new Date(a.tx.timestamp));
+
+    for (const { tx, idx } of candidates) {
+        if (remaining <= 0) break;
+        const txQty = tx.quantity || 0;
+        const qtyFromThisTx = Math.min(txQty, remaining);
+
+        if (qtyFromThisTx >= txQty) {
+            transactions[idx].reversed = true;
+            transactions[idx].reversedAt = new Date().toISOString();
+            transactions[idx].reverseReason = 'Payment deleted by admin';
+        } else {
+            transactions[idx].quantity = txQty - qtyFromThisTx;
+            transactions[idx].partiallyReversed = true;
+            transactions[idx].partialReverseHistory = transactions[idx].partialReverseHistory || [];
+            transactions[idx].partialReverseHistory.push({
+                quantity: qtyFromThisTx,
+                reversedAt: new Date().toISOString(),
+                reason: 'Payment deleted by admin'
+            });
+        }
+        remaining -= qtyFromThisTx;
+    }
+
+    // ========== 3. RECORD A REVERSAL TRANSACTION FOR AUDIT (regardless of matches found) ==========
+    transactions.push({
+        id: uuidv4(),
+        itemName: itemName,
+        quantity: deducted,
+        transactionType: 'payment_reversal',
+        studentId: studentId,
+        academicYear: year,
+        term: termNum,
+        timestamp: new Date().toISOString(),
+        date: new Date().toISOString().split('T')[0],
+        isInventory: true,
+        reason: 'Deleted a payment that had contributed to this stock',
+        matchedTransactionsFound: candidates.length
+    });
+
+    saveFile(inventoryStockPath, stock);
+    saveFile(inventoryTransactionsPath, transactions);
+
+    console.log(`✅ Deducted ${deducted} unit(s) of "${itemName}" directly from stock (student ${studentId}, ${year} T${termNum})`);
+    if (candidates.length === 0) {
+        console.log(`ℹ️ No matching receipt transaction found to mark reversed — deducted from stock directly instead`);
+    }
+}
+
+// ==================== HELPER: COMPUTE INVENTORY QTY A PAYMENT ITEM CONTRIBUTED ====================
+// Must mirror the exact logic in updateInventoryFromPayment() so reversals match originals.
+function computeInventoryQtyForPaymentItem(item) {
+    if (!item) return 0;
+    const unitPrice = parseFloat(item.unitPrice) || 0;
+
+    if (item.paymentType === 'brought_item') {
+        return parseInt(item.itemsBrought) || 0;
+    }
+
+    if (item.paymentType === 'paid_cash') {
+        const amountPaid = parseFloat(item.amountPaid) || 0;
+        if (amountPaid <= 0) return 0;
+        if (unitPrice > 0) {
+            return Math.floor(amountPaid / unitPrice);
+        }
+        return parseInt(item.quantityRequired) || 0;
+    }
+
+    return 0;
+}
+// ==================== REBUILT PUT ROUTE (PERIOD‑AWARE) ====================
 app.put('/api/students/:id', (req, res) => {
     try {
         let students = readFile(files.students);
         const index = students.findIndex(s => s.id === req.params.id);
-        
         if (index === -1) {
             return res.status(404).json({ error: 'Student not found' });
         }
-        
-        const student = students[index];
+
+        const oldStudent = students[index];
         const updatedData = req.body;
-        
-        // Handle custom item overrides if provided
-        if (updatedData.customItemOverrides) {
-            // Merge with existing overrides
-            if (!student.customItemOverrides) {
-                student.customItemOverrides = {};
+
+        // ========== DETECT NEWLY REMOVED ITEMS (PERIOD‑AWARE) ==========
+        const oldRemoved = oldStudent.removedItems || {};
+        const newRemoved = updatedData.removedItems || {};
+        const newlyRemoved = {};
+
+        for (const [itemId, value] of Object.entries(newRemoved)) {
+            if (!oldRemoved[itemId] && value && value.isActive !== false) {
+                newlyRemoved[itemId] = value;
             }
-            
-            // For each override, update or add
+        }
+
+        // Group newly removed items by their removal period
+        if (Object.keys(newlyRemoved).length > 0) {
+            // Use current settings as fallback if period not provided
+            const settings = readFile(files.settings);
+            const defaultYear = settings.currentAcademicYear || new Date().getFullYear();
+            const defaultTerm = settings.currentTerm || 1;
+
+            // Group by period (year + term)
+            const periodGroups = new Map();
+            for (const [itemId, data] of Object.entries(newlyRemoved)) {
+                const year = data.academicYear || defaultYear;
+                const term = data.term || defaultTerm;
+                const key = `${year}_${term}`;
+                if (!periodGroups.has(key)) {
+                    periodGroups.set(key, { year, term, items: [] });
+                }
+                periodGroups.get(key).items.push({
+                    itemId,
+                    itemName: data.itemName || itemId,
+                    componentName: data.componentName || ''
+                });
+            }
+
+            // Delete payments for each period separately
+            for (const [key, group] of periodGroups) {
+                deletePaymentsForItems(oldStudent.id, group.items, { year: group.year, term: group.term });
+           reverseInventoryForRemovedItems(oldStudent.id, group.items, { year: group.year, term: group.term }); // ← add this line
+            }
+        }
+        // ========== END NEW LOGIC ==========
+
+        // ----- Existing custom overrides logic (unchanged) -----
+        if (updatedData.customItemOverrides) {
+            if (!oldStudent.customItemOverrides) {
+                oldStudent.customItemOverrides = {};
+            }
             for (const [itemId, customData] of Object.entries(updatedData.customItemOverrides)) {
                 if (customData.isCustomized) {
-                    // Fetch the fee structure to get default values if needed
                     const feeStructures = readFile(files.feeStructures);
-                    const assignment = readFile(files.studentFeeAssignments).find(a => a.studentId === student.id);
+                    const assignment = readFile(files.studentFeeAssignments).find(a => a.studentId === oldStudent.id);
                     const feeStructure = feeStructures.find(f => f.id === assignment?.feeStructureId);
-                    
+
                     let defaultAmount = customData.defaultAmount || 0;
                     let defaultQuantity = customData.defaultQuantity || 1;
                     let itemName = customData.itemName || itemId;
                     let componentId = customData.componentId || null;
-                    
-                    // Try to find the item in the fee structure if defaults not provided
+
                     if (feeStructure && feeStructure.activityComponents) {
                         for (const comp of feeStructure.activityComponents) {
                             for (const item of (comp.items || [])) {
@@ -2734,8 +3173,8 @@ app.put('/api/students/:id', (req, res) => {
                             }
                         }
                     }
-                    
-                    student.customItemOverrides[itemId] = {
+
+                    oldStudent.customItemOverrides[itemId] = {
                         itemId: itemId,
                         itemName: customData.itemName || itemName,
                         componentId: customData.componentId || componentId,
@@ -2750,29 +3189,25 @@ app.put('/api/students/:id', (req, res) => {
                         updatedBy: 'System'
                     };
                 } else {
-                    // Remove customization if not marked as customized
-                    delete student.customItemOverrides[itemId];
+                    delete oldStudent.customItemOverrides[itemId];
                 }
             }
-            
-            // Update counts
-            const count = Object.keys(student.customItemOverrides).length;
-            student.hasCustomizations = count > 0;
-            student.customizationCount = count;
-            
-            // Remove the customItemOverrides from updatedData to avoid overwriting
+            const count = Object.keys(oldStudent.customItemOverrides).length;
+            oldStudent.hasCustomizations = count > 0;
+            oldStudent.customizationCount = count;
             delete updatedData.customItemOverrides;
         }
-        
-        // Apply all other updates
-        students[index] = { 
-            ...student, 
-            ...updatedData, 
-            updatedAt: new Date().toISOString() 
+
+        // Apply all other updates (including removedItems with their periods)
+        students[index] = {
+            ...oldStudent,
+            ...updatedData,
+            updatedAt: new Date().toISOString()
         };
-        
+
         saveFile(files.students, students);
         res.json({ success: true, student: students[index] });
+
     } catch (error) {
         console.error('Error updating student:', error);
         res.status(500).json({ error: error.message });
@@ -3637,12 +4072,12 @@ app.post('/api/fee/payments', (req, res) => {
     res.json({ success: true, receiptNumber: receiptNumber, payment: payment });
 });
 
-app.delete('/api/fee/payments/:id', (req, res) => {
-    let payments = readFile(files.feePayments);
-    payments = payments.filter(p => p.id !== req.params.id);
-    saveFile(files.feePayments, payments);
-    res.json({ success: true });
-});
+// app.delete('/api/fee/payments/:id', (req, res) => {
+//     let payments = readFile(files.feePayments);
+//     payments = payments.filter(p => p.id !== req.params.id);
+//     saveFile(files.feePayments, payments);
+//     res.json({ success: true });
+// });
 
 
 // Add this after your GET /api/academic/years endpoint
@@ -6219,7 +6654,7 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 
 // ==================== COMPREHENSIVE REPORT (v12.0 - PERIOD SCOPING FIXED) ====================
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v11.1 - PERIOD DETECTION FIXED ===');
+    console.log('=== COMPREHENSIVE REPORT v11.2 - PERIOD-AWARE REMOVAL ===');
     
     try {
         // ================================================================
@@ -6382,31 +6817,29 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             };
         }
 
-        // 4.6: Check if Item is Removed
-        function isItemRemoved(student, itemId) {
+        // ================================================================
+        // NEW: PERIOD-AWARE REMOVAL CHECK
+        // ================================================================
+        function isItemRemovedForPeriod(student, itemId, year, term) {
             if (!student || !student.removedItems) return false;
-            return student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
+            const removed = student.removedItems[itemId];
+            if (!removed || removed.isActive === false) return false;
+            // Legacy removals without period stamp: treat as removed everywhere
+            if (removed.academicYear === undefined || removed.term === undefined) return true;
+            return removed.academicYear === parseInt(year) && removed.term === parseInt(term);
         }
 
-        // 4.7: Get Period-Scoped Payments (CRITICAL FIX)
+        // 4.6: Get Period-Scoped Payments (unchanged)
         function getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData) {
-            // Get all payments for this student
             const studentPayments = allPaymentsData.filter(p => p && p.studentId === studentId);
-            
             if (periodType === 'one_time') {
-                // One-Time: Check ALL payments FOREVER
                 return studentPayments;
-            } 
-            else if (periodType === 'yearly') {
-                // ✅ PERMANENT FIX: Yearly - Check ALL terms in the SAME academic year
-                // This ensures Development Fee (paid in Term 1) is found
+            } else if (periodType === 'yearly') {
                 return studentPayments.filter(p => {
                     if (!p || !p.academicYear) return false;
                     return parseInt(p.academicYear) === year;
                 });
-            } 
-            else {
-                // Termly: Check ONLY the CURRENT term
+            } else {
                 return studentPayments.filter(p => {
                     if (!p) return false;
                     return p.term === term && parseInt(p.academicYear) === year;
@@ -6414,139 +6847,24 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
         }
 
-        // ================================================================
-        // FIXED: getPaidAmountsForItem - With Debug Logging
-        // ================================================================
+        // 4.7: getPaidAmountsForItem (unchanged)
         function getPaidAmountsForItem(studentId, componentName, itemName, periodType, year, term, allPaymentsData) {
-            console.log(`🔍 getPaidAmountsForItem: ${itemName} (${periodType}) for ${studentId}`);
-            
             const scopedPayments = getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData);
-            
             let cashPaid = 0;
             let itemsBrought = 0;
             const paymentHistories = [];
             const processedKeys = new Set();
-            
-            console.log(`   📊 Processing ${scopedPayments.length} payments for ${itemName}`);
-            
-            for (const payment of scopedPayments) {
-                if (!payment || !payment.id) continue;
-                
-                // Check activityItemPayments
-                if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
-                    for (const paidItem of payment.activityItemPayments) {
-                        if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                        
-                        const compMatch = paidItem.componentName && 
-                            paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                        const itemMatch = paidItem.itemName && 
-                            paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                        
-                        if (compMatch && itemMatch) {
-                            const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
-                            if (!processedKeys.has(key)) {
-                                processedKeys.add(key);
-                                
-                                if (paidItem.paymentType === 'paid_cash') {
-                                    const amount = (paidItem.amountPaid || 0);
-                                    cashPaid += amount;
-                                    console.log(`   💵 Found cash payment: ${itemName} = UGX ${amount}`);
-                                    paymentHistories.push({
-                                        type: 'cash',
-                                        amount: amount,
-                                        date: payment.date || new Date().toISOString(),
-                                        receiptNumber: payment.receiptNumber || 'N/A'
-                                    });
-                                } else if (paidItem.paymentType === 'brought_item') {
-                                    const qty = (paidItem.itemsBrought || 0);
-                                    itemsBrought += qty;
-                                    console.log(`   📦 Found items brought: ${itemName} = ${qty}`);
-                                    paymentHistories.push({
-                                        type: 'item',
-                                        quantity: qty,
-                                        date: payment.date || new Date().toISOString(),
-                                        receiptNumber: payment.receiptNumber || 'N/A'
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Check paymentsByPeriodType
-                if (payment.paymentsByPeriodType) {
-                    const periodTypes = ['one_time', 'termly', 'yearly'];
-                    for (const pt of periodTypes) {
-                        const periodItems = payment.paymentsByPeriodType[pt] || [];
-                        for (const paidItem of periodItems) {
-                            if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                            
-                            const compMatch = paidItem.componentName && 
-                                paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                            const itemMatch = paidItem.itemName && 
-                                paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                            
-                            if (compMatch && itemMatch) {
-                                const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
-                                if (!processedKeys.has(key)) {
-                                    processedKeys.add(key);
-                                    
-                                    if (paidItem.paymentType === 'paid_cash') {
-                                        const amount = (paidItem.amountPaid || 0);
-                                        cashPaid += amount;
-                                        console.log(`   💵 Found cash payment (byPeriodType): ${itemName} = UGX ${amount}`);
-                                        paymentHistories.push({
-                                            type: 'cash',
-                                            amount: amount,
-                                            date: payment.date || new Date().toISOString(),
-                                            receiptNumber: payment.receiptNumber || 'N/A'
-                                        });
-                                    } else if (paidItem.paymentType === 'brought_item') {
-                                        const qty = (paidItem.itemsBrought || 0);
-                                        itemsBrought += qty;
-                                        console.log(`   📦 Found items brought (byPeriodType): ${itemName} = ${qty}`);
-                                        paymentHistories.push({
-                                            type: 'item',
-                                            quantity: qty,
-                                            date: payment.date || new Date().toISOString(),
-                                            receiptNumber: payment.receiptNumber || 'N/A'
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            console.log(`   📊 Result for ${itemName}: cashPaid=${cashPaid}, itemsBrought=${itemsBrought}`);
-            
-            return { cashPaid, itemsBrought, paymentHistories };
-        }
-
-        // 4.8: Get Paid Amounts for Item with Period Scoping
-        function getPaidAmountsForItem(studentId, componentName, itemName, periodType, year, term, allPaymentsData) {
-            const scopedPayments = getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData);
-            
-            let cashPaid = 0;
-            let itemsBrought = 0;
-            const paymentHistories = [];
             const uniquePaymentItems = new Map();
-            const processedKeys = new Set();
             
             for (const payment of scopedPayments) {
                 if (!payment || !payment.id) continue;
-                
-                // Check activityItemPayments
                 if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
                     for (const paidItem of payment.activityItemPayments) {
                         if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                        
                         const compMatch = paidItem.componentName && 
                             paidItem.componentName.toLowerCase() === componentName.toLowerCase();
                         const itemMatch = paidItem.itemName && 
                             paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                        
                         if (compMatch && itemMatch) {
                             const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
                             if (!processedKeys.has(key)) {
@@ -6556,20 +6874,16 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         }
                     }
                 }
-                
-                // Check paymentsByPeriodType
                 if (payment.paymentsByPeriodType) {
                     const periodTypes = ['one_time', 'termly', 'yearly'];
                     for (const pt of periodTypes) {
                         const periodItems = payment.paymentsByPeriodType[pt] || [];
                         for (const paidItem of periodItems) {
                             if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                            
                             const compMatch = paidItem.componentName && 
                                 paidItem.componentName.toLowerCase() === componentName.toLowerCase();
                             const itemMatch = paidItem.itemName && 
                                 paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                            
                             if (compMatch && itemMatch) {
                                 const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
                                 if (!processedKeys.has(key)) {
@@ -6622,7 +6936,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
-            // Deduplicate histories
             const seen = new Set();
             const uniqueHistories = [];
             for (const h of paymentHistories) {
@@ -6636,24 +6949,20 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
 
-        // 4.9: Calculate Item Totals with OR Logic (CRITICAL FIX)
+        // 4.8: Calculate Item Totals with OR Logic (unchanged)
         function calculateItemTotalsWithORLogic(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
             const finalItemsBrought = Math.min(itemsBrought, qtyRequired);
             let cashExpected = 0;
             let finalCashPaid = 0;
             
             if (paymentOption === 'cash_only') {
-                // Cash Only: Only money matters
                 cashExpected = amountExpected;
                 finalCashPaid = Math.min(cashPaid, amountExpected);
             } else if (paymentOption === 'item_only') {
-                // Item Only: NO cash expected, NO cash paid
                 cashExpected = 0;
                 finalCashPaid = 0;
             } else {
-                // 'either' - OR Logic
                 if (finalItemsBrought >= qtyRequired && qtyRequired > 0) {
-                    // Fully paid by items → 0 cash needed
                     cashExpected = 0;
                     finalCashPaid = 0;
                 } else {
@@ -6679,34 +6988,27 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         }
 
         // ================================================================
-        // STEP 5: GET ALL PERIODS FOR STUDENT (FIXED – includes current period)
+        // STEP 5: GET ALL PERIODS FOR STUDENT (unchanged)
         // ================================================================
         function getAllPeriodsForStudent(studentId) {
             const periods = new Map();
             const currentYear = parseInt(targetYear);
             const currentTerm = parseInt(targetTerm);
             
-            // From payments
             allPayments.forEach(p => {
                 if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
                     const year = parseInt(p.academicYear);
                     const term = parseInt(p.term);
-                    // Only include if not in the future
                     if (year < currentYear || (year === currentYear && term <= currentTerm)) {
                         const key = `${year}_${term}`;
                         if (!periods.has(key)) {
-                            periods.set(key, { 
-                                year: year, 
-                                term: term, 
-                                payments: [] 
-                            });
+                            periods.set(key, { year, term, payments: [] });
                         }
                         periods.get(key).payments.push(p);
                     }
                 }
             });
             
-            // From term records
             for (const [key, record] of Object.entries(termRecords)) {
                 if (key.startsWith(studentId + '_')) {
                     const parts = key.split('_');
@@ -6723,7 +7025,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
-            // From fee assignments (so promoted years appear even without payments)
             const studentAssignments = feeAssignments.filter(a => a && a.studentId === studentId);
             for (const ass of studentAssignments) {
                 const year = parseInt(ass.academicYear);
@@ -6732,24 +7033,15 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     if (year < currentYear || (year === currentYear && term <= currentTerm)) {
                         const key = `${year}_${term}`;
                         if (!periods.has(key)) {
-                            periods.set(key, { 
-                                year: year, 
-                                term: term, 
-                                payments: [] 
-                            });
+                            periods.set(key, { year, term, payments: [] });
                         }
                     }
                 }
             }
             
-            // ✅ CRITICAL FIX: Always add the current period if not already present
             const currentKey = `${currentYear}_${currentTerm}`;
             if (!periods.has(currentKey)) {
-                periods.set(currentKey, { 
-                    year: currentYear, 
-                    term: currentTerm, 
-                    payments: [] 
-                });
+                periods.set(currentKey, { year: currentYear, term: currentTerm, payments: [] });
             }
             
             return Array.from(periods.entries())
@@ -6790,15 +7082,12 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         for (const student of students) {
             if (!student || !student.id) continue;
             
-            // Get fee assignment
             const assignment = assignmentsMap[student.id] || {};
             const feeStructure = feeStructuresMap[assignment.feeStructureId];
             if (!feeStructure) continue;
             
-            // Apply fee structure filter
             if (feeStructureId && feeStructureId !== 'all' && feeStructure.id !== feeStructureId) continue;
             
-            // Get student's class
             let currentClass = 'Not Assigned';
             let classLevel = 'Unknown';
             if (student.currentClassId && classesMap[student.currentClassId]) {
@@ -6808,23 +7097,20 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 currentClass = student.currentClass;
             }
             
-            // Apply class filters
             if (classId && classId !== 'all' && currentClass !== classId) continue;
             if (level && level !== 'all' && classLevel !== level) continue;
             if (studentId && studentId !== 'all' && student.id !== studentId) continue;
             
             // ================================================================
-            // FIX: Get ALL periods for the student (for scoping rules)
+            // Get ALL periods for the student (for scoping rules)
             // ================================================================
             const allPeriods = getAllPeriodsForStudent(student.id);
-            // Determine oldest period (last element after ascending sort)
             const sortedAsc = [...allPeriods].sort((a, b) => {
                 if (a.year !== b.year) return a.year - b.year;
                 return a.term - b.term;
             });
             const oldestPeriodKey = sortedAsc.length > 0 ? sortedAsc[0].periodKey : null;
             
-            // Determine max term per year from all periods
             const maxTermByYear = {};
             for (const p of allPeriods) {
                 const year = p.year;
@@ -6834,7 +7120,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
-            // Now determine periods to actually display (based on filters)
             let periodsToProcess = allPeriods;
             if (!includeAllPeriodsBool) {
                 periodsToProcess = allPeriods.filter(p => 
@@ -6850,7 +7135,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
-            // Collect period keys for global list
             for (const p of periodsToProcess) {
                 if (allPeriodKeys.indexOf(p.periodKey) === -1) {
                     allPeriodKeys.push(p.periodKey);
@@ -6858,7 +7142,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
             
             // ============================================================
-            // CALCULATE TUITION
+            // CALCULATE TUITION (unchanged)
             // ============================================================
             let originalTuition = feeStructure.tuition || 0;
             let tuitionExpected = originalTuition;
@@ -6867,7 +7151,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             let appliedBursary = null;
             let isCustomBursary = false;
             
-            // Apply bursary
             if (student.customBursary && student.customBursary.amount > 0) {
                 discountAmount = student.customBursary.amount;
                 discountDisplay = `UGX ${discountAmount.toLocaleString()} off (Custom)`;
@@ -6888,7 +7171,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
-            // Get tuition payments
             let tuitionPaid = 0;
             const tuitionPaymentHistories = [];
             const tuitionPeriodBreakdown = {};
@@ -6937,11 +7219,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             
             const tuitionBalance = tuitionExpected - tuitionPaid;
             
-            // Determine tuition status
             let tuitionStatus = 'Payment Due';
             let tuitionStatusColor = 'bg-yellow-100 text-yellow-800';
             let tuitionStatusIcon = '⚠️';
-            
             if (tuitionBalance < -10) {
                 tuitionStatus = 'Credit Balance';
                 tuitionStatusColor = 'bg-blue-100 text-blue-800';
@@ -6961,7 +7241,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
             
             // ============================================================
-            // BUILD STATUS GROUPS WITH CORRECT DATA
+            // BUILD STATUS GROUPS WITH PERIOD-AWARE REMOVAL
             // ============================================================
             const statusGroups = {};
             let studentTotalCashExpected = 0;
@@ -6997,15 +7277,16 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         
                         const itemId = item.id || item.name;
                         
-                        // Check if removed
-                        if (isItemRemoved(student, itemId)) continue;
+                        // ============================================================
+                        // REMOVED GLOBAL SKIP – we will handle per‑period below
+                        // ============================================================
+                        // if (isItemRemoved(student, itemId)) continue;   // <-- REMOVED
                         
                         const defaultAmount = item.totalAmount || 0;
                         const defaultQuantity = item.quantity || 1;
                         const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
                         const defaultPaymentOption = item.paymentOption || 'either';
                         
-                        // Get custom values
                         const customValues = getCustomizedItemValue(
                             student, itemId, defaultAmount, defaultQuantity, 
                             defaultPaymentOption, defaultUnitPrice
@@ -7022,7 +7303,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             studentHasCustomizations = true;
                         }
                         
-                        // Initialize item data
                         if (!statusGroups[groupName].items[item.name]) {
                             statusGroups[groupName].items[item.name] = {
                                 id: itemId,
@@ -7047,7 +7327,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         const itemData = statusGroups[groupName].items[item.name];
                         
                         // ============================================================
-                        // CALCULATE FOR EACH PERIOD (with fixed scoping)
+                        // CALCULATE FOR EACH PERIOD (with period‑aware removal)
                         // ============================================================
                         let totalQtyCollected = 0;
                         let totalAmtCollected = 0;
@@ -7060,18 +7340,23 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             const isFirstTermForPeriod = (period.term === 1);
                             
                             // ================================================================
-                            // FIX: Determine if this item should be included in this period
+                            // Determine if this item should be included in this period
                             // ================================================================
                             let shouldInclude = false;
                             if (periodType === 'termly') {
                                 shouldInclude = true;
                             } else if (periodType === 'one_time') {
-                                // One-Time: Only include if this is the OLDEST period
                                 shouldInclude = (periodKey === oldestPeriodKey);
                             } else if (periodType === 'yearly') {
-                                // Yearly: Only include if this is the LATEST term of this year
                                 const maxTerm = maxTermByYear[period.year] || 0;
                                 shouldInclude = (period.term === maxTerm);
+                            }
+                            
+                            // ================================================================
+                            // NEW: PERIOD-AWARE REMOVAL – skip if removed for this specific period
+                            // ================================================================
+                            if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
+                                shouldInclude = false;
                             }
                             
                             if (!shouldInclude) {
@@ -7223,7 +7508,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 paymentDueCount++;
             }
             
-            // Apply payment status filter
             if (paymentStatus && paymentStatus !== 'all') {
                 if (overallStatus !== paymentStatus) continue;
             }
@@ -7421,9 +7705,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     periodsIncluded: allPeriodKeys,
                     tuitionPeriodCount: allPeriodKeys.length
                 },
-                // ============================================================
-                // CRITICAL: Include raw payments for Excel export
-                // ============================================================
                 allPayments: allPayments
             }
         };
@@ -7447,7 +7728,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         });
     }
 });
-
 console.log('✅ Comprehensive Report API v11.1 - PERIOD DETECTION FIXED!');
 console.log('   - Correct OR logic for cash vs items');
 console.log('   - Proper period scoping (Termly, Yearly, One-Time)');
@@ -10698,15 +10978,76 @@ console.log('   📅 Termly items independent per term');
 
 
 // Delete a specific payment record
+// ==================== DELETE A PAYMENT RECORD (WITH INVENTORY REVERSAL) ====================
+// ==================== DELETE A PAYMENT RECORD (WITH INVENTORY REVERSAL FOR CASH & ITEMS) ====================
 app.delete('/api/fee/payments/:id', (req, res) => {
     try {
         const paymentId = req.params.id;
         let payments = readFile(files.feePayments);
+        
+        const paymentToDelete = payments.find(p => p.id === paymentId);
         const initialLength = payments.length;
         payments = payments.filter(p => p.id !== paymentId);
+        
         if (payments.length === initialLength) {
             return res.status(404).json({ error: 'Payment not found' });
         }
+
+        // ========== Reverse inventory for all items in this receipt ==========
+        if (paymentToDelete) {
+            const itemQtyMap = {};
+
+            // Helper to add quantity for an item
+            function addItemQuantity(item) {
+                if (!item) return;
+                const name = (item.itemName || '').trim();
+                if (!name) return;
+                let qtyToAdd = 0;
+                if (item.paymentType === 'brought_item') {
+                    qtyToAdd = item.itemsBrought || 0;
+                } else if (item.paymentType === 'paid_cash') {
+                    const unitPrice = item.unitPrice || 0;
+                    if (unitPrice > 0) {
+                        qtyToAdd = Math.floor((item.amountPaid || 0) / unitPrice);
+                    } else {
+                        // Fallback: use quantityRequired if available
+                        qtyToAdd = item.quantityRequired || 0;
+                    }
+                }
+                if (qtyToAdd > 0) {
+                    itemQtyMap[name] = (itemQtyMap[name] || 0) + qtyToAdd;
+                }
+            }
+
+            // Check activityItemPayments
+            if (Array.isArray(paymentToDelete.activityItemPayments)) {
+                for (const item of paymentToDelete.activityItemPayments) {
+                    addItemQuantity(item);
+                }
+            }
+
+            // Check paymentsByPeriodType
+            if (paymentToDelete.paymentsByPeriodType) {
+                for (const pt of ['one_time', 'termly', 'yearly']) {
+                    const periodItems = paymentToDelete.paymentsByPeriodType[pt] || [];
+                    for (const item of periodItems) {
+                        addItemQuantity(item);
+                    }
+                }
+            }
+
+            // Reverse inventory for each item
+            for (const [name, qty] of Object.entries(itemQtyMap)) {
+                reverseInventoryForDeletedPaymentItem(
+                    paymentToDelete.studentId,
+                    name,
+                    paymentToDelete.academicYear,
+                    paymentToDelete.term,
+                    qty
+                );
+            }
+        }
+
         saveFile(files.feePayments, payments);
         res.json({ success: true, message: 'Payment deleted successfully' });
     } catch (error) {
@@ -10715,6 +11056,160 @@ app.delete('/api/fee/payments/:id', (req, res) => {
     }
 });
 
+// ==================== DELETE ONE ITEM'S PAYMENT FROM A SHARED RECEIPT ====================
+// ==================== DELETE ONE ITEM'S PAYMENT FROM A SHARED RECEIPT (WITH INVENTORY REVERSAL) ====================
+// ==================== DELETE ONE ITEM'S PAYMENT (WITH INVENTORY REVERSAL FOR CASH & ITEMS) ====================
+app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const { itemName, componentName, periodType, paymentType, amount, quantity } = req.body;
+
+        if (!itemName || !componentName) {
+            return res.status(400).json({ error: 'itemName and componentName are required' });
+        }
+
+        let payments = readFile(files.feePayments);
+        const idx = payments.findIndex(p => p.id === paymentId);
+        if (idx === -1) return res.status(404).json({ error: 'Payment record not found' });
+
+        const payment = payments[idx];
+
+        function matches(item) {
+            if (!item) return false;
+            const nameMatch = (item.itemName || '').trim().toLowerCase() === itemName.trim().toLowerCase();
+            const compMatch = (item.componentName || '').trim().toLowerCase() === componentName.trim().toLowerCase();
+            if (!nameMatch || !compMatch) return false;
+            if (periodType && item.periodType && item.periodType !== periodType) return false;
+            if (paymentType && item.paymentType && item.paymentType !== paymentType) return false;
+            if (paymentType === 'paid_cash' && amount !== undefined) {
+                if (Math.round(item.amountPaid || 0) !== Math.round(amount)) return false;
+            }
+            if (paymentType === 'brought_item' && quantity !== undefined) {
+                if (Math.round(item.itemsBrought || 0) !== Math.round(quantity)) return false;
+            }
+            return true;
+        }
+
+        let removed = false;
+        let inventoryQtyToReverse = 0; // quantity to reverse (items or cash-equivalent items)
+
+        // ========== Remove from activityItemPayments ==========
+        if (Array.isArray(payment.activityItemPayments)) {
+            const i = payment.activityItemPayments.findIndex(matches);
+            if (i !== -1) {
+                const matchedItem = payment.activityItemPayments[i];
+                inventoryQtyToReverse = computeInventoryQtyForPaymentItem(matchedItem);
+                payment.activityItemPayments.splice(i, 1);
+                removed = true;
+            }
+        }
+
+        // ========== Remove from paymentsByPeriodType (if not already removed) ==========
+        if (!removed && payment.paymentsByPeriodType) {
+            for (const pt of ['one_time', 'termly', 'yearly']) {
+                const arr = payment.paymentsByPeriodType[pt] || [];
+                const i = arr.findIndex(matches);
+                if (i !== -1) {
+                    const matchedItem = arr[i];
+                    if (inventoryQtyToReverse === 0) {
+                        inventoryQtyToReverse = computeInventoryQtyForPaymentItem(matchedItem);
+                    }
+                    arr.splice(i, 1);
+                    removed = true;
+                    break;
+                }
+            }
+        }
+
+        if (!removed) {
+            return res.status(404).json({ error: 'That specific item payment was not found in this receipt' });
+        }
+
+        // ========== Reverse inventory if this payment added stock ==========
+        if (inventoryQtyToReverse > 0) {
+            reverseInventoryForDeletedPaymentItem(
+                payment.studentId,
+                itemName,
+                payment.academicYear,
+                payment.term,
+                inventoryQtyToReverse
+            );
+        }
+
+        // Recalculate totals for this record only
+        const newActivityTotal = (payment.activityItemPayments || []).reduce((sum, i) =>
+            sum + (i.paymentType === 'paid_cash'
+                ? (i.amountPaid || 0)
+                : (i.cashEquivalent || (i.itemsBrought || 0) * (i.unitPrice || 0))), 0);
+        payment.activityTotalPaid = newActivityTotal;
+        payment.totalAmount = (payment.tuitionPaid || 0) + newActivityTotal;
+
+        // Keep studentTermRecords in sync
+        try {
+            let termRecords = readFile(files.studentTermRecords);
+            const key = `${payment.studentId}_${payment.academicYear}_${payment.term}`;
+            if (termRecords[key] && termRecords[key].activityItemsPaid) {
+                for (const pt of ['one_time', 'termly', 'yearly']) {
+                    const arr = termRecords[key].activityItemsPaid[pt] || [];
+                    const entry = arr.find(i => i.itemName === itemName);
+                    if (entry && entry.payments) {
+                        entry.payments = entry.payments.filter(p =>
+                            !(p.receiptNumber === payment.receiptNumber &&
+                              ((amount !== undefined && Math.abs((p.amount||0)-amount) < 1) ||
+                               (quantity !== undefined && Math.abs((p.itemsBrought||0)-quantity) < 1)))
+                        );
+                        entry.amountPaid = entry.payments.reduce((s,p)=>s+(p.amount||0),0);
+                        entry.itemsBrought = entry.payments.reduce((s,p)=>s+(p.itemsBrought||0),0);
+                    }
+                }
+                saveFile(files.studentTermRecords, termRecords);
+            }
+        } catch (e) {
+            console.warn('term record sync skipped:', e.message);
+        }
+
+        const stillHasSomething = (payment.activityItemPayments || []).length > 0 || (payment.tuitionPaid || 0) > 0;
+
+        if (!stillHasSomething) {
+            payments.splice(idx, 1);
+            saveFile(files.feePayments, payments);
+            return res.json({ success: true, deletedEntirePayment: true });
+        }
+
+        payments[idx] = payment;
+        saveFile(files.feePayments, payments);
+        res.json({ success: true, deletedEntirePayment: false, payment });
+
+    } catch (error) {
+        console.error('Error deleting item payment:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+// ==================== DELETE ONLY THE TUITION PORTION OF A RECEIPT ====================
+app.delete('/api/fee/payments/:paymentId/tuition', (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        let payments = readFile(files.feePayments);
+        const idx = payments.findIndex(p => p.id === paymentId);
+        if (idx === -1) return res.status(404).json({ error: 'Payment record not found' });
+
+        const payment = payments[idx];
+        payment.tuitionPaid = 0;
+        payment.totalAmount = payment.activityTotalPaid || 0;
+
+        const stillHasSomething = (payment.activityItemPayments || []).length > 0;
+        if (!stillHasSomething) {
+            payments.splice(idx, 1);
+            saveFile(files.feePayments, payments);
+            return res.json({ success: true, deletedEntirePayment: true });
+        }
+        payments[idx] = payment;
+        saveFile(files.feePayments, payments);
+        res.json({ success: true, deletedEntirePayment: false, payment });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 // ================================================================
 // STUDENT PROMOTION ENDPOINT - COMPLETE
 // ================================================================
@@ -14816,6 +15311,174 @@ app.get('/api/report-cards/student/:studentId/all', (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+// ==================== PURGE ALL PAYMENTS FOR A FEE-STRUCTURE ITEM (or whole group) ====================
+// Called when an item/group is removed from a fee structure. Deletes every matching
+// payment entry across ALL students, recalculates payment totals, and reverses any
+// inventory stock that was auto-added from a "brought_item" payment for that item.
+app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
+    console.log('🗑️ PURGE PAYMENTS FOR FEE STRUCTURE ITEM/GROUP');
+    try {
+        const { itemName, componentName, feeStructureId } = req.body; // NEW: feeStructureId required
+
+        if (!itemName && !componentName) {
+            return res.status(400).json({ error: 'itemName or componentName is required' });
+        }
+        if (!feeStructureId) {
+            return res.status(400).json({ error: 'feeStructureId is required to scope this deletion safely' });
+        }
+
+        const normalizedItemName = itemName ? itemName.trim().toLowerCase() : null;
+        const normalizedComponent = componentName ? componentName.trim().toLowerCase() : null;
+
+        function itemMatches(item) {
+            if (!item) return false;
+            if (normalizedItemName) {
+                const n = (item.itemName || item.name || '').trim().toLowerCase();
+                if (n !== normalizedItemName) return false;
+            }
+            if (normalizedComponent) {
+                const c = (item.componentName || '').trim().toLowerCase();
+                if (c !== normalizedComponent) return false;
+            }
+            return true;
+        }
+
+        // ========== 1. PURGE FROM feePayments.json — ONLY for this fee structure ==========
+        let payments = readFile(files.feePayments);
+        if (!Array.isArray(payments)) payments = [];
+
+        let deletedPaymentRecords = 0;
+        let modifiedPaymentRecords = 0;
+        let skippedOtherFeeStructure = 0; // NEW: for visibility in logs/response
+        const inventoryReversals = {};
+
+        const keptPayments = [];
+        for (const payment of payments) {
+            // ========== CRITICAL FIX: only touch payments belonging to THIS fee structure ==========
+            if (payment.feeStructureId !== feeStructureId) {
+                keptPayments.push(payment);
+                continue;
+            }
+
+            let changed = false;
+
+            const trackRemoved = (removedItem) => {
+                const qty = computeInventoryQtyForPaymentItem(removedItem);
+                if (qty > 0) {
+                    const key = `${payment.studentId}_${payment.academicYear}_${payment.term}`;
+                    if (!inventoryReversals[key]) {
+                        inventoryReversals[key] = { studentId: payment.studentId, year: payment.academicYear, term: payment.term, itemQty: {} };
+                    }
+                    const nm = removedItem.itemName;
+                    inventoryReversals[key].itemQty[nm] = (inventoryReversals[key].itemQty[nm] || 0) + qty;
+                }
+            };
+
+            if (Array.isArray(payment.activityItemPayments)) {
+                const filtered = [];
+                for (const item of payment.activityItemPayments) {
+                    if (itemMatches(item)) { trackRemoved(item); changed = true; }
+                    else filtered.push(item);
+                }
+                payment.activityItemPayments = filtered;
+            }
+
+            if (payment.paymentsByPeriodType) {
+                for (const pt of ['one_time', 'termly', 'yearly']) {
+                    const arr = payment.paymentsByPeriodType[pt] || [];
+                    const filtered = [];
+                    for (const item of arr) {
+                        if (itemMatches(item)) { trackRemoved(item); changed = true; }
+                        else filtered.push(item);
+                    }
+                    payment.paymentsByPeriodType[pt] = filtered;
+                }
+            }
+
+            if (changed) {
+                const newActivityTotal = (payment.activityItemPayments || []).reduce((sum, i) =>
+                    sum + (i.paymentType === 'paid_cash' ? (i.amountPaid || 0) : (i.cashEquivalent || (i.itemsBrought || 0) * (i.unitPrice || 0))), 0);
+                payment.activityTotalPaid = newActivityTotal;
+                payment.totalAmount = (payment.tuitionPaid || 0) + newActivityTotal;
+
+                const stillHasContent = (payment.activityItemPayments || []).length > 0 || (payment.tuitionPaid || 0) > 0;
+                if (!stillHasContent) {
+                    deletedPaymentRecords++;
+                    continue;
+                }
+                modifiedPaymentRecords++;
+            }
+
+            keptPayments.push(payment);
+        }
+        saveFile(files.feePayments, keptPayments);
+
+        // ========== 2. PURGE FROM studentTermRecords.json — ONLY students assigned to this fee structure ==========
+        // Build the set of student IDs who belong to this fee structure (any year/term assignment)
+        let feeAssignments = readFile(files.studentFeeAssignments);
+        if (!Array.isArray(feeAssignments)) feeAssignments = [];
+        const studentIdsInThisFeeStructure = new Set(
+            feeAssignments.filter(a => a.feeStructureId === feeStructureId).map(a => a.studentId)
+        );
+
+        let termRecords = readFile(files.studentTermRecords);
+        if (!termRecords || typeof termRecords !== 'object') termRecords = {};
+
+        for (const [key, record] of Object.entries(termRecords)) {
+            if (!record || !record.activityItemsPaid) continue;
+
+            // key format: studentId_year_term — only touch students in this fee structure
+            const studentIdFromKey = key.split('_')[0];
+            // fall back to matching via record.studentId if present
+            const recordStudentId = record.studentId || studentIdFromKey;
+            if (!studentIdsInThisFeeStructure.has(recordStudentId)) continue;
+
+            let recordChanged = false;
+            for (const pt of ['one_time', 'termly', 'yearly']) {
+                const arr = record.activityItemsPaid[pt] || [];
+                const filtered = arr.filter(item => !itemMatches(item));
+                if (filtered.length !== arr.length) {
+                    record.activityItemsPaid[pt] = filtered;
+                    recordChanged = true;
+                }
+            }
+            if (recordChanged) {
+                let newTotal = 0;
+                for (const pt of ['one_time', 'termly', 'yearly']) {
+                    for (const item of (record.activityItemsPaid[pt] || [])) {
+                        newTotal += (item.amountPaid || item.cashEquivalent || 0);
+                    }
+                }
+                record.activityTotalPaid = newTotal;
+                termRecords[key] = record;
+            }
+        }
+        saveFile(files.studentTermRecords, termRecords);
+
+        // ========== 3. REVERSE INVENTORY — only for the students/qty tracked above (already scoped) ==========
+        let totalInventoryReversed = 0;
+        for (const entry of Object.values(inventoryReversals)) {
+            for (const [name, qty] of Object.entries(entry.itemQty)) {
+                if (qty > 0) {
+                    reverseInventoryForDeletedPaymentItem(entry.studentId, name, entry.year, entry.term, qty);
+                    totalInventoryReversed += qty;
+                }
+            }
+        }
+
+        console.log(`✅ Purge complete (feeStructureId=${feeStructureId}): ${deletedPaymentRecords} receipts deleted, ${modifiedPaymentRecords} modified, ${totalInventoryReversed} inventory units reversed`);
+
+        res.json({
+            success: true,
+            deletedPaymentRecords,
+            modifiedPaymentRecords,
+            inventoryUnitsReversed: totalInventoryReversed
+        });
+    } catch (error) {
+        console.error('Error purging item payments:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -14859,6 +15522,7 @@ app.get('/api/academic/debug', (req, res) => {
 });
 
 // Reset all payments for a specific item for a student
+// ==================== RESET ALL PAYMENTS FOR A SPECIFIC ITEM (WITH INVENTORY REVERSAL FOR CASH & ITEMS) ====================
 app.delete('/api/fee/payments/reset-item', (req, res) => {
     console.log('🗑️ RESET ITEM PAYMENTS CALLED');
     console.log('📥 Request body:', req.body);
@@ -14877,7 +15541,6 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
         console.log(`📌 Target: "${normalizedItemName}" (component: "${normalizedComponent}")`);
         console.log(`👤 Student ID: ${studentId}`);
 
-        // Read payments file
         let payments = readFile(files.feePayments);
         if (!Array.isArray(payments)) {
             console.log('⚠️ Payments file not an array, initializing empty');
@@ -14886,12 +15549,11 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
 
         console.log(`📊 Total payments in file: ${payments.length}`);
 
-        // Helper: check if an item matches the target (case‑insensitive, trimmed, and substring fallback)
+        // Helper: check if an item matches the target
         function itemMatches(item) {
             if (!item) return false;
             const itemNameLower = (item.itemName || '').trim().toLowerCase();
             const targetLower = normalizedItemName.toLowerCase();
-            // Exact match or contains
             const nameMatch = itemNameLower === targetLower || itemNameLower.includes(targetLower) || targetLower.includes(itemNameLower);
             if (!nameMatch) return false;
             if (normalizedComponent) {
@@ -14904,15 +15566,16 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
 
         let deletedCount = 0;
         const keptPayments = [];
+        const inventoryReversalsByPeriod = {};
 
         for (const payment of payments) {
-            // Skip if not this student
             if (payment.studentId !== studentId) {
                 keptPayments.push(payment);
                 continue;
             }
 
             let containsItem = false;
+            let totalQtyForPeriod = 0;
 
             // 1. Check activityItemPayments
             if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
@@ -14920,7 +15583,7 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
                     if (itemMatches(pItem)) {
                         containsItem = true;
                         console.log(`   ✅ Match in activityItemPayments: ${pItem.itemName} (${pItem.componentName})`);
-                        break;
+                        totalQtyForPeriod += computeInventoryQtyForPaymentItem(pItem);
                     }
                 }
             }
@@ -14934,20 +15597,20 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
                         if (itemMatches(pItem)) {
                             containsItem = true;
                             console.log(`   ✅ Match in paymentsByPeriodType.${pt}: ${pItem.itemName} (${pItem.componentName})`);
-                            break;
+                            totalQtyForPeriod += computeInventoryQtyForPaymentItem(pItem);
                         }
                     }
                     if (containsItem) break;
                 }
             }
 
-            // 3. Check individualPayments
+            // 3. Check individualPayments (no inventory impact, but still match)
             if (!containsItem && payment.individualPayments && Array.isArray(payment.individualPayments)) {
                 for (const ip of payment.individualPayments) {
                     if (ip.itemName && ip.itemName.trim().toLowerCase() === normalizedItemName.toLowerCase()) {
                         containsItem = true;
                         console.log(`   ✅ Match in individualPayments: ${ip.itemName}`);
-                        break;
+                        // individualPayments don't have paymentType, so no inventory
                     }
                 }
             }
@@ -14955,14 +15618,36 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
             if (containsItem) {
                 deletedCount++;
                 console.log(`   🗑️ Deleting payment ${payment.id} (${payment.receiptNumber})`);
+
+                if (totalQtyForPeriod > 0) {
+                    const key = `${payment.academicYear}_${payment.term}`;
+                    if (!inventoryReversalsByPeriod[key]) {
+                        inventoryReversalsByPeriod[key] = {
+                            year: payment.academicYear,
+                            term: payment.term,
+                            qty: 0
+                        };
+                    }
+                    inventoryReversalsByPeriod[key].qty += totalQtyForPeriod;
+                }
             } else {
                 keptPayments.push(payment);
             }
         }
 
+        // Reverse inventory for each period
+        for (const entry of Object.values(inventoryReversalsByPeriod)) {
+            reverseInventoryForDeletedPaymentItem(
+                studentId,
+                normalizedItemName,
+                entry.year,
+                entry.term,
+                entry.qty
+            );
+        }
+
         console.log(`📊 Deleted count: ${deletedCount}`);
 
-        // If no payments were deleted, log all student payments for debugging
         if (deletedCount === 0) {
             console.warn(`⚠️ No payments found for "${normalizedItemName}"`);
             const studentPayments = payments.filter(p => p.studentId === studentId);
@@ -14983,7 +15668,6 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
             });
         }
 
-        // Save the filtered payments
         saveFile(files.feePayments, keptPayments);
 
         const message = `Deleted ${deletedCount} payment(s) for item "${normalizedItemName}"`;
@@ -14995,6 +15679,7 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// ==================== START SERVER ====================
 // ==================== START SERVER ====================
 function getLocalIP() {
     const { networkInterfaces } = require('os');
@@ -15010,21 +15695,36 @@ function getLocalIP() {
 }
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');
-// ==================== START SERVER ====================
 
 app.listen(PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
+    const networkUrl = `http://${ip}:${PORT}`;
+
     console.log('='.repeat(50));
     console.log('🎓 UGANDA SCHOOL MANAGEMENT SYSTEM v3.0');
     console.log('='.repeat(50));
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`   Local:   http://localhost:${PORT}`);
-    console.log(`   Network: http://${ip}:${PORT}`);
+    console.log(`   Network: ${networkUrl}`);
     console.log(`📁 Data directory: ${dataDir}`);
     console.log(`💰 Fee Types: Tuition | One-Time | Termly | Yearly`);
     console.log('='.repeat(50));
     console.log('Ready to serve! 🚀');
     console.log('📱 Access from other devices on same network using:');
-    console.log(`   http://${ip}:${PORT}`);
+    console.log(`   ${networkUrl}`);
+
+    // ========== Generate QR code ==========
+    try {
+        const qrcode = require('qrcode-terminal');
+        console.log('📲 Scan the QR code below with your phone camera:');
+        qrcode.generate(networkUrl, { small: true });
+        console.log('📲 Or copy the URL above into your mobile browser.');
+    } catch (err) {
+        console.log('ℹ️ QR code generation skipped (qrcode-terminal not installed).');
+        console.log('   Install it with: npm install qrcode-terminal');
+    }
     console.log('='.repeat(50));
 });
+
+console.log('✅ Student Promotion endpoint registered at /api/students/promote');
+// ==================== START SERVER ====================
