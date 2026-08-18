@@ -220,6 +220,52 @@ const files = {
      statusGroups: path.join(dataDir, 'statusGroups.json')
 };
 
+
+// ==================== MARK ALL ITEMS REMOVED FOR A STUDENT ====================
+function markAllItemsRemovedForStudent(studentId, feeStructureId, academicYear, term) {
+    const students = readFile(files.students);
+    const student = students.find(s => s.id === studentId);
+    if (!student) {
+        console.warn(`⚠️ Student ${studentId} not found for marking items removed`);
+        return false;
+    }
+
+    const feeStructures = readFile(files.feeStructures);
+    const feeStructure = feeStructures.find(f => f.id === feeStructureId);
+    if (!feeStructure) {
+        console.warn(`⚠️ Fee structure ${feeStructureId} not found for student ${studentId}`);
+        return false;
+    }
+
+    // Initialize removedItems if not exists
+    if (!student.removedItems) student.removedItems = {};
+
+    // Loop through all activity components and items
+    for (const comp of (feeStructure.activityComponents || [])) {
+        for (const item of (comp.items || [])) {
+            const itemId = item.id || item.name;
+            // Only add if not already removed (but we can overwrite)
+            student.removedItems[itemId] = {
+                itemId: itemId,
+                itemName: item.name,
+                componentName: comp.name,
+                removedAt: new Date().toISOString(),
+                reason: 'Automatically removed for new student with no payments',
+                isActive: true,
+                academicYear: academicYear,
+                term: term
+            };
+        }
+    }
+
+    // Update student in array and save
+    const index = students.findIndex(s => s.id === studentId);
+    if (index !== -1) students[index] = student;
+    saveFile(files.students, students);
+
+    console.log(`✅ All items removed for student ${studentId} (${student.firstName} ${student.lastName})`);
+    return true;
+}
 // ==================== HELPER FUNCTIONS ====================
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
@@ -15555,6 +15601,8 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
