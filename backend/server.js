@@ -221,51 +221,6 @@ const files = {
 };
 
 
-// ==================== MARK ALL ITEMS REMOVED FOR A STUDENT ====================
-function markAllItemsRemovedForStudent(studentId, feeStructureId, academicYear, term) {
-    const students = readFile(files.students);
-    const student = students.find(s => s.id === studentId);
-    if (!student) {
-        console.warn(`⚠️ Student ${studentId} not found for marking items removed`);
-        return false;
-    }
-
-    const feeStructures = readFile(files.feeStructures);
-    const feeStructure = feeStructures.find(f => f.id === feeStructureId);
-    if (!feeStructure) {
-        console.warn(`⚠️ Fee structure ${feeStructureId} not found for student ${studentId}`);
-        return false;
-    }
-
-    // Initialize removedItems if not exists
-    if (!student.removedItems) student.removedItems = {};
-
-    // Loop through all activity components and items
-    for (const comp of (feeStructure.activityComponents || [])) {
-        for (const item of (comp.items || [])) {
-            const itemId = item.id || item.name;
-            // Only add if not already removed (but we can overwrite)
-            student.removedItems[itemId] = {
-                itemId: itemId,
-                itemName: item.name,
-                componentName: comp.name,
-                removedAt: new Date().toISOString(),
-                reason: 'Automatically removed for new student with no payments',
-                isActive: true,
-                academicYear: academicYear,
-                term: term
-            };
-        }
-    }
-
-    // Update student in array and save
-    const index = students.findIndex(s => s.id === studentId);
-    if (index !== -1) students[index] = student;
-    saveFile(files.students, students);
-
-    console.log(`✅ All items removed for student ${studentId} (${student.firstName} ${student.lastName})`);
-    return true;
-}
 // ==================== HELPER FUNCTIONS ====================
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
@@ -2552,10 +2507,6 @@ app.post('/api/students/register', async (req, res) => {
         const nextNumber = String(students.length + 1).padStart(4, '0');
         const admissionNumber = `STU${currentYear}${nextNumber}`;
         
-        // Get current term from settings
-        const settings = readFile(files.settings);
-        const currentTerm = settings.currentTerm || 1;
-        
         // Handle custom bursary
         let customBursary = null;
         if (customBursaryAmount && customBursaryAmount > 0) {
@@ -2636,7 +2587,6 @@ app.post('/api/students/register', async (req, res) => {
         }
         
         // ========== HANDLE REMOVED ITEMS (Student does not pay) ==========
-        // Note: This will be overridden by the auto‑remove below if no payments exist.
         let removedItemsData = null;
         if (removedItems && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
@@ -2724,7 +2674,7 @@ app.post('/api/students/register', async (req, res) => {
             customTransportation: customTransportationData,
             customItemOverrides: customItemOverridesData,
             
-            // ========== NEW: REMOVED ITEMS (will be overwritten if no payments) ==========
+            // ========== NEW: REMOVED ITEMS ==========
             removedItems: removedItemsData,
             
             // Tracking flags
@@ -2792,27 +2742,6 @@ app.post('/api/students/register', async (req, res) => {
                 assignedAt: new Date().toISOString()
             });
             saveFile(files.studentFeeAssignments, assignments);
-        }
-        
-        // ========== AUTO-REMOVE ITEMS FOR NEW STUDENTS WITH NO PAYMENTS ==========
-        const existingPayments = readFile(files.feePayments);
-        const hasPayments = existingPayments.some(p => p.studentId === newStudent.id);
-        if (!hasPayments) {
-            console.log(`🆕 New student ${newStudent.id} has no payments – marking all items removed`);
-            markAllItemsRemovedForStudent(
-                newStudent.id,
-                feeStructureId,
-                currentYear,
-                currentTerm
-            );
-            // Reload student to include removed items
-            const updatedStudents = readFile(files.students);
-            const updatedStudent = updatedStudents.find(s => s.id === newStudent.id);
-            if (updatedStudent) {
-                newStudent.removedItems = updatedStudent.removedItems;
-                newStudent.hasRemovedItems = true;
-                newStudent.removedItemsCount = Object.keys(updatedStudent.removedItems).length;
-            }
         }
         
         console.log('Registration complete!');
