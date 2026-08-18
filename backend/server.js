@@ -2552,6 +2552,10 @@ app.post('/api/students/register', async (req, res) => {
         const nextNumber = String(students.length + 1).padStart(4, '0');
         const admissionNumber = `STU${currentYear}${nextNumber}`;
         
+        // Get current term from settings
+        const settings = readFile(files.settings);
+        const currentTerm = settings.currentTerm || 1;
+        
         // Handle custom bursary
         let customBursary = null;
         if (customBursaryAmount && customBursaryAmount > 0) {
@@ -2632,6 +2636,7 @@ app.post('/api/students/register', async (req, res) => {
         }
         
         // ========== HANDLE REMOVED ITEMS (Student does not pay) ==========
+        // Note: This will be overridden by the auto‑remove below if no payments exist.
         let removedItemsData = null;
         if (removedItems && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
@@ -2719,7 +2724,7 @@ app.post('/api/students/register', async (req, res) => {
             customTransportation: customTransportationData,
             customItemOverrides: customItemOverridesData,
             
-            // ========== NEW: REMOVED ITEMS ==========
+            // ========== NEW: REMOVED ITEMS (will be overwritten if no payments) ==========
             removedItems: removedItemsData,
             
             // Tracking flags
@@ -2787,6 +2792,27 @@ app.post('/api/students/register', async (req, res) => {
                 assignedAt: new Date().toISOString()
             });
             saveFile(files.studentFeeAssignments, assignments);
+        }
+        
+        // ========== AUTO-REMOVE ITEMS FOR NEW STUDENTS WITH NO PAYMENTS ==========
+        const existingPayments = readFile(files.feePayments);
+        const hasPayments = existingPayments.some(p => p.studentId === newStudent.id);
+        if (!hasPayments) {
+            console.log(`🆕 New student ${newStudent.id} has no payments – marking all items removed`);
+            markAllItemsRemovedForStudent(
+                newStudent.id,
+                feeStructureId,
+                currentYear,
+                currentTerm
+            );
+            // Reload student to include removed items
+            const updatedStudents = readFile(files.students);
+            const updatedStudent = updatedStudents.find(s => s.id === newStudent.id);
+            if (updatedStudent) {
+                newStudent.removedItems = updatedStudent.removedItems;
+                newStudent.hasRemovedItems = true;
+                newStudent.removedItemsCount = Object.keys(updatedStudent.removedItems).length;
+            }
         }
         
         console.log('Registration complete!');
