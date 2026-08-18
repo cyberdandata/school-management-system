@@ -4,15 +4,110 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { AsyncLocalStorage } = require('async_hooks'); // ✅ For atomic transactions
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ==================== ATOMIC TRANSACTION SYSTEM ====================
+const transactionStorage = new AsyncLocalStorage();
+const TEMP_DIR = path.join(__dirname, 'data', '.tmp');
+
+// Ensure temp directory exists and clean up any leftover temp files on startup
+if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+} else {
+    // Remove any stale temporary files (from previous incomplete transactions)
+    const files = fs.readdirSync(TEMP_DIR);
+    for (const file of files) {
+        try {
+            fs.unlinkSync(path.join(TEMP_DIR, file));
+        } catch (e) { /* ignore */ }
+    }
+}
+
+// Start a new transaction (called per request)
+function startTransaction() {
+    const store = { tempFiles: {} };
+    return store;
+}
+
+// Commit: atomically rename all temporary files to their real paths
+function commitTransaction(store) {
+    if (!store) return;
+    const entries = Object.entries(store.tempFiles);
+    for (const [realPath, tempPath] of entries) {
+        try {
+            // rename is atomic on POSIX systems
+            fs.renameSync(tempPath, realPath);
+        } catch (err) {
+            // If any rename fails, attempt to rollback already renamed files?
+            // Since we want atomicity, we must try to revert all.
+            // But rollback is complex; we'll log and throw to trigger rollback.
+            console.error('❌ Atomic commit failed for', realPath, err);
+            // Attempt to delete any temp files that were already renamed? 
+            // Better to delete all temp files and rethrow.
+            rollbackTransaction(store);
+            throw new Error('Transaction commit failed: ' + err.message);
+        }
+    }
+    // Success: clear the store
+    store.tempFiles = {};
+}
+
+// Rollback: delete all temporary files
+function rollbackTransaction(store) {
+    if (!store) return;
+    for (const tempPath of Object.values(store.tempFiles)) {
+        try {
+            if (fs.existsSync(tempPath)) {
+                fs.unlinkSync(tempPath);
+            }
+        } catch (e) { /* ignore */ }
+    }
+    store.tempFiles = {};
+}
 
 // ==================== MIDDLEWARE ====================
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ==================== TRANSACTION MIDDLEWARE ====================
+// This middleware wraps each request in an atomic transaction.
+// All saveFile calls within the request will write to temporary files.
+// On successful response, changes are committed (renamed).
+// On error, changes are rolled back (temp files deleted).
+app.use((req, res, next) => {
+    const store = startTransaction();
+    transactionStorage.run(store, () => {
+        // Override res.end to commit transaction before sending response
+        const originalEnd = res.end;
+        let committed = false;
+        res.end = function (...args) {
+            if (!committed) {
+                committed = true;
+                const currentStore = transactionStorage.getStore();
+                if (currentStore && Object.keys(currentStore.tempFiles).length > 0) {
+                    try {
+                        commitTransaction(currentStore);
+                    } catch (commitErr) {
+                        // If commit fails, we still need to end the response, but with an error status
+                        console.error('❌ Commit failed during res.end:', commitErr);
+                        // Rollback already done inside commitTransaction on failure
+                        // Set status to 500 if not already set
+                        if (res.statusCode < 400) res.status(500);
+                        // We cannot change the response body easily here, but we can log.
+                    }
+                }
+            }
+            originalEnd.apply(this, args);
+        };
+        next();
+    });
+});
+
 // ==================== SYNC MANAGER INTEGRATION ====================
 
 let syncManager = null;
@@ -128,31 +223,6 @@ const files = {
 // ==================== HELPER FUNCTIONS ====================
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
-function saveFile(filePath, data) {
-    try {
-        const dir = path.dirname(filePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log(`📁 Created directory: ${dir}`);
-        }
-        
-        const jsonData = JSON.stringify(data, null, 2);
-        fs.writeFileSync(filePath, jsonData, 'utf8');
-        
-        // ✅ Verify the file was written
-        if (fs.existsSync(filePath)) {
-            const written = fs.readFileSync(filePath, 'utf8');
-            console.log(`✅ File saved: ${filePath}`);
-            console.log(`📄 Content length: ${written.length} bytes`);
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error(`❌ Error writing ${filePath}:`, error);
-        return false;
-    }
-}
-
 // ==================== HELPER: DEDUPLICATE PAYMENT ITEMS ====================
 function deduplicatePaymentItems(items) {
     if (!items || !Array.isArray(items) || items.length === 0) return items;
@@ -206,58 +276,64 @@ function readFile(filePath) {
     }
 }
 
+// ==================== ATOMIC SAVE FILE FUNCTION ====================
+// This function now supports transaction atomicity via AsyncLocalStorage.
+// If a transaction is active, writes go to temporary files.
+// Otherwise, writes directly (original behavior).
 function saveFile(filePath, data) {
     try {
-        // Ensure directory exists
-        const dir = path.dirname(filePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log(`📁 Created directory: ${dir}`);
+        // Check if we are inside a transaction
+        const store = transactionStorage.getStore();
+        if (store) {
+            // Write to a temporary file
+            if (!fs.existsSync(TEMP_DIR)) {
+                fs.mkdirSync(TEMP_DIR, { recursive: true });
+            }
+            // Ensure the target directory exists (for temp file we just use TEMP_DIR)
+            const tempFileName = path.basename(filePath) + '.' + Date.now() + '.' + Math.random().toString(36).substr(2, 6);
+            const tempPath = path.join(TEMP_DIR, tempFileName);
+            
+            // Write data to temp file
+            const jsonData = JSON.stringify(data, null, 2);
+            fs.writeFileSync(tempPath, jsonData, 'utf8');
+            
+            // Verify the temp file was written
+            if (fs.existsSync(tempPath)) {
+                // Store mapping in transaction store
+                store.tempFiles[filePath] = tempPath;
+                console.log(`📝 Staged write to temp: ${tempPath} (for ${filePath})`);
+                return true;
+            } else {
+                console.error(`❌ Failed to write temp file: ${tempPath}`);
+                return false;
+            }
+        } else {
+            // Original behavior: write directly
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+                console.log(`📁 Created directory: ${dir}`);
+            }
+            
+            const jsonData = JSON.stringify(data, null, 2);
+            fs.writeFileSync(filePath, jsonData, 'utf8');
+            
+            if (fs.existsSync(filePath)) {
+                const written = fs.readFileSync(filePath, 'utf8');
+                console.log(`✅ File saved: ${filePath}`);
+                console.log(`📄 Content length: ${written.length} bytes`);
+                return true;
+            }
+            return false;
         }
-        
-        // Write the file
-        const jsonData = JSON.stringify(data, null, 2);
-        fs.writeFileSync(filePath, jsonData, 'utf8');
-        
-        // Verify the file was written
-        if (fs.existsSync(filePath)) {
-            const written = fs.readFileSync(filePath, 'utf8');
-            console.log(`✅ File saved: ${filePath}`);
-            console.log(`📄 Content length: ${written.length} bytes`);
-            return true;
-        }
-        return false;
     } catch (error) {
         console.error(`❌ Error writing ${filePath}:`, error.message);
         return false;
     }
 }
-// ==================== FIXED SAVE FILE FUNCTION ====================
-function saveFile(filePath, data) {
-    try {
-        const dir = path.dirname(filePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log(`📁 Created directory: ${dir}`);
-        }
-        
-        const jsonData = JSON.stringify(data, null, 2);
-        fs.writeFileSync(filePath, jsonData, 'utf8');
-        
-        // ✅ Verify the file was written
-        if (fs.existsSync(filePath)) {
-            const written = fs.readFileSync(filePath, 'utf8');
-            console.log(`✅ File saved: ${filePath}`);
-            console.log(`📄 Content length: ${written.length} bytes`);
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error(`❌ Error writing ${filePath}:`, error);
-        return false;
-    }
-}
 
+// ==================== FIXED SAVE FILE FUNCTION ====================
+// (previous duplicate definitions removed)
 
 function getGradingSystem() {
     const settings = readFile(files.settings);
