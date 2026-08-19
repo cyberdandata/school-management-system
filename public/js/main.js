@@ -10003,7 +10003,7 @@ function renderTermCardFee(term, paidAmount, expectedAmount, studentId) {
 // ============================================================================
 
 async function showStudentRegistration() {
-    console.log('showStudentRegistration called - v4.0 (Enrollment Ticket edition)');
+    console.log('showStudentRegistration called - v5.0 (Default-Removed Items edition)');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -10045,6 +10045,7 @@ async function showStudentRegistration() {
         // Initialize customizations storage
         window.tempItemCustomizations = {};
         window.tempRemovedItems = {};
+        window.srComponentGroups = {};
 
         // Ensure supporting UI helpers exist (toast + confirm modal), without
         // clobbering any app-wide versions that may already be defined.
@@ -10222,7 +10223,7 @@ async function showStudentRegistration() {
                             <span class="sr-card-icon"><i class="fas fa-money-bill-wave"></i></span>
                             <div>
                                 <h2 class="sr-card-title">Fee Assignment</h2>
-                                <p class="sr-card-sub">Select a fee structure, then customize or remove items for this student</p>
+                                <p class="sr-card-sub">Select a fee structure — all items start removed until you restore them</p>
                             </div>
                         </header>
                         <div class="sr-card-body">
@@ -10258,8 +10259,18 @@ async function showStudentRegistration() {
                             <!-- ITEMS FOR CUSTOMIZATION -->
                             <div id="itemsCustomizationContainer" class="hidden sr-items-panel">
                                 <div class="sr-items-panel-head">
-                                    <h3><i class="fas fa-sliders-h"></i> Customize items for this student</h3>
-                                    <span class="sr-items-panel-hint">Override amounts, quantities, or remove items entirely</span>
+                                    <div>
+                                        <h3><i class="fas fa-sliders-h"></i> Activate items for this student</h3>
+                                        <span class="sr-items-panel-hint">Every item starts <strong>removed</strong> (not billed). Restore a whole group or individual items to charge them. Tuition always bills.</span>
+                                    </div>
+                                    <div class="sr-group-actions-buttons">
+                                        <button type="button" class="sr-btn sr-btn-sm sr-btn-success" onclick="restoreAllRegistrationItems()">
+                                            <i class="fas fa-undo"></i> Restore all
+                                        </button>
+                                        <button type="button" class="sr-btn sr-btn-sm sr-btn-ghost" onclick="removeAllRegistrationItems()">
+                                            <i class="fas fa-trash"></i> Remove all
+                                        </button>
+                                    </div>
                                 </div>
                                 <div id="itemsCustomizationList" class="sr-items-list">
                                     <div class="sr-empty-state" id="emptyItemsMsg">
@@ -10342,8 +10353,10 @@ async function showStudentRegistration() {
         }
 
         // ========== Load fee structure items for customization ==========
+        // v5.0: EVERY item starts REMOVED by default. The bursar must explicitly
+        // restore a whole group or individual items before they will be billed.
         function loadFeeStructureItemsForCustomization() {
-            console.log('loadFeeStructureItemsForCustomization called');
+            console.log('loadFeeStructureItemsForCustomization called (default-removed mode)');
 
             const feeSelect = document.getElementById('feeStructureId');
             const container = document.getElementById('itemsCustomizationContainer');
@@ -10373,33 +10386,53 @@ async function showStudentRegistration() {
 
             window.srCurrentFeeStructure = feeStructure;
 
-            // Clear existing customizations
+            // Clear existing customizations & group map
             window.tempItemCustomizations = {};
             window.tempRemovedItems = {};
+            window.srComponentGroups = {};
+
+            const activityComponents = feeStructure.activityComponents || [];
+
+            // ========== PASS 1: auto-remove every item by default ==========
+            // New student = no payment history yet, so nothing should be billed
+            // until the bursar explicitly restores a group or an item.
+            for (const component of activityComponents) {
+                if (!component.items || component.items.length === 0) continue;
+                for (const item of component.items) {
+                    const itemId = item.id || item.name;
+                    window.tempRemovedItems[itemId] = true;
+                }
+            }
 
             let itemsHtml = '';
             let hasItems = false;
             let cardIndex = 0;
+            let componentIndex = 0;
 
             const accentFor = (periodType) =>
                 periodType === 'one_time' ? { c: '#7C6BEF', label: 'One-time' } :
                 periodType === 'termly' ? { c: '#0E9C8E', label: 'Termly' } :
                 { c: '#DB9A2C', label: 'Yearly' };
 
-            const activityComponents = feeStructure.activityComponents || [];
-
             for (const component of activityComponents) {
                 if (!component.items || component.items.length === 0) continue;
                 const { c: accent, label: periodLabel } = accentFor(component.periodType);
 
+                const groupIndex = componentIndex++;
+                const itemIds = component.items.map(item => item.id || item.name);
+                window.srComponentGroups[groupIndex] = itemIds;
+
                 itemsHtml += `
-                    <div class="sr-component sr-in" style="--sr-accent:${accent}; --sr-delay:${cardIndex * 40}ms">
+                    <div class="sr-component sr-in" style="--sr-accent:${accent}; --sr-delay:${cardIndex * 40}ms" data-group-index="${groupIndex}">
                         <div class="sr-component-head">
                             <span class="sr-period-chip" style="--sr-accent:${accent}">${periodLabel}</span>
                             <h4>${escapeHtmlSafe(component.name)}</h4>
                             <span class="sr-component-total">UGX ${(component.totalAmount || 0).toLocaleString()}</span>
                         </div>
-                        <div class="sr-component-items">
+                        <div class="sr-group-actions" id="groupActions_${groupIndex}">
+                            ${renderGroupActionButtons(groupIndex)}
+                        </div>
+                        <div class="sr-component-items" id="groupItems_${groupIndex}">
                             ${component.items.map(item => {
                                 hasItems = true;
                                 cardIndex++;
@@ -10432,10 +10465,56 @@ async function showStudentRegistration() {
             recalcFeeBar();
         }
 
+        // ========== Group status helper ==========
+        function getGroupStatus(groupIndex) {
+            const itemIds = window.srComponentGroups?.[groupIndex] || [];
+            if (itemIds.length === 0) return { removedCount: 0, total: 0, allRemoved: false, noneRemoved: true };
+            const removedCount = itemIds.filter(id => window.tempRemovedItems[id]).length;
+            return {
+                removedCount,
+                total: itemIds.length,
+                allRemoved: removedCount === itemIds.length,
+                noneRemoved: removedCount === 0
+            };
+        }
+
+        // ========== Render the group-level Restore/Remove buttons ==========
+        function renderGroupActionButtons(groupIndex) {
+            const { removedCount, total, allRemoved, noneRemoved } = getGroupStatus(groupIndex);
+
+            let statusText = '';
+            if (allRemoved) statusText = `<span class="sr-tag sr-tag-rose">All ${total} item(s) removed</span>`;
+            else if (noneRemoved) statusText = `<span class="sr-tag sr-tag-green">All ${total} item(s) active</span>`;
+            else statusText = `<span class="sr-tag sr-tag-amber">${removedCount}/${total} removed</span>`;
+
+            return `
+                <div class="sr-group-actions-inner">
+                    ${statusText}
+                    <div class="sr-group-actions-buttons">
+                        ${!noneRemoved ? `
+                            <button type="button" class="sr-btn sr-btn-sm sr-btn-success" onclick="restoreGroupItems(${groupIndex})">
+                                <i class="fas fa-undo"></i> Restore whole group
+                            </button>
+                        ` : ''}
+                        ${!allRemoved ? `
+                            <button type="button" class="sr-btn sr-btn-sm sr-btn-ghost" onclick="removeGroupItems(${groupIndex})">
+                                <i class="fas fa-trash"></i> Remove whole group
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function refreshGroupActions(groupIndex) {
+            const el = document.getElementById(`groupActions_${groupIndex}`);
+            if (el) el.innerHTML = renderGroupActionButtons(groupIndex);
+        }
+
         // ========== Render a single item row (used on initial load and restore) ==========
         function renderItemRow({ itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption }) {
             const custom = window.tempItemCustomizations[itemId] || {};
-            const isRemoved = window.tempRemovedItems[itemId] || false;
+            const isRemoved = !!window.tempRemovedItems[itemId];
 
             const paymentBadge =
                 paymentOption === 'cash_only' ? '<span class="sr-tag sr-tag-blue">Cash only</span>' :
@@ -10451,14 +10530,14 @@ async function showStudentRegistration() {
                     <div class="sr-item-top">
                         <div class="sr-item-info">
                             <div class="sr-item-name-row">
-                                <span class="sr-item-name">${escapeHtmlSafe(itemName)}</span>
+                                <span class="sr-item-name ${isRemoved ? 'sr-strike' : ''}">${escapeHtmlSafe(itemName)}</span>
                                 ${paymentBadge}
-                                ${custom.isCustomized ? '<span class="sr-tag sr-tag-amber sr-badge-pop">Custom</span>' : ''}
-                                ${isRemoved ? '<span class="sr-tag sr-tag-rose sr-badge-pop">Removed</span>' : ''}
+                                ${custom.isCustomized && !isRemoved ? '<span class="sr-tag sr-tag-amber sr-badge-pop">Custom</span>' : ''}
+                                ${isRemoved ? '<span class="sr-tag sr-tag-rose sr-badge-pop">Not activated</span>' : ''}
                             </div>
-                            <p class="sr-item-meta">Default: UGX ${defaultAmount.toLocaleString()} · Qty ${defaultQuantity}</p>
-                            ${custom.isCustomized ? `<p class="sr-item-custom-meta">Custom: UGX ${(custom.customAmount ?? defaultAmount).toLocaleString()}${custom.customQuantity ? ` · Qty ${custom.customQuantity}` : ''}</p>` : ''}
-                            ${isRemoved ? `<p class="sr-item-removed-meta">This item will not be charged for this student</p>` : ''}
+                            <p class="sr-item-meta ${isRemoved ? 'sr-strike' : ''}">Default: UGX ${defaultAmount.toLocaleString()} · Qty ${defaultQuantity}</p>
+                            ${custom.isCustomized && !isRemoved ? `<p class="sr-item-custom-meta">Custom: UGX ${(custom.customAmount ?? defaultAmount).toLocaleString()}${custom.customQuantity ? ` · Qty ${custom.customQuantity}` : ''}</p>` : ''}
+                            ${isRemoved ? `<p class="sr-item-removed-meta">Not yet activated — click Restore to bill this item</p>` : ''}
                         </div>
                         <div class="sr-item-actions">
                             ${!isRemoved ? `
@@ -10518,10 +10597,14 @@ async function showStudentRegistration() {
         }
 
         // Re-render one item row in place (keeps DOM diffing simple & animatable)
+        // Also refreshes the parent group's action buttons/badge to stay in sync.
         function refreshItemRow(itemId) {
             const el = document.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
             if (!el) return;
             const d = el.dataset;
+            const parentGroup = el.closest('[data-group-index]');
+            const groupIndex = parentGroup ? parseInt(parentGroup.dataset.groupIndex) : null;
+
             const html = renderItemRow({
                 itemId, itemName: d.itemName, componentName: d.componentName, periodType: d.periodType,
                 defaultAmount: parseFloat(d.defaultAmount) || 0, defaultQuantity: parseInt(d.defaultQuantity) || 1,
@@ -10532,6 +10615,10 @@ async function showStudentRegistration() {
             const newEl = wrapper.firstChild;
             newEl.classList.add('sr-refresh-pulse');
             el.replaceWith(newEl);
+
+            if (groupIndex !== null && !isNaN(groupIndex)) {
+                refreshGroupActions(groupIndex);
+            }
         }
 
         // ========== Confirm remove item (custom modal, animated) ==========
@@ -10564,7 +10651,7 @@ async function showStudentRegistration() {
             const ok = await window.showConfirmModal({
                 tone: 'success',
                 title: 'Restore this item?',
-                message: 'It will be charged again according to the fee structure.',
+                message: 'It will be charged according to the fee structure.',
                 confirmLabel: 'Restore'
             });
             if (!ok) return;
@@ -10572,13 +10659,91 @@ async function showStudentRegistration() {
             delete window.tempRemovedItems[itemId];
             refreshItemRow(itemId);
             recalcFeeBar();
-            window.showToast('Item restored', 'success');
+            window.showToast('Item restored — it will be billed', 'success');
+        };
+
+        // ========== Restore / remove an entire status group ==========
+        window.restoreGroupItems = async function (groupIndex) {
+            const itemIds = window.srComponentGroups?.[groupIndex] || [];
+            if (itemIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'success',
+                title: 'Restore this whole group?',
+                message: `All ${itemIds.length} item(s) in this group will be billed for this student.`,
+                confirmLabel: 'Restore group'
+            });
+            if (!ok) return;
+
+            itemIds.forEach(id => delete window.tempRemovedItems[id]);
+            itemIds.forEach(id => refreshItemRow(id));
+            refreshGroupActions(groupIndex);
+            recalcFeeBar();
+            window.showToast('Group restored — all items in it will be billed', 'success');
+        };
+
+        window.removeGroupItems = async function (groupIndex) {
+            const itemIds = window.srComponentGroups?.[groupIndex] || [];
+            if (itemIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: 'Remove this whole group?',
+                message: `All ${itemIds.length} item(s) in this group will not be charged to this student.`,
+                confirmLabel: 'Remove group'
+            });
+            if (!ok) return;
+
+            itemIds.forEach(id => { window.tempRemovedItems[id] = true; delete window.tempItemCustomizations[id]; });
+            itemIds.forEach(id => refreshItemRow(id));
+            refreshGroupActions(groupIndex);
+            recalcFeeBar();
+            window.showToast('Group removed — nothing in it will be billed', 'info');
+        };
+
+        // ========== Restore / remove everything across all groups ==========
+        window.restoreAllRegistrationItems = async function () {
+            const allIds = Object.values(window.srComponentGroups || {}).flat();
+            if (allIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'success',
+                title: 'Restore all items?',
+                message: `All ${allIds.length} item(s) across every group will be billed for this student.`,
+                confirmLabel: 'Restore all'
+            });
+            if (!ok) return;
+
+            allIds.forEach(id => delete window.tempRemovedItems[id]);
+            allIds.forEach(id => refreshItemRow(id));
+            Object.keys(window.srComponentGroups || {}).forEach(gi => refreshGroupActions(parseInt(gi)));
+            recalcFeeBar();
+            window.showToast('All items restored', 'success');
+        };
+
+        window.removeAllRegistrationItems = async function () {
+            const allIds = Object.values(window.srComponentGroups || {}).flat();
+            if (allIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: 'Remove all items?',
+                message: `All ${allIds.length} item(s) across every group will not be charged. Only tuition will bill.`,
+                confirmLabel: 'Remove all'
+            });
+            if (!ok) return;
+
+            allIds.forEach(id => { window.tempRemovedItems[id] = true; delete window.tempItemCustomizations[id]; });
+            allIds.forEach(id => refreshItemRow(id));
+            Object.keys(window.srComponentGroups || {}).forEach(gi => refreshGroupActions(parseInt(gi)));
+            recalcFeeBar();
+            window.showToast('All items removed', 'info');
         };
 
         // ========== Toggle item customization form ==========
         window.toggleItemCustomizationForm = function (itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption) {
             if (window.tempRemovedItems[itemId]) {
-                window.showToast('This item was removed — restore it before customizing', 'warning');
+                window.showToast('This item is not activated — restore it before customizing', 'warning');
                 return;
             }
 
@@ -10602,7 +10767,7 @@ async function showStudentRegistration() {
         // ========== Save item customization ==========
         window.saveItemCustomizationTemp = function (itemId) {
             if (window.tempRemovedItems[itemId]) {
-                window.showToast('This item was removed and cannot be customized', 'warning');
+                window.showToast('This item is not activated and cannot be customized', 'warning');
                 return;
             }
 
@@ -10669,6 +10834,7 @@ async function showStudentRegistration() {
 
             window.tempItemCustomizations = {};
             window.tempRemovedItems = {};
+            window.srComponentGroups = {};
             hideFeeBar();
 
             window.showToast('Form has been reset', 'info');
@@ -10746,10 +10912,14 @@ async function showStudentRegistration() {
                 bursaryId: bursaryId === 'custom' ? null : bursaryId,
                 customBursaryAmount: customBursaryAmount > 0 ? customBursaryAmount : null,
                 customItemOverrides: window.tempItemCustomizations || {},
+                // Everything still marked removed at submit time (i.e. never restored
+                // by the bursar) is sent as removedItems, so it won't be billed.
                 removedItems: window.tempRemovedItems || {}
             };
 
             console.log('Submitting student data with customizations:', studentData);
+            console.log(`  -> ${Object.keys(studentData.removedItems).length} item(s) still removed (not billed)`);
+            console.log(`  -> ${Object.keys(studentData.customItemOverrides).length} item(s) customized`);
 
             const submitBtn = document.getElementById('registerBtn');
             if (!submitBtn) return;
@@ -10771,10 +10941,12 @@ async function showStudentRegistration() {
                 if (response.ok) {
                     const customCount = Object.keys(window.tempItemCustomizations || {}).length;
                     const removedCount = Object.keys(window.tempRemovedItems || {}).length;
+                    const totalItemCount = Object.values(window.srComponentGroups || {}).flat().length;
+                    const activeCount = totalItemCount - removedCount;
 
                     let successMsg = `${firstName} ${lastName} registered — admission no. ${result.student.admissionNumber}`;
-                    if (customCount > 0) successMsg += ` · ${customCount} item(s) customized`;
-                    if (removedCount > 0) successMsg += ` · ${removedCount} item(s) removed`;
+                    successMsg += ` · ${activeCount}/${totalItemCount} item(s) activated`;
+                    if (customCount > 0) successMsg += ` · ${customCount} customized`;
                     if (customBursaryAmount > 0) successMsg += ` · custom bursary UGX ${customBursaryAmount.toLocaleString()}`;
 
                     window.showToast(successMsg, 'success', 6000);
@@ -10818,6 +10990,8 @@ async function showStudentRegistration() {
         }
 
         // ========== Fee bar (signature live summary) ==========
+        // Only tuition + items the bursar has RESTORED count toward the total,
+        // since everything starts removed.
         function hideFeeBar() {
             document.getElementById('srFeeBar')?.classList.add('hidden');
         }
@@ -10830,6 +11004,7 @@ async function showStudentRegistration() {
 
             let total = fs.tuition || 0;
             let removedCount = 0;
+            let activeCount = 0;
             let customCount = 0;
 
             (fs.activityComponents || []).forEach(component => {
@@ -10837,6 +11012,7 @@ async function showStudentRegistration() {
                     const itemId = item.id || item.name;
                     if (window.tempRemovedItems[itemId]) { removedCount++; return; }
 
+                    activeCount++;
                     const custom = window.tempItemCustomizations[itemId];
                     if (custom && custom.isCustomized) {
                         customCount++;
@@ -10869,11 +11045,13 @@ async function showStudentRegistration() {
 
             bar.classList.remove('hidden');
             const metaEl = document.getElementById('srFeeBarMeta');
-            let metaText = 'Base tuition only';
-            const bits = [];
-            if (customCount) bits.push(`${customCount} customized`);
-            if (removedCount) bits.push(`${removedCount} removed`);
-            if (bits.length) metaText = bits.join(' · ');
+            let metaText = `Tuition only · ${removedCount} item(s) not yet activated`;
+            if (activeCount > 0) {
+                const bits = [`${activeCount} item(s) activated`];
+                if (customCount) bits.push(`${customCount} customized`);
+                if (removedCount) bits.push(`${removedCount} not activated`);
+                metaText = bits.join(' · ');
+            }
             if (metaEl) metaEl.textContent = metaText;
 
             animateFeeValue(total);
@@ -10941,7 +11119,7 @@ async function showStudentRegistration() {
             feeSelect.addEventListener('change', () => window.loadFeeStructureItemsForCustomization());
         }
 
-        console.log('showStudentRegistration rendered successfully (v4.0)');
+        console.log('showStudentRegistration rendered successfully (v5.0 - default-removed items)');
 
     } catch (error) {
         console.error('Error:', error);
