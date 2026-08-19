@@ -10697,8 +10697,7 @@ async function showStudentRegistration() {
                             </div>
                             <p class="sr-item-meta">Default: UGX ${defaultAmount.toLocaleString()} · Qty ${defaultQuantity}</p>
                             ${custom.isCustomized ? `<p class="sr-item-custom-meta">Custom: UGX ${(custom.customAmount ?? defaultAmount).toLocaleString()}${custom.customQuantity ? ` · Qty ${custom.customQuantity}` : ''}</p>` : ''}
-                            ${isRemoved ? `<p class="sr-item-removed-meta">This item will not be charged for this student</p>` : ''}
-                        </div>
+                                                     ${isRemoved ? `<p class="sr-item-removed-meta">Not yet activated — click Restore to bill this item</p>` : ''} </div>
                         <div class="sr-item-actions">
                             ${!isRemoved ? `
                                 <button type="button" class="sr-icon-btn sr-icon-btn-blue" title="Customize"
