@@ -2727,26 +2727,27 @@ app.post('/api/students/register', async (req, res) => {
         if (removedItems && typeof removedItems === 'object' && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
 
-            for (const [itemId, isRemoved] of Object.entries(removedItems)) {
-                if (isRemoved !== true) continue;
+           for (const [itemId, isRemoved] of Object.entries(removedItems)) {
+    if (isRemoved !== true) continue;
 
-                const defaults = findItemDefaults(itemId);
+    const defaults = findItemDefaults(itemId);
 
-                removedItemsData[itemId] = {
-                    itemId: itemId,
-                    itemName: defaults.itemName,
-                    componentId: defaults.componentId,
-                    componentName: defaults.componentName,
-                    defaultAmount: defaults.defaultAmount,
-                    defaultQuantity: defaults.defaultQuantity,
-                    paymentOption: defaults.paymentOption,
-                    removedAt: new Date().toISOString(),
-                    reason: 'Not activated at registration',
-                    isActive: true
-                    // No academicYear/term stamp: item stays removed for ALL
-                    // periods until the bursar restores it in Edit Student.
-                };
-            }
+    // ✅ Never let a termly item register as "removed" — it's billed every term.
+    if (defaults.periodType === 'termly') continue;
+
+    removedItemsData[itemId] = {
+        itemId: itemId,
+        itemName: defaults.itemName,
+        componentId: defaults.componentId,
+        componentName: defaults.componentName,
+        defaultAmount: defaults.defaultAmount,
+        defaultQuantity: defaults.defaultQuantity,
+        paymentOption: defaults.paymentOption,
+        removedAt: new Date().toISOString(),
+        reason: 'Not activated at registration',
+        isActive: true
+    };
+}
 
             if (Object.keys(removedItemsData).length === 0) {
                 removedItemsData = null;
