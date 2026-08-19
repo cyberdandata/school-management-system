@@ -27128,14 +27128,14 @@ const filteredItems = allItems.filter(item => {
 
                 <!-- Items List -->
                 <div id="periodItems_${periodKey}" class="mt-4 space-y-4">
-                    ${filteredItems.length > 0 ? buildItemsForPeriod(periodKey, filteredItems, isCurrent, student) : `
-                        <div class="text-center text-gray-500 py-4 border-2 border-dashed border-gray-300 rounded-lg">
-                            <i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
-                            <p>No items to collect for this period</p>
-                            ${isCurrent ? '<p class="text-xs text-gray-400">This student may not have any fees assigned for this term</p>' : ''}
-                            ${Object.keys(removedItems).length > 0 ? `<p class="text-xs text-gray-400">${Object.keys(removedItems).length} item(s) removed</p>` : ''}
-                        </div>
-                    `}
+                   ${filteredItems.length > 0 ? buildItemsForPeriod(periodKey, filteredItems, isCurrent, student) : `
+    <div class="text-center text-gray-500 py-4 border-2 border-dashed border-gray-300 rounded-lg">
+        <i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
+        <p>No items to collect for this period</p>
+        ${isCurrent ? '<p class="text-xs text-gray-400">This student may not have any fees assigned for this term</p>' : ''}
+        ${getRemovedCountForPeriod(student, year, term) > 0 ? `<p class="text-xs text-gray-400">${getRemovedCountForPeriod(student, year, term)} item(s) removed</p>` : ''}
+    </div>
+`}
                 </div>
 
                 <!-- Payment Form -->
