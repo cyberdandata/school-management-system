@@ -26873,14 +26873,39 @@ function buildPeriodForm(periodData, periodKey, isCurrent, student, feeStructure
 
     // Filter removed items
     const allItems = activity?.items || [];
-const filteredItems = allItems.filter(item => {
-    const id = item.itemId || item.name;
-    return !isItemRemovedForPeriod(student, id, year, term);
-});
+    const filteredItems = allItems.filter(item => {
+        const id = item.itemId || item.name;
+        return !isItemRemovedForPeriod(student, id, year, term);
+    });
     const filteredItemsRemaining = filteredItems.reduce((s, i) => s + (i.remainingQuantity || 0), 0);
     const filteredItemsBrought = filteredItems.reduce((s, i) => s + (i.itemsBrought || 0), 0);
     const filteredItemsRequired = filteredItems.reduce((s, i) => s + (i.quantity || 0), 0);
     const filteredAmountRemaining = filteredItems.reduce((s, i) => s + (i.remainingAmount || 0), 0);
+
+    // ====================================================================
+    // NEW: PERIOD-AWARE REMOVED ITEM TRACKING (per status group + overall)
+    // ====================================================================
+    const overallRemovedCount = getRemovedCountForPeriod(student, year, term);
+    const hasOnlyRemovedItems = filteredItems.length === 0 && overallRemovedCount > 0;
+
+    function getGroupRemovedInfo(sgName) {
+        let totalCount = 0;
+        let removedCount = 0;
+        if (feeStructure && feeStructure.activityComponents) {
+            for (const component of feeStructure.activityComponents) {
+                const groupName = component.statusGroupName || component.name || 'Other';
+                if (groupName !== sgName) continue;
+                for (const item of (component.items || [])) {
+                    const itemId = item.id || item.name;
+                    totalCount++;
+                    if (isItemRemovedForPeriod(student, itemId, year, term)) {
+                        removedCount++;
+                    }
+                }
+            }
+        }
+        return { totalCount, removedCount };
+    }
 
     // ====================================================================
     // TUITION PAYMENT HISTORY - Build from payments
@@ -26909,10 +26934,20 @@ const filteredItems = allItems.filter(item => {
             <div class="flex flex-wrap gap-2 mt-2">
                 ${statusGroups.map(sg => {
                     const data = statusGroupBreakdown[sg];
+                    const { totalCount, removedCount } = getGroupRemovedInfo(sg);
+                    const activeItemCount = totalCount - removedCount;
                     const hasBal = (data.totalBalance || 0) > 0 || (data.itemsRemaining || 0) > 0;
+
+                    if (activeItemCount === 0 && removedCount > 0) {
+                        return `<span class="px-2 py-0.5 rounded-full text-xs bg-gray-200 text-gray-600">
+                            ${escapeHtml(sg)}: ❌ Removed (${removedCount} item${removedCount > 1 ? 's' : ''})
+                        </span>`;
+                    }
+
                     return `<span class="px-2 py-0.5 rounded-full text-xs ${hasBal ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">
                         ${escapeHtml(sg)}: ${hasBal ? `UGX ${formatMoney(data.totalBalance || 0)}` : '✓ Paid'}
                         ${(data.itemsRemaining || 0) > 0 ? `(${data.itemsRemaining} items)` : ''}
+                        ${removedCount > 0 ? ` <span class="text-gray-500">(${removedCount} removed)</span>` : ''}
                     </span>`;
                 }).join('')}
             </div>
@@ -27070,13 +27105,17 @@ const filteredItems = allItems.filter(item => {
                     </div>
                     <div class="bg-purple-50 rounded-lg p-2 text-center border border-purple-200">
                         <p class="text-xs text-gray-500">🎯 Activities</p>
-                        <p class="font-bold ${filteredAmountRemaining > 0 ? 'text-red-600' : 'text-green-600'}">${filteredAmountRemaining > 0 ? `UGX ${formatMoney(filteredAmountRemaining)}` : '✓ Paid'}</p>
+                        <p class="font-bold ${hasOnlyRemovedItems ? 'text-gray-500' : filteredAmountRemaining > 0 ? 'text-red-600' : 'text-green-600'}">
+                            ${hasOnlyRemovedItems ? `❌ ${overallRemovedCount} Removed` : filteredAmountRemaining > 0 ? `UGX ${formatMoney(filteredAmountRemaining)}` : '✓ Paid'}
+                        </p>
                         <p class="text-xs text-gray-400">Expected: UGX ${formatMoney(activityExpected)}</p>
                         <p class="text-xs text-green-600">Paid: UGX ${formatMoney(activityPaid)}</p>
                     </div>
                     <div class="bg-orange-50 rounded-lg p-2 text-center border border-orange-200">
                         <p class="text-xs text-gray-500">📦 Items</p>
-                        <p class="font-bold ${filteredItemsRemaining > 0 ? 'text-orange-600' : 'text-green-600'}">${filteredItemsRemaining > 0 ? `${filteredItemsRemaining} items` : '✓ All Delivered'}</p>
+                        <p class="font-bold ${hasOnlyRemovedItems ? 'text-gray-500' : filteredItemsRemaining > 0 ? 'text-orange-600' : 'text-green-600'}">
+                            ${hasOnlyRemovedItems ? '❌ N/A (Removed)' : filteredItemsRemaining > 0 ? `${filteredItemsRemaining} items` : '✓ All Delivered'}
+                        </p>
                         <p class="text-xs text-gray-400">Required: ${filteredItemsRequired}</p>
                         <p class="text-xs text-blue-600">Brought: ${filteredItemsBrought}</p>
                     </div>
@@ -27130,10 +27169,10 @@ const filteredItems = allItems.filter(item => {
                 <div id="periodItems_${periodKey}" class="mt-4 space-y-4">
                    ${filteredItems.length > 0 ? buildItemsForPeriod(periodKey, filteredItems, isCurrent, student) : `
     <div class="text-center text-gray-500 py-4 border-2 border-dashed border-gray-300 rounded-lg">
-        <i class="fas fa-check-circle text-green-500 text-3xl mb-2"></i>
-        <p>No items to collect for this period</p>
-        ${isCurrent ? '<p class="text-xs text-gray-400">This student may not have any fees assigned for this term</p>' : ''}
-        ${getRemovedCountForPeriod(student, year, term) > 0 ? `<p class="text-xs text-gray-400">${getRemovedCountForPeriod(student, year, term)} item(s) removed</p>` : ''}
+        <i class="fas ${overallRemovedCount > 0 ? 'fa-ban text-gray-400' : 'fa-check-circle text-green-500'} text-3xl mb-2"></i>
+        <p>${overallRemovedCount > 0 ? 'All items for this period have been removed' : 'No items to collect for this period'}</p>
+        ${isCurrent && overallRemovedCount === 0 ? '<p class="text-xs text-gray-400">This student may not have any fees assigned for this term</p>' : ''}
+        ${overallRemovedCount > 0 ? `<p class="text-xs text-gray-400">❌ ${overallRemovedCount} item(s) removed — not charged this period</p>` : ''}
     </div>
 `}
                 </div>
