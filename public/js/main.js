@@ -10256,18 +10256,22 @@ async function showStudentRegistration() {
                             </div>
 
                             <!-- ITEMS FOR CUSTOMIZATION -->
+                                                       <!-- ITEMS FOR CUSTOMIZATION -->
                             <div id="itemsCustomizationContainer" class="hidden sr-items-panel">
                                 <div class="sr-items-panel-head">
-                                    <h3><i class="fas fa-sliders-h"></i> Customize items for this student</h3>
-                                    <span class="sr-items-panel-hint">Override amounts, quantities, or remove items entirely</span>
-                                </div>
-                                <div id="itemsCustomizationList" class="sr-items-list">
-                                    <div class="sr-empty-state" id="emptyItemsMsg">
-                                        <i class="fas fa-inbox"></i>
-                                        <p>Select a fee structure to see items</p>
+                                    <div>
+                                        <h3><i class="fas fa-sliders-h"></i> Customize items for this student</h3>
+                                        <span class="sr-items-panel-hint">All items start removed. Restore a whole group or individual items to bill them.</span>
+                                    </div>
+                                    <div class="sr-group-actions-buttons">
+                                        <button type="button" class="sr-btn sr-btn-sm sr-btn-success" onclick="restoreAllRegistrationItems()">
+                                            <i class="fas fa-undo"></i> Restore all
+                                        </button>
+                                        <button type="button" class="sr-btn sr-btn-sm sr-btn-ghost" onclick="removeAllRegistrationItems()">
+                                            <i class="fas fa-trash"></i> Remove all
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
                         </div>
                     </section>
 
