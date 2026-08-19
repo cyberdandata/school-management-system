@@ -230,6 +230,11 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
 
     for (const comp of feeStructure.activityComponents) {
         if (!comp || !comp.items) continue;
+
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        const periodType = comp.periodType || 'termly';
+        if (periodType === 'termly') continue;
+
         for (const item of comp.items) {
             if (!item) continue;
             const itemId = item.id || item.name;
@@ -244,8 +249,6 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
                 removedAt: new Date().toISOString(),
                 reason: 'New student — not yet activated',
                 isActive: true
-                // No academicYear/term stamp: stays removed for ALL periods
-                // until the bursar restores it.
             };
         }
     }
