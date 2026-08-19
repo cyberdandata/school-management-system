@@ -15788,7 +15788,438 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
     }
 });
 
+// ==================== PAGINATED / VIRTUALIZED STUDENT LIST ====================
+// Version: 1.0 - Server-side filtering + pagination for the All Students page.
+// Only computes and returns the requested page of students; search/class/level/
+// status filters are applied here, not on the frontend, so the browser never
+// has to hold or render the full dataset at once.
 
+app.get('/api/students/paginated', (req, res) => {
+    try {
+        const settings = readFile(files.settings);
+        const defaultYear = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentYear)
+            || settings.currentAcademicYear || new Date().getFullYear();
+        const defaultTerm = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentTerm)
+            || settings.currentTerm || 1;
+
+        const isExport = req.query.export === 'true';
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const pageSize = isExport ? 1000000 : Math.min(200, Math.max(10, parseInt(req.query.pageSize) || 50));
+        const search = (req.query.search || '').toLowerCase().trim();
+        const classFilter = req.query.classId || req.query.className || '';
+        const levelFilter = req.query.level || '';
+        const statusFilter = req.query.status || '';
+        const currentYear = parseInt(req.query.year) || defaultYear;
+        const currentTerm = parseInt(req.query.term) || defaultTerm;
+        const termName = getTermName(currentTerm);
+        const isFirstTerm = currentTerm === 1;
+
+        // ---------- LOAD DATA ONCE ----------
+        let students = readFile(files.students) || [];
+        let classes = readFile(files.classes) || [];
+        let feeStructures = readFile(files.feeStructures) || [];
+        let feeAssignments = readFile(files.studentFeeAssignments) || [];
+        let allPayments = readFile(files.feePayments) || [];
+        let feeBursaries = readFile(files.feeBursaries) || [];
+        let termRecords = readFile(files.studentTermRecords) || {};
+
+        students = Array.isArray(students) ? students : [];
+        classes = Array.isArray(classes) ? classes : [];
+        feeStructures = Array.isArray(feeStructures) ? feeStructures : [];
+        feeAssignments = Array.isArray(feeAssignments) ? feeAssignments : [];
+        allPayments = Array.isArray(allPayments) ? allPayments : [];
+
+        // ---------- MAPS ----------
+        const classesMap = {};
+        classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
+        const assignmentsMap = {};
+        feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
+        const bursariesMap = {};
+        feeBursaries.forEach(b => { if (b && b.id) bursariesMap[b.id] = b; });
+        const feeStructuresMap = {};
+        feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
+
+        // Index payments by studentId ONCE — avoids O(students × payments) scanning
+        const paymentsByStudent = new Map();
+        for (const p of allPayments) {
+            if (!p || !p.studentId) continue;
+            if (!paymentsByStudent.has(p.studentId)) paymentsByStudent.set(p.studentId, []);
+            paymentsByStudent.get(p.studentId).push(p);
+        }
+
+        // ---------- STATUS GROUPS (from fee structures, small dataset) ----------
+        const statusGroupsMap = new Map();
+        feeStructures.forEach(fs => {
+            (fs.activityComponents || []).forEach(comp => {
+                const name = comp.statusGroupName || comp.name || 'Other';
+                if (!statusGroupsMap.has(name)) statusGroupsMap.set(name, { name, periodTypes: new Set() });
+                statusGroupsMap.get(name).periodTypes.add(comp.periodType || 'termly');
+            });
+        });
+        const sortedStatusGroups = Array.from(statusGroupsMap.values())
+            .sort((a, b) => {
+                const order = { 'Transportation': 1, 'Admission Fee': 2, 'schoolastic requirement': 3 };
+                const ao = order[a.name] || 99, bo = order[b.name] || 99;
+                if (ao !== bo) return ao - bo;
+                return a.name.localeCompare(b.name);
+            })
+            .map(sg => ({ name: sg.name, periodTypes: Array.from(sg.periodTypes) }));
+
+        // ---------- HELPERS ----------
+        function isItemRemoved(student, itemId) {
+            if (!student || !student.removedItems) return false;
+            return student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
+        }
+
+        function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
+            if (student && student.customItemOverrides && student.customItemOverrides[itemId]) {
+                const custom = student.customItemOverrides[itemId];
+                if (custom.isActive !== false) {
+                    const customAmount = (custom.customAmount !== null && custom.customAmount !== undefined) ? custom.customAmount : defaultAmount;
+                    const customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) ? custom.customQuantity : defaultQuantity;
+                    const customPaymentOption = custom.paymentOption || defaultPaymentOption;
+                    let customUnitPrice = defaultUnitPrice;
+                    if (customQuantity > 0 && customAmount > 0) customUnitPrice = customAmount / customQuantity;
+                    else if (customAmount > 0) customUnitPrice = customAmount / (customQuantity || 1);
+                    else if (customQuantity > 0) customUnitPrice = defaultUnitPrice || (defaultAmount / (defaultQuantity || 1));
+                    return { amount: customAmount, quantity: customQuantity, paymentOption: customPaymentOption, unitPrice: customUnitPrice, isCustomized: true, reason: custom.reason || null };
+                }
+            }
+            return { amount: defaultAmount || 0, quantity: defaultQuantity || 1, paymentOption: defaultPaymentOption || 'either', unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)), isCustomized: false, reason: null };
+        }
+
+        function getPaidAmountsWithOrLogic(componentName, itemName, quantityRequired, amountExpected, unitPrice, paymentOption, paymentsToCheck) {
+            let cashPaid = 0, itemsBrought = 0;
+            const uniquePaymentItems = new Map();
+            for (const payment of paymentsToCheck) {
+                if (!payment || !payment.id) continue;
+                if (Array.isArray(payment.activityItemPayments)) {
+                    for (const paidItem of payment.activityItemPayments) {
+                        if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
+                        if (paidItem.componentName.toLowerCase() === componentName.toLowerCase() && paidItem.itemName.toLowerCase() === itemName.toLowerCase()) {
+                            const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
+                            if (!uniquePaymentItems.has(key)) uniquePaymentItems.set(key, paidItem);
+                        }
+                    }
+                }
+                if (payment.paymentsByPeriodType) {
+                    for (const pt of ['one_time', 'termly', 'yearly']) {
+                        for (const paidItem of (payment.paymentsByPeriodType[pt] || [])) {
+                            if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
+                            if (paidItem.componentName.toLowerCase() === componentName.toLowerCase() && paidItem.itemName.toLowerCase() === itemName.toLowerCase()) {
+                                const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
+                                if (!uniquePaymentItems.has(key)) uniquePaymentItems.set(key, paidItem);
+                            }
+                        }
+                    }
+                }
+            }
+            for (const paidItem of uniquePaymentItems.values()) {
+                if (paidItem.paymentType === 'paid_cash') cashPaid += (paidItem.amountPaid || 0);
+                else if (paidItem.paymentType === 'brought_item') itemsBrought += (paidItem.itemsBrought || 0);
+            }
+            let finalCashPaid = cashPaid;
+            let finalItemsBrought = Math.min(itemsBrought, quantityRequired);
+            if (paymentOption === 'either' || paymentOption === 'item_only') {
+                if (finalItemsBrought >= quantityRequired) finalCashPaid = 0;
+                else if (paymentOption === 'item_only') finalCashPaid = 0;
+            }
+            if (paymentOption === 'cash_only' || paymentOption === 'either') finalCashPaid = Math.min(finalCashPaid, amountExpected);
+
+            let remainingAmount = 0, remainingItems = 0, isFullyPaid = false;
+            if (paymentOption === 'cash_only') {
+                remainingAmount = Math.max(0, amountExpected - finalCashPaid);
+                isFullyPaid = remainingAmount <= 0;
+            } else if (paymentOption === 'item_only') {
+                remainingItems = Math.max(0, quantityRequired - finalItemsBrought);
+                isFullyPaid = remainingItems <= 0;
+            } else {
+                const cashCovers = finalCashPaid >= amountExpected;
+                const itemsCover = finalItemsBrought >= quantityRequired;
+                isFullyPaid = cashCovers || itemsCover;
+                if (!isFullyPaid) {
+                    const totalPaidValue = finalCashPaid + (finalItemsBrought * unitPrice);
+                    const totalRequired = quantityRequired * unitPrice;
+                    remainingAmount = Math.max(0, totalRequired - totalPaidValue);
+                    remainingItems = unitPrice > 0 ? Math.ceil(remainingAmount / unitPrice) : 0;
+                }
+            }
+            return { cashPaid: finalCashPaid, itemsBrought: finalItemsBrought, remainingAmount, remainingItems, isFullyPaid };
+        }
+
+        // ---------- PER-STUDENT SUMMARY (mirrors the frontend's old logic) ----------
+        function buildStudentSummary(student) {
+            const studentPayments = paymentsByStudent.get(student.id) || [];
+
+            const periodsSet = new Map();
+            studentPayments.forEach(p => {
+                if (p && p.academicYear && p.term !== undefined) {
+                    const key = `${p.academicYear}_${p.term}`;
+                    if (!periodsSet.has(key)) periodsSet.set(key, { year: parseInt(p.academicYear), term: parseInt(p.term) });
+                }
+            });
+            for (const key of Object.keys(termRecords)) {
+                if (key.startsWith(student.id + '_')) {
+                    const parts = key.split('_');
+                    if (parts.length === 3) {
+                        const year = parseInt(parts[1]), term = parseInt(parts[2]);
+                        const pk = `${year}_${term}`;
+                        if (!periodsSet.has(pk)) periodsSet.set(pk, { year, term });
+                    }
+                }
+            }
+            const assignment = assignmentsMap[student.id] || {};
+            if (assignment.academicYear) {
+                const year = parseInt(assignment.academicYear), term = parseInt(assignment.term) || 1;
+                const pk = `${year}_${term}`;
+                if (!periodsSet.has(pk)) periodsSet.set(pk, { year, term });
+            }
+            if (periodsSet.size === 0) periodsSet.set(`${currentYear}_${currentTerm}`, { year: currentYear, term: currentTerm });
+
+            const maxTermByYear = {};
+            let oldestYear = Infinity, oldestTerm = Infinity, oldestPeriodKey = null;
+            for (const [key, d] of periodsSet) {
+                if (!maxTermByYear[d.year] || d.term > maxTermByYear[d.year]) maxTermByYear[d.year] = d.term;
+                if (d.year < oldestYear || (d.year === oldestYear && d.term < oldestTerm)) { oldestYear = d.year; oldestTerm = d.term; oldestPeriodKey = key; }
+            }
+            const isLatestTermForCurrentYear = (currentTerm === maxTermByYear[currentYear]);
+            const isOldestPeriod = (oldestPeriodKey === `${currentYear}_${currentTerm}`);
+
+            const feeStructure = feeStructuresMap[assignment.feeStructureId];
+
+            let currentClass = 'Not Assigned', classLevel = 'Unknown';
+            if (student.currentClassId && classesMap[student.currentClassId]) {
+                currentClass = classesMap[student.currentClassId].name;
+                classLevel = classesMap[student.currentClassId].level || 'Unknown';
+            } else if (student.currentClass) {
+                currentClass = student.currentClass;
+            }
+
+            // ---- Tuition ----
+            let originalTuition = feeStructure ? (feeStructure.tuition || 0) : 0;
+            let expectedTuition = originalTuition, discountAmount = 0, discountDisplay = '', bursaryName = null;
+
+            if (student.customBursary && student.customBursary.amount > 0) {
+                discountAmount = student.customBursary.amount;
+                discountDisplay = `Custom: UGX ${discountAmount.toLocaleString()} off`;
+                expectedTuition = Math.max(0, originalTuition - discountAmount);
+                bursaryName = 'Custom Bursary';
+            } else if (assignment.bursaryId && bursariesMap[assignment.bursaryId]) {
+                const bursary = bursariesMap[assignment.bursaryId];
+                bursaryName = bursary.name;
+                if (bursary.type === 'percentage') {
+                    discountAmount = (originalTuition * bursary.value) / 100;
+                    discountDisplay = `${bursary.value}% off`;
+                } else {
+                    discountAmount = bursary.value;
+                    discountDisplay = `UGX ${discountAmount.toLocaleString()} off`;
+                }
+                expectedTuition = Math.max(0, originalTuition - discountAmount);
+            }
+
+            const termPayments = studentPayments.filter(p => p.term === currentTerm && p.academicYear === currentYear.toString());
+            let tuitionPaid = 0;
+            for (const p of termPayments) tuitionPaid += (p.tuitionPaid || 0);
+            const tuitionBalance = expectedTuition - tuitionPaid;
+
+            let tuitionStatusText = 'Payment Due', tuitionStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200', tuitionStatusIcon = '⚠️';
+            if (Math.abs(tuitionBalance) <= 10 && tuitionPaid > 0) { tuitionStatusText = 'Fully Paid'; tuitionStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; tuitionStatusIcon = '✅'; }
+            else if (tuitionBalance < -10) { tuitionStatusText = 'Credit Balance'; tuitionStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; tuitionStatusIcon = '💰'; }
+            else if (tuitionBalance > expectedTuition && expectedTuition > 0) { tuitionStatusText = 'Critical Overdue'; tuitionStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; tuitionStatusIcon = '🔴'; }
+            else if (tuitionPaid === 0 && expectedTuition > 0) { tuitionStatusText = 'No Payment'; tuitionStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; tuitionStatusIcon = '📋'; }
+
+            // ---- Status groups ----
+            const statusGroupTotals = {};
+            for (const sg of sortedStatusGroups) {
+                statusGroupTotals[sg.name] = { expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [], hasStructure: false, periodTypes: [], isTransportation: false, customItemsCount: 0, existsInFeeStructure: false };
+            }
+
+            let currentPeriodItemsRemaining = 0;
+
+            if (feeStructure && feeStructure.activityComponents) {
+                for (const component of feeStructure.activityComponents) {
+                    const periodType = component.periodType || 'termly';
+                    let shouldInclude = false;
+                    if (periodType === 'termly') shouldInclude = true;
+                    else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
+                    else if (periodType === 'yearly') shouldInclude = isLatestTermForCurrentYear;
+                    if (!shouldInclude) continue;
+
+                    const groupName = component.statusGroupName || component.name || 'Other';
+                    const isTransportation = component.name.toLowerCase().includes('transport') || (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
+                    if (isTransportation && student.customTransportation && student.customTransportation.hasTransportation === false) continue;
+
+                    if (!statusGroupTotals[groupName]) {
+                        statusGroupTotals[groupName] = { expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [], hasStructure: false, periodTypes: [], isTransportation, customItemsCount: 0, existsInFeeStructure: false };
+                    }
+                    statusGroupTotals[groupName].hasStructure = true;
+                    statusGroupTotals[groupName].existsInFeeStructure = true;
+                    if (!statusGroupTotals[groupName].periodTypes.includes(periodType)) statusGroupTotals[groupName].periodTypes.push(periodType);
+                    statusGroupTotals[groupName].isTransportation = isTransportation;
+
+                    let scopedPayments;
+                    if (periodType === 'yearly') scopedPayments = studentPayments.filter(p => parseInt(p.academicYear) === currentYear);
+                    else if (periodType === 'one_time') scopedPayments = studentPayments;
+                    else scopedPayments = termPayments;
+
+                    for (const item of (component.items || [])) {
+                        const itemId = item.id || item.name;
+                        if (isItemRemoved(student, itemId)) continue;
+
+                        const defaultAmount = item.totalAmount || 0;
+                        const defaultQuantity = item.quantity || 1;
+                        const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
+                        const defaultPaymentOption = item.paymentOption || 'either';
+
+                        const customValues = getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
+                        let effectiveAmount = customValues.amount, effectiveQuantity = customValues.quantity, effectiveUnitPrice = customValues.unitPrice, effectivePaymentOption = customValues.paymentOption;
+                        const isCustomized = customValues.isCustomized;
+
+                        if (isTransportation && student.customTransportation && student.customTransportation.amount) {
+                            effectiveAmount = student.customTransportation.amount;
+                            effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
+                        }
+
+                        const paidInfo = getPaidAmountsWithOrLogic(component.name, item.name, effectiveQuantity, effectiveAmount, effectiveUnitPrice, effectivePaymentOption, scopedPayments);
+
+                        const isScholastic = groupName.toLowerCase().includes('scholastic');
+                        if (isScholastic) currentPeriodItemsRemaining += paidInfo.remainingItems;
+
+                        statusGroupTotals[groupName].expected += effectiveAmount;
+                        statusGroupTotals[groupName].paid += paidInfo.cashPaid;
+                        statusGroupTotals[groupName].balance += paidInfo.remainingAmount;
+                        statusGroupTotals[groupName].moneyRemaining += paidInfo.remainingAmount;
+                        statusGroupTotals[groupName].itemsRemaining += paidInfo.remainingItems;
+                        statusGroupTotals[groupName].items.push({
+                            name: item.name, itemId, quantityRequired: effectiveQuantity, totalAmount: effectiveAmount,
+                            unitPrice: effectiveUnitPrice, paymentOption: effectivePaymentOption,
+                            cashPaid: paidInfo.cashPaid, itemsBrought: paidInfo.itemsBrought,
+                            remainingAmount: paidInfo.remainingAmount, remainingQuantity: paidInfo.remainingItems,
+                            isFullyPaid: paidInfo.isFullyPaid, isCustomized, periodType, isTransportation
+                        });
+                        if (isCustomized) statusGroupTotals[groupName].customItemsCount++;
+                    }
+                }
+            }
+
+            let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
+            for (const sg of sortedStatusGroups) {
+                const d = statusGroupTotals[sg.name];
+                totalExpected += d.expected; totalPaid += d.paid; totalBalance += d.balance;
+                totalRemainingItems += d.itemsRemaining; totalCustomItems += d.customItemsCount;
+            }
+            totalExpected += expectedTuition; totalPaid += tuitionPaid; totalBalance += tuitionBalance;
+
+            const hasCustomizations = !!(student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0);
+
+            let overallStatusText = 'Payment Due', overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200', overallStatusIcon = '⚠️';
+            if (totalBalance < -10) { overallStatusText = 'Credit Balance'; overallStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; overallStatusIcon = '💰'; }
+            else if (Math.abs(totalBalance) <= 10 && totalPaid > 0) { overallStatusText = 'Fully Paid'; overallStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; overallStatusIcon = '✅'; }
+            else if (totalPaid === 0 && totalExpected > 0) { overallStatusText = 'No Payment'; overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; overallStatusIcon = '📋'; }
+            else if (totalBalance > totalExpected && totalExpected > 0) { overallStatusText = 'Critical Overdue'; overallStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; overallStatusIcon = '🔴'; }
+
+            return {
+                id: student.id, firstName: student.firstName || '', lastName: student.lastName || '',
+                admissionNumber: student.admissionNumber || '', gender: student.gender || 'N/A',
+                currentClass, classLevel,
+                parentName: student.parentInfo?.name || 'N/A', parentPhone: student.parentInfo?.phone || 'N/A',
+                status: student.status || 'Active', enrollmentDate: student.enrolledAt || student.createdAt || new Date().toISOString(),
+                feeStructureName: feeStructure ? (feeStructure.name || 'Not Assigned') : 'Not Assigned',
+                feeStructureId: feeStructure ? feeStructure.id : null,
+                bursaryName, discountDisplay,
+                statusGroupTotals, tuitionExpected: expectedTuition, tuitionPaid, tuitionBalance,
+                tuitionStatusText, tuitionStatusColor, tuitionStatusIcon,
+                totalExpected, totalPaid, totalBalance, totalRemainingItems, currentPeriodItemsRemaining,
+                totalCustomItems, overallStatus: overallStatusText, overallStatusColor, overallStatusIcon,
+                paymentCount: termPayments.length, hasFeeStructure: !!feeStructure,
+                hasCustomizations, removedItemsCount: student.removedItems ? Object.keys(student.removedItems).length : 0,
+                currentPeriod: `${termName} ${currentYear}`, currentTerm, currentYear, isFirstTerm
+            };
+        }
+
+        // ---------- FILTER + AGGREGATE OVER ALL STUDENTS ----------
+        let matched = [];
+        let totalStudents = 0, maleCount = 0, femaleCount = 0, activeCount = 0;
+        let totalTuitionExpected = 0, totalTuitionCollected = 0, totalCurrentItemsOutstanding = 0;
+        let studentsWithCustomizations = 0, noFeeStructureCount = 0;
+        let fullyPaidCount = 0, paymentDueCount = 0, noPaymentCount = 0, creditCount = 0, criticalCount = 0;
+        let nurseryCount = 0, lowerPrimaryCount = 0, upperPrimaryCount = 0;
+
+        for (const student of students) {
+            if (!student) continue;
+            const summary = buildStudentSummary(student);
+
+            totalStudents++;
+            if (student.gender === 'Male') maleCount++; else if (student.gender === 'Female') femaleCount++;
+            if (student.status === 'Active') activeCount++;
+            if (summary.classLevel === 'Nursery') nurseryCount++;
+            else if (summary.classLevel === 'LowerPrimary') lowerPrimaryCount++;
+            else if (summary.classLevel === 'UpperPrimary') upperPrimaryCount++;
+            if (!summary.hasFeeStructure) noFeeStructureCount++;
+            if (summary.hasCustomizations) studentsWithCustomizations++;
+            totalTuitionExpected += summary.tuitionExpected;
+            totalTuitionCollected += summary.tuitionPaid;
+            totalCurrentItemsOutstanding += summary.currentPeriodItemsRemaining;
+
+            if (summary.overallStatus === 'Fully Paid') fullyPaidCount++;
+            else if (summary.overallStatus === 'Payment Due') paymentDueCount++;
+            else if (summary.overallStatus === 'No Payment') noPaymentCount++;
+            else if (summary.overallStatus === 'Credit Balance') creditCount++;
+            else if (summary.overallStatus === 'Critical Overdue') criticalCount++;
+
+            if (search) {
+                const name = `${summary.firstName} ${summary.lastName}`.toLowerCase();
+                const adm = summary.admissionNumber.toLowerCase();
+                if (!name.includes(search) && !adm.includes(search)) continue;
+            }
+            if (classFilter && summary.currentClass !== classFilter) continue;
+            if (levelFilter && summary.classLevel !== levelFilter) continue;
+            if (statusFilter) {
+                if (statusFilter === 'No Fee Structure' && summary.hasFeeStructure) continue;
+                if (statusFilter !== 'No Fee Structure' && summary.overallStatus !== statusFilter) continue;
+            }
+
+            matched.push(summary);
+        }
+
+        matched.sort((a, b) => (a.admissionNumber || '').localeCompare(b.admissionNumber || ''));
+
+        const totalCount = matched.length;
+        const totalPages = isExport ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
+        const startIdx = isExport ? 0 : (page - 1) * pageSize;
+        const pageItems = isExport ? matched : matched.slice(startIdx, startIdx + pageSize);
+
+        const totalCollectionRate = totalTuitionExpected > 0 ? (totalTuitionCollected / totalTuitionExpected * 100) : 0;
+        const totalOutstanding = totalTuitionExpected - totalTuitionCollected;
+
+        res.json({
+            success: true,
+            students: pageItems,
+            pagination: { page, pageSize, totalCount, totalPages },
+            statusGroups: sortedStatusGroups,
+            classes: classes.map(c => ({ id: c.id, name: c.name, level: c.level })),
+            meta: { currentYear, currentTerm, termName, isFirstTerm },
+            stats: {
+                totalStudents, maleCount, femaleCount, activeCount,
+                nurseryCount, lowerPrimaryCount, upperPrimaryCount,
+                noFeeStructureCount, studentsWithCustomizations,
+                totalTuitionExpected, totalTuitionCollected, totalOutstanding, totalCollectionRate,
+                totalCurrentItemsOutstanding,
+                fullyPaidCount, paymentDueCount, noPaymentCount, creditCount, criticalCount,
+                filteredCount: totalCount
+            }
+        });
+
+    } catch (error) {
+        console.error('Error in /api/students/paginated:', error);
+        res.status(500).json({
+            success: false, error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+console.log('✅ Paginated/virtualized student list endpoint loaded: GET /api/students/paginated');
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
