@@ -10342,95 +10342,95 @@ async function showStudentRegistration() {
         }
 
         // ========== Load fee structure items for customization ==========
-        function loadFeeStructureItemsForCustomization() {
-            console.log('loadFeeStructureItemsForCustomization called');
+        // function loadFeeStructureItemsForCustomization() {
+        //     console.log('loadFeeStructureItemsForCustomization called');
 
-            const feeSelect = document.getElementById('feeStructureId');
-            const container = document.getElementById('itemsCustomizationContainer');
-            const list = document.getElementById('itemsCustomizationList');
+        //     const feeSelect = document.getElementById('feeStructureId');
+        //     const container = document.getElementById('itemsCustomizationContainer');
+        //     const list = document.getElementById('itemsCustomizationList');
 
-            if (!feeSelect || !container || !list) {
-                console.warn('Required elements not found');
-                return;
-            }
+        //     if (!feeSelect || !container || !list) {
+        //         console.warn('Required elements not found');
+        //         return;
+        //     }
 
-            if (!feeSelect.value) {
-                container.classList.add('hidden');
-                hideFeeBar();
-                return;
-            }
+        //     if (!feeSelect.value) {
+        //         container.classList.add('hidden');
+        //         hideFeeBar();
+        //         return;
+        //     }
 
-            container.classList.remove('hidden');
-            container.classList.add('sr-in');
+        //     container.classList.remove('hidden');
+        //     container.classList.add('sr-in');
 
-            const selectedOption = feeSelect.options[feeSelect.selectedIndex];
-            let feeStructure = null;
-            try {
-                feeStructure = JSON.parse(selectedOption.dataset.structure);
-            } catch (e) {
-                feeStructure = { activityComponents: [] };
-            }
+        //     const selectedOption = feeSelect.options[feeSelect.selectedIndex];
+        //     let feeStructure = null;
+        //     try {
+        //         feeStructure = JSON.parse(selectedOption.dataset.structure);
+        //     } catch (e) {
+        //         feeStructure = { activityComponents: [] };
+        //     }
 
-            window.srCurrentFeeStructure = feeStructure;
+        //     window.srCurrentFeeStructure = feeStructure;
 
-            // Clear existing customizations
-            window.tempItemCustomizations = {};
-            window.tempRemovedItems = {};
+        //     // Clear existing customizations
+        //     window.tempItemCustomizations = {};
+        //     window.tempRemovedItems = {};
 
-            let itemsHtml = '';
-            let hasItems = false;
-            let cardIndex = 0;
+        //     let itemsHtml = '';
+        //     let hasItems = false;
+        //     let cardIndex = 0;
 
-            const accentFor = (periodType) =>
-                periodType === 'one_time' ? { c: '#7C6BEF', label: 'One-time' } :
-                periodType === 'termly' ? { c: '#0E9C8E', label: 'Termly' } :
-                { c: '#DB9A2C', label: 'Yearly' };
+        //     const accentFor = (periodType) =>
+        //         periodType === 'one_time' ? { c: '#7C6BEF', label: 'One-time' } :
+        //         periodType === 'termly' ? { c: '#0E9C8E', label: 'Termly' } :
+        //         { c: '#DB9A2C', label: 'Yearly' };
 
-            const activityComponents = feeStructure.activityComponents || [];
+        //     const activityComponents = feeStructure.activityComponents || [];
 
-            for (const component of activityComponents) {
-                if (!component.items || component.items.length === 0) continue;
-                const { c: accent, label: periodLabel } = accentFor(component.periodType);
+        //     for (const component of activityComponents) {
+        //         if (!component.items || component.items.length === 0) continue;
+        //         const { c: accent, label: periodLabel } = accentFor(component.periodType);
 
-                itemsHtml += `
-                    <div class="sr-component sr-in" style="--sr-accent:${accent}; --sr-delay:${cardIndex * 40}ms">
-                        <div class="sr-component-head">
-                            <span class="sr-period-chip" style="--sr-accent:${accent}">${periodLabel}</span>
-                            <h4>${escapeHtmlSafe(component.name)}</h4>
-                            <span class="sr-component-total">UGX ${(component.totalAmount || 0).toLocaleString()}</span>
-                        </div>
-                        <div class="sr-component-items">
-                            ${component.items.map(item => {
-                                hasItems = true;
-                                cardIndex++;
-                                const itemId = item.id || item.name;
-                                const defaultAmount = item.totalAmount || 0;
-                                const defaultQuantity = item.quantity || 1;
-                                const paymentOption = item.paymentOption || 'either';
+        //         itemsHtml += `
+        //             <div class="sr-component sr-in" style="--sr-accent:${accent}; --sr-delay:${cardIndex * 40}ms">
+        //                 <div class="sr-component-head">
+        //                     <span class="sr-period-chip" style="--sr-accent:${accent}">${periodLabel}</span>
+        //                     <h4>${escapeHtmlSafe(component.name)}</h4>
+        //                     <span class="sr-component-total">UGX ${(component.totalAmount || 0).toLocaleString()}</span>
+        //                 </div>
+        //                 <div class="sr-component-items">
+        //                     ${component.items.map(item => {
+        //                         hasItems = true;
+        //                         cardIndex++;
+        //                         const itemId = item.id || item.name;
+        //                         const defaultAmount = item.totalAmount || 0;
+        //                         const defaultQuantity = item.quantity || 1;
+        //                         const paymentOption = item.paymentOption || 'either';
 
-                                return renderItemRow({
-                                    itemId, itemName: item.name, componentName: component.name,
-                                    periodType: component.periodType, defaultAmount, defaultQuantity, paymentOption
-                                });
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }
+        //                         return renderItemRow({
+        //                             itemId, itemName: item.name, componentName: component.name,
+        //                             periodType: component.periodType, defaultAmount, defaultQuantity, paymentOption
+        //                         });
+        //                     }).join('')}
+        //                 </div>
+        //             </div>
+        //         `;
+        //     }
 
-            if (hasItems) {
-                list.innerHTML = itemsHtml;
-            } else {
-                list.innerHTML = `
-                    <div class="sr-empty-state">
-                        <i class="fas fa-inbox"></i>
-                        <p>No items found in this fee structure</p>
-                    </div>
-                `;
-            }
+        //     if (hasItems) {
+        //         list.innerHTML = itemsHtml;
+        //     } else {
+        //         list.innerHTML = `
+        //             <div class="sr-empty-state">
+        //                 <i class="fas fa-inbox"></i>
+        //                 <p>No items found in this fee structure</p>
+        //             </div>
+        //         `;
+        //     }
 
-            recalcFeeBar();
-        }
+        //     recalcFeeBar();
+        // }
 
         // ========== Render a single item row (used on initial load and restore) ==========
         function renderItemRow({ itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption }) {
