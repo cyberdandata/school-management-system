@@ -10758,6 +10758,9 @@ async function showStudentRegistration() {
             const el = document.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
             if (!el) return;
             const d = el.dataset;
+            const parentGroup = el.closest('[data-group-index]');
+            const groupIndex = parentGroup ? parseInt(parentGroup.dataset.groupIndex) : null;
+
             const html = renderItemRow({
                 itemId, itemName: d.itemName, componentName: d.componentName, periodType: d.periodType,
                 defaultAmount: parseFloat(d.defaultAmount) || 0, defaultQuantity: parseInt(d.defaultQuantity) || 1,
@@ -10768,6 +10771,10 @@ async function showStudentRegistration() {
             const newEl = wrapper.firstChild;
             newEl.classList.add('sr-refresh-pulse');
             el.replaceWith(newEl);
+
+            if (groupIndex !== null && typeof refreshGroupActions === 'function') {
+                refreshGroupActions(groupIndex);
+            }
         }
 
         // ========== Confirm remove item (custom modal, animated) ==========
