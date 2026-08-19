@@ -31754,48 +31754,409 @@ console.log('✅ Complete Fee Collection System v3.0 — With Payment Deduplicat
 // ==================== COMPLETE REBUILT EDIT STUDENT WITH REMOVE ITEM FEATURE ====================
 // Version: FINAL - With Remove Item and Restore Item functionality
 
-async function editStudentInfoList(studentId) {
-    console.log('=== editStudentInfoList START - YEAR-AWARE FEE ASSIGNMENT ===');
-    console.log('Student ID:', studentId);
+/* ============================================================================
+   EDIT STUDENT — v2.0 (Modern UI + Status-Group Restore/Remove)
+   ----------------------------------------------------------------------------
+   - Preserves all original business logic:
+       * Year-aware fee assignment (per academicYear)
+       * Per-item customizations (amount/quantity/paymentOption/reason)
+       * Per-item removal, stamped with academicYear + term
+       * Class-change -> enrollment history update
+       * Custom bursary support
+   - Adds:
+       * Restore WHOLE status group (all removed items in a component) at once
+       * Remove WHOLE status group at once
+       * Fully restyled modal: stepper-style sectioned cards, motion/transitions,
+         redesigned item rows & group headers, animated toasts + confirm modal
+   ========================================================================== */
 
-    try {
-        // Show loading indicator
-        const loadingHtml = `
-            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white rounded-2xl p-8 flex flex-col items-center">
-                    <div class="loading-spinner mb-4"></div>
-                    <p class="text-gray-600">Loading student data...</p>
+/* ============================== SHARED UI HELPERS ============================== */
+// Toast + confirm-modal system, safe to call multiple times across pages.
+function ensureSharedUiHelpers() {
+    if (window.__sharedUiHelpersReady) return;
+    window.__sharedUiHelpersReady = true;
+
+    if (!document.getElementById('es-shared-ui-styles')) {
+        const style = document.createElement('style');
+        style.id = 'es-shared-ui-styles';
+        style.textContent = `
+            .es-toast-stack {
+                position: fixed; right: 20px; bottom: 20px; z-index: 100000;
+                display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+            }
+            .es-toast {
+                pointer-events: auto;
+                min-width: 260px; max-width: 380px;
+                background: #1f2430; color: #fff;
+                padding: 12px 16px; border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,.25);
+                display: flex; align-items: flex-start; gap: 10px;
+                font-size: 13.5px; line-height: 1.4;
+                transform: translateY(16px) scale(.96); opacity: 0;
+                transition: transform .32s cubic-bezier(.34,1.56,.64,1), opacity .28s ease;
+                border-left: 4px solid #6b7280;
+            }
+            .es-toast.es-toast-show { transform: translateY(0) scale(1); opacity: 1; }
+            .es-toast.es-toast-success { border-left-color:#22c55e; }
+            .es-toast.es-toast-error   { border-left-color:#ef4444; }
+            .es-toast.es-toast-warning { border-left-color:#f59e0b; }
+            .es-toast.es-toast-info    { border-left-color:#3b82f6; }
+            .es-toast-icon { font-size: 16px; margin-top: 1px; }
+            .es-toast-close { margin-left: auto; opacity:.55; cursor:pointer; padding:2px 4px; }
+            .es-toast-close:hover { opacity:1; }
+
+            .es-confirm-overlay {
+                position: fixed; inset:0; background: rgba(15,17,23,.55);
+                backdrop-filter: blur(3px); z-index: 100001;
+                display:flex; align-items:center; justify-content:center;
+                opacity:0; transition: opacity .22s ease;
+            }
+            .es-confirm-overlay.es-show { opacity:1; }
+            .es-confirm-card {
+                background:#fff; border-radius:18px; width: 380px; max-width: 90vw;
+                padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(0,0,0,.3);
+                transform: translateY(14px) scale(.94); opacity:0;
+                transition: transform .28s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
+            }
+            .es-confirm-overlay.es-show .es-confirm-card { transform: translateY(0) scale(1); opacity:1; }
+            .es-confirm-icon {
+                width:46px; height:46px; border-radius:50%;
+                display:flex; align-items:center; justify-content:center;
+                font-size:20px; margin-bottom:12px;
+            }
+            .es-confirm-icon.tone-danger  { background:#fee2e2; color:#dc2626; }
+            .es-confirm-icon.tone-success { background:#dcfce7; color:#16a34a; }
+            .es-confirm-icon.tone-warning { background:#fef3c7; color:#d97706; }
+            .es-confirm-icon.tone-info    { background:#dbeafe; color:#2563eb; }
+            .es-confirm-title { font-size:16.5px; font-weight:700; color:#1f2430; margin-bottom:6px; }
+            .es-confirm-msg { font-size:13.5px; color:#5b6270; line-height:1.5; margin-bottom:18px; white-space:pre-line; }
+            .es-confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
+            .es-confirm-btn { padding:9px 16px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; border:none; transition:.15s; }
+            .es-confirm-btn-cancel { background:#f1f2f5; color:#444; }
+            .es-confirm-btn-cancel:hover { background:#e5e7eb; }
+            .es-confirm-btn-confirm { color:#fff; }
+            .es-confirm-btn-confirm.tone-danger  { background:#dc2626; } .es-confirm-btn-confirm.tone-danger:hover { background:#b91c1c; }
+            .es-confirm-btn-confirm.tone-success { background:#16a34a; } .es-confirm-btn-confirm.tone-success:hover { background:#15803d; }
+            .es-confirm-btn-confirm.tone-warning { background:#d97706; } .es-confirm-btn-confirm.tone-warning:hover { background:#b45309; }
+            .es-confirm-btn-confirm.tone-info    { background:#2563eb; } .es-confirm-btn-confirm.tone-info:hover { background:#1d4ed8; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    if (!document.querySelector('.es-toast-stack')) {
+        const stack = document.createElement('div');
+        stack.className = 'es-toast-stack';
+        document.body.appendChild(stack);
+    }
+
+    if (typeof window.showToast !== 'function') {
+        window.showToast = function (message, type = 'info', duration = 3600) {
+            const stack = document.querySelector('.es-toast-stack');
+            if (!stack) return;
+            const icons = { success: '✅', error: '⛔', warning: '⚠️', info: 'ℹ️' };
+            const el = document.createElement('div');
+            el.className = `es-toast es-toast-${type}`;
+            el.innerHTML = `
+                <span class="es-toast-icon">${icons[type] || icons.info}</span>
+                <span>${message}</span>
+                <span class="es-toast-close">&times;</span>
+            `;
+            stack.appendChild(el);
+            requestAnimationFrame(() => el.classList.add('es-toast-show'));
+            const remove = () => {
+                el.classList.remove('es-toast-show');
+                setTimeout(() => el.remove(), 260);
+            };
+            el.querySelector('.es-toast-close').onclick = remove;
+            setTimeout(remove, duration);
+        };
+    }
+
+    if (typeof window.showConfirmModal !== 'function') {
+        window.showConfirmModal = function ({ tone = 'info', title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel' } = {}) {
+            return new Promise((resolve) => {
+                const icons = { danger: 'fa-triangle-exclamation', success: 'fa-check', warning: 'fa-circle-exclamation', info: 'fa-circle-info' };
+                const overlay = document.createElement('div');
+                overlay.className = 'es-confirm-overlay';
+                overlay.innerHTML = `
+                    <div class="es-confirm-card">
+                        <div class="es-confirm-icon tone-${tone}"><i class="fas ${icons[tone] || icons.info}"></i></div>
+                        <div class="es-confirm-title">${title}</div>
+                        <div class="es-confirm-msg">${message}</div>
+                        <div class="es-confirm-actions">
+                            <button class="es-confirm-btn es-confirm-btn-cancel" data-action="cancel">${cancelLabel}</button>
+                            <button class="es-confirm-btn es-confirm-btn-confirm tone-${tone}" data-action="confirm">${confirmLabel}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                requestAnimationFrame(() => overlay.classList.add('es-show'));
+
+                function close(result) {
+                    overlay.classList.remove('es-show');
+                    setTimeout(() => overlay.remove(), 220);
+                    resolve(result);
+                }
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) close(false);
+                    const action = e.target.closest('[data-action]')?.dataset?.action;
+                    if (action === 'confirm') close(true);
+                    if (action === 'cancel') close(false);
+                });
+                document.addEventListener('keydown', function escHandler(e) {
+                    if (e.key === 'Escape') { close(false); document.removeEventListener('keydown', escHandler); }
+                }, { once: true });
+            });
+        };
+    }
+}
+
+/* ============================== SMALL HELPERS ============================== */
+function esEscapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function esFormatMoney(n) { return Math.round(parseFloat(n) || 0).toLocaleString(); }
+function esGetTermName(term) {
+    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+    return names[term] || `Term ${term}`;
+}
+
+/* ============================== MODAL STYLES ============================== */
+function injectEditStudentStyles() {
+    if (document.getElementById('es-edit-student-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'es-edit-student-styles';
+    style.textContent = `
+        @keyframes esFadeScaleIn { from { opacity:0; transform: translateY(18px) scale(.97); } to { opacity:1; transform: translateY(0) scale(1); } }
+        @keyframes esOverlayIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes esCardIn { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform: translateY(0); } }
+        @keyframes esPulse { 0%{ box-shadow:0 0 0 0 rgba(79,95,232,.35);} 70%{ box-shadow:0 0 0 10px rgba(79,95,232,0);} 100%{ box-shadow:0 0 0 0 rgba(79,95,232,0);} }
+        @keyframes esSlideDown { from { opacity:0; max-height:0; transform: translateY(-6px); } to { opacity:1; max-height:400px; transform: translateY(0); } }
+        @keyframes esShake { 10%,90%{transform:translateX(-1px);} 20%,80%{transform:translateX(2px);} 30%,50%,70%{transform:translateX(-4px);} 40%,60%{transform:translateX(4px);} }
+        @keyframes esRefreshPulse { 0%{ background:#fffbea;} 100%{ background:transparent; } }
+
+        .es-overlay {
+            position: fixed; inset:0; z-index: 9998;
+            background: rgba(15,17,23,.55); backdrop-filter: blur(4px);
+            display:flex; align-items:flex-start; justify-content:center;
+            overflow-y:auto; padding: 32px 16px;
+            animation: esOverlayIn .22s ease;
+        }
+        .es-modal {
+            background:#f7f8fb; width:100%; max-width: 980px; border-radius: 22px;
+            box-shadow: 0 30px 80px rgba(0,0,0,.35);
+            animation: esFadeScaleIn .32s cubic-bezier(.2,.8,.2,1);
+            overflow: hidden; display:flex; flex-direction:column; max-height: calc(100vh - 64px);
+        }
+        .es-modal-header {
+            background: linear-gradient(135deg,#4F5FE8,#7C6BEF);
+            color:#fff; padding: 22px 28px; display:flex; justify-content:space-between; align-items:flex-start;
+            position:relative; overflow:hidden; flex-shrink:0;
+        }
+        .es-modal-header::after {
+            content:''; position:absolute; right:-40px; top:-60px; width:220px; height:220px;
+            background: radial-gradient(circle, rgba(255,255,255,.16), transparent 70%);
+        }
+        .es-modal-title { font-size: 20px; font-weight: 800; display:flex; align-items:center; gap:10px; }
+        .es-modal-sub { font-size: 12.5px; opacity:.85; margin-top: 3px; }
+        .es-close-btn {
+            width:36px; height:36px; border-radius:50%; border:none; background: rgba(255,255,255,.16);
+            color:#fff; font-size: 18px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:.15s;
+        }
+        .es-close-btn:hover { background: rgba(255,255,255,.3); transform: rotate(90deg); }
+
+        .es-modal-body { padding: 22px 26px 10px; overflow-y:auto; }
+        .es-modal-footer {
+            padding: 16px 26px; background:#fff; border-top: 1px solid #eceef2;
+            display:flex; gap:12px; flex-shrink:0;
+        }
+
+        .es-card {
+            background:#fff; border-radius:16px; margin-bottom:18px;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+            border: 1px solid #eef0f4;
+            animation: esCardIn .4s ease both;
+            animation-delay: var(--es-delay, 0ms);
+            overflow:hidden;
+        }
+        .es-card-head {
+            display:flex; align-items:center; gap:12px; padding: 15px 20px;
+            border-bottom: 1px solid #f0f1f5;
+            border-left: 4px solid var(--es-accent, #4F5FE8);
+        }
+        .es-card-icon {
+            width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+            background: color-mix(in srgb, var(--es-accent, #4F5FE8) 14%, white);
+            color: var(--es-accent, #4F5FE8); font-size:15px; flex-shrink:0;
+        }
+        .es-card-title { font-size:14.5px; font-weight:700; color:#20242e; }
+        .es-card-sub { font-size:11.5px; color:#8a90a0; margin-top:1px; }
+        .es-card-body { padding: 18px 20px 20px; }
+
+        .es-grid { display:grid; gap:14px; }
+        .es-grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .es-grid-3 { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 720px) { .es-grid-2, .es-grid-3 { grid-template-columns: 1fr; } }
+        .es-span-2 { grid-column: span 2; }
+
+        .es-field { display:flex; flex-direction:column; gap:5px; }
+        .es-label { font-size:12px; font-weight:600; color:#4b5062; }
+        .es-input {
+            border:1.5px solid #e4e6ec; border-radius:10px; padding:9px 12px; font-size:13.5px;
+            transition: border-color .15s, box-shadow .15s; background:#fbfbfd; color:#20242e;
+        }
+        .es-input:focus { outline:none; border-color: var(--es-accent, #4F5FE8); box-shadow: 0 0 0 3px color-mix(in srgb, var(--es-accent,#4F5FE8) 18%, transparent); background:#fff; }
+
+        .es-inline { display:flex; gap:8px; align-items:center; }
+
+        /* ---- Fee items panel ---- */
+        .es-items-hint {
+            background: linear-gradient(135deg,#fff8e1,#fff3d6); border:1px solid #ffe8ad;
+            border-radius:12px; padding:12px 14px; font-size:12.5px; color:#8a6412; margin-bottom:16px;
+            display:flex; gap:10px; align-items:flex-start;
+        }
+        .es-items-hint i { margin-top:1px; color:#d97706; }
+
+        .es-items-list { max-height: 420px; overflow-y:auto; padding-right:4px; }
+        .es-items-list::-webkit-scrollbar { width:6px; }
+        .es-items-list::-webkit-scrollbar-thumb { background:#dcdfe6; border-radius:6px; }
+
+        .es-component {
+            border-radius: 14px; margin-bottom: 14px; overflow:hidden;
+            border: 1.5px solid color-mix(in srgb, var(--es-accent,#4F5FE8) 25%, white);
+            background: color-mix(in srgb, var(--es-accent,#4F5FE8) 5%, white);
+            animation: esCardIn .35s ease both; animation-delay: var(--es-delay,0ms);
+        }
+        .es-component-head {
+            display:flex; align-items:center; gap:10px; padding: 12px 14px 8px; flex-wrap:wrap;
+        }
+        .es-period-chip {
+            font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+            padding:3px 9px; border-radius:999px; color:#fff; background: var(--es-accent,#4F5FE8);
+        }
+        .es-component-head h4 { font-size: 13.5px; font-weight:700; color:#20242e; flex:1; min-width:120px; }
+        .es-component-total { font-size:12.5px; font-weight:700; color: var(--es-accent,#4F5FE8); }
+
+        .es-group-actions {
+            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
+            padding: 8px 14px 12px;
+        }
+        .es-group-status { display:flex; gap:6px; flex-wrap:wrap; }
+        .es-group-buttons { display:flex; gap:8px; flex-wrap:wrap; }
+
+        .es-tag { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-flex; align-items:center; gap:4px; }
+        .es-tag-rose   { background:#fee2e2; color:#b91c1c; }
+        .es-tag-green  { background:#dcfce7; color:#15803d; }
+        .es-tag-amber  { background:#fef3c7; color:#b45309; }
+        .es-tag-blue   { background:#dbeafe; color:#1d4ed8; }
+        .es-tag-violet { background:#ede9fe; color:#6d28d9; }
+        .es-tag-orange { background:#ffedd5; color:#c2410c; }
+        .es-badge-pop  { animation: esCardIn .3s ease; }
+
+        .es-btn {
+            display:inline-flex; align-items:center; gap:6px; border:none; border-radius:9px;
+            font-size:12px; font-weight:700; cursor:pointer; padding:7px 13px;
+            transition: transform .12s ease, box-shadow .15s ease, background .15s ease;
+        }
+        .es-btn:active { transform: scale(.95); }
+        .es-btn-sm { padding:6px 11px; font-size:11.5px; }
+        .es-btn-success { background:#e9fbef; color:#15803d; } .es-btn-success:hover { background:#d1f7dd; box-shadow:0 2px 8px rgba(21,128,61,.18); }
+        .es-btn-danger  { background:#fef1f1; color:#c0281f; } .es-btn-danger:hover  { background:#fde0df; box-shadow:0 2px 8px rgba(192,40,31,.18); }
+        .es-btn-ghost   { background:#f1f2f5; color:#444a58; } .es-btn-ghost:hover   { background:#e5e7eb; }
+        .es-btn-blue    { background:#eaf1ff; color:#1d4ed8; } .es-btn-blue:hover    { background:#dbe8ff; }
+        .es-btn-amber   { background:#fef3e2; color:#b45309; } .es-btn-amber:hover   { background:#fde9c9; }
+        .es-btn-primary { background: linear-gradient(135deg,#4F5FE8,#7C6BEF); color:#fff; padding:11px 20px; font-size:13.5px; border-radius:11px; }
+        .es-btn-primary:hover { box-shadow: 0 8px 22px rgba(79,95,232,.35); }
+        .es-btn-primary:disabled { opacity:.65; cursor:not-allowed; }
+        .es-btn-outline { background:#fff; color:#444a58; border:1.5px solid #e4e6ec; padding:11px 20px; font-size:13.5px; border-radius:11px; }
+        .es-btn-outline:hover { background:#f6f7fa; }
+
+        .es-item {
+            background:#fff; border:1px solid #eceef3; border-radius:12px; padding:12px 14px; margin: 8px 12px 12px;
+            transition: box-shadow .18s ease, transform .18s ease, background .25s ease;
+        }
+        .es-item:hover { box-shadow: 0 4px 14px rgba(20,20,40,.06); transform: translateY(-1px); }
+        .es-item.es-item-removed { background:#fff6f6; border-color:#fbdada; }
+        .es-item.es-refresh-pulse { animation: esRefreshPulse 1s ease; }
+
+        .es-item-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+        .es-item-name-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:3px; }
+        .es-item-name { font-weight:700; font-size:13px; color:#20242e; }
+        .es-strike { text-decoration: line-through; color:#9aa0ab !important; }
+        .es-item-meta { font-size:11.5px; color:#8a90a0; }
+        .es-item-custom-meta { font-size:11.5px; color:#c2410c; margin-top:2px; font-weight:600; }
+        .es-item-removed-meta { font-size:11.5px; color:#c0281f; margin-top:3px; font-weight:600; }
+        .es-item-actions { display:flex; gap:6px; flex-wrap:wrap; }
+
+        .es-custom-form { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e6e8ee; overflow:hidden; }
+        .es-custom-form.es-open { animation: esSlideDown .28s ease; }
+        .es-custom-form-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+
+        .es-empty { text-align:center; padding: 34px 10px; color:#9aa0ab; }
+        .es-empty i { font-size: 30px; margin-bottom:8px; display:block; }
+
+        .es-remove-summary {
+            display:flex; align-items:flex-start; gap:10px; background: linear-gradient(135deg,#fff1f1,#ffe9e9);
+            border:1px solid #ffd6d6; border-radius:12px; padding: 12px 14px; margin-bottom:16px;
+        }
+        .es-remove-summary i { color:#c0281f; margin-top:2px; }
+        .es-remove-summary strong { color:#b91c1c; }
+
+        .es-loading-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 60px 0; gap:14px; }
+        .es-loading-ring {
+            width:44px; height:44px; border-radius:50%;
+            border: 4px solid #e6e8ee; border-top-color:#4F5FE8;
+            animation: esSpin 0.8s linear infinite;
+        }
+        @keyframes esSpin { to { transform: rotate(360deg); } }
+
+        .es-shake { animation: esShake .5s; }
+    `;
+    document.head.appendChild(style);
+}
+
+/* ============================== MAIN FUNCTION ============================== */
+async function editStudentInfoList(studentId) {
+    console.log('=== editStudentInfoList v2.0 — modern UI + group restore ===');
+    ensureSharedUiHelpers();
+    injectEditStudentStyles();
+
+    // ---- loading overlay ----
+    const loadingHtml = `
+        <div class="es-overlay" id="esLoadingOverlay">
+            <div class="es-modal" style="max-width:360px; margin-top:22vh;">
+                <div class="es-loading-wrap">
+                    <div class="es-loading-ring"></div>
+                    <p style="color:#5b6270; font-size:13.5px;">Loading student data…</p>
                 </div>
             </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', loadingHtml);
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', loadingHtml);
 
-        // Fetch all required data, including academic settings
-        console.log('Fetching student data...');
+    try {
         const [
-            studentRes,
-            classesRes,
-            feeStructuresRes,
-            feeAssignmentsRes,
-            feeBursariesRes,
-            customizationsRes,
-            academicSettingsRes
+            studentRes, classesRes, feeStructuresRes, feeAssignmentsRes,
+            feeBursariesRes, customizationsRes, academicSettingsRes
         ] = await Promise.all([
-            fetch(`/api/students/${studentId}`).catch(e => { console.error('Student fetch error:', e); throw new Error('Failed to load student data: ' + e.message); }),
-            fetch('/api/school/classes').catch(e => { console.error('Classes fetch error:', e); throw new Error('Failed to load classes: ' + e.message); }),
-            fetch('/api/fee/structures').catch(e => { console.error('Fee structures fetch error:', e); throw new Error('Failed to load fee structures: ' + e.message); }),
-            fetch('/api/student-fee-assignments').catch(e => { console.error('Fee assignments fetch error:', e); throw new Error('Failed to load fee assignments: ' + e.message); }),
-            fetch('/api/fee/bursaries').catch(e => { console.error('Bursaries fetch error:', e); throw new Error('Failed to load bursaries: ' + e.message); }),
-            fetch(`/api/students/${studentId}/customizations`).catch(e => { console.warn('Customizations fetch error:', e); return { ok: true, json: async () => ({}) }; }),
-            fetch('/api/academic/settings').catch(e => { console.warn('Academic settings fetch error:', e); return { ok: true, json: async () => ({ currentYear: new Date().getFullYear(), currentTerm: 1 }) }; })
+            fetch(`/api/students/${studentId}`),
+            fetch('/api/school/classes'),
+            fetch('/api/fee/structures'),
+            fetch('/api/student-fee-assignments'),
+            fetch('/api/fee/bursaries'),
+            fetch(`/api/students/${studentId}/customizations`).catch(() => ({ ok: true, json: async () => ({}) })),
+            fetch('/api/academic/settings').catch(() => ({ ok: true, json: async () => ({ currentYear: new Date().getFullYear(), currentTerm: 1 }) }))
         ]);
 
-        // Check responses
-        if (!studentRes.ok) throw new Error('Failed to load student data (status: ' + studentRes.status + ')');
-        if (!classesRes.ok) throw new Error('Failed to load classes (status: ' + classesRes.status + ')');
-        if (!feeStructuresRes.ok) throw new Error('Failed to load fee structures (status: ' + feeStructuresRes.status + ')');
-        if (!feeAssignmentsRes.ok) throw new Error('Failed to load fee assignments (status: ' + feeAssignmentsRes.status + ')');
-        if (!feeBursariesRes.ok) throw new Error('Failed to load bursaries (status: ' + feeBursariesRes.status + ')');
+        if (!studentRes.ok) throw new Error('Failed to load student (status ' + studentRes.status + ')');
+        if (!classesRes.ok) throw new Error('Failed to load classes');
+        if (!feeStructuresRes.ok) throw new Error('Failed to load fee structures');
+        if (!feeAssignmentsRes.ok) throw new Error('Failed to load fee assignments');
+        if (!feeBursariesRes.ok) throw new Error('Failed to load bursaries');
 
         const student = await studentRes.json();
         const classes = await classesRes.json();
@@ -31805,579 +32166,432 @@ async function editStudentInfoList(studentId) {
         const existingCustomizations = customizationsRes.ok ? await customizationsRes.json() : {};
         const academicSettings = academicSettingsRes.ok ? await academicSettingsRes.json() : { currentYear: new Date().getFullYear(), currentTerm: 1 };
         const currentYear = academicSettings.currentYear || new Date().getFullYear();
+        const currentTerm = academicSettings.currentTerm || 1;
 
-        // Store global references
         window.currentEditStudent = student;
         window.currentAcademicYear = currentYear;
 
-        console.log('Student loaded:', student.firstName, student.lastName);
-        console.log('Current academic year:', currentYear);
-        console.log('Existing customizations:', existingCustomizations);
-        console.log('Removed items:', student.removedItems || {});
+        document.getElementById('esLoadingOverlay')?.remove();
 
-        // Remove loading indicator
-        const loadingModal = document.querySelector('.fixed.inset-0 .loading-spinner')?.closest('.fixed.inset-0');
-        if (loadingModal) loadingModal.remove();
-
-        // ========== GET CURRENT YEAR'S FEE ASSIGNMENT ==========
-        // Find the assignment for the current academic year
-        let currentAssignment = feeAssignments.find(a =>
-            a && a.studentId === studentId &&
-            a.academicYear === currentYear
-        );
-        
-        // If not found, try to find any assignment (fallback for old data)
-        if (!currentAssignment) {
-            currentAssignment = feeAssignments.find(a => a && a.studentId === studentId) || {};
-        }
+        // ---- current-year fee assignment ----
+        let currentAssignment = feeAssignments.find(a => a && a.studentId === studentId && a.academicYear === currentYear);
+        if (!currentAssignment) currentAssignment = feeAssignments.find(a => a && a.studentId === studentId) || {};
 
         const currentFeeStructureId = currentAssignment.feeStructureId || student.assignedFeeStructureId || student.feeStructureId || '';
         const currentBursaryId = currentAssignment.bursaryId || '';
+        const currentClassId = student.currentClassId || '';
 
-        console.log('Current year assignment:', currentAssignment);
-        console.log('FeeStructureId:', currentFeeStructureId);
-
-        // Get current class ID
-        let currentClassId = student.currentClassId || '';
-
-        // Check if student has a custom bursary
         const hasCustomBursary = student.customBursary && student.customBursary.amount > 0;
         const customBursaryAmount = hasCustomBursary ? student.customBursary.amount : 0;
 
-        // Get custom transportation data
-        let currentTransportation = student.customTransportation || {};
-        const hasTransportation = currentTransportation.hasTransportation !== false;
-        const transportAmount = currentTransportation.amount || 0;
+        let selectedFeeStructure = currentFeeStructureId ? (feeStructures.find(f => f.id === currentFeeStructureId) || null) : null;
 
-        // Find the transportation component in fee structures if any
-        let defaultTransportAmount = 0;
-        let selectedFeeStructure = null;
-        let transportItemId = null;
-        let transportComponentId = null;
-        let transportComponentName = null;
+        // Maps groupKey -> { name, itemIds: [] } — rebuilt every render pass
+        window.esComponentGroups = {};
 
-        if (currentFeeStructureId) {
-            selectedFeeStructure = feeStructures.find(f => f.id === currentFeeStructureId);
-            if (selectedFeeStructure && selectedFeeStructure.activityComponents) {
-                for (const comp of selectedFeeStructure.activityComponents) {
-                    const isTransportation = comp.name.toLowerCase().includes('transport') ||
-                                            (comp.statusGroupName && comp.statusGroupName.toLowerCase().includes('transport'));
-                    if (isTransportation && comp.items && comp.items.length > 0) {
-                        defaultTransportAmount = comp.items[0].totalAmount || 0;
-                        transportItemId = comp.items[0].id || comp.items[0].name;
-                        transportComponentId = comp.id;
-                        transportComponentName = comp.name;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
+        /* -------------------- helpers -------------------- */
         function getCustomizedItemValue(itemId, defaultAmount, defaultQuantity, defaultPaymentOption) {
-            // Check if item is removed
             const isRemoved = student.removedItems && student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
-
-            // Check if there is a customization (preserved even if removed)
-            if (existingCustomizations && existingCustomizations[itemId]) {
-                const custom = existingCustomizations[itemId];
+            const custom = existingCustomizations?.[itemId];
+            if (custom) {
                 return {
-                    amount: custom.customAmount !== null && custom.customAmount !== undefined ? custom.customAmount : defaultAmount,
-                    quantity: custom.customQuantity !== null && custom.customQuantity !== undefined ? custom.customQuantity : defaultQuantity,
+                    amount: custom.customAmount ?? defaultAmount,
+                    quantity: custom.customQuantity ?? defaultQuantity,
                     paymentOption: custom.paymentOption || defaultPaymentOption,
                     isCustomized: true,
-                    isRemoved: isRemoved,
+                    isRemoved,
                     reason: custom.reason || '',
-                    updatedAt: custom.updatedAt,
-                    customAmount: custom.customAmount,
-                    customQuantity: custom.customQuantity,
-                    defaultAmount: defaultAmount,
-                    defaultQuantity: defaultQuantity
+                    defaultAmount, defaultQuantity
                 };
             }
-
-            // If no customization, return defaults
             return {
-                amount: defaultAmount,
-                quantity: defaultQuantity,
-                paymentOption: defaultPaymentOption,
-                isCustomized: false,
-                isRemoved: isRemoved,
+                amount: defaultAmount, quantity: defaultQuantity, paymentOption: defaultPaymentOption,
+                isCustomized: false, isRemoved,
                 reason: isRemoved ? (student.removedItems[itemId]?.reason || 'Removed') : '',
-                updatedAt: null,
-                customAmount: null,
-                customQuantity: null,
-                defaultAmount: defaultAmount,
-                defaultQuantity: defaultQuantity
+                defaultAmount, defaultQuantity
             };
         }
 
-        // ========== CONFIRM REMOVE ITEM FROM EDIT (PRESERVES CUSTOMIZATION) ==========
-    async function confirmRemoveItemFromEdit(itemId, itemName, componentName) {
-    console.log('confirmRemoveItemFromEdit called:', { itemId, itemName, componentName });
-
-    // Get current academic period from the global settings
-    const { currentYear, currentTerm } = currentAcademicSettings;
-    const termName = getTermName(currentTerm);
-
-    if (!confirm(`⚠️ Remove "${itemName}" from ${componentName}?\n\nThis will ONLY remove it for ${termName} ${currentYear}.\n\nContinue?`)) {
-        return;
-    }
-
-    const student = window.currentEditStudent;
-    if (!student) {
-        showToast('Error: Student data not loaded', 'error');
-        return;
-    }
-
-    try {
-        if (!student.removedItems) {
-            student.removedItems = {};
+        function stampPeriod(entry) {
+            entry.academicYear = currentYear;
+            entry.term = currentTerm;
+            return entry;
         }
 
-        // ✅ STAMP WITH CURRENT PERIOD
-        student.removedItems[itemId] = {
-            itemId: itemId,
-            itemName: itemName,
-            componentName: componentName,
-            removedAt: new Date().toISOString(),
-            reason: 'Removed during edit',
-            isActive: true,
-            academicYear: currentYear,   // 🔑
-            term: currentTerm            // 🔑
-        };
-
-        window.currentEditStudent = student;
-
-        const updateData = {
-            removedItems: student.removedItems,
-            customItemOverrides: student.customItemOverrides || {},
-            updatedAt: new Date().toISOString()
-        };
-
-        const response = await fetch(`/api/students/${student.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData)
-        });
-
-        if (!response.ok) throw new Error(`Failed to remove item: ${response.status}`);
-
-        // Update UI (hide item, refresh badges, etc.)
-        updateEditItemDisplay(itemId, true);
-        updateEditCustomizationBadgeCount();
-
-        const container = document.getElementById('editItemsCustomizationContainer');
-        if (container && selectedFeeStructure) {
-            const scrollPos = container.scrollTop;
-            container.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
-            container.scrollTop = scrollPos;
+        async function persistRemovedAndCustomizations() {
+            const updateData = {
+                removedItems: student.removedItems || {},
+                customItemOverrides: student.customItemOverrides || {},
+                updatedAt: new Date().toISOString()
+            };
+            const res = await fetch(`/api/students/${student.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+            if (!res.ok) throw new Error(`Failed to save (status ${res.status})`);
+            return res.json();
         }
 
-        showToast(`✅ Removed "${itemName}" for ${termName} ${currentYear}`, 'success');
-
-    } catch (error) {
-        console.error('Error removing item:', error);
-        showToast(`❌ Failed to remove "${itemName}": ${error.message}`, 'error');
-    }
-}
-
-        // ========== CONFIRM DELETE REMOVED ITEM (PERMANENT) ==========
-        async function confirmDeleteRemovedItem(itemId) {
-            console.log('confirmDeleteRemovedItem called:', { itemId });
-
-            const student = window.currentEditStudent;
-            if (!student) {
-                showToast('Error: Student data not loaded', 'error');
-                return;
+        function refreshItemsPanel() {
+            const container = document.getElementById('editItemsCustomizationContainer');
+            if (container && selectedFeeStructure) {
+                const scrollPos = container.scrollTop;
+                container.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
+                container.scrollTop = scrollPos;
             }
+            updateEditCustomizationBadgeCount();
+        }
 
-            const removedItem = student.removedItems?.[itemId];
-            const itemName = removedItem?.itemName || itemId;
+        /* -------------------- per-item actions -------------------- */
+        async function confirmRemoveItemFromEdit(itemId, itemName, componentName) {
+            const termName = esGetTermName(currentTerm);
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: `Remove "${itemName}"?`,
+                message: `This removes it from ${componentName} only for ${termName} ${currentYear}.`,
+                confirmLabel: 'Remove item'
+            });
+            if (!ok) return;
 
-            if (!removedItem) {
-                showToast('⚠️ Item not found', 'warning');
-                return;
-            }
-
-            const hasCustomization = student.customItemOverrides && student.customItemOverrides[itemId];
-
-            let confirmMessage = `⚠️ Permanently delete "${itemName}" from removed items?`;
-            if (hasCustomization) {
-                confirmMessage += `\n\nThis item has a customization that will also be permanently deleted.`;
-            }
-            confirmMessage += `\n\nAre you sure?`;
-
-            if (!confirm(confirmMessage)) {
-                return;
-            }
+            if (!student.removedItems) student.removedItems = {};
+            student.removedItems[itemId] = stampPeriod({
+                itemId, itemName, componentName,
+                removedAt: new Date().toISOString(),
+                reason: 'Removed during edit',
+                isActive: true
+            });
 
             try {
-                if (student.removedItems && student.removedItems[itemId]) {
-                    delete student.removedItems[itemId];
-                }
-
-                if (student.customItemOverrides && student.customItemOverrides[itemId]) {
-                    delete student.customItemOverrides[itemId];
-                }
-
-                window.currentEditStudent = student;
-
-                const updateData = {
-                    removedItems: student.removedItems || {},
-                    customItemOverrides: student.customItemOverrides || {},
-                    updatedAt: new Date().toISOString()
-                };
-
-                const response = await fetch(`/api/students/${student.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updateData)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to delete: ${response.status}`);
-                }
-
-                updateEditCustomizationBadgeCount();
-
-                const container = document.getElementById('editItemsCustomizationContainer');
-                if (container && selectedFeeStructure) {
-                    const scrollPos = container.scrollTop;
-                    container.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
-                    container.scrollTop = scrollPos;
-                }
-
-                showToast(`✅ "${itemName}" permanently deleted`, 'success');
-
-            } catch (error) {
-                console.error('Error deleting removed item:', error);
-                showToast(`❌ Failed to delete: ${error.message}`, 'error');
+                await persistRemovedAndCustomizations();
+                refreshItemsPanel();
+                window.showToast(`Removed "${itemName}" for ${termName} ${currentYear}`, 'success');
+            } catch (e) {
+                window.showToast(`Failed to remove "${itemName}": ${e.message}`, 'error');
             }
         }
 
-        // ========== RESTORE REMOVED ITEM IN EDIT (KEEPS CUSTOMIZATION) ==========
-        async function restoreRemovedItemInEdit(itemId) {
-            console.log('restoreRemovedItemInEdit called:', { itemId });
+        async function confirmDeleteRemovedItem(itemId) {
+            const removedItem = student.removedItems?.[itemId];
+            const itemName = removedItem?.itemName || itemId;
+            if (!removedItem) return window.showToast('Item not found', 'warning');
 
-            const student = window.currentEditStudent;
-            if (!student) {
-                showToast('Error: Student data not loaded', 'error');
-                return;
+            const hasCustom = student.customItemOverrides && student.customItemOverrides[itemId];
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: `Permanently delete "${itemName}"?`,
+                message: hasCustom
+                    ? 'This item has a customization that will also be permanently deleted.'
+                    : 'This cannot be undone.',
+                confirmLabel: 'Delete permanently'
+            });
+            if (!ok) return;
+
+            delete student.removedItems[itemId];
+            if (student.customItemOverrides) delete student.customItemOverrides[itemId];
+
+            try {
+                await persistRemovedAndCustomizations();
+                refreshItemsPanel();
+                window.showToast(`"${itemName}" permanently deleted`, 'success');
+            } catch (e) {
+                window.showToast(`Failed to delete: ${e.message}`, 'error');
             }
+        }
 
+        async function restoreRemovedItemInEdit(itemId) {
             const removedItem = student.removedItems?.[itemId];
             const itemName = removedItem?.itemName || itemId;
             const componentName = removedItem?.componentName || 'Unknown';
+            if (!removedItem) return window.showToast('Item not found in removed items', 'warning');
 
-            if (!removedItem) {
-                showToast('⚠️ Item not found in removed items', 'warning');
-                return;
+            const hasCustom = student.customItemOverrides && student.customItemOverrides[itemId];
+            const ok = await window.showConfirmModal({
+                tone: 'success',
+                title: `Restore "${itemName}"?`,
+                message: `From ${componentName}. It will be billed again.${hasCustom ? ' Its customization will be restored too.' : ''}`,
+                confirmLabel: 'Restore item'
+            });
+            if (!ok) return;
+
+            delete student.removedItems[itemId];
+
+            try {
+                await persistRemovedAndCustomizations();
+                refreshItemsPanel();
+                window.showToast(`"${itemName}" restored`, 'success');
+            } catch (e) {
+                window.showToast(`Failed to restore "${itemName}": ${e.message}`, 'error');
             }
+        }
 
-            const hasCustomization = student.customItemOverrides && student.customItemOverrides[itemId];
-            const customMsg = hasCustomization ? '\n\nIts customization will be restored as well.' : '';
+        /* -------------------- NEW: whole status-group actions -------------------- */
+        async function restoreGroupItemsInEdit(groupKey) {
+            const group = window.esComponentGroups[groupKey];
+            if (!group) return;
+            const removedIds = group.itemIds.filter(id => student.removedItems && student.removedItems[id] && student.removedItems[id].isActive !== false);
+            if (removedIds.length === 0) return window.showToast('Nothing removed in this group', 'info');
 
-            if (!confirm(`🔄 Restore "${itemName}" from ${componentName}?\n\nThis item will be added back to the student's fee structure.${customMsg}\n\nDo you want to restore this item?`)) {
-                return;
+            const ok = await window.showConfirmModal({
+                tone: 'success',
+                title: `Restore whole group "${group.name}"?`,
+                message: `${removedIds.length} removed item(s) in this group will be billed again for this student.`,
+                confirmLabel: 'Restore group'
+            });
+            if (!ok) return;
+
+            removedIds.forEach(id => delete student.removedItems[id]);
+
+            try {
+                await persistRemovedAndCustomizations();
+                refreshItemsPanel();
+                window.showToast(`Restored ${removedIds.length} item(s) in "${group.name}"`, 'success');
+            } catch (e) {
+                window.showToast(`Failed to restore group: ${e.message}`, 'error');
+            }
+        }
+
+        async function removeGroupItemsInEdit(groupKey) {
+            const group = window.esComponentGroups[groupKey];
+            if (!group) return;
+            const activeIds = group.itemIds.filter(id => !(student.removedItems && student.removedItems[id] && student.removedItems[id].isActive !== false));
+            if (activeIds.length === 0) return window.showToast('All items in this group are already removed', 'info');
+
+            const termName = esGetTermName(currentTerm);
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: `Remove whole group "${group.name}"?`,
+                message: `${activeIds.length} item(s) in this group will be removed for ${termName} ${currentYear}. Their customizations are kept.`,
+                confirmLabel: 'Remove group'
+            });
+            if (!ok) return;
+
+            if (!student.removedItems) student.removedItems = {};
+            for (const id of activeIds) {
+                const meta = group.itemMeta[id] || {};
+                student.removedItems[id] = stampPeriod({
+                    itemId: id,
+                    itemName: meta.itemName || id,
+                    componentName: group.name,
+                    removedAt: new Date().toISOString(),
+                    reason: 'Removed during edit (whole group)',
+                    isActive: true
+                });
             }
 
             try {
-                if (student.removedItems && student.removedItems[itemId]) {
-                    delete student.removedItems[itemId];
-                }
+                await persistRemovedAndCustomizations();
+                refreshItemsPanel();
+                window.showToast(`Removed ${activeIds.length} item(s) in "${group.name}"`, 'success');
+            } catch (e) {
+                window.showToast(`Failed to remove group: ${e.message}`, 'error');
+            }
+        }
 
-                window.currentEditStudent = student;
+        /* -------------------- customization form toggle / save / clear -------------------- */
+        function toggleEditItemCustomization(itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption) {
+            const form = document.getElementById(`editCustomForm_${itemId}`);
+            if (!form) return;
+            const opening = form.classList.contains('hidden');
+            document.querySelectorAll('.es-custom-form').forEach(f => { if (f !== form) { f.classList.add('hidden'); f.classList.remove('es-open'); } });
 
-                const updateData = {
-                    removedItems: student.removedItems || {},
-                    customItemOverrides: student.customItemOverrides || {},
-                    updatedAt: new Date().toISOString()
-                };
+            form.classList.toggle('hidden', !opening);
+            if (opening) {
+                form.dataset.itemName = itemName || '';
+                form.dataset.componentName = componentName || '';
+                form.dataset.periodType = periodType || '';
+                form.dataset.defaultAmount = defaultAmount || 0;
+                form.dataset.defaultQuantity = defaultQuantity || 1;
+                form.dataset.paymentOption = paymentOption || 'either';
+                form.classList.remove('es-open'); void form.offsetWidth; form.classList.add('es-open');
+                document.getElementById(`editCustomAmount_${itemId}`)?.focus();
+            }
+        }
 
-                console.log('Restoring item (keeping customization):', itemId);
-                console.log('Updated removedItems:', updateData.removedItems);
+        async function saveEditItemCustomization(itemId) {
+            const amount = document.getElementById(`editCustomAmount_${itemId}`)?.value?.trim();
+            const quantity = document.getElementById(`editCustomQuantity_${itemId}`)?.value?.trim();
+            const reason = document.getElementById(`editCustomReason_${itemId}`)?.value?.trim() || '';
 
-                const response = await fetch(`/api/students/${student.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(updateData)
+            if (!amount && !quantity) {
+                const form = document.getElementById(`editCustomForm_${itemId}`);
+                form?.classList.add('es-shake');
+                setTimeout(() => form?.classList.remove('es-shake'), 500);
+                return window.showToast('Enter at least a custom amount or quantity', 'warning');
+            }
+
+            const form = document.getElementById(`editCustomForm_${itemId}`);
+            const itemName = form?.dataset.itemName || itemId;
+            const componentName = form?.dataset.componentName || '';
+            const periodType = form?.dataset.periodType || 'termly';
+            const defaultAmount = parseFloat(form?.dataset.defaultAmount) || 0;
+            const defaultQuantity = parseInt(form?.dataset.defaultQuantity) || 1;
+            const paymentOption = form?.dataset.paymentOption || 'either';
+
+            const customAmount = amount ? parseFloat(amount) : null;
+            const customQuantity = quantity ? parseInt(quantity) : null;
+
+            const payload = {
+                customAmount, customQuantity, paymentOption, reason,
+                itemName, defaultAmount, defaultQuantity
+            };
+
+            try {
+                const res = await fetch(`/api/students/${studentId}/customizations/${itemId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
+                if (!res.ok) throw new Error(`status ${res.status}`);
 
-                if (!response.ok) {
-                    throw new Error(`Failed to restore item: ${response.status}`);
-                }
+                existingCustomizations[itemId] = { ...payload, itemId, isCustomized: true, updatedAt: new Date().toISOString() };
+                if (!student.customItemOverrides) student.customItemOverrides = {};
+                student.customItemOverrides[itemId] = existingCustomizations[itemId];
 
-                const result = await response.json();
-                console.log('Restore response:', result);
-
-                updateEditItemDisplay(itemId, false);
-                updateEditCustomizationBadgeCount();
-
-                const container = document.getElementById('editItemsCustomizationContainer');
-                if (container && selectedFeeStructure) {
-                    const scrollPos = container.scrollTop;
-                    container.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
-                    container.scrollTop = scrollPos;
-                }
-
-                showToast(`✅ "${itemName}" restored (customization kept)`, 'success');
-
-            } catch (error) {
-                console.error('Error restoring item:', error);
-                showToast(`❌ Failed to restore "${itemName}": ${error.message}`, 'error');
+                refreshItemsPanel();
+                window.showToast(`Customized "${itemName}"`, 'success');
+            } catch (e) {
+                window.showToast(`Failed to save customization: ${e.message}`, 'error');
             }
         }
 
-        // ========== UPDATE EDIT ITEM DISPLAY ==========
-        function updateEditItemDisplay(itemId, isRemoved) {
-            const container = document.querySelector(`[data-item-id="${itemId}"]`);
-            if (!container) {
-                console.warn('Container not found for item:', itemId);
-                return;
-            }
+        async function removeEditItemCustomization(itemId) {
+            const ok = await window.showConfirmModal({
+                tone: 'warning',
+                title: 'Clear this customization?',
+                message: 'It will revert to the default amount and quantity.',
+                confirmLabel: 'Clear'
+            });
+            if (!ok) return;
 
-            const student = window.currentEditStudent;
-            const hasCustomization = student?.customItemOverrides && student.customItemOverrides[itemId];
+            try {
+                const res = await fetch(`/api/students/${studentId}/customizations/${itemId}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(`status ${res.status}`);
 
-            if (isRemoved) {
-                container.classList.add('bg-red-50', 'border-red-300', 'opacity-75');
-                const nameSpan = container.querySelector('.font-medium');
-                if (nameSpan) nameSpan.classList.add('line-through', 'text-gray-500');
+                delete existingCustomizations[itemId];
+                if (student.customItemOverrides) delete student.customItemOverrides[itemId];
 
-                const badgeContainer = container.querySelector('.flex.items-center.gap-2.flex-wrap');
-                if (badgeContainer) {
-                    let removedBadge = badgeContainer.querySelector('.bg-red-100');
-                    if (!removedBadge) {
-                        removedBadge = document.createElement('span');
-                        removedBadge.className = 'bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full';
-                        removedBadge.textContent = '❌ Removed';
-                        badgeContainer.appendChild(removedBadge);
-                    }
-                }
-
-                const infoDiv = container.querySelector('.text-xs.text-gray-500');
-                if (infoDiv) {
-                    let removedMsg = container.querySelector('.text-xs.text-red-600');
-                    if (!removedMsg) {
-                        removedMsg = document.createElement('p');
-                        removedMsg.className = 'text-xs text-red-600 mt-1';
-                        infoDiv.parentNode.appendChild(removedMsg);
-                    }
-                    removedMsg.textContent = '⚠️ This item will NOT be charged for this student';
-                }
-
-                const buttonContainer = container.querySelector('.flex.gap-2.flex-wrap:last-child, .flex.gap-2:last-child');
-                if (buttonContainer) {
-                    const customizeBtn = buttonContainer.querySelector('.bg-blue-50, .bg-blue-100');
-                    const deleteBtn = buttonContainer.querySelector('.bg-red-50, .bg-red-100');
-                    if (customizeBtn) customizeBtn.remove();
-                    if (deleteBtn) deleteBtn.remove();
-
-                    let restoreBtn = buttonContainer.querySelector('.bg-green-50, .bg-green-100');
-                    if (!restoreBtn) {
-                        restoreBtn = document.createElement('button');
-                        restoreBtn.className = 'text-green-600 hover:text-green-800 text-xs bg-green-50 hover:bg-green-100 px-2 py-1 rounded transition flex items-center gap-1';
-                        restoreBtn.innerHTML = '<i class="fas fa-undo"></i> Restore';
-                        restoreBtn.onclick = function(e) {
-                            e.stopPropagation();
-                            restoreRemovedItemInEdit(itemId);
-                        };
-                        buttonContainer.appendChild(restoreBtn);
-                    }
-                }
-            } else {
-                container.classList.remove('bg-red-50', 'border-red-300', 'opacity-75');
-                const nameSpan = container.querySelector('.font-medium');
-                if (nameSpan) nameSpan.classList.remove('line-through', 'text-gray-500');
-
-                const badgeContainer = container.querySelector('.flex.items-center.gap-2.flex-wrap');
-                if (badgeContainer) {
-                    const removedBadge = badgeContainer.querySelector('.bg-red-100');
-                    if (removedBadge) removedBadge.remove();
-                }
-
-                const removedMsg = container.querySelector('.text-xs.text-red-600');
-                if (removedMsg) removedMsg.remove();
-
-                const buttonContainer = container.querySelector('.flex.gap-2.flex-wrap:last-child, .flex.gap-2:last-child');
-                if (buttonContainer) {
-                    const restoreBtn = buttonContainer.querySelector('.bg-green-50, .bg-green-100');
-                    if (restoreBtn) restoreBtn.remove();
-
-                    let customizeBtn = buttonContainer.querySelector('.bg-blue-50, .bg-blue-100');
-                    if (!customizeBtn) {
-                        customizeBtn = document.createElement('button');
-                        customizeBtn.className = 'text-blue-600 hover:text-blue-800 text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition flex items-center gap-1';
-                        customizeBtn.innerHTML = hasCustomization ? '<i class="fas fa-edit"></i> Edit Custom' : '<i class="fas fa-sliders-h"></i> Customize';
-                        customizeBtn.onclick = function(e) {
-                            e.stopPropagation();
-                            const itemName = container.querySelector('.font-medium')?.textContent?.replace('📦', '').trim() || 'item';
-                            const componentName = container.querySelector('.text-xs.text-gray-500')?.textContent?.replace('Default:', '').trim() || '';
-                            const defaultAmount = parseInt(container.querySelector('.text-xs.text-gray-500')?.textContent?.match(/UGX ([0-9,]+)/)?.[1]?.replace(/,/g, '') || '0');
-                            const defaultQuantity = parseInt(container.querySelector('.text-xs.text-gray-500')?.textContent?.match(/Qty: ([0-9]+)/)?.[1] || '1');
-                            const paymentOption = container.querySelector('.bg-blue-100') ? 'cash_only' :
-                                                 container.querySelector('.bg-green-100') ? 'item_only' : 'either';
-                            toggleEditItemCustomization(itemId, itemName, componentName, 'termly', defaultAmount, defaultQuantity, paymentOption);
-                        };
-                        buttonContainer.appendChild(customizeBtn);
-                    }
-
-                    let deleteBtn = buttonContainer.querySelector('.bg-red-50, .bg-red-100');
-                    if (!deleteBtn) {
-                        deleteBtn = document.createElement('button');
-                        deleteBtn.className = 'text-red-600 hover:text-red-800 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center gap-1';
-                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Remove';
-                        deleteBtn.title = 'Remove this item for this student';
-                        deleteBtn.onclick = function(e) {
-                            e.stopPropagation();
-                            const itemName = container.querySelector('.font-medium')?.textContent?.replace('📦', '').trim() || 'item';
-                            const componentName = container.querySelector('.text-xs.text-gray-500')?.textContent?.replace('Default:', '').trim() || '';
-                            confirmRemoveItemFromEdit(itemId, itemName, componentName);
-                        };
-                        buttonContainer.appendChild(deleteBtn);
-                    }
-                }
+                refreshItemsPanel();
+                window.showToast('Customization cleared — using defaults', 'info');
+            } catch (e) {
+                window.showToast(`Failed to remove customization: ${e.message}`, 'error');
             }
         }
 
-        // ========== UPDATE EDIT CUSTOMIZATION BADGE COUNT ==========
         function updateEditCustomizationBadgeCount() {
             const badge = document.getElementById('customizationCountBadge');
             if (!badge) return;
-
-            const student = window.currentEditStudent;
-            if (!student) return;
-
-            const customCount = student.customItemOverrides ? Object.keys(student.customItemOverrides).length : 0;
-            const removedCount = student.removedItems ? Object.keys(student.removedItems).length : 0;
-            const total = customCount + removedCount;
-
-            if (removedCount > 0) {
-                badge.innerHTML = `${total} customized <span class="text-red-500 ml-1">(${removedCount} removed)</span>`;
-            } else {
-                badge.textContent = `${total} customized`;
-            }
+            const customCount = Object.keys(existingCustomizations || {}).length;
+            const removedCount = Object.keys(student.removedItems || {}).length;
+            const total = customCount;
+            badge.innerHTML = removedCount > 0
+                ? `${total} customized <span style="color:#fca5a5; margin-left:4px;">(${removedCount} removed)</span>`
+                : `${total} customized`;
         }
 
-        // ========== BUILD ITEMS CUSTOMIZATION HTML WITH CUSTOMIZATION PRESERVATION ==========
+        /* -------------------- render items panel -------------------- */
+        function groupStatus(groupKey) {
+            const group = window.esComponentGroups[groupKey];
+            if (!group) return { removedCount: 0, total: 0, allRemoved: false, noneRemoved: true };
+            const removedCount = group.itemIds.filter(id => student.removedItems && student.removedItems[id] && student.removedItems[id].isActive !== false).length;
+            return { removedCount, total: group.itemIds.length, allRemoved: removedCount === group.itemIds.length, noneRemoved: removedCount === 0 };
+        }
+
+        function renderGroupActions(groupKey) {
+            const { removedCount, total, allRemoved, noneRemoved } = groupStatus(groupKey);
+            let statusTag = noneRemoved
+                ? `<span class="es-tag es-tag-green"><i class="fas fa-check"></i> All ${total} active</span>`
+                : allRemoved
+                    ? `<span class="es-tag es-tag-rose"><i class="fas fa-ban"></i> All ${total} removed</span>`
+                    : `<span class="es-tag es-tag-amber"><i class="fas fa-triangle-exclamation"></i> ${removedCount}/${total} removed</span>`;
+
+            return `
+                <div class="es-group-status">${statusTag}</div>
+                <div class="es-group-buttons">
+                    ${!noneRemoved ? `<button type="button" class="es-btn es-btn-sm es-btn-success" data-group-restore="${groupKey}"><i class="fas fa-rotate-left"></i> Restore whole group</button>` : ''}
+                    ${!allRemoved ? `<button type="button" class="es-btn es-btn-sm es-btn-danger" data-group-remove="${groupKey}"><i class="fas fa-trash"></i> Remove whole group</button>` : ''}
+                </div>
+            `;
+        }
+
         function buildItemsCustomizationHTML(feeStructure) {
+            window.esComponentGroups = {};
+
             if (!feeStructure || !feeStructure.activityComponents || feeStructure.activityComponents.length === 0) {
-                return `
-                    <div class="text-center text-gray-400 py-8" id="emptyItemsMsg">
-                        <i class="fas fa-inbox text-3xl mb-2"></i>
-                        <p>No items found in this fee structure</p>
-                    </div>
-                `;
+                return `<div class="es-empty"><i class="fas fa-inbox"></i><p>No items found in this fee structure</p></div>`;
             }
 
-            const student = window.currentEditStudent;
-            const removedItems = student?.removedItems || {};
-            const customOverrides = student?.customItemOverrides || {};
-
+            const removedItems = student.removedItems || {};
             let html = '';
             let hasItems = false;
             let totalRemovedCount = 0;
-            let totalItemsCount = 0;
+            let cardIndex = 0;
 
-            const sortedComponents = [...feeStructure.activityComponents].sort((a, b) => {
-                const order = { 'one_time': 1, 'termly': 2, 'yearly': 3 };
+            const sorted = [...feeStructure.activityComponents].sort((a, b) => {
+                const order = { one_time: 1, termly: 2, yearly: 3 };
                 return (order[a.periodType] || 99) - (order[b.periodType] || 99);
             });
 
-            for (const component of sortedComponents) {
-                if (!component.items || component.items.length === 0) continue;
+            const accentFor = (periodType) =>
+                periodType === 'one_time' ? { c: '#7C6BEF', label: '⭐ One-time' } :
+                periodType === 'termly' ? { c: '#0E9C8E', label: '📅 Termly' } :
+                { c: '#DB9A2C', label: '📆 Yearly' };
 
-                const periodType = component.periodType;
-                const periodLabel = periodType === 'one_time' ? '⭐ One-Time' :
-                                   periodType === 'termly' ? '📅 Termly' : '📆 Yearly';
-                const periodColor = periodType === 'one_time' ? 'purple' :
-                                   periodType === 'termly' ? 'green' : 'orange';
-
-                const isTransportation = component.name.toLowerCase().includes('transport') ||
-                                        (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
-
+            sorted.forEach((component, groupIndex) => {
+                if (!component.items || component.items.length === 0) return;
                 hasItems = true;
 
-                const componentItems = component.items;
-                totalItemsCount += componentItems.length;
+                const groupKey = `g${groupIndex}`;
+                const itemIds = component.items.map(item => item.id || item.name);
+                const itemMeta = {};
+                component.items.forEach(item => { itemMeta[item.id || item.name] = { itemName: item.name }; });
+                window.esComponentGroups[groupKey] = { name: component.name, itemIds, itemMeta };
 
-                const removedInComponent = componentItems.filter(item => {
-                    const itemId = item.id || item.name;
-                    return removedItems[itemId] && removedItems[itemId].isActive !== false;
-                });
-                const removedCount = removedInComponent.length;
-                const allRemoved = removedCount === componentItems.length;
+                const removedInComponent = itemIds.filter(id => removedItems[id] && removedItems[id].isActive !== false).length;
+                if (removedInComponent > 0) totalRemovedCount += removedInComponent;
 
-                if (allRemoved) {
-                    totalRemovedCount += componentItems.length;
-                }
+                const { c: accent, label: periodLabel } = accentFor(component.periodType);
+                const isTransportation = component.name.toLowerCase().includes('transport') ||
+                    (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
 
                 html += `
-                    <div class="border-2 border-${periodColor}-200 rounded-lg p-3 bg-${periodColor}-50 mb-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <h4 class="font-semibold text-${periodColor}-700">${periodLabel} - ${escapeHtml(component.name)}</h4>
-                                ${allRemoved ? `
-                                    <span class="text-sm text-red-600 font-semibold">❌ All items removed</span>
-                                ` : removedCount > 0 ? `
-                                    <span class="text-sm text-red-500 font-semibold">⚠️ ${removedCount} item(s) removed</span>
-                                ` : ''}
-                            </div>
-                            <span class="text-sm font-semibold text-${periodColor}-600">UGX ${(component.totalAmount || 0).toLocaleString()}</span>
+                    <div class="es-component" style="--es-accent:${accent}; --es-delay:${cardIndex * 35}ms">
+                        <div class="es-component-head">
+                            <span class="es-period-chip" style="background:${accent}">${periodLabel}</span>
+                            <h4>${esEscapeHtml(component.name)}</h4>
+                            <span class="es-component-total">UGX ${esFormatMoney(component.totalAmount || 0)}</span>
                         </div>
-
-                        ${allRemoved ? `
-                            <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-2 text-sm text-red-600">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                All items in this group have been removed. Click <span class="font-semibold">"Restore"</span> on any item below to add it back.
-                            </div>
-                        ` : ''}
-
-                        <div class="space-y-2">
-                            ${componentItems.map(item => {
+                        <div class="es-group-actions" id="groupActions_${groupKey}">
+                            ${renderGroupActions(groupKey)}
+                        </div>
+                        <div id="groupItems_${groupKey}">
+                            ${component.items.map(item => {
+                                cardIndex++;
                                 const itemId = item.id || item.name;
                                 const defaultAmount = item.totalAmount || 0;
                                 const defaultQuantity = item.quantity || 1;
                                 const paymentOption = item.paymentOption || 'either';
-
                                 const isRemoved = removedItems[itemId] && removedItems[itemId].isActive !== false;
                                 const custom = getCustomizedItemValue(itemId, defaultAmount, defaultQuantity, paymentOption);
                                 const isCustomized = custom.isCustomized && !isRemoved;
                                 const isCustomizedButRemoved = custom.isCustomized && isRemoved;
+                                const isTransportItem = isTransportation || item.name.toLowerCase().includes('van') || item.name.toLowerCase().includes('transport');
 
-                                if (isRemoved) totalRemovedCount++;
-
-                                const isTransportItem = isTransportation ||
-                                                       item.name.toLowerCase().includes('van') ||
-                                                       item.name.toLowerCase().includes('transport');
+                                const paymentBadge =
+                                    paymentOption === 'cash_only' ? '<span class="es-tag es-tag-blue">💵 Cash only</span>' :
+                                    paymentOption === 'item_only' ? '<span class="es-tag es-tag-green">📦 Item only</span>' :
+                                    '<span class="es-tag es-tag-violet">🔄 Cash or item</span>';
 
                                 let actionButtons = '';
                                 if (isRemoved) {
                                     actionButtons = `
-                                        <button onclick="event.preventDefault(); event.stopPropagation(); restoreRemovedItemInEdit('${itemId}')"
-                                                class="text-green-600 hover:text-green-800 text-xs bg-green-50 hover:bg-green-100 px-2 py-1 rounded transition flex items-center gap-1">
-                                            <i class="fas fa-undo"></i> Restore
-                                        </button>
-                                        <button onclick="event.preventDefault(); event.stopPropagation(); confirmDeleteRemovedItem('${itemId}')"
-                                                class="text-red-600 hover:text-red-800 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center gap-1"
-                                                title="Permanently delete this removed item">
-                                            <i class="fas fa-trash-alt"></i> Delete Permanently
-                                        </button>
+                                        <button type="button" class="es-btn es-btn-sm es-btn-success" data-restore-item="${itemId}"><i class="fas fa-rotate-left"></i> Restore</button>
+                                        <button type="button" class="es-btn es-btn-sm es-btn-ghost" data-delete-item="${itemId}" title="Permanently delete"><i class="fas fa-trash-can"></i> Delete</button>
                                     `;
                                 } else {
                                     actionButtons = `
-                                        <button onclick="event.preventDefault(); event.stopPropagation(); toggleEditItemCustomization('${itemId}', '${escapeHtml(item.name)}', '${escapeHtml(component.name)}', '${periodType}', ${defaultAmount}, ${defaultQuantity}, '${paymentOption}')"
-                                                class="text-blue-600 hover:text-blue-800 text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition flex items-center gap-1">
-                                            <i class="fas ${isCustomized ? 'fa-edit' : 'fa-sliders-h'}"></i>
-                                            ${isCustomized ? 'Edit Custom' : 'Customize'}
+                                        <button type="button" class="es-btn es-btn-sm es-btn-blue" data-customize-item="${itemId}" data-item-name="${esEscapeHtml(item.name)}" data-component-name="${esEscapeHtml(component.name)}" data-period-type="${component.periodType}" data-default-amount="${defaultAmount}" data-default-quantity="${defaultQuantity}" data-payment-option="${paymentOption}">
+                                            <i class="fas ${isCustomized ? 'fa-pen' : 'fa-sliders'}"></i> ${isCustomized ? 'Edit custom' : 'Customize'}
                                         </button>
-                                        <button onclick="event.preventDefault(); event.stopPropagation(); confirmRemoveItemFromEdit('${itemId}', '${escapeHtml(item.name)}', '${escapeHtml(component.name)}')"
-                                                class="text-red-600 hover:text-red-800 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition flex items-center gap-1"
-                                                title="Remove this item for this student">
+                                        <button type="button" class="es-btn es-btn-sm es-btn-danger" data-remove-item="${itemId}" data-item-name="${esEscapeHtml(item.name)}" data-component-name="${esEscapeHtml(component.name)}">
                                             <i class="fas fa-trash"></i> Remove
                                         </button>
                                     `;
@@ -32388,845 +32602,367 @@ async function editStudentInfoList(studentId) {
                                 const hasCustomization = isCustomized || isCustomizedButRemoved;
 
                                 return `
-                                    <div class="bg-white rounded-lg p-3 border shadow-sm hover:shadow-md transition ${isRemoved ? 'bg-red-50 border-red-300 opacity-75' : ''}" data-item-id="${itemId}">
-                                        <div class="flex justify-between items-start">
+                                    <div class="es-item ${isRemoved ? 'es-item-removed' : ''}" data-item-id="${itemId}">
+                                        <div class="es-item-top">
                                             <div>
-                                                <div class="flex items-center gap-2 flex-wrap">
-                                                    <span class="font-medium ${isRemoved ? 'line-through text-gray-500' : ''}">📦 ${escapeHtml(item.name)}</span>
-                                                    ${paymentOption === 'cash_only' ? '<span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">💵 Cash Only</span>' :
-                                                      paymentOption === 'item_only' ? '<span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">📦 Item Only</span>' :
-                                                      '<span class="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full">🔄 Cash or Item</span>'}
-                                                    ${isCustomized && !isRemoved ? '<span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full">⚡ Custom</span>' : ''}
-                                                    ${isCustomizedButRemoved ? '<span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full">⚡ Custom (Removed)</span>' : ''}
-                                                    ${isRemoved ? '<span class="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">❌ Removed</span>' : ''}
-                                                    ${isTransportItem ? '<span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full">🚌 Transportation</span>' : ''}
+                                                <div class="es-item-name-row">
+                                                    <span class="es-item-name ${isRemoved ? 'es-strike' : ''}">📦 ${esEscapeHtml(item.name)}</span>
+                                                    ${paymentBadge}
+                                                    ${isCustomized ? '<span class="es-tag es-tag-amber es-badge-pop">⚡ Custom</span>' : ''}
+                                                    ${isCustomizedButRemoved ? '<span class="es-tag es-tag-amber es-badge-pop">⚡ Custom (removed)</span>' : ''}
+                                                    ${isRemoved ? '<span class="es-tag es-tag-rose es-badge-pop">❌ Removed</span>' : ''}
+                                                    ${isTransportItem ? '<span class="es-tag es-tag-orange">🚌 Transport</span>' : ''}
                                                 </div>
-                                                <div class="text-xs text-gray-500 mt-1">
-                                                    ${isRemoved ?
-                                                        `<span class="text-red-600">Removed: ${new Date(removedItems[itemId].removedAt).toLocaleDateString()}</span>` :
-                                                        `Default: UGX ${defaultAmount.toLocaleString()} ${defaultQuantity > 1 ? `| Qty: ${defaultQuantity}` : ''}`
-                                                    }
-                                                    ${hasCustomization ? `<br><span class="text-orange-600">Custom: UGX ${displayAmount.toLocaleString()} ${displayQuantity !== defaultQuantity ? `| Qty: ${displayQuantity}` : ''}</span>` : ''}
-                                                    ${custom.reason ? `<br><span class="text-gray-400">Reason: ${escapeHtml(custom.reason)}</span>` : ''}
-                                                    ${isRemoved && removedItems[itemId]?.reason ? `<br><span class="text-gray-400">Reason: ${escapeHtml(removedItems[itemId].reason)}</span>` : ''}
-                                                </div>
-                                                ${isRemoved ? `
-                                                    <div class="text-xs text-red-600 mt-1 font-semibold">
-                                                        ⚠️ This item will NOT be charged for this student
-                                                    </div>
-                                                ` : ''}
+                                                <p class="es-item-meta ${isRemoved ? 'es-strike' : ''}">
+                                                    ${isRemoved
+                                                        ? `Removed: ${new Date(removedItems[itemId].removedAt).toLocaleDateString()}`
+                                                        : `Default: UGX ${esFormatMoney(defaultAmount)} · Qty ${defaultQuantity}`}
+                                                </p>
+                                                ${hasCustomization ? `<p class="es-item-custom-meta">Custom: UGX ${esFormatMoney(displayAmount)}${displayQuantity !== defaultQuantity ? ` · Qty ${displayQuantity}` : ''}${custom.reason ? ` — ${esEscapeHtml(custom.reason)}` : ''}</p>` : ''}
+                                                ${isRemoved ? `<p class="es-item-removed-meta">⚠️ Not charged to this student${removedItems[itemId]?.reason ? ` — ${esEscapeHtml(removedItems[itemId].reason)}` : ''}</p>` : ''}
                                             </div>
-                                            <div class="flex gap-1 flex-wrap">
-                                                ${actionButtons}
-                                            </div>
+                                            <div class="es-item-actions">${actionButtons}</div>
                                         </div>
 
                                         ${!isRemoved ? `
-                                        <div id="editCustomForm_${itemId}" class="hidden mt-3 pt-3 border-t">
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                <div>
-                                                    <label class="block text-sm font-medium mb-1">Custom Amount (UGX)</label>
-                                                    <input type="number" id="editCustomAmount_${itemId}" class="w-full border rounded-lg px-3 py-2 text-sm"
-                                                           placeholder="Leave blank for default" min="0" step="1000"
-                                                           value="${isCustomized ? custom.amount : ''}">
+                                        <div id="editCustomForm_${itemId}" class="es-custom-form hidden">
+                                            <div class="es-grid es-grid-3">
+                                                <div class="es-field">
+                                                    <label class="es-label">Custom amount (UGX)</label>
+                                                    <input type="number" id="editCustomAmount_${itemId}" class="es-input" placeholder="Default" min="0" step="1000" value="${isCustomized ? custom.amount : ''}">
                                                 </div>
                                                 ${(paymentOption === 'item_only' || paymentOption === 'either') ? `
-                                                    <div>
-                                                        <label class="block text-sm font-medium mb-1">Custom Quantity</label>
-                                                        <input type="number" id="editCustomQuantity_${itemId}" class="w-full border rounded-lg px-3 py-2 text-sm"
-                                                               placeholder="Leave blank for default" min="1" step="1"
-                                                               value="${isCustomized ? custom.quantity : ''}">
-                                                    </div>
-                                                ` : `
-                                                    <input type="hidden" id="editCustomQuantity_${itemId}" value="">
-                                                `}
-                                                <div>
-                                                    <label class="block text-sm font-medium mb-1">Reason (Optional)</label>
-                                                    <input type="text" id="editCustomReason_${itemId}" class="w-full border rounded-lg px-3 py-2 text-sm"
-                                                           placeholder="Why customize?" value="${isCustomized ? escapeHtml(custom.reason) : ''}">
+                                                    <div class="es-field">
+                                                        <label class="es-label">Custom quantity</label>
+                                                        <input type="number" id="editCustomQuantity_${itemId}" class="es-input" placeholder="Default" min="1" step="1" value="${isCustomized ? custom.quantity : ''}">
+                                                    </div>` : `<input type="hidden" id="editCustomQuantity_${itemId}" value="">`}
+                                                <div class="es-field">
+                                                    <label class="es-label">Reason (optional)</label>
+                                                    <input type="text" id="editCustomReason_${itemId}" class="es-input" placeholder="Why customize?" value="${isCustomized ? esEscapeHtml(custom.reason) : ''}">
                                                 </div>
                                             </div>
-                                            <div class="flex gap-2 mt-3">
-                                                <button onclick="event.preventDefault(); event.stopPropagation(); saveEditItemCustomization('${itemId}')" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
-                                                    <i class="fas fa-save"></i> Apply Custom
-                                                </button>
-                                                ${isCustomized ? `
-                                                    <button onclick="event.preventDefault(); event.stopPropagation(); removeEditItemCustomization('${itemId}')" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
-                                                        <i class="fas fa-times"></i> Remove Custom
-                                                    </button>
-                                                ` : ''}
-                                                <button onclick="event.preventDefault(); event.stopPropagation(); toggleEditItemCustomization('${itemId}')" class="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-400">
-                                                    Close
-                                                </button>
+                                            <div class="es-custom-form-actions">
+                                                <button type="button" class="es-btn es-btn-sm es-btn-success" data-save-custom="${itemId}"><i class="fas fa-check"></i> Apply</button>
+                                                ${isCustomized ? `<button type="button" class="es-btn es-btn-sm es-btn-amber" data-clear-custom="${itemId}"><i class="fas fa-xmark"></i> Clear custom</button>` : ''}
+                                                <button type="button" class="es-btn es-btn-sm es-btn-ghost" data-close-custom="${itemId}">Close</button>
                                             </div>
-                                        </div>
-                                        ` : ''}
+                                        </div>` : ''}
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </div>
                 `;
-            }
+            });
 
-            if (!hasItems) {
-                return `
-                    <div class="text-center text-gray-400 py-8" id="emptyItemsMsg">
-                        <i class="fas fa-inbox text-3xl mb-2"></i>
-                        <p>No customizable items found in this fee structure</p>
+            if (!hasItems) return `<div class="es-empty"><i class="fas fa-inbox"></i><p>No customizable items in this fee structure</p></div>`;
+
+            let prefix = '';
+            if (totalRemovedCount > 0) {
+                prefix = `
+                    <div class="es-remove-summary">
+                        <i class="fas fa-circle-exclamation"></i>
+                        <div><strong>${totalRemovedCount} item(s)</strong> removed for this student — they will not be charged. Restore individually or use "Restore whole group".</div>
                     </div>
                 `;
             }
-
-            if (totalRemovedCount > 0) {
-                html = `
-                    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div class="flex items-start gap-2">
-                            <i class="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
-                            <div>
-                                <p class="font-semibold text-red-700">⚠️ ${totalRemovedCount} item(s) removed for this student</p>
-                                <p class="text-xs text-red-600">These items will NOT be charged. Click <span class="font-semibold">"Restore"</span> on any item to add it back.</p>
-                            </div>
-                        </div>
-                    </div>
-                ` + html;
-            }
-
-            return html;
+            return prefix + html;
         }
 
-        // ========== BUILD FEE STRUCTURE ITEMS SECTION ==========
         function buildItemsSection() {
-            if (!selectedFeeStructure) {
-                return `
-                    <div class="text-center text-gray-400 py-8">
-                        <i class="fas fa-info-circle text-3xl mb-2"></i>
-                        <p>Select a fee structure to see items for customization</p>
-                    </div>
-                `;
-            }
+            if (!selectedFeeStructure) return `<div class="es-empty"><i class="fas fa-circle-info"></i><p>Select a fee structure to see items for customization</p></div>`;
             return buildItemsCustomizationHTML(selectedFeeStructure);
         }
 
-        // ========== BUILD THE MODAL HTML ==========
+        /* -------------------- delegated click handling for items panel -------------------- */
+        function attachItemsPanelDelegation() {
+            const container = document.getElementById('editItemsCustomizationContainer');
+            if (!container || container.__esDelegated) return;
+            container.__esDelegated = true;
+
+            container.addEventListener('click', (e) => {
+                const t = e.target.closest('[data-restore-item],[data-delete-item],[data-customize-item],[data-remove-item],[data-save-custom],[data-clear-custom],[data-close-custom],[data-group-restore],[data-group-remove]');
+                if (!t) return;
+
+                if (t.dataset.restoreItem) return restoreRemovedItemInEdit(t.dataset.restoreItem);
+                if (t.dataset.deleteItem) return confirmDeleteRemovedItem(t.dataset.deleteItem);
+                if (t.dataset.removeItem) return confirmRemoveItemFromEdit(t.dataset.removeItem, t.dataset.itemName, t.dataset.componentName);
+                if (t.dataset.customizeItem) return toggleEditItemCustomization(
+                    t.dataset.customizeItem, t.dataset.itemName, t.dataset.componentName, t.dataset.periodType,
+                    parseFloat(t.dataset.defaultAmount) || 0, parseInt(t.dataset.defaultQuantity) || 1, t.dataset.paymentOption
+                );
+                if (t.dataset.saveCustom) return saveEditItemCustomization(t.dataset.saveCustom);
+                if (t.dataset.clearCustom) return removeEditItemCustomization(t.dataset.clearCustom);
+                if (t.dataset.closeCustom) return toggleEditItemCustomization(t.dataset.closeCustom);
+                if (t.dataset.groupRestore) return restoreGroupItemsInEdit(t.dataset.groupRestore);
+                if (t.dataset.groupRemove) return removeGroupItemsInEdit(t.dataset.groupRemove);
+            });
+        }
+
+        /* ============================== MODAL MARKUP ============================== */
         const modalHtml = `
-            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto" id="editStudentModal">
-                <div class="bg-white rounded-2xl p-6 max-w-5xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
-                    <div class="flex justify-between items-start mb-4 pb-3 border-b sticky top-0 bg-white z-10">
-                        <h2 class="text-2xl font-bold flex items-center gap-2">
-                            <i class="fas fa-edit text-orange-600"></i>
-                            Edit Student Information
-                        </h2>
-                        <div class="flex gap-2">
-                            <button onclick="closeEditStudentModal()" class="text-gray-500 text-2xl hover:text-gray-700" id="closeModalBtn">&times;</button>
+            <div class="es-overlay" id="editStudentModal">
+                <div class="es-modal">
+                    <div class="es-modal-header">
+                        <div>
+                            <div class="es-modal-title"><i class="fas fa-user-pen"></i> Edit Student</div>
+                            <div class="es-modal-sub">${esEscapeHtml(student.firstName || '')} ${esEscapeHtml(student.lastName || '')} · Admission ${esEscapeHtml(student.admissionNumber || '')}</div>
                         </div>
+                        <button type="button" class="es-close-btn" id="esCloseBtnTop"><i class="fas fa-xmark"></i></button>
                     </div>
 
-                    <form id="editStudentFormModal" class="space-y-6">
-                        <!-- ==================== PERSONAL INFORMATION ==================== -->
-                        <div class="border rounded-lg overflow-hidden">
-                            <div class="bg-blue-50 px-4 py-2 font-semibold text-blue-700 border-b">
-                                <i class="fas fa-user-circle mr-2"></i> Personal Information
+                    <form id="editStudentFormModal" class="es-modal-body">
+                        <!-- Personal -->
+                        <section class="es-card" style="--es-accent:#4F5FE8; --es-delay:0ms">
+                            <div class="es-card-head">
+                                <span class="es-card-icon"><i class="fas fa-user-circle"></i></span>
+                                <div><div class="es-card-title">Personal Information</div><div class="es-card-sub">Basic student details</div></div>
                             </div>
-                            <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">First Name</label>
-                                    <input type="text" id="editFirstName" value="${escapeHtml(student.firstName || '')}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Last Name</label>
-                                    <input type="text" id="editLastName" value="${escapeHtml(student.lastName || '')}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Date of Birth</label>
-                                    <input type="date" id="editDob" value="${student.dateOfBirth || ''}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Gender</label>
-                                    <select id="editGender" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                            <div class="es-card-body es-grid es-grid-2">
+                                <div class="es-field"><label class="es-label">First Name</label><input type="text" id="editFirstName" class="es-input" value="${esEscapeHtml(student.firstName || '')}"></div>
+                                <div class="es-field"><label class="es-label">Last Name</label><input type="text" id="editLastName" class="es-input" value="${esEscapeHtml(student.lastName || '')}"></div>
+                                <div class="es-field"><label class="es-label">Date of Birth</label><input type="date" id="editDob" class="es-input" value="${student.dateOfBirth || ''}"></div>
+                                <div class="es-field"><label class="es-label">Gender</label>
+                                    <select id="editGender" class="es-input">
                                         <option value="">Select Gender</option>
                                         <option value="Male" ${student.gender === 'Male' ? 'selected' : ''}>Male</option>
                                         <option value="Female" ${student.gender === 'Female' ? 'selected' : ''}>Female</option>
                                         <option value="Other" ${student.gender === 'Other' ? 'selected' : ''}>Other</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Place of Birth</label>
-                                    <input type="text" id="editBirthPlace" value="${escapeHtml(student.birthPlace || '')}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Nationality</label>
-                                    <select id="editNationality" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                        <option value="Ugandan" ${student.nationality === 'Ugandan' ? 'selected' : ''}>Ugandan</option>
-                                        <option value="Kenyan" ${student.nationality === 'Kenyan' ? 'selected' : ''}>Kenyan</option>
-                                        <option value="Tanzanian" ${student.nationality === 'Tanzanian' ? 'selected' : ''}>Tanzanian</option>
-                                        <option value="Rwandese" ${student.nationality === 'Rwandese' ? 'selected' : ''}>Rwandese</option>
-                                        <option value="South Sudanese" ${student.nationality === 'South Sudanese' ? 'selected' : ''}>South Sudanese</option>
-                                        <option value="Other" ${student.nationality === 'Other' ? 'selected' : ''}>Other</option>
+                                <div class="es-field"><label class="es-label">Place of Birth</label><input type="text" id="editBirthPlace" class="es-input" value="${esEscapeHtml(student.birthPlace || '')}"></div>
+                                <div class="es-field"><label class="es-label">Nationality</label>
+                                    <select id="editNationality" class="es-input">
+                                        ${['Ugandan', 'Kenyan', 'Tanzanian', 'Rwandese', 'South Sudanese', 'Other'].map(n => `<option value="${n}" ${student.nationality === n ? 'selected' : ''}>${n}</option>`).join('')}
                                     </select>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- ==================== PARENT/GUARDIAN INFORMATION ==================== -->
-                        <div class="border rounded-lg overflow-hidden">
-                            <div class="bg-green-50 px-4 py-2 font-semibold text-green-700 border-b">
-                                <i class="fas fa-users mr-2"></i> Parent/Guardian Information
+                        <!-- Parent -->
+                        <section class="es-card" style="--es-accent:#0E9C8E; --es-delay:60ms">
+                            <div class="es-card-head">
+                                <span class="es-card-icon"><i class="fas fa-users"></i></span>
+                                <div><div class="es-card-title">Parent / Guardian Information</div><div class="es-card-sub">Primary contact</div></div>
                             </div>
-                            <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="block text-sm font-medium mb-1">Parent Name</label>
-                                    <input type="text" id="editParentName" value="${escapeHtml(student.parentInfo?.name || '')}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Relationship</label>
-                                    <select id="editRelationship" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                        <option value="Parent" ${student.parentInfo?.relationship === 'Parent' ? 'selected' : ''}>Parent</option>
-                                        <option value="Guardian" ${student.parentInfo?.relationship === 'Guardian' ? 'selected' : ''}>Guardian</option>
-                                        <option value="Relative" ${student.parentInfo?.relationship === 'Relative' ? 'selected' : ''}>Relative</option>
-                                        <option value="Other" ${student.parentInfo?.relationship === 'Other' ? 'selected' : ''}>Other</option>
+                            <div class="es-card-body es-grid es-grid-2">
+                                <div class="es-field es-span-2"><label class="es-label">Parent Name</label><input type="text" id="editParentName" class="es-input" value="${esEscapeHtml(student.parentInfo?.name || '')}"></div>
+                                <div class="es-field"><label class="es-label">Relationship</label>
+                                    <select id="editRelationship" class="es-input">
+                                        ${['Parent', 'Guardian', 'Relative', 'Other'].map(r => `<option value="${r}" ${student.parentInfo?.relationship === r ? 'selected' : ''}>${r}</option>`).join('')}
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Phone Number</label>
-                                    <input type="tel" id="editParentPhone" value="${student.parentInfo?.phone || ''}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" placeholder="07XX XXX XXX">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Alternative Phone</label>
-                                    <input type="tel" id="editParentAltPhone" value="${student.parentInfo?.altPhone || ''}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Email Address</label>
-                                    <input type="email" id="editParentEmail" value="${student.parentInfo?.email || ''}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Occupation</label>
-                                    <input type="text" id="editParentOccupation" value="${escapeHtml(student.parentInfo?.occupation || '')}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div class="md:col-span-2">
-                                    <label class="block text-sm font-medium mb-1">Address</label>
-                                    <textarea id="editAddress" rows="2" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">${escapeHtml(student.address || '')}</textarea>
-                                </div>
+                                <div class="es-field"><label class="es-label">Phone Number</label><input type="tel" id="editParentPhone" class="es-input" value="${student.parentInfo?.phone || ''}" placeholder="07XX XXX XXX"></div>
+                                <div class="es-field"><label class="es-label">Alternative Phone</label><input type="tel" id="editParentAltPhone" class="es-input" value="${student.parentInfo?.altPhone || ''}"></div>
+                                <div class="es-field"><label class="es-label">Email</label><input type="email" id="editParentEmail" class="es-input" value="${student.parentInfo?.email || ''}"></div>
+                                <div class="es-field"><label class="es-label">Occupation</label><input type="text" id="editParentOccupation" class="es-input" value="${esEscapeHtml(student.parentInfo?.occupation || '')}"></div>
+                                <div class="es-field es-span-2"><label class="es-label">Address</label><textarea id="editAddress" rows="2" class="es-input">${esEscapeHtml(student.address || '')}</textarea></div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- ==================== ACADEMIC INFORMATION ==================== -->
-                        <div class="border rounded-lg overflow-hidden">
-                            <div class="bg-purple-50 px-4 py-2 font-semibold text-purple-700 border-b">
-                                <i class="fas fa-graduation-cap mr-2"></i> Academic Information
+                        <!-- Academic -->
+                        <section class="es-card" style="--es-accent:#7C6BEF; --es-delay:120ms">
+                            <div class="es-card-head">
+                                <span class="es-card-icon"><i class="fas fa-graduation-cap"></i></span>
+                                <div><div class="es-card-title">Academic Information</div><div class="es-card-sub">Class & admission details</div></div>
                             </div>
-                            <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Current Class</label>
-                                    <select id="editClass" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                            <div class="es-card-body es-grid es-grid-2">
+                                <div class="es-field"><label class="es-label">Current Class</label>
+                                    <select id="editClass" class="es-input">
                                         <option value="">Select Class</option>
-                                        ${classes.map(c => `
-                                            <option value="${c.id}" ${currentClassId === c.id ? 'selected' : ''}>
-                                                ${c.name} (${c.level === 'Nursery' ? 'Nursery' : c.level === 'LowerPrimary' ? 'Lower Primary' : 'Upper Primary'})
-                                            </option>
-                                        `).join('')}
+                                        ${classes.map(c => `<option value="${c.id}" ${currentClassId === c.id ? 'selected' : ''}>${esEscapeHtml(c.name)} (${c.level === 'Nursery' ? 'Nursery' : c.level === 'LowerPrimary' ? 'Lower Primary' : 'Upper Primary'})</option>`).join('')}
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Previous School</label>
-                                    <input type="text" id="editPreviousSchool" value="${escapeHtml(student.previousSchool || '')}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Admission Type</label>
-                                    <select id="editAdmissionType" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                        <option value="New" ${student.admissionType === 'New' ? 'selected' : ''}>New Admission</option>
-                                        <option value="Transfer" ${student.admissionType === 'Transfer' ? 'selected' : ''}>Transfer</option>
-                                        <option value="Re-admission" ${student.admissionType === 'Re-admission' ? 'selected' : ''}>Re-admission</option>
+                                <div class="es-field"><label class="es-label">Previous School</label><input type="text" id="editPreviousSchool" class="es-input" value="${esEscapeHtml(student.previousSchool || '')}"></div>
+                                <div class="es-field"><label class="es-label">Admission Type</label>
+                                    <select id="editAdmissionType" class="es-input">
+                                        ${['New', 'Transfer', 'Re-admission'].map(t => `<option value="${t}" ${student.admissionType === t ? 'selected' : ''}>${t === 'New' ? 'New Admission' : t}</option>`).join('')}
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Enrollment Date</label>
-                                    <input type="date" id="editEnrollmentDate" value="${student.enrolledAt ? student.enrolledAt.split('T')[0] : new Date().toISOString().split('T')[0]}"
-                                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Student Status</label>
-                                    <select id="editStatus" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                        <option value="Active" ${student.status === 'Active' ? 'selected' : ''}>Active</option>
-                                        <option value="Inactive" ${student.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                                        <option value="Graduated" ${student.status === 'Graduated' ? 'selected' : ''}>Graduated</option>
-                                        <option value="Transferred" ${student.status === 'Transferred' ? 'selected' : ''}>Transferred</option>
+                                <div class="es-field"><label class="es-label">Enrollment Date</label><input type="date" id="editEnrollmentDate" class="es-input" value="${student.enrolledAt ? student.enrolledAt.split('T')[0] : new Date().toISOString().split('T')[0]}"></div>
+                                <div class="es-field"><label class="es-label">Student Status</label>
+                                    <select id="editStatus" class="es-input">
+                                        ${['Active', 'Inactive', 'Graduated', 'Transferred'].map(s => `<option value="${s}" ${student.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                                     </select>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- ==================== FEE ASSIGNMENT WITH CUSTOM BURSARY (YEAR-AWARE) ==================== -->
-                        <div class="border rounded-lg overflow-hidden">
-                            <div class="bg-orange-50 px-4 py-2 font-semibold text-orange-700 border-b">
-                                <i class="fas fa-money-bill-wave mr-2"></i> Fee Assignment for ${currentYear}
+                        <!-- Fee assignment -->
+                        <section class="es-card" style="--es-accent:#DB9A2C; --es-delay:180ms">
+                            <div class="es-card-head">
+                                <span class="es-card-icon"><i class="fas fa-money-bill-wave"></i></span>
+                                <div><div class="es-card-title">Fee Assignment for ${currentYear}</div><div class="es-card-sub">Applies only to this academic year</div></div>
                             </div>
-                            <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Fee Structure</label>
-                                    <select id="editFeeStructure" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" onchange="loadEditFeeStructureItems()">
+                            <div class="es-card-body es-grid es-grid-2">
+                                <div class="es-field">
+                                    <label class="es-label">Fee Structure</label>
+                                    <select id="editFeeStructure" class="es-input">
                                         <option value="">-- Select Fee Structure --</option>
                                         ${feeStructures.filter(f => f.isActive !== false).map(f => `
                                             <option value="${f.id}" ${currentFeeStructureId === f.id ? 'selected' : ''} data-structure='${JSON.stringify(f).replace(/'/g, "&#39;")}'>
-                                                ${f.name} - UGX ${(f.tuition || 0).toLocaleString()}/term (${f.level === 'Nursery' ? 'Nursery' : f.level === 'LowerPrimary' ? 'Lower Primary' : 'Upper Primary'})
-                                            </option>
-                                        `).join('')}
+                                                ${esEscapeHtml(f.name)} - UGX ${esFormatMoney(f.tuition || 0)}/term (${f.level === 'Nursery' ? 'Nursery' : f.level === 'LowerPrimary' ? 'Lower Primary' : 'Upper Primary'})
+                                            </option>`).join('')}
                                     </select>
-                                    <p class="text-xs text-gray-400 mt-1">Assignment applies only to ${currentYear}</p>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Bursary (Optional)</label>
-                                    <div class="flex gap-2">
-                                        <select id="editBursary" class="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" onchange="toggleEditCustomBursary()">
+                                <div class="es-field">
+                                    <label class="es-label">Bursary (optional)</label>
+                                    <div class="es-inline">
+                                        <select id="editBursary" class="es-input" style="flex:1">
                                             <option value="">None</option>
-                                            ${feeBursaries.filter(b => b.isActive !== false).map(b => `
-                                                <option value="${b.id}" ${currentBursaryId === b.id ? 'selected' : ''}>
-                                                    ${b.name} (${b.type === 'percentage' ? b.value + '% off' : 'UGX ' + b.value.toLocaleString() + ' off'})
-                                                </option>
-                                            `).join('')}
-                                            <option value="custom" ${hasCustomBursary ? 'selected' : ''}>✏️ Custom Bursary (Enter Amount)</option>
+                                            ${feeBursaries.filter(b => b.isActive !== false).map(b => `<option value="${b.id}" ${currentBursaryId === b.id ? 'selected' : ''}>${esEscapeHtml(b.name)} (${b.type === 'percentage' ? b.value + '% off' : 'UGX ' + esFormatMoney(b.value) + ' off'})</option>`).join('')}
+                                            <option value="custom" ${hasCustomBursary ? 'selected' : ''}>✏️ Custom Bursary</option>
                                         </select>
                                         <div id="customBursaryContainer" class="${hasCustomBursary ? '' : 'hidden'}">
-                                            <input type="number" id="editCustomBursaryAmount"
-                                                   value="${customBursaryAmount}"
-                                                   placeholder="Amount (UGX)"
-                                                   class="w-32 border rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                                                   min="0" step="1000">
+                                            <input type="number" id="editCustomBursaryAmount" class="es-input" style="width:130px" value="${customBursaryAmount}" placeholder="Amount (UGX)" min="0" step="1000">
                                         </div>
                                     </div>
-                                    ${hasCustomBursary ? `
-                                        <p class="text-xs text-green-600 mt-1">🎖️ Current custom bursary: UGX ${customBursaryAmount.toLocaleString()} off tuition</p>
-                                    ` : ''}
+                                    ${hasCustomBursary ? `<p style="font-size:11.5px;color:#15803d;margin-top:4px;">🎖️ Current: UGX ${esFormatMoney(customBursaryAmount)} off tuition</p>` : ''}
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <!-- ==================== ITEMS CUSTOMIZATION SECTION WITH REMOVE FEATURE ==================== -->
-                        <div class="border-2 border-blue-400 rounded-lg overflow-hidden">
-                            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 text-white">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <h3 class="font-bold text-lg flex items-center gap-2">
-                                            <i class="fas fa-sliders-h"></i> Item Customizations
-                                        </h3>
-                                        <p class="text-xs opacity-90">Override default fee structure values or remove items</p>
-                                    </div>
-                                    <span class="text-sm bg-white/20 px-3 py-1 rounded-full" id="customizationCountBadge">
-                                        ${Object.keys(existingCustomizations).length} customized
-                                        ${student.removedItems && Object.keys(student.removedItems).length > 0 ?
-                                            ` <span class="text-red-400">(${Object.keys(student.removedItems).length} removed)</span>` : ''}
-                                    </span>
+                        <!-- Items customization -->
+                        <section class="es-card" style="--es-accent:#4F5FE8; --es-delay:240ms">
+                            <div class="es-card-head" style="justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <span class="es-card-icon"><i class="fas fa-sliders"></i></span>
+                                    <div><div class="es-card-title">Item Customizations</div><div class="es-card-sub">Override defaults, remove or restore items — per item or whole group</div></div>
                                 </div>
+                                <span class="es-tag es-tag-blue" id="customizationCountBadge" style="font-size:11.5px;">${Object.keys(existingCustomizations).length} customized${student.removedItems && Object.keys(student.removedItems).length ? ` <span style="color:#b91c1c;margin-left:4px;">(${Object.keys(student.removedItems).length} removed)</span>` : ''}</span>
                             </div>
-                            <div class="p-4">
-                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                                    <div class="flex items-start gap-2">
-                                        <i class="fas fa-info-circle text-yellow-600 mt-0.5"></i>
-                                        <div>
-                                            <p class="text-sm font-medium text-yellow-800">How to remove an item:</p>
-                                            <p class="text-xs text-yellow-700">Click the <span class="font-semibold">"Remove"</span> button next to any item to permanently remove it from this student's fee structure.
-                                            The item will no longer be charged to this student. Click <span class="font-semibold">"Restore"</span> to add it back.</p>
-                                        </div>
-                                    </div>
+                            <div class="es-card-body">
+                                <div class="es-items-hint">
+                                    <i class="fas fa-circle-info"></i>
+                                    <div>Click <strong>Remove</strong> on any item to stop billing it, or <strong>Remove whole group</strong> to clear an entire status group at once. Use <strong>Restore</strong> / <strong>Restore whole group</strong> to bring items back.</div>
                                 </div>
-
-                                <div id="editItemsCustomizationContainer" class="space-y-4 max-h-96 overflow-y-auto">
-                                    ${buildItemsSection()}
-                                </div>
+                                <div id="editItemsCustomizationContainer" class="es-items-list">${buildItemsSection()}</div>
                             </div>
-                        </div>
-
-                        <!-- ==================== FORM ACTIONS ==================== -->
-                        <div class="flex gap-3 pt-4 border-t sticky bottom-0 bg-white pb-2">
-                            <button type="submit" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
-                                <i class="fas fa-save"></i> Save Changes
-                            </button>
-                            <button type="button" onclick="closeEditStudentModal()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400" id="cancelEditBtn">
-                                Cancel
-                            </button>
-                        </div>
+                        </section>
                     </form>
+
+                    <div class="es-modal-footer">
+                        <button type="button" class="es-btn es-btn-primary" id="esSaveBtn" style="flex:1"><i class="fas fa-floppy-disk"></i> Save Changes</button>
+                        <button type="button" class="es-btn es-btn-outline" id="esCancelBtn" style="flex:1">Cancel</button>
+                    </div>
                 </div>
             </div>
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        attachItemsPanelDelegation();
 
-        // ========== ATTACH EVENT LISTENERS ==========
-
-        // 1. FEE STRUCTURE ITEMS LOAD
-        window.loadEditFeeStructureItems = function() {
-            const feeSelect = document.getElementById('editFeeStructure');
+        /* -------------------- fee-structure change -> reload items -------------------- */
+        document.getElementById('editFeeStructure')?.addEventListener('change', (e) => {
+            const opt = e.target.options[e.target.selectedIndex];
+            let fs = null;
+            try { fs = JSON.parse(opt.dataset.structure); } catch (_) { fs = { activityComponents: [] }; }
+            selectedFeeStructure = fs;
             const container = document.getElementById('editItemsCustomizationContainer');
+            if (container) container.innerHTML = buildItemsCustomizationHTML(fs);
+            updateEditCustomizationBadgeCount();
+        });
 
-            if (!feeSelect || !feeSelect.value) {
-                container.innerHTML = `
-                    <div class="text-center text-gray-400 py-8">
-                        <i class="fas fa-info-circle text-3xl mb-2"></i>
-                        <p>Select a fee structure to see items for customization</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const selectedOption = feeSelect.options[feeSelect.selectedIndex];
-            let feeStructure = null;
-            try {
-                feeStructure = JSON.parse(selectedOption.dataset.structure);
-            } catch (e) {
-                feeStructure = { activityComponents: [] };
-            }
-
-            container.innerHTML = buildItemsCustomizationHTML(feeStructure);
-
-            // Update selected fee structure globally
-            selectedFeeStructure = feeStructure;
-        };
-
-        // 2. TOGGLE ITEM CUSTOMIZATION FORM
-        window.toggleEditItemCustomization = function(itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption) {
-            const form = document.getElementById(`editCustomForm_${itemId}`);
-            if (form) {
-                form.classList.toggle('hidden');
-                if (!form.classList.contains('hidden')) {
-                    form.dataset.itemName = itemName || '';
-                    form.dataset.componentName = componentName || '';
-                    form.dataset.periodType = periodType || '';
-                    form.dataset.defaultAmount = defaultAmount || 0;
-                    form.dataset.defaultQuantity = defaultQuantity || 1;
-                    form.dataset.paymentOption = paymentOption || 'either';
-
-                    const amountField = document.getElementById(`editCustomAmount_${itemId}`);
-                    if (amountField) amountField.focus();
-                }
-            }
-        };
-
-        // ========== FIXED: SAVE EDIT ITEM CUSTOMIZATION ==========
-        window.saveEditItemCustomization = async function(itemId) {
-            console.log('saveEditItemCustomization called for:', itemId);
-
-            const amountInput = document.getElementById(`editCustomAmount_${itemId}`);
-            const quantityInput = document.getElementById(`editCustomQuantity_${itemId}`);
-            const reasonInput = document.getElementById(`editCustomReason_${itemId}`);
-
-            const amount = amountInput?.value?.trim();
-            const quantity = quantityInput?.value?.trim();
-            const reason = reasonInput?.value?.trim() || '';
-
-            if (!amount && !quantity) {
-                showToast('Please enter at least a custom amount or quantity', 'warning');
-                return;
-            }
-
-            const form = document.getElementById(`editCustomForm_${itemId}`);
-            if (!form) {
-                showToast('Error: Form not found', 'error');
-                return;
-            }
-
-            const itemName = form.dataset.itemName || itemId;
-            const componentName = form.dataset.componentName || '';
-            const periodType = form.dataset.periodType || 'termly';
-            const defaultAmount = parseFloat(form.dataset.defaultAmount) || 0;
-            const defaultQuantity = parseInt(form.dataset.defaultQuantity) || 1;
-            const paymentOption = form.dataset.paymentOption || 'either';
-
-            const customAmount = (amount && amount !== '') ? parseFloat(amount) : null;
-            const customQuantity = (quantity && quantity !== '') ? parseInt(quantity) : null;
-
-            // Build the customization object
-            const customization = {
-                itemId: itemId,
-                itemName: itemName,
-                componentName: componentName,
-                periodType: periodType,
-                customAmount: customAmount,
-                customQuantity: customQuantity,
-                paymentOption: paymentOption,
-                reason: reason,
-                defaultAmount: defaultAmount,
-                defaultQuantity: defaultQuantity,
-                isCustomized: true,
-                updatedAt: new Date().toISOString()
-            };
-
-            try {
-                // ============================================================
-                // STEP 1: SAVE TO BACKEND
-                // ============================================================
-                const payload = {
-                    customAmount: customAmount,
-                    customQuantity: customQuantity,
-                    paymentOption: paymentOption,
-                    reason: reason,
-                    componentId: form.dataset.componentId || null,
-                    itemName: itemName,
-                    defaultAmount: defaultAmount,
-                    defaultQuantity: defaultQuantity
-                };
-
-                console.log('💾 Saving customization to backend:', payload);
-
-                const response = await fetch(`/api/students/${studentId}/customizations/${itemId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to save customization (${response.status}): ${errorText}`);
-                }
-
-                const result = await response.json();
-                console.log('✅ Customization saved to backend:', result);
-
-                // ============================================================
-                // STEP 2: UPDATE LOCAL STORAGE
-                // ============================================================
-                // Update existingCustomizations
-                if (!window.existingCustomizations) {
-                    window.existingCustomizations = {};
-                }
-                window.existingCustomizations[itemId] = customization;
-
-                // Update student object
-                if (window.currentEditStudent) {
-                    if (!window.currentEditStudent.customItemOverrides) {
-                        window.currentEditStudent.customItemOverrides = {};
-                    }
-                    window.currentEditStudent.customItemOverrides[itemId] = customization;
-                }
-
-                // ============================================================
-                // STEP 3: UPDATE UI
-                // ============================================================
-                const container = document.querySelector(`[data-item-id="${itemId}"]`);
-                if (container) {
-                    // Update badge
-                    const badgeContainer = container.querySelector('.flex.items-center.gap-2.flex-wrap');
-                    if (badgeContainer) {
-                        const existingBadge = badgeContainer.querySelector('.bg-orange-100');
-                        if (existingBadge) existingBadge.remove();
-                        const badge = document.createElement('span');
-                        badge.className = 'bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full';
-                        badge.textContent = '⚡ Custom';
-                        badgeContainer.appendChild(badge);
-                    }
-
-                    // Update button text
-                    const actionButton = container.querySelector('button[onclick*="toggleEditItemCustomization"]');
-                    if (actionButton) {
-                        actionButton.innerHTML = '<i class="fas fa-edit"></i> Edit Custom';
-                    }
-
-                    // Update info display
-                    const infoDiv = container.querySelector('.text-xs.text-gray-500');
-                    if (infoDiv) {
-                        const existingCustomInfo = container.querySelector('.text-orange-600');
-                        if (existingCustomInfo) existingCustomInfo.remove();
-
-                        const displayAmount = customAmount !== null ? customAmount : defaultAmount;
-                        const displayQuantity = customQuantity !== null ? customQuantity : defaultQuantity;
-                        const customInfo = document.createElement('div');
-                        customInfo.className = 'text-orange-600 text-xs mt-1';
-                        customInfo.textContent = `Custom: UGX ${displayAmount.toLocaleString()}${displayQuantity !== defaultQuantity ? ` | Qty: ${displayQuantity}` : ''}`;
-                        if (reason) customInfo.textContent += ` (${reason})`;
-                        infoDiv.parentNode.appendChild(customInfo);
-                    }
-                }
-
-                // Hide the form
-                const formElement = document.getElementById(`editCustomForm_${itemId}`);
-                if (formElement) formElement.classList.add('hidden');
-
-                // Update badge count
-                updateCustomizationBadgeCount();
-
-                showToast(`✅ Customized "${itemName}" saved to backend`, 'success');
-
-            } catch (error) {
-                console.error('Error saving customization:', error);
-                showToast(`❌ Failed to save customization: ${error.message}`, 'error');
-            }
-        };
-
-        // ========== FIXED: REMOVE EDIT ITEM CUSTOMIZATION (RESTORE DEFAULT) ==========
-        window.removeEditItemCustomization = async function(itemId) {
-            console.log('removeEditItemCustomization called for:', itemId);
-
-            if (!confirm('Remove customization for this item? It will revert to default values.')) return;
-
-            try {
-                // ============================================================
-                // STEP 1: DELETE FROM BACKEND
-                // ============================================================
-                const response = await fetch(`/api/students/${studentId}/customizations/${itemId}`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to remove customization: ${response.status}`);
-                }
-
-                console.log('✅ Customization removed from backend');
-
-                // ============================================================
-                // STEP 2: REMOVE FROM LOCAL STORAGE
-                // ============================================================
-                if (window.existingCustomizations) {
-                    delete window.existingCustomizations[itemId];
-                }
-                if (window.currentEditStudent && window.currentEditStudent.customItemOverrides) {
-                    delete window.currentEditStudent.customItemOverrides[itemId];
-                }
-                if (window.editItemCustomizations) {
-                    delete window.editItemCustomizations[itemId];
-                }
-
-                // ============================================================
-                // STEP 3: UPDATE UI - RESTORE DEFAULT
-                // ============================================================
-                const container = document.querySelector(`[data-item-id="${itemId}"]`);
-                if (container) {
-                    // Remove custom badge
-                    const badgeContainer = container.querySelector('.flex.items-center.gap-2.flex-wrap');
-                    if (badgeContainer) {
-                        const existingBadge = badgeContainer.querySelector('.bg-orange-100');
-                        if (existingBadge) existingBadge.remove();
-                    }
-
-                    // Update button text
-                    const button = container.querySelector('button[onclick*="toggleEditItemCustomization"]');
-                    if (button) {
-                        button.innerHTML = '<i class="fas fa-sliders-h"></i> Customize';
-                    }
-
-                    // Remove custom info
-                    const customInfo = container.querySelector('.text-orange-600');
-                    if (customInfo) customInfo.remove();
-
-                    // Remove any custom value from the info area
-                    const infoDiv = container.querySelector('.text-xs.text-gray-500');
-                    if (infoDiv) {
-                        // Show default values again
-                        const defaultAmount = container.dataset.defaultAmount || '0';
-                        const defaultQty = container.dataset.defaultQuantity || '1';
-                        // Update the display to show default values
-                        const defaultSpan = infoDiv.querySelector('.text-gray-400');
-                        if (defaultSpan) {
-                            defaultSpan.textContent = `Default: UGX ${formatMoney(defaultAmount)} ${defaultQty > 1 ? `| Qty: ${defaultQty}` : ''}`;
-                        }
-                    }
-                }
-
-                // Close the form
-                const form = document.getElementById(`editCustomForm_${itemId}`);
-                if (form) form.classList.add('hidden');
-
-                // Update badge count
-                updateCustomizationBadgeCount();
-
-                // Refresh the items container to show updated state
-                const container2 = document.getElementById('editItemsCustomizationContainer');
-                if (container2 && selectedFeeStructure) {
-                    const scrollPos = container2.scrollTop;
-                    container2.innerHTML = buildItemsCustomizationHTML(selectedFeeStructure);
-                    container2.scrollTop = scrollPos;
-                }
-
-                showToast('✅ Customization removed, using defaults', 'info');
-
-            } catch (error) {
-                console.error('Error removing customization:', error);
-                showToast(`❌ Failed to remove customization: ${error.message}`, 'error');
-            }
-        };
-
-        // 5. UPDATE CUSTOMIZATION BADGE COUNT
-        function updateCustomizationBadgeCount() {
-            const badge = document.getElementById('customizationCountBadge');
-            if (!badge) return;
-
-            const tempCount = window.editItemCustomizations ? Object.keys(window.editItemCustomizations).length : 0;
-            const existingCount = existingCustomizations ? Object.keys(existingCustomizations).length : 0;
-            const removedCount = student.removedItems ? Object.keys(student.removedItems).length : 0;
-            const total = Math.max(tempCount, existingCount);
-
-            if (removedCount > 0) {
-                badge.innerHTML = `${total} customized <span class="text-red-500 ml-1">(${removedCount} removed)</span>`;
-            } else {
-                badge.textContent = `${total} customized`;
-            }
-        }
-
-        // 6. TOGGLE CUSTOM BURSARY FIELDS
-        window.toggleEditCustomBursary = function() {
+        /* -------------------- bursary toggle -------------------- */
+        function toggleEditCustomBursary() {
             const bursarySelect = document.getElementById('editBursary');
             const customContainer = document.getElementById('customBursaryContainer');
-            if (bursarySelect && customContainer) {
-                if (bursarySelect.value === 'custom') {
-                    customContainer.classList.remove('hidden');
-                    document.getElementById('editCustomBursaryAmount').focus();
-                } else {
-                    customContainer.classList.add('hidden');
-                }
+            if (!bursarySelect || !customContainer) return;
+            if (bursarySelect.value === 'custom') {
+                customContainer.classList.remove('hidden');
+                document.getElementById('editCustomBursaryAmount')?.focus();
+            } else {
+                customContainer.classList.add('hidden');
             }
-        };
-
-        // Initialize custom bursary toggle
+        }
+        document.getElementById('editBursary')?.addEventListener('change', toggleEditCustomBursary);
         toggleEditCustomBursary();
 
-        // 7. INITIALIZE FEE STRUCTURE ITEMS
-        if (currentFeeStructureId) {
-            setTimeout(() => {
-                window.loadEditFeeStructureItems();
-            }, 100);
+        /* -------------------- close / escape / backdrop -------------------- */
+        function closeEditStudentModal() {
+            const modal = document.getElementById('editStudentModal');
+            modal?.remove();
+            window.currentEditStudent = null;
         }
+        window.closeEditStudentModal = closeEditStudentModal;
+        document.getElementById('esCloseBtnTop')?.addEventListener('click', closeEditStudentModal);
+        document.getElementById('esCancelBtn')?.addEventListener('click', closeEditStudentModal);
+        document.getElementById('editStudentModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'editStudentModal') closeEditStudentModal();
+        });
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape' && document.getElementById('editStudentModal')) {
+                closeEditStudentModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
 
-        // ================================================================
-        // 8. FORM SUBMISSION HANDLER - WITH CLASS CHANGE FIX
-        // ================================================================
-        document.getElementById('editStudentFormModal').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            console.log('=== FORM SUBMITTED - SAVING WITH YEAR-AWARE FEE ASSIGNMENT ===');
-
+        /* ============================== SAVE / SUBMIT ============================== */
+        document.getElementById('esSaveBtn')?.addEventListener('click', async () => {
             const originalStudent = student;
             const updatedData = {};
 
-            // --- Personal Information ---
             const firstName = document.getElementById('editFirstName').value.trim();
             if (firstName !== originalStudent.firstName) updatedData.firstName = firstName;
-
             const lastName = document.getElementById('editLastName').value.trim();
             if (lastName !== originalStudent.lastName) updatedData.lastName = lastName;
-
             const dob = document.getElementById('editDob').value || null;
             if (dob !== originalStudent.dateOfBirth) updatedData.dateOfBirth = dob;
-
             const gender = document.getElementById('editGender').value;
             if (gender !== originalStudent.gender) updatedData.gender = gender;
-
             const birthPlace = document.getElementById('editBirthPlace').value || '';
             if (birthPlace !== originalStudent.birthPlace) updatedData.birthPlace = birthPlace;
-
             const nationality = document.getElementById('editNationality').value || 'Ugandan';
             if (nationality !== originalStudent.nationality) updatedData.nationality = nationality;
 
-            // --- Parent Information ---
             const parentName = document.getElementById('editParentName').value.trim();
-            if (parentName !== originalStudent.parentInfo?.name) {
-                if (!updatedData.parentInfo) updatedData.parentInfo = {};
-                updatedData.parentInfo.name = parentName;
-            }
-
             const relationship = document.getElementById('editRelationship').value || 'Parent';
-            if (relationship !== originalStudent.parentInfo?.relationship) {
-                if (!updatedData.parentInfo) updatedData.parentInfo = {};
-                updatedData.parentInfo.relationship = relationship;
-            }
-
             const parentPhone = document.getElementById('editParentPhone').value.trim();
-            if (parentPhone !== originalStudent.parentInfo?.phone) {
-                if (!updatedData.parentInfo) updatedData.parentInfo = {};
-                updatedData.parentInfo.phone = parentPhone;
-            }
-
             const parentAltPhone = document.getElementById('editParentAltPhone').value || '';
-            if (parentAltPhone !== originalStudent.parentInfo?.altPhone) {
-                if (!updatedData.parentInfo) updatedData.parentInfo = {};
-                updatedData.parentInfo.altPhone = parentAltPhone;
-            }
-
             const parentEmail = document.getElementById('editParentEmail').value || '';
-            if (parentEmail !== originalStudent.parentInfo?.email) {
-                if (!updatedData.parentInfo) updatedData.parentInfo = {};
-                updatedData.parentInfo.email = parentEmail;
-            }
-
             const parentOccupation = document.getElementById('editParentOccupation').value || '';
-            if (parentOccupation !== originalStudent.parentInfo?.occupation) {
-                if (!updatedData.parentInfo) updatedData.parentInfo = {};
-                updatedData.parentInfo.occupation = parentOccupation;
+            if (parentName !== originalStudent.parentInfo?.name || relationship !== originalStudent.parentInfo?.relationship ||
+                parentPhone !== originalStudent.parentInfo?.phone || parentAltPhone !== originalStudent.parentInfo?.altPhone ||
+                parentEmail !== originalStudent.parentInfo?.email || parentOccupation !== originalStudent.parentInfo?.occupation) {
+                updatedData.parentInfo = { name: parentName, relationship, phone: parentPhone, altPhone: parentAltPhone, email: parentEmail, occupation: parentOccupation };
             }
 
             const address = document.getElementById('editAddress').value.trim();
             if (address !== originalStudent.address) updatedData.address = address;
 
-            // --- Academic Information ---
             const newClassId = document.getElementById('editClass').value || null;
             const oldClassId = originalStudent.currentClassId;
-            
-            // Track if class changed
             const hasClassChanged = newClassId !== oldClassId;
-            
-            if (hasClassChanged) {
-                console.log('📌 Class changed from', oldClassId, 'to', newClassId);
-                updatedData.currentClassId = newClassId;
-            }
+            if (hasClassChanged) updatedData.currentClassId = newClassId;
 
             const previousSchool = document.getElementById('editPreviousSchool').value || '';
             if (previousSchool !== originalStudent.previousSchool) updatedData.previousSchool = previousSchool;
-
             const admissionType = document.getElementById('editAdmissionType').value || 'New';
             if (admissionType !== originalStudent.admissionType) updatedData.admissionType = admissionType;
-
             const enrollmentDate = document.getElementById('editEnrollmentDate').value || new Date().toISOString().split('T')[0];
-            if (enrollmentDate !== (originalStudent.enrolledAt ? originalStudent.enrolledAt.split('T')[0] : '')) {
-                updatedData.enrolledAt = enrollmentDate;
-            }
-
+            if (enrollmentDate !== (originalStudent.enrolledAt ? originalStudent.enrolledAt.split('T')[0] : '')) updatedData.enrolledAt = enrollmentDate;
             const status = document.getElementById('editStatus').value;
             if (status !== originalStudent.status) updatedData.status = status;
 
-            // --- Custom Bursary ---
+            // bursary
             const bursarySelect = document.getElementById('editBursary');
             const customBursaryAmountInput = document.getElementById('editCustomBursaryAmount');
-
             let newBursaryId = bursarySelect.value || null;
             let newCustomBursaryAmount = null;
             let isCustomBursary = false;
-
             if (bursarySelect.value === 'custom') {
                 const customAmount = parseInt(customBursaryAmountInput?.value) || 0;
-                if (customAmount > 0) {
-                    newCustomBursaryAmount = customAmount;
-                    isCustomBursary = true;
-                    newBursaryId = null;
-                } else {
-                    newBursaryId = null;
-                    newCustomBursaryAmount = null;
-                }
+                if (customAmount > 0) { newCustomBursaryAmount = customAmount; isCustomBursary = true; newBursaryId = null; }
+                else newBursaryId = null;
             }
-
             const originalHasCustomBursary = originalStudent.customBursary && originalStudent.customBursary.amount > 0;
             const originalCustomAmount = originalHasCustomBursary ? originalStudent.customBursary.amount : 0;
-
-            const shouldUpdateBursary =
-                (newBursaryId !== currentBursaryId) ||
+            const shouldUpdateBursary = (newBursaryId !== currentBursaryId) ||
                 (isCustomBursary && newCustomBursaryAmount !== originalCustomAmount) ||
                 (!isCustomBursary && originalHasCustomBursary);
-
             if (shouldUpdateBursary) {
                 if (isCustomBursary) {
-                    updatedData.customBursary = {
-                        amount: newCustomBursaryAmount,
-                        appliedAt: new Date().toISOString(),
-                        description: 'Custom bursary applied via edit student'
-                    };
+                    updatedData.customBursary = { amount: newCustomBursaryAmount, appliedAt: new Date().toISOString(), description: 'Custom bursary applied via edit student' };
                     updatedData.bursaryId = null;
                 } else {
                     updatedData.customBursary = null;
@@ -33234,393 +32970,90 @@ async function editStudentInfoList(studentId) {
                 }
             }
 
-            // ================================================================
-            // ========== SAVE CUSTOMIZATIONS ==========
-            // ================================================================
+            // customizations + removed items (already in `student` / `existingCustomizations` due to in-place edits)
+            updatedData.customItemOverrides = student.customItemOverrides || existingCustomizations || {};
+            updatedData.removedItems = student.removedItems || {};
 
-            // STEP 1: Collect customizations from ALL sources
-            let allCustomizations = {};
-
-            if (existingCustomizations && typeof existingCustomizations === 'object') {
-                for (const [key, value] of Object.entries(existingCustomizations)) {
-                    if (value && value.isCustomized !== false) {
-                        allCustomizations[key] = value;
-                    }
-                }
-            }
-
-            if (window.editItemCustomizations && typeof window.editItemCustomizations === 'object') {
-                for (const [key, value] of Object.entries(window.editItemCustomizations)) {
-                    if (value && value.isCustomized !== false) {
-                        allCustomizations[key] = {
-                            ...(allCustomizations[key] || {}),
-                            ...value,
-                            isCustomized: true,
-                            updatedAt: new Date().toISOString()
-                        };
-                    }
-                }
-            }
-
-            if (window.currentEditStudent && window.currentEditStudent.customItemOverrides) {
-                for (const [key, value] of Object.entries(window.currentEditStudent.customItemOverrides)) {
-                    if (value && value.isCustomized !== false) {
-                        allCustomizations[key] = {
-                            ...(allCustomizations[key] || {}),
-                            ...value,
-                            isCustomized: true,
-                            updatedAt: new Date().toISOString()
-                        };
-                    }
-                }
-            }
-
-            for (const [key, value] of Object.entries(allCustomizations)) {
-                if (!value || value.isCustomized === false) {
-                    delete allCustomizations[key];
-                }
-            }
-
-            const hasCustomizations = Object.keys(allCustomizations).length > 0;
-
-            if (hasCustomizations) {
-                updatedData.customItemOverrides = allCustomizations;
-            } else {
-                updatedData.customItemOverrides = {};
-            }
-
-            // ================================================================
-            // STEP 2: Collect removed items
-            // ================================================================
-            const currentStudent = window.currentEditStudent || student;
-            if (currentStudent.removedItems && Object.keys(currentStudent.removedItems).length > 0) {
-                updatedData.removedItems = currentStudent.removedItems;
-            } else {
-                updatedData.removedItems = {};
-            }
-
-            // ================================================================
-            // STEP 3: Get the selected fee structure ID
-            // ================================================================
             const feeStructureId = document.getElementById('editFeeStructure').value;
-
-            // ================================================================
-            // STEP 4: Check if anything changed
-            // ================================================================
-            const hasStudentChanges = Object.keys(updatedData).filter(k =>
-                k !== 'feeStructureId' && k !== 'bursaryId' && k !== 'customBursary' &&
-                k !== 'customItemOverrides' && k !== 'removedItems'
-            ).length > 0;
-
+            const hasStudentChanges = Object.keys(updatedData).filter(k => !['feeStructureId', 'bursaryId', 'customBursary', 'customItemOverrides', 'removedItems'].includes(k)).length > 0;
             const hasFeeStructureChange = feeStructureId !== currentFeeStructureId;
             const hasBursaryChange = shouldUpdateBursary;
-            const hasCustomizationChanges = hasCustomizations || Object.keys(updatedData.removedItems).length > 0;
 
-            if (!hasStudentChanges && !hasFeeStructureChange && !hasBursaryChange && !hasCustomizationChanges) {
-                alert('No changes were made to update.');
+            if (!hasStudentChanges && !hasFeeStructureChange && !hasBursaryChange) {
+                window.showToast('No changes to save', 'info');
                 return;
             }
-
             updatedData.updatedAt = new Date().toISOString();
 
-            console.log('📦 FINAL DATA TO SAVE:', JSON.stringify(updatedData, null, 2));
-
-            // ================================================================
-            // STEP 5: SAVE TO BACKEND
-            // ================================================================
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            submitBtn.disabled = true;
+            const saveBtn = document.getElementById('esSaveBtn');
+            const originalHtml = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+            saveBtn.disabled = true;
 
             try {
-                // Save student data
-                if (hasStudentChanges || hasCustomizationChanges) {
-                    const studentResponse = await fetch(`/api/students/${studentId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(updatedData)
-                    });
+                const studentResponse = await fetch(`/api/students/${studentId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData)
+                });
+                if (!studentResponse.ok) throw new Error(`Failed to update student (${studentResponse.status})`);
 
-                    if (!studentResponse.ok) {
-                        let errorText = await studentResponse.text();
-                        console.error('Student update error response:', errorText);
-                        throw new Error(`Failed to update student (${studentResponse.status}): ${errorText}`);
-                    }
-
-                    const studentResult = await studentResponse.json();
-                    console.log('✅ Student updated successfully:', studentResult);
-                }
-
-                // ================================================================
-                // STEP 6: Save customizations individually
-                // ================================================================
-                if (hasCustomizations) {
-                    console.log('💾 Saving customizations individually...');
-                    for (const [itemId, customData] of Object.entries(allCustomizations)) {
-                        try {
-                            const payload = {
-                                customAmount: customData.customAmount !== undefined ? customData.customAmount : null,
-                                customQuantity: customData.customQuantity !== undefined ? customData.customQuantity : null,
-                                paymentOption: customData.paymentOption || null,
-                                reason: customData.reason || 'Customized via edit student',
-                                componentId: customData.componentId || null,
-                                itemName: customData.itemName || itemId,
-                                defaultAmount: customData.defaultAmount || 0,
-                                defaultQuantity: customData.defaultQuantity || 1
-                            };
-
-                            const customResponse = await fetch(`/api/students/${studentId}/customizations/${itemId}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-
-                            if (!customResponse.ok) {
-                                console.warn(`  ⚠️ Failed to save customization for ${itemId}:`, await customResponse.text());
-                            } else {
-                                console.log(`  ✅ Saved customization for ${itemId}`);
-                            }
-                        } catch (err) {
-                            console.warn(`  ⚠️ Error saving customization for ${itemId}:`, err.message);
-                        }
-                    }
-                }
-
-                // ================================================================
-                // STEP 7: UPDATE FEE ASSIGNMENT
-                // ================================================================
                 if (feeStructureId || newBursaryId || isCustomBursary) {
-                    console.log('🔄 Updating fee assignment for year:', currentYear);
-
                     const bursaryIdToSend = isCustomBursary ? null : (newBursaryId || currentBursaryId);
-
-                    const assignmentPayload = {
-                        studentId: studentId,
-                        feeStructureId: feeStructureId || null,
-                        bursaryId: bursaryIdToSend,
-                        academicYear: currentYear
-                    };
-
-                    console.log('📤 Assignment payload:', assignmentPayload);
-
                     const assignmentResponse = await fetch('/api/student-fee-assignments', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(assignmentPayload)
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ studentId, feeStructureId: feeStructureId || null, bursaryId: bursaryIdToSend, academicYear: currentYear })
                     });
-
-                    if (!assignmentResponse.ok) {
-                        let errorText = await assignmentResponse.text();
-                        console.error('❌ Fee assignment update failed:', errorText);
-                        throw new Error(`Fee assignment failed (${assignmentResponse.status}): ${errorText}`);
-                    } else {
-                        const assignmentResult = await assignmentResponse.json();
-                        console.log('✅ Fee assignment updated successfully:', assignmentResult);
-                    }
+                    if (!assignmentResponse.ok) throw new Error(`Fee assignment failed (${assignmentResponse.status})`);
                 }
 
-                // ================================================================
-                // STEP 8: CRITICAL FIX - UPDATE ENROLLMENT IF CLASS CHANGED
-                // ================================================================
                 if (hasClassChanged && newClassId) {
-                    console.log('🔄 Updating enrollment for class change...');
-                    
-                    // Get current enrollments
                     const enrollmentsRes = await fetch('/api/enrollments');
-                    let enrollments = [];
-                    if (enrollmentsRes.ok) {
-                        enrollments = await enrollmentsRes.json();
-                    }
-                    
-                    // Find the current active enrollment
-                    const currentEnrollment = enrollments.find(e => 
-                        e.studentId === studentId && e.isCurrent === true
-                    );
-                    
+                    const enrollments = enrollmentsRes.ok ? await enrollmentsRes.json() : [];
+                    const currentEnrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent === true);
                     if (currentEnrollment) {
-                        // Mark the old enrollment as not current
-                        const updateOldEnrollmentRes = await fetch(`/api/enrollments/${currentEnrollment.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                isCurrent: false,
-                                completedAt: new Date().toISOString()
-                            })
+                        await fetch(`/api/enrollments/${currentEnrollment.id}`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ isCurrent: false, completedAt: new Date().toISOString() })
                         });
-                        
-                        if (updateOldEnrollmentRes.ok) {
-                            console.log('✅ Old enrollment marked as not current');
-                        }
                     }
-                    
-                    // Create a new enrollment for the new class
-                    const newEnrollmentRes = await fetch('/api/enrollments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            studentId: studentId,
-                            classId: newClassId,
-                            academicYear: currentYear,
-                            isCurrent: true
-                        })
+                    await fetch('/api/enrollments', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ studentId, classId: newClassId, academicYear: currentYear, isCurrent: true })
                     });
-                    
-                    if (newEnrollmentRes.ok) {
-                        const newEnrollment = await newEnrollmentRes.json();
-                        console.log('✅ New enrollment created for class:', newEnrollment);
-                    } else {
-                        console.warn('⚠️ Failed to create new enrollment');
-                    }
                 }
 
-                // ================================================================
-                // STEP 9: Build success message
-                // ================================================================
-                let successMsg = `✅ Student updated successfully!\n\n`;
-                successMsg += `📅 Academic Year: ${currentYear}\n`;
-
-                if (hasClassChanged) {
-                    const oldClass = classes.find(c => c.id === oldClassId);
-                    const newClass = classes.find(c => c.id === newClassId);
-                    successMsg += `📚 Class changed: ${oldClass?.name || 'Unknown'} → ${newClass?.name || 'Unknown'}\n`;
-                }
-
-                if (hasCustomizations) {
-                    successMsg += `⚡ Items Customized: ${Object.keys(allCustomizations).length} item(s)\n`;
-                }
-
-                if (updatedData.removedItems && Object.keys(updatedData.removedItems).length > 0) {
-                    successMsg += `❌ Items Removed: ${Object.keys(updatedData.removedItems).length} item(s)\n`;
-                }
-
-                if (isCustomBursary) {
-                    successMsg += `🎖️ Custom Bursary: UGX ${newCustomBursaryAmount.toLocaleString()} off tuition\n`;
-                } else if (newBursaryId) {
-                    const b = feeBursaries.find(f => f.id === newBursaryId);
-                    if (b) successMsg += `🎖️ Bursary: ${b.name}\n`;
-                }
-
-                if (feeStructureId && feeStructureId !== currentFeeStructureId) {
-                    const fs = feeStructures.find(f => f.id === feeStructureId);
-                    if (fs) successMsg += `💰 Fee Structure changed to: ${fs.name} (${currentYear})\n`;
-                } else if (feeStructureId) {
-                    const fs = feeStructures.find(f => f.id === feeStructureId);
-                    if (fs) successMsg += `💰 Fee Structure: ${fs.name} (${currentYear})\n`;
-                }
-
-                const changedFields = Object.keys(updatedData).filter(key =>
-                    key !== 'updatedAt' &&
-                    key !== 'feeStructureId' &&
-                    key !== 'bursaryId' &&
-                    key !== 'customBursary' &&
-                    key !== 'parentInfo' &&
-                    key !== 'customItemOverrides' &&
-                    key !== 'removedItems'
-                );
-                if (changedFields.length > 0) {
-                    successMsg += `📝 Updated fields: ${changedFields.join(', ')}\n`;
-                }
-
-                alert(successMsg);
+                window.showToast('Student updated successfully', 'success', 4000);
                 closeEditStudentModal();
 
-                // Clear cached data
                 window.allStudentsData = null;
                 window.enhancedStudentsData = null;
                 window.dashboardStudents = null;
-                window.editItemCustomizations = null;
                 window.currentEditStudent = null;
 
-                // Refresh the page
                 const currentPageTitle = document.getElementById('pageTitle')?.innerText || '';
                 setTimeout(() => {
-                    if (currentPageTitle.includes('All Students') || currentPageTitle.includes('Students')) {
-                        if (typeof showStudentList === 'function') showStudentList();
-                        else location.reload();
-                    } else if (currentPageTitle.includes('Fee Management')) {
-                        if (typeof showFeeManagement === 'function') showFeeManagement();
-                        else location.reload();
-                    } else if (currentPageTitle.includes('Dashboard')) {
-                        if (typeof showDashboard === 'function') showDashboard();
-                        else location.reload();
-                    } else {
-                        location.reload();
-                    }
-                }, 500);
+                    if (currentPageTitle.includes('Students') && typeof showStudentList === 'function') showStudentList();
+                    else if (currentPageTitle.includes('Fee Management') && typeof showFeeManagement === 'function') showFeeManagement();
+                    else if (currentPageTitle.includes('Dashboard') && typeof showDashboard === 'function') showDashboard();
+                    else location.reload();
+                }, 400);
 
             } catch (error) {
-                console.error('=== ERROR SAVING STUDENT ===');
-                console.error('Error message:', error.message);
-                console.error('Error stack:', error.stack);
-                alert('❌ Error updating student: ' + error.message + '\n\nPlease check the console for more details.');
+                console.error(error);
+                window.showToast('Error updating student: ' + error.message, 'error', 6000);
             } finally {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
+                saveBtn.innerHTML = originalHtml;
+                saveBtn.disabled = false;
             }
         });
 
-        // ========== CLOSE MODAL FUNCTION ==========
-        window.closeEditStudentModal = function() {
-            const modal = document.getElementById('editStudentModal');
-            if (modal) {
-                modal.remove();
-            }
-            const otherModals = document.querySelectorAll('.fixed.inset-0.bg-black.bg-opacity-50');
-            otherModals.forEach(m => {
-                if (m.id !== 'editStudentModal') m.remove();
-            });
-            window.currentEditStudent = null;
-        };
-
-        // ========== CLOSE MODAL ON ESCAPE KEY ==========
-        document.addEventListener('keydown', function escapeHandler(e) {
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('editStudentModal');
-                if (modal) {
-                    modal.remove();
-                    document.removeEventListener('keydown', escapeHandler);
-                    window.currentEditStudent = null;
-                }
-            }
-        });
-
-        // ========== CLOSE MODAL ON BACKDROP CLICK ==========
-        const modal = document.getElementById('editStudentModal');
-        if (modal) {
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeEditStudentModal();
-                }
-            });
-        }
-
-        // ========== MAKE FUNCTIONS GLOBAL ==========
-        window.closeEditStudentModal = closeEditStudentModal;
-        window.toggleEditItemCustomization = toggleEditItemCustomization;
-        window.saveEditItemCustomization = saveEditItemCustomization;
-        window.removeEditItemCustomization = removeEditItemCustomization;
-        window.loadEditFeeStructureItems = loadEditFeeStructureItems;
-        window.toggleEditCustomBursary = toggleEditCustomBursary;
-        window.confirmRemoveItemFromEdit = confirmRemoveItemFromEdit;
-        window.confirmDeleteRemovedItem = confirmDeleteRemovedItem;
-        window.restoreRemovedItemInEdit = restoreRemovedItemInEdit;
-        window.updateEditItemDisplay = updateEditItemDisplay;
-        window.updateEditCustomizationBadgeCount = updateEditCustomizationBadgeCount;
+        // expose for any external callers relying on old globals
+        window.loadEditFeeStructureItems = () => document.getElementById('editFeeStructure')?.dispatchEvent(new Event('change'));
 
     } catch (error) {
-        console.error('=== ERROR LOADING STUDENT DATA ===');
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        const loadingModal = document.querySelector('.fixed.inset-0 .loading-spinner')?.closest('.fixed.inset-0');
-        if (loadingModal) loadingModal.remove();
-        alert('Error loading student data: ' + error.message);
+        console.error('Error loading student data:', error);
+        document.getElementById('esLoadingOverlay')?.remove();
+        ensureSharedUiHelpers();
+        window.showToast('Error loading student data: ' + error.message, 'error', 6000);
     }
 }
 // ==================== HELPER FUNCTIONS ====================
