@@ -3908,17 +3908,7 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
                         processedItems.push(processedItem);
 
                         // ========== DETECT NEW ITEM ==========
-                        if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
-                            newlyAddedItems.push({
-                                itemId: itemId,
-                                itemName: processedItem.name,
-                                componentId: component.id || null,
-                                componentName: component.name,
-                                defaultAmount: processedItem.totalAmount,
-                                defaultQuantity: processedItem.quantity,
-                                paymentOption: processedItem.paymentOption
-                            });
-                        }
+                       if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
                     }
                 }
                 
