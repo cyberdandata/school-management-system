@@ -31933,7 +31933,7 @@ function injectEditStudentStyles() {
         @keyframes esFadeScaleIn { from { opacity:0; transform: translateY(18px) scale(.97); } to { opacity:1; transform: translateY(0) scale(1); } }
         @keyframes esOverlayIn { from { opacity:0; } to { opacity:1; } }
         @keyframes esCardIn { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform: translateY(0); } }
-        @keyframes esPulse { 0%{ box-shadow:0 0 0 0 rgba(79,95,232,.35);} 70%{ box-shadow:0 0 0 10px rgba(79,95,232,0);} 100%{ box-shadow:0 0 0 0 rgba(79,95,232,0);} }
+        @keyframes esPulse { 0%{ box-shadow:0 0 0 0 rgba(51,65,85,.35);} 70%{ box-shadow:0 0 0 10px rgba(51,65,85,0);} 100%{ box-shadow:0 0 0 0 rgba(51,65,85,0);} }
         @keyframes esSlideDown { from { opacity:0; max-height:0; transform: translateY(-6px); } to { opacity:1; max-height:400px; transform: translateY(0); } }
         @keyframes esShake { 10%,90%{transform:translateX(-1px);} 20%,80%{transform:translateX(2px);} 30%,50%,70%{transform:translateX(-4px);} 40%,60%{transform:translateX(4px);} }
         @keyframes esRefreshPulse { 0%{ background:#fffbea;} 100%{ background:transparent; } }
@@ -31952,13 +31952,13 @@ function injectEditStudentStyles() {
             overflow: hidden; display:flex; flex-direction:column; max-height: calc(100vh - 64px);
         }
         .es-modal-header {
-            background: linear-gradient(135deg,#4F5FE8,#7C6BEF);
+            background: linear-gradient(135deg,#1F2937,#0F6E63);
             color:#fff; padding: 22px 28px; display:flex; justify-content:space-between; align-items:flex-start;
             position:relative; overflow:hidden; flex-shrink:0;
         }
         .es-modal-header::after {
             content:''; position:absolute; right:-40px; top:-60px; width:220px; height:220px;
-            background: radial-gradient(circle, rgba(255,255,255,.16), transparent 70%);
+            background: radial-gradient(circle, rgba(255,255,255,.14), transparent 70%);
         }
         .es-modal-title { font-size: 20px; font-weight: 800; display:flex; align-items:center; gap:10px; }
         .es-modal-sub { font-size: 12.5px; opacity:.85; margin-top: 3px; }
@@ -31986,12 +31986,12 @@ function injectEditStudentStyles() {
         .es-card-head {
             display:flex; align-items:center; gap:12px; padding: 15px 20px;
             border-bottom: 1px solid #f0f1f5;
-            border-left: 4px solid var(--es-accent, #4F5FE8);
+            border-left: 4px solid var(--es-accent, #334155);
         }
         .es-card-icon {
             width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-            background: color-mix(in srgb, var(--es-accent, #4F5FE8) 14%, white);
-            color: var(--es-accent, #4F5FE8); font-size:15px; flex-shrink:0;
+            background: color-mix(in srgb, var(--es-accent, #334155) 14%, white);
+            color: var(--es-accent, #334155); font-size:15px; flex-shrink:0;
         }
         .es-card-title { font-size:14.5px; font-weight:700; color:#20242e; }
         .es-card-sub { font-size:11.5px; color:#8a90a0; margin-top:1px; }
@@ -32009,17 +32009,40 @@ function injectEditStudentStyles() {
             border:1.5px solid #e4e6ec; border-radius:10px; padding:9px 12px; font-size:13.5px;
             transition: border-color .15s, box-shadow .15s; background:#fbfbfd; color:#20242e;
         }
-        .es-input:focus { outline:none; border-color: var(--es-accent, #4F5FE8); box-shadow: 0 0 0 3px color-mix(in srgb, var(--es-accent,#4F5FE8) 18%, transparent); background:#fff; }
+        .es-input:focus { outline:none; border-color: var(--es-accent, #334155); box-shadow: 0 0 0 3px color-mix(in srgb, var(--es-accent,#334155) 18%, transparent); background:#fff; }
 
         .es-inline { display:flex; gap:8px; align-items:center; }
 
         /* ---- Fee items panel ---- */
         .es-items-hint {
             background: linear-gradient(135deg,#fff8e1,#fff3d6); border:1px solid #ffe8ad;
-            border-radius:12px; padding:12px 14px; font-size:12.5px; color:#8a6412; margin-bottom:16px;
+            border-radius:12px; padding:12px 14px; font-size:12.5px; color:#8a6412; margin-bottom:14px;
             display:flex; gap:10px; align-items:flex-start;
         }
         .es-items-hint i { margin-top:1px; color:#d97706; }
+
+        /* ---- Search + status-group filter bar ---- */
+        .es-filter-bar {
+            display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+            margin-bottom:16px; padding:12px; background:#f6f7f9; border:1px solid #ececf1; border-radius:12px;
+        }
+        .es-filter-search {
+            position:relative; flex:1 1 240px; min-width:200px; display:flex; align-items:center;
+        }
+        .es-filter-search i.fa-magnifying-glass {
+            position:absolute; left:12px; font-size:12.5px; color:#9aa0ab; pointer-events:none;
+        }
+        .es-filter-search .es-input { width:100%; padding-left:32px; padding-right:32px; }
+        .es-search-clear {
+            position:absolute; right:6px; width:22px; height:22px; border-radius:50%; border:none;
+            background:#e5e7eb; color:#4b5062; font-size:11px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; transition:.15s;
+        }
+        .es-search-clear:hover { background:#d7dae0; }
+        .es-search-clear.hidden { display:none; }
+        .es-filter-group { flex:0 0 auto; min-width:170px; }
+        .es-filter-group .es-input { cursor:pointer; }
+        .es-filter-count { font-size:11.5px; color:#7b8190; font-weight:600; white-space:nowrap; margin-left:auto; }
 
         .es-items-list { max-height: 420px; overflow-y:auto; padding-right:4px; }
         .es-items-list::-webkit-scrollbar { width:6px; }
@@ -32027,8 +32050,8 @@ function injectEditStudentStyles() {
 
         .es-component {
             border-radius: 14px; margin-bottom: 14px; overflow:hidden;
-            border: 1.5px solid color-mix(in srgb, var(--es-accent,#4F5FE8) 25%, white);
-            background: color-mix(in srgb, var(--es-accent,#4F5FE8) 5%, white);
+            border: 1.5px solid color-mix(in srgb, var(--es-accent,#334155) 25%, white);
+            background: color-mix(in srgb, var(--es-accent,#334155) 5%, white);
             animation: esCardIn .35s ease both; animation-delay: var(--es-delay,0ms);
         }
         .es-component-head {
@@ -32036,10 +32059,10 @@ function injectEditStudentStyles() {
         }
         .es-period-chip {
             font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
-            padding:3px 9px; border-radius:999px; color:#fff; background: var(--es-accent,#4F5FE8);
+            padding:3px 9px; border-radius:999px; color:#fff; background: var(--es-accent,#334155);
         }
         .es-component-head h4 { font-size: 13.5px; font-weight:700; color:#20242e; flex:1; min-width:120px; }
-        .es-component-total { font-size:12.5px; font-weight:700; color: var(--es-accent,#4F5FE8); }
+        .es-component-total { font-size:12.5px; font-weight:700; color: var(--es-accent,#334155); }
 
         .es-group-actions {
             display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
@@ -32052,7 +32075,7 @@ function injectEditStudentStyles() {
         .es-tag-rose   { background:#fee2e2; color:#b91c1c; }
         .es-tag-green  { background:#dcfce7; color:#15803d; }
         .es-tag-amber  { background:#fef3c7; color:#b45309; }
-        .es-tag-blue   { background:#dbeafe; color:#1d4ed8; }
+        .es-tag-slate  { background:#e2e8f0; color:#334155; }
         .es-tag-violet { background:#ede9fe; color:#6d28d9; }
         .es-tag-orange { background:#ffedd5; color:#c2410c; }
         .es-badge-pop  { animation: esCardIn .3s ease; }
@@ -32067,10 +32090,10 @@ function injectEditStudentStyles() {
         .es-btn-success { background:#e9fbef; color:#15803d; } .es-btn-success:hover { background:#d1f7dd; box-shadow:0 2px 8px rgba(21,128,61,.18); }
         .es-btn-danger  { background:#fef1f1; color:#c0281f; } .es-btn-danger:hover  { background:#fde0df; box-shadow:0 2px 8px rgba(192,40,31,.18); }
         .es-btn-ghost   { background:#f1f2f5; color:#444a58; } .es-btn-ghost:hover   { background:#e5e7eb; }
-        .es-btn-blue    { background:#eaf1ff; color:#1d4ed8; } .es-btn-blue:hover    { background:#dbe8ff; }
+        .es-btn-slate   { background:#eef1f5; color:#334155; } .es-btn-slate:hover   { background:#e2e8f0; }
         .es-btn-amber   { background:#fef3e2; color:#b45309; } .es-btn-amber:hover   { background:#fde9c9; }
-        .es-btn-primary { background: linear-gradient(135deg,#4F5FE8,#7C6BEF); color:#fff; padding:11px 20px; font-size:13.5px; border-radius:11px; }
-        .es-btn-primary:hover { box-shadow: 0 8px 22px rgba(79,95,232,.35); }
+        .es-btn-primary { background: linear-gradient(135deg,#1F2937,#0F6E63); color:#fff; padding:11px 20px; font-size:13.5px; border-radius:11px; }
+        .es-btn-primary:hover { box-shadow: 0 8px 22px rgba(15,110,99,.32); }
         .es-btn-primary:disabled { opacity:.65; cursor:not-allowed; }
         .es-btn-outline { background:#fff; color:#444a58; border:1.5px solid #e4e6ec; padding:11px 20px; font-size:13.5px; border-radius:11px; }
         .es-btn-outline:hover { background:#f6f7fa; }
@@ -32086,6 +32109,7 @@ function injectEditStudentStyles() {
         .es-item-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
         .es-item-name-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:3px; }
         .es-item-name { font-weight:700; font-size:13px; color:#20242e; }
+        .es-item-name mark { background:#fef3c7; color:#20242e; padding:0 2px; border-radius:3px; }
         .es-strike { text-decoration: line-through; color:#9aa0ab !important; }
         .es-item-meta { font-size:11.5px; color:#8a90a0; }
         .es-item-custom-meta { font-size:11.5px; color:#c2410c; margin-top:2px; font-weight:600; }
@@ -32109,7 +32133,7 @@ function injectEditStudentStyles() {
         .es-loading-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 60px 0; gap:14px; }
         .es-loading-ring {
             width:44px; height:44px; border-radius:50%;
-            border: 4px solid #e6e8ee; border-top-color:#4F5FE8;
+            border: 4px solid #e6e8ee; border-top-color:#334155;
             animation: esSpin 0.8s linear infinite;
         }
         @keyframes esSpin { to { transform: rotate(360deg); } }
@@ -32121,7 +32145,7 @@ function injectEditStudentStyles() {
 
 /* ============================== MAIN FUNCTION ============================== */
 async function editStudentInfoList(studentId) {
-    console.log('=== editStudentInfoList v2.0 — modern UI + group restore ===');
+    console.log('=== editStudentInfoList v3.0 — modern UI + group restore + item search/filter ===');
     ensureSharedUiHelpers();
     injectEditStudentStyles();
 
@@ -32186,8 +32210,13 @@ async function editStudentInfoList(studentId) {
 
         let selectedFeeStructure = currentFeeStructureId ? (feeStructures.find(f => f.id === currentFeeStructureId) || null) : null;
 
-        // Maps groupKey -> { name, itemIds: [] } — rebuilt every render pass
+        // Maps groupKey -> { name, itemIds: [] } — rebuilt every render pass (only for currently-rendered groups)
         window.esComponentGroups = {};
+
+        // ---- item search / status-group filter state ----
+        let itemsSearchQuery = '';
+        let itemsGroupFilter = 'all';
+        let itemsSearchDebounceHandle = null;
 
         /* -------------------- helpers -------------------- */
         function getCustomizedItemValue(itemId, defaultAmount, defaultQuantity, defaultPaymentOption) {
@@ -32216,6 +32245,17 @@ async function editStudentInfoList(studentId) {
             entry.academicYear = currentYear;
             entry.term = currentTerm;
             return entry;
+        }
+
+        function highlightMatch(text, query) {
+            if (!query) return esEscapeHtml(text);
+            const escaped = esEscapeHtml(text);
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            try {
+                return escaped.replace(new RegExp(`(${escapedQuery})`, 'ig'), '<mark>$1</mark>');
+            } catch (_) {
+                return escaped;
+            }
         }
 
         async function persistRemovedAndCustomizations() {
@@ -32325,7 +32365,7 @@ async function editStudentInfoList(studentId) {
             }
         }
 
-        /* -------------------- NEW: whole status-group actions -------------------- */
+        /* -------------------- whole status-group actions -------------------- */
         async function restoreGroupItemsInEdit(groupKey) {
             const group = window.esComponentGroups[groupKey];
             if (!group) return;
@@ -32487,6 +32527,42 @@ async function editStudentInfoList(studentId) {
                 : `${total} customized`;
         }
 
+        /* -------------------- search / status-group filter -------------------- */
+        function populateGroupFilterOptions(feeStructure) {
+            const select = document.getElementById('itemsGroupFilter');
+            if (!select) return;
+            const groups = (feeStructure?.activityComponents || []).filter(c => c.items && c.items.length);
+            select.innerHTML = `<option value="all">All status groups (${groups.length})</option>` +
+                groups.map(c => `<option value="${esEscapeHtml(c.name)}">${esEscapeHtml(c.name)} (${c.items.length})</option>`).join('');
+            select.value = itemsGroupFilter;
+        }
+
+        function updateFilterCountDisplay(shown, total) {
+            const el = document.getElementById('itemsFilterCount');
+            if (!el) return;
+            el.textContent = (itemsSearchQuery || itemsGroupFilter !== 'all')
+                ? `Showing ${shown} of ${total} item(s)`
+                : `${total} item(s)`;
+        }
+
+        function applyItemsFilter() {
+            itemsSearchQuery = document.getElementById('itemsSearchInput')?.value.trim().toLowerCase() || '';
+            itemsGroupFilter = document.getElementById('itemsGroupFilter')?.value || 'all';
+            document.getElementById('itemsSearchClear')?.classList.toggle('hidden', !itemsSearchQuery);
+            refreshItemsPanel();
+        }
+
+        function clearItemsFilters() {
+            itemsSearchQuery = '';
+            itemsGroupFilter = 'all';
+            const searchInput = document.getElementById('itemsSearchInput');
+            if (searchInput) searchInput.value = '';
+            const groupSelect = document.getElementById('itemsGroupFilter');
+            if (groupSelect) groupSelect.value = 'all';
+            document.getElementById('itemsSearchClear')?.classList.add('hidden');
+            refreshItemsPanel();
+        }
+
         /* -------------------- render items panel -------------------- */
         function groupStatus(groupKey) {
             const group = window.esComponentGroups[groupKey];
@@ -32520,8 +32596,13 @@ async function editStudentInfoList(studentId) {
             }
 
             const removedItems = student.removedItems || {};
+            const query = itemsSearchQuery;
+            const groupFilter = itemsGroupFilter;
+
             let html = '';
             let hasItems = false;
+            let totalItemCount = 0;
+            let renderedItemCount = 0;
             let totalRemovedCount = 0;
             let cardIndex = 0;
 
@@ -32531,22 +32612,36 @@ async function editStudentInfoList(studentId) {
             });
 
             const accentFor = (periodType) =>
-                periodType === 'one_time' ? { c: '#7C6BEF', label: '⭐ One-time' } :
+                periodType === 'one_time' ? { c: '#334155', label: '⭐ One-time' } :
                 periodType === 'termly' ? { c: '#0E9C8E', label: '📅 Termly' } :
-                { c: '#DB9A2C', label: '📆 Yearly' };
+                { c: '#B45309', label: '📆 Yearly' };
 
             sorted.forEach((component, groupIndex) => {
                 if (!component.items || component.items.length === 0) return;
                 hasItems = true;
+                totalItemCount += component.items.length;
 
                 const groupKey = `g${groupIndex}`;
                 const itemIds = component.items.map(item => item.id || item.name);
                 const itemMeta = {};
                 component.items.forEach(item => { itemMeta[item.id || item.name] = { itemName: item.name }; });
-                window.esComponentGroups[groupKey] = { name: component.name, itemIds, itemMeta };
 
                 const removedInComponent = itemIds.filter(id => removedItems[id] && removedItems[id].isActive !== false).length;
                 if (removedInComponent > 0) totalRemovedCount += removedInComponent;
+
+                // status-group filter: skip this whole component if it doesn't match the selected group
+                if (groupFilter !== 'all' && component.name !== groupFilter) return;
+
+                // live search filter: only render items whose name matches the query
+                const itemsToRender = query
+                    ? component.items.filter(item => (item.name || '').toLowerCase().includes(query))
+                    : component.items;
+
+                if (itemsToRender.length === 0) return;
+
+                // register the FULL group (not just the filtered items) so whole-group actions still work correctly
+                window.esComponentGroups[groupKey] = { name: component.name, itemIds, itemMeta };
+                renderedItemCount += itemsToRender.length;
 
                 const { c: accent, label: periodLabel } = accentFor(component.periodType);
                 const isTransportation = component.name.toLowerCase().includes('transport') ||
@@ -32563,7 +32658,7 @@ async function editStudentInfoList(studentId) {
                             ${renderGroupActions(groupKey)}
                         </div>
                         <div id="groupItems_${groupKey}">
-                            ${component.items.map(item => {
+                            ${itemsToRender.map(item => {
                                 cardIndex++;
                                 const itemId = item.id || item.name;
                                 const defaultAmount = item.totalAmount || 0;
@@ -32576,7 +32671,7 @@ async function editStudentInfoList(studentId) {
                                 const isTransportItem = isTransportation || item.name.toLowerCase().includes('van') || item.name.toLowerCase().includes('transport');
 
                                 const paymentBadge =
-                                    paymentOption === 'cash_only' ? '<span class="es-tag es-tag-blue">💵 Cash only</span>' :
+                                    paymentOption === 'cash_only' ? '<span class="es-tag es-tag-slate">💵 Cash only</span>' :
                                     paymentOption === 'item_only' ? '<span class="es-tag es-tag-green">📦 Item only</span>' :
                                     '<span class="es-tag es-tag-violet">🔄 Cash or item</span>';
 
@@ -32588,7 +32683,7 @@ async function editStudentInfoList(studentId) {
                                     `;
                                 } else {
                                     actionButtons = `
-                                        <button type="button" class="es-btn es-btn-sm es-btn-blue" data-customize-item="${itemId}" data-item-name="${esEscapeHtml(item.name)}" data-component-name="${esEscapeHtml(component.name)}" data-period-type="${component.periodType}" data-default-amount="${defaultAmount}" data-default-quantity="${defaultQuantity}" data-payment-option="${paymentOption}">
+                                        <button type="button" class="es-btn es-btn-sm es-btn-slate" data-customize-item="${itemId}" data-item-name="${esEscapeHtml(item.name)}" data-component-name="${esEscapeHtml(component.name)}" data-period-type="${component.periodType}" data-default-amount="${defaultAmount}" data-default-quantity="${defaultQuantity}" data-payment-option="${paymentOption}">
                                             <i class="fas ${isCustomized ? 'fa-pen' : 'fa-sliders'}"></i> ${isCustomized ? 'Edit custom' : 'Customize'}
                                         </button>
                                         <button type="button" class="es-btn es-btn-sm es-btn-danger" data-remove-item="${itemId}" data-item-name="${esEscapeHtml(item.name)}" data-component-name="${esEscapeHtml(component.name)}">
@@ -32606,7 +32701,7 @@ async function editStudentInfoList(studentId) {
                                         <div class="es-item-top">
                                             <div>
                                                 <div class="es-item-name-row">
-                                                    <span class="es-item-name ${isRemoved ? 'es-strike' : ''}">📦 ${esEscapeHtml(item.name)}</span>
+                                                    <span class="es-item-name ${isRemoved ? 'es-strike' : ''}">📦 ${highlightMatch(item.name, query)}</span>
                                                     ${paymentBadge}
                                                     ${isCustomized ? '<span class="es-tag es-tag-amber es-badge-pop">⚡ Custom</span>' : ''}
                                                     ${isCustomizedButRemoved ? '<span class="es-tag es-tag-amber es-badge-pop">⚡ Custom (removed)</span>' : ''}
@@ -32657,6 +32752,16 @@ async function editStudentInfoList(studentId) {
 
             if (!hasItems) return `<div class="es-empty"><i class="fas fa-inbox"></i><p>No customizable items in this fee structure</p></div>`;
 
+            updateFilterCountDisplay(renderedItemCount, totalItemCount);
+
+            if (renderedItemCount === 0) {
+                const parts = [];
+                if (query) parts.push(`matching "${esEscapeHtml(document.getElementById('itemsSearchInput')?.value.trim() || query)}"`);
+                if (groupFilter !== 'all') parts.push(`in "${esEscapeHtml(groupFilter)}"`);
+                const msg = parts.length ? `No items found ${parts.join(' ')}` : 'No items found';
+                return `<div class="es-empty"><i class="fas fa-magnifying-glass"></i><p>${msg}</p><button type="button" class="es-btn es-btn-sm es-btn-ghost" data-clear-filters style="margin-top:10px;">Clear filters</button></div>`;
+            }
+
             let prefix = '';
             if (totalRemovedCount > 0) {
                 prefix = `
@@ -32681,7 +32786,7 @@ async function editStudentInfoList(studentId) {
             container.__esDelegated = true;
 
             container.addEventListener('click', (e) => {
-                const t = e.target.closest('[data-restore-item],[data-delete-item],[data-customize-item],[data-remove-item],[data-save-custom],[data-clear-custom],[data-close-custom],[data-group-restore],[data-group-remove]');
+                const t = e.target.closest('[data-restore-item],[data-delete-item],[data-customize-item],[data-remove-item],[data-save-custom],[data-clear-custom],[data-close-custom],[data-group-restore],[data-group-remove],[data-clear-filters]');
                 if (!t) return;
 
                 if (t.dataset.restoreItem) return restoreRemovedItemInEdit(t.dataset.restoreItem);
@@ -32696,6 +32801,7 @@ async function editStudentInfoList(studentId) {
                 if (t.dataset.closeCustom) return toggleEditItemCustomization(t.dataset.closeCustom);
                 if (t.dataset.groupRestore) return restoreGroupItemsInEdit(t.dataset.groupRestore);
                 if (t.dataset.groupRemove) return removeGroupItemsInEdit(t.dataset.groupRemove);
+                if (t.dataset.clearFilters !== undefined) return clearItemsFilters();
             });
         }
 
@@ -32713,7 +32819,7 @@ async function editStudentInfoList(studentId) {
 
                     <form id="editStudentFormModal" class="es-modal-body">
                         <!-- Personal -->
-                        <section class="es-card" style="--es-accent:#4F5FE8; --es-delay:0ms">
+                        <section class="es-card" style="--es-accent:#334155; --es-delay:0ms">
                             <div class="es-card-head">
                                 <span class="es-card-icon"><i class="fas fa-user-circle"></i></span>
                                 <div><div class="es-card-title">Personal Information</div><div class="es-card-sub">Basic student details</div></div>
@@ -32761,7 +32867,7 @@ async function editStudentInfoList(studentId) {
                         </section>
 
                         <!-- Academic -->
-                        <section class="es-card" style="--es-accent:#7C6BEF; --es-delay:120ms">
+                        <section class="es-card" style="--es-accent:#92702E; --es-delay:120ms">
                             <div class="es-card-head">
                                 <span class="es-card-icon"><i class="fas fa-graduation-cap"></i></span>
                                 <div><div class="es-card-title">Academic Information</div><div class="es-card-sub">Class & admission details</div></div>
@@ -32789,7 +32895,7 @@ async function editStudentInfoList(studentId) {
                         </section>
 
                         <!-- Fee assignment -->
-                        <section class="es-card" style="--es-accent:#DB9A2C; --es-delay:180ms">
+                        <section class="es-card" style="--es-accent:#B45309; --es-delay:180ms">
                             <div class="es-card-head">
                                 <span class="es-card-icon"><i class="fas fa-money-bill-wave"></i></span>
                                 <div><div class="es-card-title">Fee Assignment for ${currentYear}</div><div class="es-card-sub">Applies only to this academic year</div></div>
@@ -32823,18 +32929,31 @@ async function editStudentInfoList(studentId) {
                         </section>
 
                         <!-- Items customization -->
-                        <section class="es-card" style="--es-accent:#4F5FE8; --es-delay:240ms">
+                        <section class="es-card" style="--es-accent:#334155; --es-delay:240ms">
                             <div class="es-card-head" style="justify-content:space-between;">
                                 <div style="display:flex; align-items:center; gap:12px;">
                                     <span class="es-card-icon"><i class="fas fa-sliders"></i></span>
-                                    <div><div class="es-card-title">Item Customizations</div><div class="es-card-sub">Override defaults, remove or restore items — per item or whole group</div></div>
+                                    <div><div class="es-card-title">Item Customizations</div><div class="es-card-sub">Search, filter by status group, override defaults, remove or restore items</div></div>
                                 </div>
-                                <span class="es-tag es-tag-blue" id="customizationCountBadge" style="font-size:11.5px;">${Object.keys(existingCustomizations).length} customized${student.removedItems && Object.keys(student.removedItems).length ? ` <span style="color:#b91c1c;margin-left:4px;">(${Object.keys(student.removedItems).length} removed)</span>` : ''}</span>
+                                <span class="es-tag es-tag-slate" id="customizationCountBadge" style="font-size:11.5px;">${Object.keys(existingCustomizations).length} customized${student.removedItems && Object.keys(student.removedItems).length ? ` <span style="color:#b91c1c;margin-left:4px;">(${Object.keys(student.removedItems).length} removed)</span>` : ''}</span>
                             </div>
                             <div class="es-card-body">
                                 <div class="es-items-hint">
                                     <i class="fas fa-circle-info"></i>
                                     <div>Click <strong>Remove</strong> on any item to stop billing it, or <strong>Remove whole group</strong> to clear an entire status group at once. Use <strong>Restore</strong> / <strong>Restore whole group</strong> to bring items back.</div>
+                                </div>
+                                <div class="es-filter-bar">
+                                    <div class="es-filter-search">
+                                        <i class="fas fa-magnifying-glass"></i>
+                                        <input type="text" id="itemsSearchInput" class="es-input" placeholder="Search items by name…" autocomplete="off">
+                                        <button type="button" id="itemsSearchClear" class="es-search-clear hidden" title="Clear search"><i class="fas fa-xmark"></i></button>
+                                    </div>
+                                    <div class="es-filter-group">
+                                        <select id="itemsGroupFilter" class="es-input">
+                                            <option value="all">All status groups</option>
+                                        </select>
+                                    </div>
+                                    <span class="es-filter-count" id="itemsFilterCount"></span>
                                 </div>
                                 <div id="editItemsCustomizationContainer" class="es-items-list">${buildItemsSection()}</div>
                             </div>
@@ -32851,13 +32970,42 @@ async function editStudentInfoList(studentId) {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         attachItemsPanelDelegation();
+        populateGroupFilterOptions(selectedFeeStructure);
+        updateFilterCountDisplay(0, 0); // will be corrected by the initial buildItemsSection() render above via updateFilterCountDisplay calls
 
-        /* -------------------- fee-structure change -> reload items -------------------- */
+        /* -------------------- search / group-filter listeners -------------------- */
+        document.getElementById('itemsSearchInput')?.addEventListener('input', () => {
+            clearTimeout(itemsSearchDebounceHandle);
+            itemsSearchDebounceHandle = setTimeout(applyItemsFilter, 150);
+        });
+        document.getElementById('itemsSearchInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                applyItemsFilter();
+            }
+        });
+        document.getElementById('itemsGroupFilter')?.addEventListener('change', applyItemsFilter);
+        document.getElementById('itemsSearchClear')?.addEventListener('click', () => {
+            const input = document.getElementById('itemsSearchInput');
+            if (input) input.value = '';
+            applyItemsFilter();
+        });
+
+        /* -------------------- fee-structure change -> reload items + refresh filters -------------------- */
         document.getElementById('editFeeStructure')?.addEventListener('change', (e) => {
             const opt = e.target.options[e.target.selectedIndex];
             let fs = null;
             try { fs = JSON.parse(opt.dataset.structure); } catch (_) { fs = { activityComponents: [] }; }
             selectedFeeStructure = fs;
+
+            // reset filters for the newly selected structure
+            itemsSearchQuery = '';
+            itemsGroupFilter = 'all';
+            const searchInput = document.getElementById('itemsSearchInput');
+            if (searchInput) searchInput.value = '';
+            document.getElementById('itemsSearchClear')?.classList.add('hidden');
+            populateGroupFilterOptions(fs);
+
             const container = document.getElementById('editItemsCustomizationContainer');
             if (container) container.innerHTML = buildItemsCustomizationHTML(fs);
             updateEditCustomizationBadgeCount();
@@ -33082,18 +33230,16 @@ window.closeEditStudentModal = function() {
     window.currentEditStudent = null;
 };
 
-console.log('✅ editStudentInfoList - COMPLETE REBUILT WITH REMOVE ITEM FEATURE LOADED!');
+console.log('✅ editStudentInfoList - COMPLETE REBUILT WITH SEARCH + STATUS-GROUP FILTER LOADED!');
+console.log('   - ✅ Live search: type an item name to filter across all groups instantly');
+console.log('   - ✅ Status-group filter: narrow the list to a single fee component/group');
 console.log('   - ✅ Remove Item: Click "Remove" button to permanently remove an item');
 console.log('   - ✅ Restore Item: Click "Restore" to add a removed item back');
 console.log('   - ✅ Visual indication: Removed items show with strike-through and red styling');
 console.log('   - ✅ Badge count: Shows number of removed items');
 console.log('   - ✅ All customizations preserved');
 console.log('   - ✅ Works with all period types (One-Time, Termly, Yearly)');
-console.log('✅ editStudentInfoList - COMPLETE REBUILT VERSION LOADED!');
-console.log('   - Transportation now appears as a regular item');
-console.log('   - Customize buttons work properly');
-console.log('   - Cancel and Close buttons work');
-console.log('   - All event listeners are properly attached');
+console.log('   - ✅ Professional color palette (slate/teal/amber) — no default blue accents');
 // ==================== FIX 2: TUITION VALIDATION - PREVENT EXCEEDING MAX ====================
 // ==================== FIXED: TUITION VALIDATION (Allows any amount up to max) ====================
 function validateAndCalculateTuition() {
