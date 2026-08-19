@@ -3854,9 +3854,22 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
         
         const { name, level, tuition, activityComponents, isActive } = req.body;
         const existing = structures[index];
+        const feeStructureId = req.params.id;
+
+        // ========== BUILD SET OF ITEM IDs THAT ALREADY EXISTED BEFORE THIS SAVE ==========
+        // Used below to detect which items in the incoming payload are brand new
+        // (added just now via the Edit Fee Structure modal), so we can auto-remove
+        // them for every student already on this fee structure.
+        const existingItemIds = new Set();
+        for (const comp of (existing.activityComponents || [])) {
+            for (const item of (comp.items || [])) {
+                existingItemIds.add(item.id || item.name);
+            }
+        }
         
         // Process the activity components
         const processedComponents = [];
+        const newlyAddedItems = []; // items that did not exist in this structure before this save
         
         if (activityComponents && Array.isArray(activityComponents)) {
             for (const component of activityComponents) {
@@ -3871,8 +3884,10 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
                     const finalAmount = cashAmount > 0 ? cashAmount : totalAmount;
                     
                     if (finalAmount > 0 || quantity > 0) {
-                        processedItems.push({
-                            id: item.id || uuidv4(),
+                        const itemId = item.id || uuidv4();
+
+                        const processedItem = {
+                            id: itemId,
                             name: item.name,
                             quantity: quantity,
                             cashAmount: cashAmount,
@@ -3880,7 +3895,22 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
                             unitPrice: quantity > 0 ? finalAmount / quantity : 0,
                             paymentOption: item.paymentOption || 'cash_only',
                             isTangible: item.isTangible !== false
-                        });
+                        };
+
+                        processedItems.push(processedItem);
+
+                        // ========== DETECT NEW ITEM ==========
+                        if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
+                            newlyAddedItems.push({
+                                itemId: itemId,
+                                itemName: processedItem.name,
+                                componentId: component.id || null,
+                                componentName: component.name,
+                                defaultAmount: processedItem.totalAmount,
+                                defaultQuantity: processedItem.quantity,
+                                paymentOption: processedItem.paymentOption
+                            });
+                        }
                     }
                 }
                 
@@ -3911,7 +3941,98 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
         };
         
         saveFile(files.feeStructures, structures);
-        res.json({ success: true, feeStructure: structures[index] });
+
+        // ================================================================
+        // ========== AUTO-REMOVE NEWLY ADDED ITEMS FOR EXISTING STUDENTS ==========
+        // ================================================================
+        // Any item that didn't exist in this fee structure before this save is
+        // brand new to every student already assigned to it. Mark it "removed"
+        // (not billed) for each of those students, exactly like a manual
+        // Edit Student -> Remove would — the bursar restores it per student
+        // once it should actually be charged. Tuition and any pre-existing
+        // items are never touched by this.
+        let studentsUpdatedCount = 0;
+        let itemsAutoRemovedCount = 0;
+
+        if (newlyAddedItems.length > 0) {
+            console.log(`🆕 ${newlyAddedItems.length} new item(s) added to fee structure "${structures[index].name}" — auto-removing for existing students...`);
+
+            let students = readFile(files.students);
+            if (!Array.isArray(students)) students = [];
+
+            let feeAssignments = readFile(files.studentFeeAssignments);
+            if (!Array.isArray(feeAssignments)) feeAssignments = [];
+
+            // Build the set of student IDs currently on this fee structure —
+            // via student.assignedFeeStructureId/feeStructureId, or via any
+            // fee assignment record referencing this structure.
+            const studentIdsOnStructure = new Set();
+            for (const s of students) {
+                if (s && (s.assignedFeeStructureId === feeStructureId || s.feeStructureId === feeStructureId)) {
+                    studentIdsOnStructure.add(s.id);
+                }
+            }
+            for (const a of feeAssignments) {
+                if (a && a.feeStructureId === feeStructureId && a.studentId) {
+                    studentIdsOnStructure.add(a.studentId);
+                }
+            }
+
+            let anyStudentChanged = false;
+
+            for (let i = 0; i < students.length; i++) {
+                const student = students[i];
+                if (!student || !studentIdsOnStructure.has(student.id)) continue;
+
+                if (!student.removedItems) student.removedItems = {};
+
+                let studentChanged = false;
+                for (const newItem of newlyAddedItems) {
+                    // Only add if not already tracked (avoids clobbering an
+                    // existing removed/restored state on re-save).
+                    if (!student.removedItems[newItem.itemId]) {
+                        student.removedItems[newItem.itemId] = {
+                            itemId: newItem.itemId,
+                            itemName: newItem.itemName,
+                            componentId: newItem.componentId,
+                            componentName: newItem.componentName,
+                            defaultAmount: newItem.defaultAmount,
+                            defaultQuantity: newItem.defaultQuantity,
+                            paymentOption: newItem.paymentOption,
+                            removedAt: new Date().toISOString(),
+                            reason: 'New item added to fee structure — not yet activated',
+                            isActive: true
+                            // No academicYear/term stamp: stays removed for ALL
+                            // periods until the bursar restores it.
+                        };
+                        studentChanged = true;
+                        itemsAutoRemovedCount++;
+                    }
+                }
+
+                if (studentChanged) {
+                    student.hasRemovedItems = true;
+                    student.removedItemsCount = Object.keys(student.removedItems).length;
+                    student.updatedAt = new Date().toISOString();
+                    students[i] = student;
+                    studentsUpdatedCount++;
+                    anyStudentChanged = true;
+                }
+            }
+
+            if (anyStudentChanged) {
+                saveFile(files.students, students);
+                console.log(`✅ Auto-removed ${itemsAutoRemovedCount} item-assignment(s) across ${studentsUpdatedCount} student(s) on this fee structure`);
+            }
+        }
+
+        res.json({
+            success: true,
+            feeStructure: structures[index],
+            newItemsDetected: newlyAddedItems.length,
+            studentsAffected: studentsUpdatedCount,
+            itemsAutoRemoved: itemsAutoRemovedCount
+        });
     } catch (error) {
         console.error('Error updating fee structure:', error);
         res.status(500).json({ error: 'Failed to update fee structure' });
