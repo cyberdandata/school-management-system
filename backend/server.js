@@ -230,6 +230,11 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
 
     for (const comp of feeStructure.activityComponents) {
         if (!comp || !comp.items) continue;
+
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        const periodType = comp.periodType || 'termly';
+        if (periodType === 'termly') continue;
+
         for (const item of comp.items) {
             if (!item) continue;
             const itemId = item.id || item.name;
@@ -244,8 +249,6 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
                 removedAt: new Date().toISOString(),
                 reason: 'New student — not yet activated',
                 isActive: true
-                // No academicYear/term stamp: stays removed for ALL periods
-                // until the bursar restores it.
             };
         }
     }
@@ -2055,34 +2058,36 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         // scholastic item in their assigned fee structure marked "removed"
         // (not billed). The bursar restores whichever items should actually
         // be charged, via Edit Student -> Restore. Tuition is unaffected.
-        function buildAllItemsRemovedForFeeStructure(feeStructure) {
-            const removed = {};
-            if (!feeStructure || !feeStructure.activityComponents) return removed;
+      function buildAllItemsRemovedForFeeStructure(feeStructure) {
+    const removedItems = {};
+    if (!feeStructure || !feeStructure.activityComponents) return removedItems;
 
-            for (const comp of feeStructure.activityComponents) {
-                if (!comp || !comp.items) continue;
-                for (const item of comp.items) {
-                    if (!item) continue;
-                    const itemId = item.id || item.name;
-                    removed[itemId] = {
-                        itemId: itemId,
-                        itemName: item.name,
-                        componentId: comp.id || null,
-                        componentName: comp.name,
-                        defaultAmount: item.totalAmount || 0,
-                        defaultQuantity: item.quantity || 1,
-                        paymentOption: item.paymentOption || 'either',
-                        removedAt: new Date().toISOString(),
-                        reason: 'Not activated at import',
-                        isActive: true
-                        // No academicYear/term stamp: stays removed for ALL
-                        // periods until the bursar restores it.
-                    };
-                }
-            }
-            return removed;
+    for (const comp of feeStructure.activityComponents) {
+        if (!comp || !comp.items) continue;
+
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        const periodType = comp.periodType || 'termly';
+        if (periodType === 'termly') continue;
+
+        for (const item of comp.items) {
+            if (!item) continue;
+            const itemId = item.id || item.name;
+            removedItems[itemId] = {
+                itemId: itemId,
+                itemName: item.name,
+                componentId: comp.id || null,
+                componentName: comp.name,
+                defaultAmount: item.totalAmount || 0,
+                defaultQuantity: item.quantity || 1,
+                paymentOption: item.paymentOption || 'either',
+                removedAt: new Date().toISOString(),
+                reason: 'New student — not yet activated',
+                isActive: true
+            };
         }
-        
+    }
+    return removedItems;
+}
         // ================================================================
         // STEP 4: PROCESS ROWS
         // ================================================================
@@ -2617,32 +2622,34 @@ app.post('/api/students/register', async (req, res) => {
         }
 
         // Helper: locate an item's defaults inside the fee structure by id or name
-        function findItemDefaults(itemId) {
-            const result = {
-                itemName: itemId,
-                componentId: null,
-                componentName: 'Unknown Component',
-                defaultAmount: 0,
-                defaultQuantity: 1,
-                paymentOption: 'either'
-            };
-            if (!feeStructure || !feeStructure.activityComponents) return result;
+       function findItemDefaults(itemId) {
+    const result = {
+        itemName: itemId,
+        componentId: null,
+        componentName: 'Unknown Component',
+        defaultAmount: 0,
+        defaultQuantity: 1,
+        paymentOption: 'either',
+        periodType: 'termly'          // ← add this
+    };
+    if (!feeStructure || !feeStructure.activityComponents) return result;
 
-            for (const comp of feeStructure.activityComponents) {
-                for (const item of (comp.items || [])) {
-                    if (item.id === itemId || item.name === itemId) {
-                        result.itemName = item.name || itemId;
-                        result.componentId = comp.id || null;
-                        result.componentName = comp.name || 'Unknown Component';
-                        result.defaultAmount = item.totalAmount || 0;
-                        result.defaultQuantity = item.quantity || 1;
-                        result.paymentOption = item.paymentOption || 'either';
-                        return result;
-                    }
-                }
+    for (const comp of feeStructure.activityComponents) {
+        for (const item of (comp.items || [])) {
+            if (item.id === itemId || item.name === itemId) {
+                result.itemName = item.name || itemId;
+                result.componentId = comp.id || null;
+                result.componentName = comp.name || 'Unknown Component';
+                result.defaultAmount = item.totalAmount || 0;
+                result.defaultQuantity = item.quantity || 1;
+                result.paymentOption = item.paymentOption || 'either';
+                result.periodType = comp.periodType || 'termly';   // ← add this
+                return result;
             }
-            return result;
         }
+    }
+    return result;
+}
 
         // ========== HANDLE CUSTOM BURSARY ==========
         let customBursary = null;
@@ -2720,26 +2727,27 @@ app.post('/api/students/register', async (req, res) => {
         if (removedItems && typeof removedItems === 'object' && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
 
-            for (const [itemId, isRemoved] of Object.entries(removedItems)) {
-                if (isRemoved !== true) continue;
+           for (const [itemId, isRemoved] of Object.entries(removedItems)) {
+    if (isRemoved !== true) continue;
 
-                const defaults = findItemDefaults(itemId);
+    const defaults = findItemDefaults(itemId);
 
-                removedItemsData[itemId] = {
-                    itemId: itemId,
-                    itemName: defaults.itemName,
-                    componentId: defaults.componentId,
-                    componentName: defaults.componentName,
-                    defaultAmount: defaults.defaultAmount,
-                    defaultQuantity: defaults.defaultQuantity,
-                    paymentOption: defaults.paymentOption,
-                    removedAt: new Date().toISOString(),
-                    reason: 'Not activated at registration',
-                    isActive: true
-                    // No academicYear/term stamp: item stays removed for ALL
-                    // periods until the bursar restores it in Edit Student.
-                };
-            }
+    // ✅ Never let a termly item register as "removed" — it's billed every term.
+    if (defaults.periodType === 'termly') continue;
+
+    removedItemsData[itemId] = {
+        itemId: itemId,
+        itemName: defaults.itemName,
+        componentId: defaults.componentId,
+        componentName: defaults.componentName,
+        defaultAmount: defaults.defaultAmount,
+        defaultQuantity: defaults.defaultQuantity,
+        paymentOption: defaults.paymentOption,
+        removedAt: new Date().toISOString(),
+        reason: 'Not activated at registration',
+        isActive: true
+    };
+}
 
             if (Object.keys(removedItemsData).length === 0) {
                 removedItemsData = null;
@@ -3900,17 +3908,19 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
                         processedItems.push(processedItem);
 
                         // ========== DETECT NEW ITEM ==========
-                        if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
-                            newlyAddedItems.push({
-                                itemId: itemId,
-                                itemName: processedItem.name,
-                                componentId: component.id || null,
-                                componentName: component.name,
-                                defaultAmount: processedItem.totalAmount,
-                                defaultQuantity: processedItem.quantity,
-                                paymentOption: processedItem.paymentOption
-                            });
-                        }
+                   // ========== DETECT NEW ITEM ==========
+if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
+    newlyAddedItems.push({
+        itemId: itemId,
+        itemName: processedItem.name,
+        componentId: component.id || null,
+        componentName: component.name,
+        defaultAmount: processedItem.totalAmount,
+        defaultQuantity: processedItem.quantity,
+        paymentOption: processedItem.paymentOption,
+        periodType: component.periodType || 'termly'   // ← add this
+    });
+}
                     }
                 }
                 
@@ -3986,29 +3996,29 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
 
                 if (!student.removedItems) student.removedItems = {};
 
-                let studentChanged = false;
-                for (const newItem of newlyAddedItems) {
-                    // Only add if not already tracked (avoids clobbering an
-                    // existing removed/restored state on re-save).
-                    if (!student.removedItems[newItem.itemId]) {
-                        student.removedItems[newItem.itemId] = {
-                            itemId: newItem.itemId,
-                            itemName: newItem.itemName,
-                            componentId: newItem.componentId,
-                            componentName: newItem.componentName,
-                            defaultAmount: newItem.defaultAmount,
-                            defaultQuantity: newItem.defaultQuantity,
-                            paymentOption: newItem.paymentOption,
-                            removedAt: new Date().toISOString(),
-                            reason: 'New item added to fee structure — not yet activated',
-                            isActive: true
-                            // No academicYear/term stamp: stays removed for ALL
-                            // periods until the bursar restores it.
-                        };
-                        studentChanged = true;
-                        itemsAutoRemovedCount++;
-                    }
-                }
+              let studentChanged = false;
+for (const newItem of newlyAddedItems) {
+    // ✅ Termly items bill every term automatically — skip auto-removal
+    // entirely, no restore step needed.
+    if (newItem.periodType === 'termly') continue;
+
+    if (!student.removedItems[newItem.itemId]) {
+        student.removedItems[newItem.itemId] = {
+            itemId: newItem.itemId,
+            itemName: newItem.itemName,
+            componentId: newItem.componentId,
+            componentName: newItem.componentName,
+            defaultAmount: newItem.defaultAmount,
+            defaultQuantity: newItem.defaultQuantity,
+            paymentOption: newItem.paymentOption,
+            removedAt: new Date().toISOString(),
+            reason: 'New item added to fee structure — not yet activated',
+            isActive: true
+        };
+        studentChanged = true;
+        itemsAutoRemovedCount++;
+    }
+}
 
                 if (studentChanged) {
                     student.hasRemovedItems = true;
