@@ -2058,34 +2058,36 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         // scholastic item in their assigned fee structure marked "removed"
         // (not billed). The bursar restores whichever items should actually
         // be charged, via Edit Student -> Restore. Tuition is unaffected.
-        function buildAllItemsRemovedForFeeStructure(feeStructure) {
-            const removed = {};
-            if (!feeStructure || !feeStructure.activityComponents) return removed;
+      function buildAllItemsRemovedForFeeStructure(feeStructure) {
+    const removedItems = {};
+    if (!feeStructure || !feeStructure.activityComponents) return removedItems;
 
-            for (const comp of feeStructure.activityComponents) {
-                if (!comp || !comp.items) continue;
-                for (const item of comp.items) {
-                    if (!item) continue;
-                    const itemId = item.id || item.name;
-                    removed[itemId] = {
-                        itemId: itemId,
-                        itemName: item.name,
-                        componentId: comp.id || null,
-                        componentName: comp.name,
-                        defaultAmount: item.totalAmount || 0,
-                        defaultQuantity: item.quantity || 1,
-                        paymentOption: item.paymentOption || 'either',
-                        removedAt: new Date().toISOString(),
-                        reason: 'Not activated at import',
-                        isActive: true
-                        // No academicYear/term stamp: stays removed for ALL
-                        // periods until the bursar restores it.
-                    };
-                }
-            }
-            return removed;
+    for (const comp of feeStructure.activityComponents) {
+        if (!comp || !comp.items) continue;
+
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        const periodType = comp.periodType || 'termly';
+        if (periodType === 'termly') continue;
+
+        for (const item of comp.items) {
+            if (!item) continue;
+            const itemId = item.id || item.name;
+            removedItems[itemId] = {
+                itemId: itemId,
+                itemName: item.name,
+                componentId: comp.id || null,
+                componentName: comp.name,
+                defaultAmount: item.totalAmount || 0,
+                defaultQuantity: item.quantity || 1,
+                paymentOption: item.paymentOption || 'either',
+                removedAt: new Date().toISOString(),
+                reason: 'New student — not yet activated',
+                isActive: true
+            };
         }
-        
+    }
+    return removedItems;
+}
         // ================================================================
         // STEP 4: PROCESS ROWS
         // ================================================================
