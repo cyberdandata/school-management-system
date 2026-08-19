@@ -2274,7 +2274,7 @@ function renderStatusGroupCellWithAllPeriods(student, sg, allStatusGroups, forma
 // ============================================================================
 
 async function showStudentList() {
-    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED');
+    console.log('showStudentList called - v14.0 VIRTUALIZED / SERVER-PAGINATED');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -2295,831 +2295,381 @@ async function showStudentList() {
         `;
     }
 
-    try {
-        await initializeAcademicSettings();
-        const { currentYear, currentTerm } = currentAcademicSettings;
-        const termName = getTermName(currentTerm);
-        const isFirstTerm = currentTerm === 1;
+    // ==================== VIRTUAL SCROLL STATE ====================
+    const sl = {
+        pageSize: 50,
+        rowHeight: 92,          // px estimate per row — tune if rows wrap more/less
+        totalCount: 0,
+        totalPages: 1,
+        cache: new Map(),       // pageNumber -> student rows
+        pending: new Set(),     // pageNumbers currently in flight
+        filters: { search: '', classId: '', level: '', status: '' },
+        statusGroups: [],
+        classesList: [],
+        stats: {},
+        meta: {},
+        maxCachedPages: 40,     // ~2000 rows cap on client RAM
+        fetchToken: 0,
+        shellBuilt: false
+    };
+    window.__studentListState = sl;
 
-        // ========== FETCH ALL DATA ==========
-        const [studentsRes, classesRes, feeStructuresRes, feeAssignmentsRes, feePaymentsRes, feeBursariesRes, termRecordsRes] = await Promise.all([
-            fetch('/api/students').catch(() => ({ ok: false, json: async () => [] })),
-            fetch('/api/school/classes').catch(() => ({ ok: false, json: async () => [] })),
-            fetch('/api/fee/structures').catch(() => ({ ok: false, json: async () => [] })),
-            fetch('/api/student-fee-assignments').catch(() => ({ ok: false, json: async () => [] })),
-            fetch(`/api/fee/payments?year=${currentYear}&term=${currentTerm}`).catch(() => ({ ok: false, json: async () => [] })),
-            fetch('/api/fee/bursaries').catch(() => ({ ok: false, json: async () => [] })),
-            fetch('/api/student-term-records').catch(() => ({ ok: false, json: async () => ({}) }))
-        ]);
+    function formatMoney(amount) {
+        return Math.round(amount || 0).toLocaleString('en-US');
+    }
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    function getStatusGroupColor(name) {
+        const colors = {
+            'Transportation': 'bg-orange-50 text-orange-700 border-orange-200',
+            'Admission Fee': 'bg-purple-50 text-purple-700 border-purple-200',
+            'schoolastic requirement': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            'Tuition': 'bg-indigo-50 text-indigo-700 border-indigo-200'
+        };
+        return colors[name] || 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+    function closeModal() {
+        const modal = document.querySelector('.fixed.inset-0');
+        if (modal) modal.remove();
+    }
 
-        let students = studentsRes.ok ? await studentsRes.json() : [];
-        let classes = classesRes.ok ? await classesRes.json() : [];
-        let feeStructures = feeStructuresRes.ok ? await feeStructuresRes.json() : [];
-        let feeAssignments = feeAssignmentsRes.ok ? await feeAssignmentsRes.json() : [];
-        let allPayments = feePaymentsRes.ok ? await feePaymentsRes.json() : [];
-        let feeBursaries = feeBursariesRes.ok ? await feeBursariesRes.json() : [];
-        let termRecords = termRecordsRes.ok ? await termRecordsRes.json() : {};
+    // ==================== NETWORK ====================
+    async function fetchStudentsPage(pageNum) {
+        if (sl.cache.has(pageNum) || sl.pending.has(pageNum)) return;
+        sl.pending.add(pageNum);
+        updateLoadingIndicator();
+        const token = sl.fetchToken;
 
-        students = Array.isArray(students) ? students : [];
-        classes = Array.isArray(classes) ? classes : [];
-        feeStructures = Array.isArray(feeStructures) ? feeStructures : [];
-        feeAssignments = Array.isArray(feeAssignments) ? feeAssignments : [];
-        allPayments = Array.isArray(allPayments) ? allPayments : [];
-
-        console.log(`📊 Loaded ${students.length} students, ${feeStructures.length} fee structures`);
-        console.log(`📊 Loaded ${allPayments.length} payments for ${termName} ${currentYear}`);
-
-        // ========== CREATE MAPS ==========
-        const classesMap = {};
-        classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
-
-        const assignmentsMap = {};
-        feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
-
-        const bursariesMap = {};
-        feeBursaries.forEach(b => { if (b && b.id) bursariesMap[b.id] = b; });
-
-        const feeStructuresMap = {};
-        feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
-
-        // ========== BUILD STATUS GROUPS MAP ==========
-        const allStatusGroups = new Map();
-
-        feeStructures.forEach(fs => {
-            (fs.activityComponents || []).forEach(comp => {
-                const statusGroupName = comp.statusGroupName || comp.name || 'Other';
-                if (!allStatusGroups.has(statusGroupName)) {
-                    allStatusGroups.set(statusGroupName, {
-                        name: statusGroupName,
-                        periodTypes: new Set(),
-                        color: getStatusGroupColor(statusGroupName)
-                    });
-                }
-                const periodType = comp.periodType || 'termly';
-                allStatusGroups.get(statusGroupName).periodTypes.add(periodType);
-            });
+        const params = new URLSearchParams({
+            page: pageNum, pageSize: sl.pageSize,
+            search: sl.filters.search, classId: sl.filters.classId,
+            level: sl.filters.level, status: sl.filters.status
         });
 
-        const sortedStatusGroups = Array.from(allStatusGroups.values()).sort((a, b) => {
-            const order = { 'Transportation': 1, 'Admission Fee': 2, 'schoolastic requirement': 3 };
-            const aOrder = order[a.name] || 99;
-            const bOrder = order[b.name] || 99;
-            if (aOrder !== bOrder) return aOrder - bOrder;
-            return a.name.localeCompare(b.name);
-        });
+        try {
+            const res = await fetch(`/api/students/paginated?${params.toString()}`);
+            const data = await res.json();
+            if (token !== sl.fetchToken) return; // stale response, filters changed meanwhile
+            if (!data.success) throw new Error(data.error || 'Failed to load students');
 
-        console.log('📊 Status Groups:', sortedStatusGroups.map(sg => sg.name));
+            sl.totalCount = data.pagination.totalCount;
+            sl.totalPages = data.pagination.totalPages;
+            sl.statusGroups = data.statusGroups;
+            sl.classesList = data.classes;
+            sl.stats = data.stats;
+            sl.meta = data.meta;
+            sl.cache.set(pageNum, data.students);
+            evictOldPagesIfNeeded();
+            syncGlobalStudentData();
 
-        // ========== HELPER FUNCTIONS ==========
-        function formatMoney(amount) {
-            const num = Math.round(amount || 0);
-            return num.toLocaleString('en-US');
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function getStatusGroupColor(name) {
-            const colors = {
-                'Transportation': 'bg-orange-50 text-orange-700 border-orange-200',
-                'Admission Fee': 'bg-purple-50 text-purple-700 border-purple-200',
-                'schoolastic requirement': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                'Tuition': 'bg-indigo-50 text-indigo-700 border-indigo-200'
-            };
-            return colors[name] || 'bg-slate-100 text-slate-600 border-slate-200';
-        }
-
-        function getTermName(term) {
-            const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
-            return names[term] || `Term ${term}`;
-        }
-
-        function closeModal() {
-            const modal = document.querySelector('.fixed.inset-0');
-            if (modal) modal.remove();
-        }
-
-        // ========== GET CUSTOMIZED ITEM VALUE ==========
-        function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
-            if (student && student.customItemOverrides && student.customItemOverrides[itemId]) {
-                const custom = student.customItemOverrides[itemId];
-                if (custom.isActive !== false) {
-                    const customAmount = (custom.customAmount !== null && custom.customAmount !== undefined)
-                        ? custom.customAmount
-                        : defaultAmount;
-                    const customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined)
-                        ? custom.customQuantity
-                        : defaultQuantity;
-                    const customPaymentOption = custom.paymentOption || defaultPaymentOption;
-
-                    let customUnitPrice = defaultUnitPrice;
-                    if (customQuantity > 0 && customAmount > 0) {
-                        customUnitPrice = customAmount / customQuantity;
-                    } else if (customAmount > 0) {
-                        customUnitPrice = customAmount / (customQuantity || 1);
-                    } else if (customQuantity > 0) {
-                        customUnitPrice = defaultUnitPrice || (defaultAmount / (defaultQuantity || 1));
-                    }
-
-                    return {
-                        amount: customAmount,
-                        quantity: customQuantity,
-                        paymentOption: customPaymentOption,
-                        unitPrice: customUnitPrice,
-                        isCustomized: true,
-                        reason: custom.reason || null,
-                        updatedAt: custom.updatedAt || null,
-                        customAmount: custom.customAmount,
-                        customQuantity: custom.customQuantity,
-                        defaultAmount: custom.defaultAmount || defaultAmount,
-                        defaultQuantity: custom.defaultQuantity || defaultQuantity
-                    };
-                }
-            }
-
-            return {
-                amount: defaultAmount || 0,
-                quantity: defaultQuantity || 1,
-                paymentOption: defaultPaymentOption || 'either',
-                unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)),
-                isCustomized: false,
-                reason: null,
-                updatedAt: null,
-                customAmount: null,
-                customQuantity: null,
-                defaultAmount: defaultAmount || 0,
-                defaultQuantity: defaultQuantity || 1
-            };
-        }
-
-        // ========== CHECK IF ITEM IS REMOVED ==========
-        function isItemRemoved(student, itemId) {
-            if (!student || !student.removedItems) return false;
-            return student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
-        }
-
-        // ========== GET PAID AMOUNTS WITH OR LOGIC (same as viewStudentDetailsList) ==========
-        function getPaidAmountsWithOrLogic(studentId, componentName, itemName, periodType, quantityRequired, amountExpected, unitPrice, paymentOption, paymentsToCheck) {
-            // paymentsToCheck is passed from the caller with correct period scoping
-            let cashPaid = 0;
-            let itemsBrought = 0;
-            const paymentHistories = [];
-            const processedKeys = new Set();
-            const uniquePaymentItems = new Map();
-
-            for (const payment of paymentsToCheck) {
-                if (!payment || !payment.id) continue;
-
-                if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
-                    for (const paidItem of payment.activityItemPayments) {
-                        if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                        const compMatch = paidItem.componentName && paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                        const itemMatch = paidItem.itemName && paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                        if (compMatch && itemMatch) {
-                            const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
-                            if (!uniquePaymentItems.has(key)) uniquePaymentItems.set(key, { payment, paidItem });
-                        }
-                    }
-                }
-
-                if (payment.paymentsByPeriodType) {
-                    const periodTypes = ['one_time', 'termly', 'yearly'];
-                    for (const pt of periodTypes) {
-                        const periodItems = payment.paymentsByPeriodType[pt] || [];
-                        for (const paidItem of periodItems) {
-                            if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                            const compMatch = paidItem.componentName && paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                            const itemMatch = paidItem.itemName && paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                            if (compMatch && itemMatch) {
-                                const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
-                                if (!uniquePaymentItems.has(key)) uniquePaymentItems.set(key, { payment, paidItem });
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (const [key, data] of uniquePaymentItems) {
-                const { payment, paidItem } = data;
-                const historyKey = `${payment.receiptNumber || payment.id}_${paidItem.itemName}`;
-                if (processedKeys.has(historyKey)) continue;
-                processedKeys.add(historyKey);
-
-                if (paidItem.paymentType === 'paid_cash') {
-                    const amount = (paidItem.amountPaid || 0);
-                    cashPaid += amount;
-                    paymentHistories.push({
-                        type: 'cash', amount: amount, date: payment.date || new Date().toISOString(),
-                        receiptNumber: payment.receiptNumber || 'N/A', academicYear: payment.academicYear,
-                        term: payment.term, paymentId: payment.id,
-                        isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
-                        method: payment.method || 'cash'
-                    });
-                } else if (paidItem.paymentType === 'brought_item') {
-                    const qty = (paidItem.itemsBrought || 0);
-                    const equiv = (paidItem.cashEquivalent || qty * (paidItem.unitPrice || 0));
-                    itemsBrought += qty;
-                    paymentHistories.push({
-                        type: 'item', quantity: qty, amount: equiv, date: payment.date || new Date().toISOString(),
-                        receiptNumber: payment.receiptNumber || 'N/A', academicYear: payment.academicYear,
-                        term: payment.term, paymentId: payment.id,
-                        isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
-                        method: payment.method || 'cash'
-                    });
-                }
-            }
-
-            let finalCashPaid = cashPaid;
-            let finalItemsBrought = Math.min(itemsBrought, quantityRequired);
-
-            if (paymentOption === 'either' || paymentOption === 'item_only') {
-                if (finalItemsBrought >= quantityRequired) {
-                    finalCashPaid = 0;
-                } else if (paymentOption === 'item_only') {
-                    finalCashPaid = 0;
-                }
-            }
-
-            if (paymentOption === 'cash_only' || paymentOption === 'either') {
-                finalCashPaid = Math.min(finalCashPaid, amountExpected);
-            }
-
-            let remainingAmount = 0;
-            let remainingItems = 0;
-            let isFullyPaid = false;
-            let isOverDelivered = false;
-
-            if (paymentOption === 'cash_only') {
-                remainingAmount = Math.max(0, amountExpected - finalCashPaid);
-                isFullyPaid = remainingAmount <= 0;
-            } else if (paymentOption === 'item_only') {
-                remainingItems = Math.max(0, quantityRequired - finalItemsBrought);
-                isFullyPaid = remainingItems <= 0;
-                isOverDelivered = itemsBrought > quantityRequired;
+            if (!sl.shellBuilt) {
+                renderShell();
+                sl.shellBuilt = true;
             } else {
-                const cashCovers = finalCashPaid >= amountExpected;
-                const itemsCover = finalItemsBrought >= quantityRequired;
-                isFullyPaid = cashCovers || itemsCover;
-
-                if (!isFullyPaid) {
-                    const totalPaidValue = finalCashPaid + (finalItemsBrought * unitPrice);
-                    const totalRequired = quantityRequired * unitPrice;
-                    remainingAmount = Math.max(0, totalRequired - totalPaidValue);
-                    remainingItems = Math.ceil(remainingAmount / unitPrice);
-                }
-                isOverDelivered = itemsBrought > quantityRequired && finalCashPaid === 0;
+                renderVisibleRows();
             }
-
-            return {
-                cashPaid: finalCashPaid, itemsBrought: finalItemsBrought,
-                remainingAmount, remainingItems, isFullyPaid, isOverDelivered,
-                paymentHistories, cashPaidRaw: cashPaid, itemsBroughtRaw: itemsBrought
-            };
-        }
-
-        // ========== PROCESS EACH STUDENT ==========
-        const enhancedStudents = [];
-        let totalStudents = 0, maleCount = 0, femaleCount = 0, activeCount = 0;
-        let totalTuitionExpected = 0, totalTuitionCollected = 0;
-        let totalCurrentItemsOutstanding = 0; // only current period scholastic items
-        let studentsWithCustomizations = 0, noFeeStructureCount = 0;
-        let fullyPaidCount = 0, paymentDueCount = 0, noPaymentCount = 0, creditCount = 0, criticalCount = 0;
-        let nurseryCount = 0, lowerPrimaryCount = 0, upperPrimaryCount = 0;
-
-        // ========== For each student, compute periods and maxTermByYear / oldestPeriod ==========
-        for (const student of students) {
-            // Determine all periods for this student from payments, term records, fee assignments
-            const studentPeriods = new Map();
-
-            // From payments
-            allPayments.forEach(p => {
-                if (p && p.studentId === student.id && p.academicYear && p.term !== undefined) {
-                    const key = `${p.academicYear}_${p.term}`;
-                    if (!studentPeriods.has(key)) {
-                        studentPeriods.set(key, { year: parseInt(p.academicYear), term: parseInt(p.term) });
-                    }
-                }
-            });
-
-            // From term records
-            for (const [key, record] of Object.entries(termRecords)) {
-                if (key.startsWith(student.id + '_')) {
-                    const parts = key.split('_');
-                    if (parts.length === 3) {
-                        const year = parseInt(parts[1]);
-                        const term = parseInt(parts[2]);
-                        const periodKey = `${year}_${term}`;
-                        if (!studentPeriods.has(periodKey)) {
-                            studentPeriods.set(periodKey, { year, term });
-                        }
-                    }
-                }
-            }
-
-            // From fee assignments
-            feeAssignments.forEach(a => {
-                if (a && a.studentId === student.id && a.academicYear) {
-                    const year = parseInt(a.academicYear);
-                    const term = parseInt(a.term) || 1;
-                    const key = `${year}_${term}`;
-                    if (!studentPeriods.has(key)) {
-                        studentPeriods.set(key, { year, term });
-                    }
-                }
-            });
-
-            // If no periods, default to current period
-            if (studentPeriods.size === 0) {
-                studentPeriods.set(`${currentYear}_${currentTerm}`, { year: currentYear, term: currentTerm });
-            }
-
-            // Compute maxTermByYear and oldest period
-            const maxTermByYear = {};
-            let oldestYear = Infinity, oldestTerm = Infinity, oldestPeriodKey = null;
-            for (const [key, data] of studentPeriods) {
-                const { year, term } = data;
-                if (!maxTermByYear[year] || term > maxTermByYear[year]) {
-                    maxTermByYear[year] = term;
-                }
-                if (year < oldestYear || (year === oldestYear && term < oldestTerm)) {
-                    oldestYear = year;
-                    oldestTerm = term;
-                    oldestPeriodKey = key;
-                }
-            }
-
-            // Determine if current period is the latest term for its year
-            const isLatestTermForCurrentYear = (currentTerm === maxTermByYear[currentYear]);
-            const isOldestPeriod = (oldestPeriodKey === `${currentYear}_${currentTerm}`);
-
-            totalStudents++;
-            if (student.gender === 'Male') maleCount++;
-            else if (student.gender === 'Female') femaleCount++;
-            if (student.status === 'Active') activeCount++;
-
-            const assignment = assignmentsMap[student.id] || {};
-            const feeStructure = feeStructures.find(f => f && f.id === assignment.feeStructureId);
-
-            let currentClass = 'Not Assigned';
-            let classLevel = 'Unknown';
-            if (student.currentClassId && classesMap[student.currentClassId]) {
-                currentClass = classesMap[student.currentClassId].name;
-                classLevel = classesMap[student.currentClassId].level || 'Unknown';
-            } else if (student.currentClass) {
-                currentClass = student.currentClass;
-            }
-
-            if (classLevel === 'Nursery') nurseryCount++;
-            else if (classLevel === 'LowerPrimary') lowerPrimaryCount++;
-            else if (classLevel === 'UpperPrimary') upperPrimaryCount++;
-
-            // ========== CALCULATE TUITION ==========
-            let originalTuition = feeStructure ? (feeStructure.tuition || 0) : 0;
-            let expectedTuition = originalTuition;
-            let discountAmount = 0;
-            let discountDisplay = '';
-            let bursaryName = null;
-
-            if (student.customBursary && student.customBursary.amount > 0) {
-                discountAmount = student.customBursary.amount;
-                discountDisplay = `Custom: UGX ${discountAmount.toLocaleString()} off`;
-                expectedTuition = Math.max(0, originalTuition - discountAmount);
-                bursaryName = 'Custom Bursary';
-            } else if (assignment.bursaryId && bursariesMap[assignment.bursaryId]) {
-                const bursary = bursariesMap[assignment.bursaryId];
-                bursaryName = bursary.name;
-                if (bursary.type === 'percentage') {
-                    discountAmount = (originalTuition * bursary.value) / 100;
-                    discountDisplay = `${bursary.value}% off`;
-                    expectedTuition = Math.max(0, originalTuition - discountAmount);
-                } else {
-                    discountAmount = bursary.value;
-                    discountDisplay = `UGX ${discountAmount.toLocaleString()} off`;
-                    expectedTuition = Math.max(0, originalTuition - discountAmount);
-                }
-            }
-
-            let tuitionPaid = 0;
-            const studentPayments = allPayments.filter(p =>
-                p && p.studentId === student.id &&
-                p.term === currentTerm &&
-                p.academicYear === currentYear.toString()
-            );
-            for (const p of studentPayments) tuitionPaid += (p.tuitionPaid || 0);
-
-            const tuitionBalance = expectedTuition - tuitionPaid;
-
-            let tuitionStatusText = 'Payment Due';
-            let tuitionStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
-            let tuitionStatusIcon = '⚠️';
-
-            if (Math.abs(tuitionBalance) <= 10 && tuitionPaid > 0) {
-                tuitionStatusText = 'Fully Paid'; tuitionStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; tuitionStatusIcon = '✅';
-            } else if (tuitionBalance < -10) {
-                tuitionStatusText = 'Credit Balance'; tuitionStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; tuitionStatusIcon = '💰';
-            } else if (tuitionBalance > expectedTuition && expectedTuition > 0) {
-                tuitionStatusText = 'Critical Overdue'; tuitionStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; tuitionStatusIcon = '🔴';
-            } else if (tuitionPaid === 0 && expectedTuition > 0) {
-                tuitionStatusText = 'No Payment'; tuitionStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; tuitionStatusIcon = '📋';
-            }
-
-            totalTuitionExpected += expectedTuition;
-            totalTuitionCollected += tuitionPaid;
-
-            if (tuitionStatusText === 'Fully Paid') fullyPaidCount++;
-            else if (tuitionStatusText === 'Payment Due') paymentDueCount++;
-            else if (tuitionStatusText === 'No Payment') noPaymentCount++;
-            else if (tuitionStatusText === 'Credit Balance') creditCount++;
-            else if (tuitionStatusText === 'Critical Overdue') criticalCount++;
-
-            if (!feeStructure) noFeeStructureCount++;
-
-            // ========== BUILD STATUS GROUP DATA – only for current period, only scholastic groups ==========
-            const statusGroupTotals = {};
-            for (const sg of sortedStatusGroups) {
-                statusGroupTotals[sg.name] = {
-                    expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
-                    hasStructure: false, periodTypes: new Set(), isTransportation: false,
-                    customAmountApplied: false, customTransportAmount: null, customItemsCount: 0,
-                    existsInFeeStructure: false
-                };
-            }
-
-            let currentPeriodItemsRemaining = 0;
-
-            if (feeStructure && feeStructure.activityComponents) {
-                for (const component of feeStructure.activityComponents) {
-                    const periodType = component.periodType || 'termly';
-
-                    // Determine if this component should be included in current period
-                    let shouldInclude = false;
-                    if (periodType === 'termly') shouldInclude = true;
-                    else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
-                    else if (periodType === 'yearly') shouldInclude = isLatestTermForCurrentYear;
-
-                    if (!shouldInclude) continue;
-
-                    const groupName = component.statusGroupName || component.name || 'Other';
-                    const isTransportation = component.name.toLowerCase().includes('transport') ||
-                        (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
-
-                    if (isTransportation && student.customTransportation) {
-                        if (student.customTransportation.hasTransportation === false) continue;
-                    }
-
-                    if (!statusGroupTotals[groupName]) {
-                        statusGroupTotals[groupName] = {
-                            expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
-                            hasStructure: false, periodTypes: new Set(), isTransportation: isTransportation,
-                            customAmountApplied: false, customTransportAmount: null, customItemsCount: 0,
-                            existsInFeeStructure: false
-                        };
-                    }
-
-                    statusGroupTotals[groupName].hasStructure = true;
-                    statusGroupTotals[groupName].existsInFeeStructure = true;
-                    statusGroupTotals[groupName].periodTypes.add(periodType);
-                    statusGroupTotals[groupName].isTransportation = isTransportation;
-
-                    // Determine scoped payments for this period type
-                    let scopedPayments = [];
-                    if (periodType === 'yearly') {
-                        // All payments in the same year
-                        scopedPayments = allPayments.filter(p =>
-                            p && p.studentId === student.id &&
-                            parseInt(p.academicYear) === currentYear
-                        );
-                    } else if (periodType === 'one_time') {
-                        // All payments ever
-                        scopedPayments = allPayments.filter(p => p && p.studentId === student.id);
-                    } else {
-                        // termly – current term only
-                        scopedPayments = studentPayments;
-                    }
-
-                    for (const item of (component.items || [])) {
-                        const itemId = item.id || item.name;
-                        if (isItemRemoved(student, itemId)) continue;
-
-                        const defaultAmount = item.totalAmount || 0;
-                        const defaultQuantity = item.quantity || 1;
-                        const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
-                        const defaultPaymentOption = item.paymentOption || 'either';
-
-                        const customValues = getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
-
-                        let effectiveAmount = customValues.amount;
-                        let effectiveQuantity = customValues.quantity;
-                        let effectiveUnitPrice = customValues.unitPrice;
-                        let effectivePaymentOption = customValues.paymentOption;
-                        const isCustomized = customValues.isCustomized;
-                        const customReason = customValues.reason;
-
-                        if (isTransportation && student.customTransportation) {
-                            if (student.customTransportation.hasTransportation === false) continue;
-                            if (student.customTransportation.amount) {
-                                effectiveAmount = student.customTransportation.amount;
-                                effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
-                            }
-                        }
-
-                        const paidInfo = getPaidAmountsWithOrLogic(
-                            student.id, component.name, item.name, periodType,
-                            effectiveQuantity, effectiveAmount, effectiveUnitPrice, effectivePaymentOption,
-                            scopedPayments
-                        );
-
-                        const cashPaid = paidInfo.cashPaid;
-                        const itemsBrought = paidInfo.itemsBrought;
-                        const paymentHistories = paidInfo.paymentHistories;
-                        const isFullyPaid = paidInfo.isFullyPaid;
-                        const isOverDelivered = paidInfo.isOverDelivered;
-                        const remainingAmount = paidInfo.remainingAmount;
-                        const remainingQuantity = paidInfo.remainingItems;
-
-                        let statusText = 'Not Paid', statusClass = 'bg-rose-50 text-rose-600', statusIcon = '❌';
-
-                        if (isFullyPaid) {
-                            if (effectivePaymentOption === 'item_only' && itemsBrought > 0) { statusText = '✅ Items Delivered'; statusClass = 'bg-emerald-50 text-emerald-700'; statusIcon = '✅'; }
-                            else if (effectivePaymentOption === 'cash_only' && cashPaid > 0) { statusText = '✅ Cash Paid'; statusClass = 'bg-emerald-50 text-emerald-700'; statusIcon = '✅'; }
-                            else if (cashPaid > 0 && itemsBrought > 0) { statusText = '✅ Both (Cash + Items)'; statusClass = 'bg-emerald-50 text-emerald-700'; statusIcon = '✅'; }
-                            else if (cashPaid > 0) { statusText = '✅ Cash Only'; statusClass = 'bg-emerald-50 text-emerald-700'; statusIcon = '✅'; }
-                            else if (itemsBrought > 0) { statusText = '✅ Items Only'; statusClass = 'bg-emerald-50 text-emerald-700'; statusIcon = '✅'; }
-                            else { statusText = '✅ Fully Paid'; statusClass = 'bg-emerald-50 text-emerald-700'; statusIcon = '✅'; }
-                        } else if (cashPaid > 0 || itemsBrought > 0) {
-                            statusText = '⚠️ Partial'; statusClass = 'bg-amber-50 text-amber-700'; statusIcon = '⚠️';
-                        } else {
-                            statusText = '❌ Unpaid'; statusClass = 'bg-rose-50 text-rose-600'; statusIcon = '❌';
-                        }
-
-                        // Only count items if the group is Scholastic
-                        const isScholastic = groupName.toLowerCase().includes('scholastic');
-                        if (isScholastic) {
-                            currentPeriodItemsRemaining += remainingQuantity;
-                        }
-
-                        statusGroupTotals[groupName].expected += effectiveAmount;
-                        statusGroupTotals[groupName].paid += cashPaid;
-                        statusGroupTotals[groupName].balance += remainingAmount;
-                        statusGroupTotals[groupName].moneyRemaining += remainingAmount;
-                        statusGroupTotals[groupName].itemsRemaining += remainingQuantity;
-                        statusGroupTotals[groupName].items.push({
-                            name: item.name, itemId: itemId, quantityRequired: effectiveQuantity, totalAmount: effectiveAmount,
-                            unitPrice: effectiveUnitPrice, paymentOption: effectivePaymentOption, cashPaid: cashPaid,
-                            itemsBrought: itemsBrought, remainingAmount: remainingAmount, remainingQuantity: remainingQuantity,
-                            isFullyPaid: isFullyPaid, isOverDelivered: isOverDelivered, isCustomized: isCustomized,
-                            customReason: customReason, paymentHistories: paymentHistories, periodType: periodType,
-                            isTransportation: isTransportation, statusText: statusText, statusClass: statusClass, statusIcon: statusIcon
-                        });
-
-                        if (isCustomized) statusGroupTotals[groupName].customItemsCount++;
-                    }
-                }
-            }
-
-            // ========== CALCULATE TOTALS ==========
-            let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
-            for (const sg of sortedStatusGroups) {
-                const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
-                totalExpected += dataSg.expected;
-                totalPaid += dataSg.paid;
-                totalBalance += dataSg.balance;
-                totalRemainingItems += dataSg.itemsRemaining;
-                totalCustomItems += dataSg.customItemsCount;
-            }
-
-            totalExpected += expectedTuition;
-            totalPaid += tuitionPaid;
-            totalBalance += tuitionBalance;
-
-            totalCurrentItemsOutstanding += currentPeriodItemsRemaining;
-
-            const hasCustomizations = student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0;
-            if (hasCustomizations) studentsWithCustomizations++;
-
-            let overallStatusText = 'Payment Due';
-            let overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
-            let overallStatusIcon = '⚠️';
-
-            if (totalBalance < -10) { overallStatusText = 'Credit Balance'; overallStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; overallStatusIcon = '💰'; }
-            else if (Math.abs(totalBalance) <= 10 && totalPaid > 0) { overallStatusText = 'Fully Paid'; overallStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; overallStatusIcon = '✅'; }
-            else if (totalPaid === 0 && totalExpected > 0) { overallStatusText = 'No Payment'; overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; overallStatusIcon = '📋'; }
-            else if (totalBalance > 0 && totalPaid > 0) { overallStatusText = 'Payment Due'; overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200'; overallStatusIcon = '⚠️'; }
-            else if (totalBalance > totalExpected && totalExpected > 0) { overallStatusText = 'Critical Overdue'; overallStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; overallStatusIcon = '🔴'; }
-
-            enhancedStudents.push({
-                id: student.id, firstName: student.firstName || '', lastName: student.lastName || '',
-                admissionNumber: student.admissionNumber || '', gender: student.gender || 'N/A',
-                currentClass: currentClass, classLevel: classLevel,
-                parentName: student.parentInfo?.name || 'N/A', parentPhone: student.parentInfo?.phone || 'N/A',
-                parentEmail: student.parentInfo?.email || 'N/A', address: student.address || 'N/A',
-                status: student.status || 'Active', enrollmentDate: student.enrolledAt || student.createdAt || new Date().toISOString(),
-                feeStructureName: feeStructure ? (feeStructure.name || 'Not Assigned') : 'Not Assigned',
-                feeStructureId: feeStructure ? feeStructure.id : null,
-                bursaryName: bursaryName || null, discountDisplay: discountDisplay || '',
-                statusGroupTotals: statusGroupTotals, tuitionExpected: expectedTuition, tuitionPaid: tuitionPaid,
-                tuitionBalance: tuitionBalance, tuitionStatusText: tuitionStatusText, tuitionStatusColor: tuitionStatusColor,
-                tuitionStatusIcon: tuitionStatusIcon, totalExpected: totalExpected, totalPaid: totalPaid,
-                totalBalance: totalBalance, totalRemainingItems: totalRemainingItems,
-                currentPeriodItemsRemaining: currentPeriodItemsRemaining, // new field
-                totalCustomItems: totalCustomItems,
-                overallStatus: overallStatusText, overallStatusColor: overallStatusColor, overallStatusIcon: overallStatusIcon,
-                paymentCount: studentPayments.length, hasFeeStructure: !!feeStructure,
-                customTransportation: student.customTransportation || null, customItemOverrides: student.customItemOverrides || {},
-                hasCustomizations: hasCustomizations, removedItems: student.removedItems || {},
-                removedItemsCount: student.removedItems ? Object.keys(student.removedItems).length : 0,
-                currentPeriod: `${termName} ${currentYear}`, currentTerm: currentTerm, currentYear: currentYear, isFirstTerm: isFirstTerm
-            });
-        }
-
-        window.allStudentsData = enhancedStudents;
-        window.allClassesData = classes;
-        window.sortedStatusGroups = sortedStatusGroups;
-
-        console.log(`📊 Processed ${enhancedStudents.length} students for ${termName} ${currentYear}`);
-
-        const totalCollectionRate = totalTuitionExpected > 0 ? (totalTuitionCollected / totalTuitionExpected * 100) : 0;
-        const totalOutstanding = totalTuitionExpected - totalTuitionCollected;
-
-        // ====================================================================
-        // RENDER FUNCTIONS (modern styling) – mostly unchanged
-        // ====================================================================
-
-        function renderTuitionCell(student) {
-            const tuitionPaid = student.tuitionPaid || 0;
-            const tuitionExpected = student.tuitionExpected || 0;
-
-            let statusDisplay = '';
-            if (tuitionPaid >= tuitionExpected && tuitionExpected > 0) {
-                statusDisplay = `<span class="db-badge bg-emerald-50 text-emerald-700">Paid</span>`;
-            } else if (tuitionPaid > 0) {
-                statusDisplay = `<span class="db-badge bg-amber-50 text-amber-700">Partial</span>`;
-            } else if (tuitionExpected > 0) {
-                statusDisplay = `<span class="db-badge bg-rose-50 text-rose-600">Unpaid</span>`;
-            }
-
-            const hasBursary = student.bursaryName || student.discountDisplay;
-            const bursaryBadge = hasBursary ?
-                `<div class="text-[10px] text-emerald-500 mt-1"><i class="fas fa-award mr-0.5"></i>${student.bursaryName} (${student.discountDisplay})</div>` : '';
-
-            const customBadge = student.hasCustomizations ?
-                `<div class="text-[10px] text-amber-500 mt-1"><i class="fas fa-bolt mr-0.5"></i>${student.totalCustomItems} custom</div>` : '';
-
-            return `
-                <td class="p-2 text-center border-r border-slate-100 text-xs bg-indigo-50/30">
-                    <div class="cursor-pointer hover:bg-indigo-100/50 rounded-lg p-1.5 transition"
-                         onclick="showTuitionDetailsModal('${student.id}')">
-                        <div class="font-bold font-mono-num ${tuitionPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
-                            UGX ${formatMoney(tuitionPaid)}
+        } catch (error) {
+            console.error('Error fetching students page', pageNum, error);
+            if (!sl.shellBuilt) {
+                mainContent.innerHTML = `
+                    <div class="db-app-bg -m-4 p-4 min-h-[60vh] flex items-center justify-center rounded-2xl">
+                        <div class="db-card p-10 text-center max-w-lg">
+                            <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-triangle-exclamation text-xl"></i>
+                            </div>
+                            <p class="text-slate-800 font-semibold text-lg font-display">Couldn't load students</p>
+                            <p class="text-slate-500 text-sm mt-1.5">${error.message}</p>
+                            <button onclick="showStudentList()" class="mt-5 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-rotate-right mr-2"></i>Retry</button>
                         </div>
-                        <div class="text-[10px] text-slate-400 font-mono-num">/ ${formatMoney(tuitionExpected)}</div>
-                        <div class="mt-1">${statusDisplay}</div>
-                        ${bursaryBadge}
-                        ${customBadge}
-                        <i class="fas fa-circle-info text-indigo-400 text-[10px] ml-1 mt-1"></i>
-                    </div>
-                </td>
-            `;
+                    </div>`;
+            }
+        } finally {
+            sl.pending.delete(pageNum);
+            updateLoadingIndicator();
+        }
+    }
+
+    function evictOldPagesIfNeeded() {
+        if (sl.cache.size <= sl.maxCachedPages) return;
+        const protectedPages = new Set(getVisiblePageRange());
+        for (const key of Array.from(sl.cache.keys())) {
+            if (sl.cache.size <= sl.maxCachedPages) break;
+            if (protectedPages.has(key)) continue;
+            sl.cache.delete(key);
+        }
+    }
+
+    // Keep a flat, backward-compatible array of everything currently cached,
+    // so existing modal functions (showTuitionDetailsModal, etc.) that look
+    // students up via window.allStudentsData keep working for loaded rows.
+    function syncGlobalStudentData() {
+        const flat = [];
+        for (const rows of sl.cache.values()) flat.push(...rows);
+        window.allStudentsData = flat;
+        window.allClassesData = sl.classesList;
+        window.sortedStatusGroups = sl.statusGroups;
+    }
+
+    // ==================== VIRTUALIZATION MATH ====================
+    function getRowIndexRange() {
+        const container = document.getElementById('studentsScrollContainer');
+        if (!container) return { start: 0, end: sl.pageSize };
+        const scrollTop = container.scrollTop;
+        const viewportHeight = container.clientHeight || 600;
+        const buffer = 10;
+        let start = Math.floor(scrollTop / sl.rowHeight) - buffer;
+        let end = Math.ceil((scrollTop + viewportHeight) / sl.rowHeight) + buffer;
+        start = Math.max(0, start);
+        end = Math.min(sl.totalCount, Math.max(end, start + 1));
+        return { start, end };
+    }
+
+    function getVisiblePageRange() {
+        const { start, end } = getRowIndexRange();
+        if (sl.totalCount === 0) return [1];
+        const startPage = Math.floor(start / sl.pageSize) + 1;
+        const endPage = Math.floor(Math.max(start, end - 1) / sl.pageSize) + 1;
+        const pages = [];
+        for (let p = startPage; p <= endPage; p++) pages.push(p);
+        return pages;
+    }
+
+    function ensurePagesLoaded() {
+        getVisiblePageRange().forEach(p => {
+            if (p >= 1 && p <= sl.totalPages) fetchStudentsPage(p);
+        });
+    }
+
+    function getRowByIndex(index) {
+        const pageNum = Math.floor(index / sl.pageSize) + 1;
+        const offset = index % sl.pageSize;
+        const rows = sl.cache.get(pageNum);
+        return rows ? (rows[offset] || null) : null;
+    }
+
+    function updateLoadingIndicator() {
+        const el = document.getElementById('slLoadingIndicator');
+        if (!el) return;
+        el.classList.toggle('hidden', sl.pending.size === 0);
+    }
+
+    // ==================== ROW RENDERING ====================
+    function renderTuitionCell(student) {
+        const tuitionPaid = student.tuitionPaid || 0;
+        const tuitionExpected = student.tuitionExpected || 0;
+        let statusDisplay = '';
+        if (tuitionPaid >= tuitionExpected && tuitionExpected > 0) statusDisplay = `<span class="db-badge bg-emerald-50 text-emerald-700">Paid</span>`;
+        else if (tuitionPaid > 0) statusDisplay = `<span class="db-badge bg-amber-50 text-amber-700">Partial</span>`;
+        else if (tuitionExpected > 0) statusDisplay = `<span class="db-badge bg-rose-50 text-rose-600">Unpaid</span>`;
+
+        const bursaryBadge = (student.bursaryName || student.discountDisplay)
+            ? `<div class="text-[10px] text-emerald-500 mt-1"><i class="fas fa-award mr-0.5"></i>${student.bursaryName} (${student.discountDisplay})</div>` : '';
+        const customBadge = student.hasCustomizations
+            ? `<div class="text-[10px] text-amber-500 mt-1"><i class="fas fa-bolt mr-0.5"></i>${student.totalCustomItems} custom</div>` : '';
+
+        return `
+            <td class="p-2 text-center border-r border-slate-100 text-xs bg-indigo-50/30">
+                <div class="cursor-pointer hover:bg-indigo-100/50 rounded-lg p-1.5 transition" onclick="showTuitionDetailsModal('${student.id}')">
+                    <div class="font-bold font-mono-num ${tuitionPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">UGX ${formatMoney(tuitionPaid)}</div>
+                    <div class="text-[10px] text-slate-400 font-mono-num">/ ${formatMoney(tuitionExpected)}</div>
+                    <div class="mt-1">${statusDisplay}</div>
+                    ${bursaryBadge}${customBadge}
+                    <i class="fas fa-circle-info text-indigo-400 text-[10px] ml-1 mt-1"></i>
+                </div>
+            </td>`;
+    }
+
+    function renderStatusGroupCell(student, sg) {
+        const sgData = student.statusGroupTotals?.[sg.name] || { expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [], existsInFeeStructure: false, periodTypes: [], isTransportation: false, customItemsCount: 0 };
+
+        if (!student.hasFeeStructure) {
+            return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300"><span class="italic">No Fee Structure</span></td>`;
+        }
+        if (!sgData.existsInFeeStructure) {
+            const displayName = sg.name === 'schoolastic requirement' ? 'Scholastic' : sg.name === 'Admission Fee' ? 'Admission' : sg.name;
+            return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300"><span class="italic">Does not pay ${escapeHtml(displayName)}</span></td>`;
+        }
+        if (sgData.isTransportation && student.customTransportation && student.customTransportation.hasTransportation === false) {
+            return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300"><span class="italic">Transport disabled</span></td>`;
         }
 
-        function renderStatusGroupCell(student, sg) {
-            const sgData = student.statusGroupTotals?.[sg.name] || {
-                expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
-                hasStructure: false, periodTypes: new Set(), isTransportation: false,
-                customAmountApplied: false, customTransportAmount: null, customItemsCount: 0, existsInFeeStructure: false
-            };
+        const expected = sgData.expected || 0, paid = sgData.paid || 0, balance = sgData.balance || 0;
+        const moneyRemaining = sgData.moneyRemaining || 0, itemsRemaining = sgData.itemsRemaining || 0;
+        const customItemsCount = sgData.customItemsCount || 0;
 
-            if (!student.hasFeeStructure) {
-                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                    <span class="italic">No Fee Structure</span>
-                </td>`;
+        let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false, totalItemsBrought = 0, totalItemsRequired = 0;
+        for (const item of (sgData.items || [])) {
+            if (item.isFullyPaid) {
+                if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
+                else if (item.paymentOption === 'cash_only' || (item.paymentOption === 'either' && item.cashPaid >= item.totalAmount)) hasCashOnlyPaid = true;
+                else if (item.paymentOption === 'either' && item.cashPaid > 0 && item.itemsBrought > 0) hasBothPaid = true;
             }
-
-            let groupExistsInFeeStructure = false;
-            const feeStructure = feeStructures.find(f => f && f.id === student.feeStructureId);
-            if (feeStructure && feeStructure.activityComponents) {
-                for (const comp of feeStructure.activityComponents) {
-                    const compGroupName = comp.statusGroupName || comp.name || 'Other';
-                    if (compGroupName === sg.name) { groupExistsInFeeStructure = true; break; }
-                }
-            }
-
-            if (!groupExistsInFeeStructure) {
-                const displayName = sg.name === 'schoolastic requirement' ? 'Scholastic' :
-                    sg.name === 'Admission Fee' ? 'Admission' : sg.name;
-                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                    <span class="italic">Does not pay ${escapeHtml(displayName)}</span>
-                </td>`;
-            }
-
-            if (sgData.isTransportation && student.customTransportation) {
-                if (student.customTransportation.hasTransportation === false) {
-                    return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                        <span class="italic">Transport disabled</span>
-                    </td>`;
-                }
-            }
-
-            const expected = sgData.expected || 0;
-            const paid = sgData.paid || 0;
-            const balance = sgData.balance || 0;
-            const moneyRemaining = sgData.moneyRemaining || 0;
-            const itemsRemaining = sgData.itemsRemaining || 0;
-            const customItemsCount = sgData.customItemsCount || 0;
-            const hasCustomItems = customItemsCount > 0;
-
-            let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false;
-            let totalItemsBrought = 0, totalItemsRequired = 0;
-
-            for (const item of (sgData.items || [])) {
-                if (item.isFullyPaid) {
-                    if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
-                    else if (item.paymentOption === 'cash_only' || (item.paymentOption === 'either' && item.cashPaid >= item.totalAmount)) hasCashOnlyPaid = true;
-                    else if (item.paymentOption === 'either' && item.cashPaid > 0 && item.itemsBrought > 0) hasBothPaid = true;
-                }
-                totalItemsBrought += item.itemsBrought || 0;
-                totalItemsRequired += item.quantityRequired || 0;
-            }
-
-            const customBadge = hasCustomItems ? `<span class="db-badge bg-amber-50 text-amber-600 ml-1">⚡${customItemsCount}</span>` : '';
-
-            const periodIcons = [];
-            const periodTypes = sgData.periodTypes || new Set();
-            if (periodTypes.has('one_time')) periodIcons.push('⭐');
-            if (periodTypes.has('termly')) periodIcons.push('📅');
-            if (periodTypes.has('yearly')) periodIcons.push('📆');
-            const periodBadge = periodIcons.length > 0 ? `<span class="text-[10px] text-slate-300 block">${periodIcons.join(' ')}</span>` : '';
-
-            let orBadge = '';
-            if (hasItemOnlyPaid && hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-purple-500 block font-medium">Both (Cash + Items)</span>`;
-            else if (hasItemOnlyPaid) orBadge = `<span class="text-[10px] text-indigo-500 block font-medium">Items Only</span>`;
-            else if (hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-emerald-500 block font-medium">Cash Only</span>`;
-
-            let displayHtml = '';
-            if (expected === 0 && paid === 0 && itemsRemaining === 0) {
-                displayHtml = `<span class="text-slate-300">—</span>`;
-            } else if (balance <= 0 && paid >= 0 && itemsRemaining === 0) {
-                displayHtml = `<span class="text-emerald-600 font-bold text-xs"><i class="fas fa-circle-check mr-1"></i>Fully Paid</span>`;
-                if (hasItemOnlyPaid && !hasCashOnlyPaid) displayHtml += `<div class="text-[10px] text-indigo-500">Items only</div>`;
-                else if (hasCashOnlyPaid && !hasItemOnlyPaid) displayHtml += `<div class="text-[10px] text-emerald-500">Cash only</div>`;
-                else if (hasBothPaid) displayHtml += `<div class="text-[10px] text-purple-500">Cash + Items</div>`;
-            } else if (balance < 0) {
-                displayHtml = `<span class="text-sky-600 font-bold font-mono-num">Credit ${formatMoney(Math.abs(balance))}</span>`;
-            } else if (moneyRemaining > 0 && itemsRemaining > 0) {
-                displayHtml = `
-                    <div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>
-                    <div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>
-                    <div class="text-[10px] text-slate-300">Cash OR Items</div>
-                    ${customBadge}${periodBadge}${orBadge}`;
-            } else if (moneyRemaining > 0) {
-                displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>${customBadge}${periodBadge}${orBadge}`;
-            } else if (itemsRemaining > 0) {
-                displayHtml = `<div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>${customBadge}${periodBadge}${orBadge}`;
-            } else if (paid > 0) {
-                displayHtml = `<span class="text-emerald-600 font-mono-num font-semibold">UGX ${formatMoney(paid)}</span>${orBadge}${customBadge}${periodBadge}`;
-            } else {
-                displayHtml = `<span class="text-rose-600 font-mono-num font-semibold">UGX ${formatMoney(expected)}</span>${orBadge}${customBadge}${periodBadge}`;
-            }
-
-            let itemsSummary = '';
-            if (totalItemsRequired > 0) {
-                itemsSummary = `<div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-box-open mr-0.5"></i>${totalItemsBrought}/${totalItemsRequired} items</div>`;
-            }
-
-            const infoIcon = expected > 0 || itemsRemaining > 0 ?
-                `<i class="fas fa-circle-info text-indigo-400 ml-1 cursor-pointer hover:text-indigo-600"
-                    onclick="event.stopPropagation(); showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')"></i>` : '';
-
-            return `
-                <td class="p-2 text-center border-r border-slate-100 text-xs">
-                    <div class="cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 transition"
-                         onclick="showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')">
-                        ${displayHtml}
-                        ${itemsSummary}
-                        ${infoIcon}
-                    </div>
-                </td>
-            `;
+            totalItemsBrought += item.itemsBrought || 0;
+            totalItemsRequired += item.quantityRequired || 0;
         }
 
-        // ========== BUILD HEADERS ==========
+        const customBadge = customItemsCount > 0 ? `<span class="db-badge bg-amber-50 text-amber-600 ml-1">⚡${customItemsCount}</span>` : '';
+        const periodTypes = sgData.periodTypes || [];
+        let periodBadge = '';
+        const icons = [];
+        if (periodTypes.includes('one_time')) icons.push('⭐');
+        if (periodTypes.includes('termly')) icons.push('📅');
+        if (periodTypes.includes('yearly')) icons.push('📆');
+        if (icons.length) periodBadge = `<span class="text-[10px] text-slate-300 block">${icons.join(' ')}</span>`;
+
+        let orBadge = '';
+        if (hasItemOnlyPaid && hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-purple-500 block font-medium">Both (Cash + Items)</span>`;
+        else if (hasItemOnlyPaid) orBadge = `<span class="text-[10px] text-indigo-500 block font-medium">Items Only</span>`;
+        else if (hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-emerald-500 block font-medium">Cash Only</span>`;
+
+        let displayHtml = '';
+        if (expected === 0 && paid === 0 && itemsRemaining === 0) {
+            displayHtml = `<span class="text-slate-300">—</span>`;
+        } else if (balance <= 0 && paid >= 0 && itemsRemaining === 0) {
+            displayHtml = `<span class="text-emerald-600 font-bold text-xs"><i class="fas fa-circle-check mr-1"></i>Fully Paid</span>`;
+            if (hasItemOnlyPaid && !hasCashOnlyPaid) displayHtml += `<div class="text-[10px] text-indigo-500">Items only</div>`;
+            else if (hasCashOnlyPaid && !hasItemOnlyPaid) displayHtml += `<div class="text-[10px] text-emerald-500">Cash only</div>`;
+            else if (hasBothPaid) displayHtml += `<div class="text-[10px] text-purple-500">Cash + Items</div>`;
+        } else if (balance < 0) {
+            displayHtml = `<span class="text-sky-600 font-bold font-mono-num">Credit ${formatMoney(Math.abs(balance))}</span>`;
+        } else if (moneyRemaining > 0 && itemsRemaining > 0) {
+            displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div><div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div><div class="text-[10px] text-slate-300">Cash OR Items</div>${customBadge}${periodBadge}${orBadge}`;
+        } else if (moneyRemaining > 0) {
+            displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>${customBadge}${periodBadge}${orBadge}`;
+        } else if (itemsRemaining > 0) {
+            displayHtml = `<div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>${customBadge}${periodBadge}${orBadge}`;
+        } else if (paid > 0) {
+            displayHtml = `<span class="text-emerald-600 font-mono-num font-semibold">UGX ${formatMoney(paid)}</span>${orBadge}${customBadge}${periodBadge}`;
+        } else {
+            displayHtml = `<span class="text-rose-600 font-mono-num font-semibold">UGX ${formatMoney(expected)}</span>${orBadge}${customBadge}${periodBadge}`;
+        }
+
+        const itemsSummary = totalItemsRequired > 0 ? `<div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-box-open mr-0.5"></i>${totalItemsBrought}/${totalItemsRequired} items</div>` : '';
+        const infoIcon = (expected > 0 || itemsRemaining > 0)
+            ? `<i class="fas fa-circle-info text-indigo-400 ml-1 cursor-pointer hover:text-indigo-600" onclick="event.stopPropagation(); showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')"></i>` : '';
+
+        return `
+            <td class="p-2 text-center border-r border-slate-100 text-xs">
+                <div class="cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 transition" onclick="showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')">
+                    ${displayHtml}${itemsSummary}${infoIcon}
+                </div>
+            </td>`;
+    }
+
+    function buildStudentRowHtml(student, index) {
+        let statusGroupCells = '';
+        for (const sg of sl.statusGroups) statusGroupCells += renderStatusGroupCell(student, sg);
+
+        const totalPaidDisplay = student.totalPaid > 0 ? formatMoney(student.totalPaid) : '0';
+        let balanceDisplay = '', balanceClass = '';
+        if (student.totalBalance < 0) { balanceDisplay = `Credit: ${formatMoney(Math.abs(student.totalBalance))}`; balanceClass = 'text-sky-600'; }
+        else if (student.totalBalance > 0) { balanceDisplay = formatMoney(student.totalBalance); balanceClass = 'text-rose-600 font-bold'; }
+        else { balanceDisplay = '0'; balanceClass = 'text-emerald-600'; }
+
+        const initials = `${(student.firstName || '').charAt(0)}${(student.lastName || '').charAt(0)}`.toUpperCase();
+        const avatarColors = ['bg-gradient-to-br from-rose-400 to-rose-600', 'bg-gradient-to-br from-indigo-400 to-indigo-600', 'bg-gradient-to-br from-emerald-400 to-emerald-600', 'bg-gradient-to-br from-purple-400 to-purple-600', 'bg-gradient-to-br from-amber-400 to-amber-600', 'bg-gradient-to-br from-teal-400 to-teal-600'];
+        const avatarColor = avatarColors[index % avatarColors.length];
+
+        const bursaryBadge = student.bursaryName ? `<div class="text-[10px] text-emerald-500 mt-1"><i class="fas fa-award mr-0.5"></i>${student.bursaryName} (${student.discountDisplay})</div>` : '';
+        const noStructureBadge = !student.hasFeeStructure ? `<div class="text-[10px] text-rose-500 mt-1"><i class="fas fa-triangle-exclamation mr-0.5"></i>No Fee Structure</div>` : '';
+        const customBadge = student.hasCustomizations ? `<div class="text-[10px] text-amber-500 mt-1"><i class="fas fa-bolt mr-0.5"></i>${student.totalCustomItems} custom items</div>` : '';
+        const removedBadge = student.removedItemsCount > 0 ? `<div class="text-[10px] text-rose-400 mt-1"><i class="fas fa-xmark mr-0.5"></i>${student.removedItemsCount} removed</div>` : '';
+        const orStatusBadge = (student.totalPaid > 0 && student.totalRemainingItems > 0) ? `<div class="text-[10px] text-purple-500 mt-0.5 font-medium">Cash OR Items</div>` : '';
+        const currentItemsRemaining = student.currentPeriodItemsRemaining || 0;
+
+        return `
+            <tr class="student-row hover:bg-slate-50/80 transition-colors" style="height:${sl.rowHeight}px;" data-student-id="${student.id}">
+                <td class="p-2 text-center text-slate-300 text-xs font-mono-num">${index + 1}</td>
+                <td class="p-2 font-mono-num text-xs font-semibold text-slate-500">${student.admissionNumber}</td>
+                <td class="p-2">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 ${avatarColor} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0">${initials || 'S'}</div>
+                        <div class="min-w-0">
+                            <p class="font-semibold text-slate-700 truncate">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</p>
+                            <p class="text-[10px] text-slate-400">${student.gender} &middot; ${student.enrollmentDate ? new Date(student.enrollmentDate).toLocaleDateString() : 'N/A'}</p>
+                            ${customBadge}${removedBadge}${orStatusBadge}
+                        </div>
+                    </div>
+                </td>
+                <td class="p-2"><span class="db-badge bg-purple-50 text-purple-700">${student.currentClass}</span></td>
+                <td class="p-2">
+                    <p class="text-sm text-slate-600 truncate max-w-[140px]">${escapeHtml(student.parentName)}</p>
+                    <p class="text-[10px] text-slate-400"><i class="fas fa-phone text-[9px] mr-0.5"></i>${student.parentPhone}</p>
+                    ${bursaryBadge}${noStructureBadge}
+                </td>
+                ${renderTuitionCell(student)}
+                ${statusGroupCells}
+                <td class="p-2 text-right font-mono-num font-bold ${student.totalPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
+                    ${student.totalPaid > 0 ? `UGX ${totalPaidDisplay}` : 'UGX 0'}
+                    ${student.totalPaid > 0 && currentItemsRemaining > 0 ? `<div class="text-[10px] text-purple-500 font-sans font-medium">+ ${currentItemsRemaining} items OR</div>` : ''}
+                </td>
+                <td class="p-2 text-right font-mono-num font-bold ${balanceClass}">
+                    ${student.totalBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
+                    ${currentItemsRemaining > 0 ? `<div class="text-[10px] text-orange-600 font-sans font-medium">${currentItemsRemaining} items OR</div>` : ''}
+                </td>
+                <td class="p-2"><span class="db-badge ${student.overallStatusColor}">${student.overallStatusIcon} ${student.overallStatus}</span></td>
+                <td class="p-2 text-center">
+                    <div class="flex justify-center gap-0.5">
+                        <button onclick="viewStudentDetailsList('${student.id}')" class="text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="View Details"><i class="fas fa-eye text-xs"></i></button>
+                        <button onclick="makePaymentForStudent('${student.id}')" class="text-emerald-500 hover:text-white hover:bg-emerald-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Make Payment"><i class="fas fa-receipt text-xs"></i></button>
+                        <button onclick="editStudentInfoList('${student.id}')" class="text-amber-500 hover:text-white hover:bg-amber-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Edit"><i class="fas fa-pen text-xs"></i></button>
+                        <button onclick="deleteStudentEntryList('${student.id}')" class="text-rose-500 hover:text-white hover:bg-rose-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Delete"><i class="fas fa-trash text-xs"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+    }
+
+    function buildSkeletonRowHtml(totalCols) {
+        return `<tr style="height:${sl.rowHeight}px;"><td colspan="${totalCols}" class="p-2"><div class="db-skeleton h-10 w-full rounded-lg opacity-40"></div></td></tr>`;
+    }
+
+    function renderVisibleRows() {
+        const tbody = document.getElementById('studentsTableBody');
+        if (!tbody) return;
+        const totalCols = 10 + sl.statusGroups.length;
+        const { start, end } = getRowIndexRange();
+
+        if (sl.totalCount === 0) {
+            tbody.innerHTML = `<tr><td colspan="${totalCols}" class="p-10 text-center text-slate-400">No students match your filters</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        const topHeight = start * sl.rowHeight;
+        if (topHeight > 0) html += `<tr><td colspan="${totalCols}" style="height:${topHeight}px;padding:0;border:0;"></td></tr>`;
+
+        for (let i = start; i < end; i++) {
+            const row = getRowByIndex(i);
+            html += row ? buildStudentRowHtml(row, i) : buildSkeletonRowHtml(totalCols);
+        }
+
+        const bottomHeight = Math.max(0, sl.totalCount - end) * sl.rowHeight;
+        if (bottomHeight > 0) html += `<tr><td colspan="${totalCols}" style="height:${bottomHeight}px;padding:0;border:0;"></td></tr>`;
+
+        tbody.innerHTML = html;
+        const countSpan = document.getElementById('filteredCount');
+        if (countSpan) countSpan.innerText = sl.totalCount;
+    }
+
+    // ==================== SHELL (hero, stats, filters, table skeleton) ====================
+    function renderShell() {
+        const stats = sl.stats, meta = sl.meta;
+        const termName = meta.termName, currentYear = meta.currentYear, isFirstTerm = meta.isFirstTerm;
+
         let statusGroupHeaders = '';
-        for (const sg of sortedStatusGroups) {
+        for (const sg of sl.statusGroups) {
             const colorClass = getStatusGroupColor(sg.name);
             let periodIcons = '';
-            const periodTypes = sg.periodTypes || new Set();
-            if (periodTypes.has('one_time')) periodIcons += '<span class="text-[10px] mr-1" title="One-Time (Current term only)">⭐</span>';
-            if (periodTypes.has('termly')) periodIcons += '<span class="text-[10px] mr-1" title="Termly (Every Term)">📅</span>';
-            if (periodTypes.has('yearly')) periodIcons += '<span class="text-[10px]" title="Yearly (Resets Each Year)">📆</span>';
-
+            if (sg.periodTypes.includes('one_time')) periodIcons += '<span class="text-[10px] mr-1" title="One-Time (Current term only)">⭐</span>';
+            if (sg.periodTypes.includes('termly')) periodIcons += '<span class="text-[10px] mr-1" title="Termly (Every Term)">📅</span>';
+            if (sg.periodTypes.includes('yearly')) periodIcons += '<span class="text-[10px]" title="Yearly (Resets Each Year)">📆</span>';
             let displayName = sg.name;
             if (displayName === 'schoolastic requirement') displayName = 'Scholastic';
             if (displayName === 'Admission Fee') displayName = 'Admission';
-
             statusGroupHeaders += `
                 <th class="p-2.5 text-center min-w-32 ${colorClass} border-r border-slate-100">
                     <div class="flex flex-col items-center gap-1">
@@ -3129,17 +2679,12 @@ async function showStudentList() {
                         </div>
                         <div class="flex gap-1">${periodIcons}</div>
                     </div>
-                </th>
-            `;
+                </th>`;
         }
 
-        // ====================================================================
-        // BUILD PAGE HTML
-        // ====================================================================
-        const html = `
+        mainContent.innerHTML = `
             <div class="db-app-bg -m-4 p-4 space-y-6 pb-8 rounded-2xl">
 
-                <!-- ================= HERO ================= -->
                 <div class="db-hero db-fade-in">
                     <div class="db-hero-edge"></div>
                     <div class="relative z-10 flex justify-between items-start flex-wrap gap-5">
@@ -3149,8 +2694,9 @@ async function showStudentList() {
                             <p class="text-sm text-white/80 mt-1">Complete student &amp; fee management</p>
                             <div class="flex flex-wrap gap-2 mt-3">
                                 <span class="db-chip px-3 py-1.5 rounded-lg text-xs font-semibold">${isFirstTerm ? 'One-Time &amp; Yearly fees active' : 'Only Termly fees charged'}</span>
-                                <span class="db-chip px-3 py-1.5 rounded-lg text-xs font-semibold">${totalTuitionCollected > 0 ? `UGX ${formatMoney(totalTuitionCollected)} collected` : 'No payments yet'}</span>
+                                <span class="db-chip px-3 py-1.5 rounded-lg text-xs font-semibold">${stats.totalTuitionCollected > 0 ? `UGX ${formatMoney(stats.totalTuitionCollected)} collected` : 'No payments yet'}</span>
                                 <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400/25 border border-amber-300/40">🔄 OR Logic: Cash OR Items</span>
+                                <span id="slLoadingIndicator" class="hidden px-3 py-1.5 rounded-lg text-xs font-bold bg-white/20"><i class="fas fa-circle-notch fa-spin mr-1"></i>Loading…</span>
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -3160,25 +2706,24 @@ async function showStudentList() {
                     </div>
                 </div>
 
-                <!-- ================= STAT CARDS ================= -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="db-metric">
                         <span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-80"></span>
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Students</p>
-                                <p class="db-metric-value text-2xl font-bold text-slate-800 mt-1">${totalStudents}</p>
+                                <p class="db-metric-value text-2xl font-bold text-slate-800 mt-1">${stats.totalStudents}</p>
                                 <div class="flex gap-2 mt-1.5">
-                                    <span class="text-[11px] text-indigo-600 font-medium">♂ ${maleCount}</span>
-                                    <span class="text-[11px] text-rose-500 font-medium">♀ ${femaleCount}</span>
+                                    <span class="text-[11px] text-indigo-600 font-medium">♂ ${stats.maleCount}</span>
+                                    <span class="text-[11px] text-rose-500 font-medium">♀ ${stats.femaleCount}</span>
                                 </div>
                             </div>
                             <div class="db-metric-icon bg-indigo-50 text-indigo-600"><i class="fas fa-users"></i></div>
                         </div>
                         <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
-                            <span class="text-emerald-600 font-semibold">Active: ${activeCount}</span>
-                            <span class="text-slate-400">No Structure: ${noFeeStructureCount}</span>
-                            <span class="text-amber-500 font-semibold">Custom: ${studentsWithCustomizations}</span>
+                            <span class="text-emerald-600 font-semibold">Active: ${stats.activeCount}</span>
+                            <span class="text-slate-400">No Structure: ${stats.noFeeStructureCount}</span>
+                            <span class="text-amber-500 font-semibold">Custom: ${stats.studentsWithCustomizations}</span>
                         </div>
                     </div>
 
@@ -3187,9 +2732,9 @@ async function showStudentList() {
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">By Level</p>
-                                <p class="text-sm font-bold text-slate-700 mt-1.5 font-mono-num">Nursery &middot; ${nurseryCount}</p>
-                                <p class="text-sm text-slate-600 font-mono-num">Lower &middot; ${lowerPrimaryCount}</p>
-                                <p class="text-sm text-slate-600 font-mono-num">Upper &middot; ${upperPrimaryCount}</p>
+                                <p class="text-sm font-bold text-slate-700 mt-1.5 font-mono-num">Nursery &middot; ${stats.nurseryCount}</p>
+                                <p class="text-sm text-slate-600 font-mono-num">Lower &middot; ${stats.lowerPrimaryCount}</p>
+                                <p class="text-sm text-slate-600 font-mono-num">Upper &middot; ${stats.upperPrimaryCount}</p>
                             </div>
                             <div class="db-metric-icon bg-teal-50 text-teal-600"><i class="fas fa-chart-pie"></i></div>
                         </div>
@@ -3200,14 +2745,14 @@ async function showStudentList() {
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tuition Summary</p>
-                                <p class="text-xl font-bold text-emerald-600 mt-1 font-mono-num">UGX ${(totalTuitionCollected / 1000000).toFixed(1)}M</p>
-                                <p class="text-xs text-slate-400 font-mono-num">of UGX ${(totalTuitionExpected / 1000000).toFixed(1)}M</p>
-                                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Rate: ${totalCollectionRate.toFixed(1)}%</p>
-                                <p class="text-[11px] text-rose-500 font-medium">Outstanding: UGX ${formatMoney(totalOutstanding)}</p>
+                                <p class="text-xl font-bold text-emerald-600 mt-1 font-mono-num">UGX ${(stats.totalTuitionCollected / 1000000).toFixed(1)}M</p>
+                                <p class="text-xs text-slate-400 font-mono-num">of UGX ${(stats.totalTuitionExpected / 1000000).toFixed(1)}M</p>
+                                <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Rate: ${stats.totalCollectionRate.toFixed(1)}%</p>
+                                <p class="text-[11px] text-rose-500 font-medium">Outstanding: UGX ${formatMoney(stats.totalOutstanding)}</p>
                             </div>
                             <div class="db-metric-icon bg-amber-50 text-amber-600"><i class="fas fa-chart-line"></i></div>
                         </div>
-                        <div class="db-progress-track h-1.5 mt-2.5"><div class="db-progress-fill bg-emerald-500 h-1.5" style="width:${totalCollectionRate}%"></div></div>
+                        <div class="db-progress-track h-1.5 mt-2.5"><div class="db-progress-fill bg-emerald-500 h-1.5" style="width:${stats.totalCollectionRate}%"></div></div>
                     </div>
 
                     <div class="db-metric">
@@ -3215,11 +2760,11 @@ async function showStudentList() {
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tuition Status</p>
-                                <p class="text-[11px] text-emerald-600 font-semibold mt-1.5">✅ Fully Paid: ${fullyPaidCount}</p>
-                                <p class="text-[11px] text-amber-600 font-semibold">⚠️ Due: ${paymentDueCount}</p>
-                                <p class="text-[11px] text-rose-600 font-semibold">🔴 Critical: ${criticalCount}</p>
-                                <p class="text-[11px] text-sky-600 font-semibold">💰 Credit: ${creditCount}</p>
-                                <p class="text-[11px] text-slate-500 font-semibold">📋 No Payment: ${noPaymentCount}</p>
+                                <p class="text-[11px] text-emerald-600 font-semibold mt-1.5">✅ Fully Paid: ${stats.fullyPaidCount}</p>
+                                <p class="text-[11px] text-amber-600 font-semibold">⚠️ Due: ${stats.paymentDueCount}</p>
+                                <p class="text-[11px] text-rose-600 font-semibold">🔴 Critical: ${stats.criticalCount}</p>
+                                <p class="text-[11px] text-sky-600 font-semibold">💰 Credit: ${stats.creditCount}</p>
+                                <p class="text-[11px] text-slate-500 font-semibold">📋 No Payment: ${stats.noPaymentCount}</p>
                             </div>
                             <div class="db-metric-icon bg-rose-50 text-rose-600"><i class="fas fa-chart-bar"></i></div>
                         </div>
@@ -3230,9 +2775,9 @@ async function showStudentList() {
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Items Outstanding</p>
-                                <p class="text-2xl font-bold text-orange-600 mt-1 font-mono-num">${totalCurrentItemsOutstanding}</p>
+                                <p class="text-2xl font-bold text-orange-600 mt-1 font-mono-num">${stats.totalCurrentItemsOutstanding}</p>
                                 <p class="text-[11px] text-slate-400">total items remaining (current period)</p>
-                                <p class="text-[11px] text-amber-500 font-medium mt-1">⚡ ${studentsWithCustomizations} customized</p>
+                                <p class="text-[11px] text-amber-500 font-medium mt-1">⚡ ${stats.studentsWithCustomizations} customized</p>
                                 <p class="text-[11px] text-indigo-500 font-medium">Cash OR Items</p>
                             </div>
                             <div class="db-metric-icon bg-purple-50 text-purple-600"><i class="fas fa-box"></i></div>
@@ -3240,7 +2785,6 @@ async function showStudentList() {
                     </div>
                 </div>
 
-                <!-- ================= SEARCH & FILTERS ================= -->
                 <div class="db-card p-4">
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                         <div class="relative">
@@ -3249,7 +2793,7 @@ async function showStudentList() {
                         </div>
                         <select id="classFilterInput" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-teal-500/40 outline-none">
                             <option value="">All Classes</option>
-                            ${classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                            ${sl.classesList.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                         </select>
                         <select id="levelFilterInput" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-teal-500/40 outline-none">
                             <option value="">All Levels</option>
@@ -3269,7 +2813,7 @@ async function showStudentList() {
                         <button onclick="refreshStudentList()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-arrows-rotate mr-1.5"></i>Refresh</button>
                     </div>
                     <div class="mt-3.5 flex justify-between items-center text-xs text-slate-500 flex-wrap gap-2">
-                        <div>Showing <span id="filteredCount" class="font-bold text-slate-700 font-mono-num">${totalStudents}</span> of ${totalStudents} students</div>
+                        <div>Showing <span id="filteredCount" class="font-bold text-slate-700 font-mono-num">${sl.totalCount}</span> students &middot; loaded incrementally as you scroll</div>
                         <div class="flex gap-4">
                             <button onclick="exportStudentListData()" class="text-emerald-600 hover:text-emerald-800 font-semibold"><i class="fas fa-download mr-1"></i>Export CSV</button>
                             <button onclick="printStudentListReport()" class="text-indigo-600 hover:text-indigo-800 font-semibold"><i class="fas fa-print mr-1"></i>Print Report</button>
@@ -3277,9 +2821,8 @@ async function showStudentList() {
                     </div>
                 </div>
 
-                <!-- ================= STUDENTS TABLE ================= -->
                 <div class="db-card overflow-hidden">
-                    <div class="overflow-x-auto db-scroll" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="overflow-x-auto db-scroll" id="studentsScrollContainer" style="max-height: 70vh; overflow-y: auto;">
                         <table class="w-full text-sm">
                             <thead class="db-table">
                                 <tr>
@@ -3296,169 +2839,110 @@ async function showStudentList() {
                                     <th class="p-2.5 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="studentsTableBody" class="divide-y divide-slate-100">
-                                ${enhancedStudents.map((student, index) => {
-                                    let statusGroupCells = '';
-                                    for (const sg of sortedStatusGroups) statusGroupCells += renderStatusGroupCell(student, sg);
-
-                                    const totalPaidDisplay = student.totalPaid > 0 ? formatMoney(student.totalPaid) : '0';
-                                    let balanceDisplay = '', balanceClass = '';
-                                    if (student.totalBalance < 0) { balanceDisplay = `Credit: ${formatMoney(Math.abs(student.totalBalance))}`; balanceClass = 'text-sky-600'; }
-                                    else if (student.totalBalance > 0) { balanceDisplay = formatMoney(student.totalBalance); balanceClass = 'text-rose-600 font-bold'; }
-                                    else { balanceDisplay = '0'; balanceClass = 'text-emerald-600'; }
-
-                                    const initials = `${(student.firstName || '').charAt(0)}${(student.lastName || '').charAt(0)}`.toUpperCase();
-                                    const avatarColors = ['bg-gradient-to-br from-rose-400 to-rose-600', 'bg-gradient-to-br from-indigo-400 to-indigo-600', 'bg-gradient-to-br from-emerald-400 to-emerald-600', 'bg-gradient-to-br from-purple-400 to-purple-600', 'bg-gradient-to-br from-amber-400 to-amber-600', 'bg-gradient-to-br from-teal-400 to-teal-600'];
-                                    const avatarColor = avatarColors[index % avatarColors.length];
-
-                                    const bursaryBadge = student.bursaryName ? `<div class="text-[10px] text-emerald-500 mt-1"><i class="fas fa-award mr-0.5"></i>${student.bursaryName} (${student.discountDisplay})</div>` : '';
-                                    const noStructureBadge = !student.hasFeeStructure ? `<div class="text-[10px] text-rose-500 mt-1"><i class="fas fa-triangle-exclamation mr-0.5"></i>No Fee Structure</div>` : '';
-                                    const customBadge = student.hasCustomizations ? `<div class="text-[10px] text-amber-500 mt-1"><i class="fas fa-bolt mr-0.5"></i>${student.totalCustomItems} custom items</div>` : '';
-                                    const removedBadge = student.removedItemsCount > 0 ? `<div class="text-[10px] text-rose-400 mt-1"><i class="fas fa-xmark mr-0.5"></i>${student.removedItemsCount} removed</div>` : '';
-                                    let orStatusBadge = '';
-                                    if (student.totalPaid > 0 && student.totalRemainingItems > 0) orStatusBadge = `<div class="text-[10px] text-purple-500 mt-0.5 font-medium">Cash OR Items</div>`;
-
-                                    // Use the corrected current period items remaining in the balance column
-                                    const currentItemsRemaining = student.currentPeriodItemsRemaining || 0;
-
-                                    return `
-                                        <tr class="student-row hover:bg-slate-50/80 transition-colors"
-                                            data-student-id="${student.id}"
-                                            data-student-name="${(student.firstName + ' ' + student.lastName).toLowerCase()}"
-                                            data-admission="${student.admissionNumber.toLowerCase()}"
-                                            data-class="${student.currentClass}"
-                                            data-level="${student.classLevel}"
-                                            data-status="${student.overallStatus}"
-                                            data-has-fee-structure="${student.hasFeeStructure}"
-                                            data-has-customizations="${student.hasCustomizations}">
-                                            <td class="p-2 text-center text-slate-300 text-xs font-mono-num">${index + 1}</td>
-                                            <td class="p-2 font-mono-num text-xs font-semibold text-slate-500">${student.admissionNumber}</td>
-                                            <td class="p-2">
-                                                <div class="flex items-center gap-2.5">
-                                                    <div class="w-8 h-8 ${avatarColor} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0">${initials || 'S'}</div>
-                                                    <div class="min-w-0">
-                                                        <p class="font-semibold text-slate-700 truncate">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</p>
-                                                        <p class="text-[10px] text-slate-400">${student.gender} &middot; ${student.enrollmentDate ? new Date(student.enrollmentDate).toLocaleDateString() : 'N/A'}</p>
-                                                        ${customBadge}${removedBadge}${orStatusBadge}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="p-2"><span class="db-badge bg-purple-50 text-purple-700">${student.currentClass}</span></td>
-                                            <td class="p-2">
-                                                <p class="text-sm text-slate-600 truncate max-w-[140px]">${escapeHtml(student.parentName)}</p>
-                                                <p class="text-[10px] text-slate-400"><i class="fas fa-phone text-[9px] mr-0.5"></i>${student.parentPhone}</p>
-                                                ${bursaryBadge}${noStructureBadge}
-                                            </td>
-                                            ${renderTuitionCell(student)}
-                                            ${statusGroupCells}
-                                            <td class="p-2 text-right font-mono-num font-bold ${student.totalPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
-                                                ${student.totalPaid > 0 ? `UGX ${totalPaidDisplay}` : 'UGX 0'}
-                                                ${student.totalPaid > 0 && currentItemsRemaining > 0 ? `<div class="text-[10px] text-purple-500 font-sans font-medium">+ ${currentItemsRemaining} items OR</div>` : ''}
-                                            </td>
-                                            <td class="p-2 text-right font-mono-num font-bold ${balanceClass}">
-                                                ${student.totalBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
-                                                ${currentItemsRemaining > 0 ? `<div class="text-[10px] text-orange-600 font-sans font-medium">${currentItemsRemaining} items OR</div>` : ''}
-                                            </td>
-                                            <td class="p-2"><span class="db-badge ${student.overallStatusColor}">${student.overallStatusIcon} ${student.overallStatus}</span></td>
-                                            <td class="p-2 text-center">
-                                                <div class="flex justify-center gap-0.5">
-                                                    <button onclick="viewStudentDetailsList('${student.id}')" class="text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="View Details"><i class="fas fa-eye text-xs"></i></button>
-                                                    <button onclick="makePaymentForStudent('${student.id}')" class="text-emerald-500 hover:text-white hover:bg-emerald-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Make Payment"><i class="fas fa-receipt text-xs"></i></button>
-                                                    <button onclick="editStudentInfoList('${student.id}')" class="text-amber-500 hover:text-white hover:bg-amber-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Edit"><i class="fas fa-pen text-xs"></i></button>
-                                                    <button onclick="deleteStudentEntryList('${student.id}')" class="text-rose-500 hover:text-white hover:bg-rose-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Delete"><i class="fas fa-trash text-xs"></i></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
+                            <tbody id="studentsTableBody" class="divide-y divide-slate-100"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
         `;
 
-        mainContent.innerHTML = html;
+        renderVisibleRows();
+        attachScrollListener();
+        attachFilterListeners();
+    }
 
-        // ========== INITIALIZE FILTERS ==========
+    // ==================== SCROLL & FILTER WIRING ====================
+    function attachScrollListener() {
+        const container = document.getElementById('studentsScrollContainer');
+        if (!container) return;
+        let scheduled = false;
+        container.addEventListener('scroll', () => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                renderVisibleRows();
+                ensurePagesLoaded();
+            });
+        });
+    }
+
+    function resetAndReload() {
+        sl.fetchToken++;
+        sl.cache.clear();
+        sl.pending.clear();
+        sl.totalCount = 0;
+        sl.shellBuilt = false;
+        const container = document.getElementById('studentsScrollContainer');
+        if (container) container.scrollTop = 0;
+        fetchStudentsPage(1);
+    }
+
+    function attachFilterListeners() {
         const searchInput = document.getElementById('studentSearchInput');
         const classFilter = document.getElementById('classFilterInput');
         const levelFilter = document.getElementById('levelFilterInput');
         const statusFilter = document.getElementById('statusFilterInput');
 
-        const applyFilters = () => {
-            const searchTerm = (searchInput?.value || '').toLowerCase().trim();
-            const classValue = classFilter?.value || '';
-            const levelValue = levelFilter?.value || '';
-            const statusValue = statusFilter?.value || '';
-
-            const rows = document.querySelectorAll('#studentsTableBody .student-row');
-            let visibleCount = 0;
-
-            rows.forEach(row => {
-                const name = row.getAttribute('data-student-name') || '';
-                const admission = row.getAttribute('data-admission') || '';
-                const studentClass = row.getAttribute('data-class') || '';
-                const studentLevel = row.getAttribute('data-level') || '';
-                const studentStatus = row.getAttribute('data-status') || '';
-
-                const matchSearch = searchTerm === '' || name.includes(searchTerm) || admission.includes(searchTerm);
-                const matchClass = classValue === '' || studentClass === classValue;
-                const matchLevel = levelValue === '' || studentLevel === levelValue;
-                const matchStatus = statusValue === '' || studentStatus === statusValue;
-
-                const isVisible = matchSearch && matchClass && matchLevel && matchStatus;
-                row.style.display = isVisible ? '' : 'none';
-                if (isVisible) visibleCount++;
+        if (searchInput) {
+            searchInput.value = sl.filters.search;
+            let debounceTimer;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    sl.filters.search = searchInput.value.toLowerCase().trim();
+                    resetAndReload();
+                }, 350);
             });
+        }
+        if (classFilter) {
+            classFilter.value = sl.filters.classId;
+            classFilter.addEventListener('change', () => { sl.filters.classId = classFilter.value; resetAndReload(); });
+        }
+        if (levelFilter) {
+            levelFilter.value = sl.filters.level;
+            levelFilter.addEventListener('change', () => { sl.filters.level = levelFilter.value; resetAndReload(); });
+        }
+        if (statusFilter) {
+            statusFilter.value = sl.filters.status;
+            statusFilter.addEventListener('change', () => { sl.filters.status = statusFilter.value; resetAndReload(); });
+        }
+    }
 
-            const countSpan = document.getElementById('filteredCount');
-            if (countSpan) countSpan.innerText = visibleCount;
-        };
+    // ==================== GLOBAL HELPERS (kept for compatibility) ====================
+    window.refreshStudentList = function () { resetAndReload(); };
 
-        if (searchInput) searchInput.addEventListener('input', applyFilters);
-        if (classFilter) classFilter.addEventListener('change', applyFilters);
-        if (levelFilter) levelFilter.addEventListener('change', applyFilters);
-        if (statusFilter) statusFilter.addEventListener('change', applyFilters);
-
-        // ========== EXPORT FUNCTIONS ==========
-        window.exportStudentListData = function () {
-            const studentsData = window.allStudentsData || [];
+    window.exportStudentListData = async function () {
+        try {
+            const params = new URLSearchParams({
+                export: 'true', search: sl.filters.search, classId: sl.filters.classId,
+                level: sl.filters.level, status: sl.filters.status
+            });
+            const res = await fetch(`/api/students/paginated?${params.toString()}`);
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Export failed');
+            const studentsData = data.students;
             if (studentsData.length === 0) { alert('No students to export'); return; }
 
             const headers = ['Admission', 'First Name', 'Last Name', 'Class', 'Parent Name', 'Parent Phone', 'Status'];
-            const statusGroupsList = window.sortedStatusGroups || [];
+            const statusGroupsList = data.statusGroups;
             for (const sg of statusGroupsList) {
-                headers.push(`${sg.name} Expected`);
-                headers.push(`${sg.name} Paid (Cash)`);
-                headers.push(`${sg.name} Items Brought`);
-                headers.push(`${sg.name} Items Remaining`);
-                headers.push(`${sg.name} Balance`);
+                headers.push(`${sg.name} Expected`, `${sg.name} Paid (Cash)`, `${sg.name} Items Brought`, `${sg.name} Items Remaining`, `${sg.name} Balance`);
             }
             headers.push('Total Expected', 'Total Paid (Cash)', 'Total Items Brought', 'Total Items Remaining', 'Balance');
 
             const rows = studentsData.map(s => {
                 const row = [s.admissionNumber || '', s.firstName || '', s.lastName || '', s.currentClass || '', s.parentName || '', s.parentPhone || '', s.overallStatus || ''];
-                for (const sg of statusGroupsList) {
-                    const sgData = s.statusGroupTotals?.[sg.name] || {};
-                    row.push(sgData.expected || 0);
-                    row.push(sgData.paid || 0);
-                    let itemsBrought = 0, itemsRemaining = 0;
-                    for (const item of (sgData.items || [])) { itemsBrought += item.itemsBrought || 0; itemsRemaining += item.remainingQuantity || 0; }
-                    row.push(itemsBrought);
-                    row.push(itemsRemaining);
-                    row.push(sgData.balance || 0);
-                }
                 let totalItemsBrought = 0, totalItemsRemaining = 0;
                 for (const sg of statusGroupsList) {
                     const sgData = s.statusGroupTotals?.[sg.name] || {};
-                    for (const item of (sgData.items || [])) { totalItemsBrought += item.itemsBrought || 0; totalItemsRemaining += item.remainingQuantity || 0; }
+                    row.push(sgData.expected || 0, sgData.paid || 0);
+                    let itemsBrought = 0, itemsRemaining = 0;
+                    for (const item of (sgData.items || [])) { itemsBrought += item.itemsBrought || 0; itemsRemaining += item.remainingQuantity || 0; }
+                    row.push(itemsBrought, itemsRemaining, sgData.balance || 0);
+                    totalItemsBrought += itemsBrought; totalItemsRemaining += itemsRemaining;
                 }
-                row.push(s.totalExpected || 0);
-                row.push(s.totalPaid || 0);
-                row.push(totalItemsBrought);
-                row.push(totalItemsRemaining);
-                row.push(s.totalBalance || 0);
+                row.push(s.totalExpected || 0, s.totalPaid || 0, totalItemsBrought, totalItemsRemaining, s.totalBalance || 0);
                 return row;
             });
 
@@ -3469,48 +2953,33 @@ async function showStudentList() {
             link.download = `students_export_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
-            alert(`✅ ${studentsData.length} students exported! (Cash and Items tracked separately)`);
-        };
-
-        window.printStudentListReport = function () { window.print(); };
-        window.refreshStudentList = function () { showStudentList(); };
-
-        window.makePaymentForStudent = function (studentId) {
-            closeModal();
-            const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-            if (feeLink) feeLink.click();
-            else if (typeof showFeeManagement === 'function') showFeeManagement();
-            setTimeout(() => {
-                const studentSelect = document.getElementById('collectStudentSelect');
-                if (studentSelect) { studentSelect.value = studentId; studentSelect.dispatchEvent(new Event('change')); }
-                const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
-                if (collectTab) collectTab.click();
-            }, 500);
-        };
-
-        window.showStatusGroupItemDetailsModal = showStatusGroupItemDetailsModal;
-        window.showTuitionDetailsModal = showTuitionDetailsModal;
-        window.closeModal = closeModal;
-        window.makePaymentForStudent = makePaymentForStudent;
-        window.escapeHtml = escapeHtml;
-        window.formatMoney = formatMoney;
-
-    } catch (error) {
-        console.error('Error:', error);
-        if (mainContent) {
-            mainContent.innerHTML = `
-                <div class="db-app-bg -m-4 p-4 min-h-[60vh] flex items-center justify-center rounded-2xl">
-                    <div class="db-card p-10 text-center max-w-lg">
-                        <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-triangle-exclamation text-xl"></i>
-                        </div>
-                        <p class="text-slate-800 font-semibold text-lg font-display">Couldn't load students</p>
-                        <p class="text-slate-500 text-sm mt-1.5">${error.message}</p>
-                        <button onclick="showStudentList()" class="mt-5 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-rotate-right mr-2"></i>Retry</button>
-                    </div>
-                </div>`;
+            alert(`✅ ${studentsData.length} students exported!`);
+        } catch (error) {
+            alert('Export failed: ' + error.message);
         }
-    }
+    };
+
+    window.printStudentListReport = function () { window.print(); };
+
+    window.makePaymentForStudent = function (studentId) {
+        closeModal();
+        const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
+        if (feeLink) feeLink.click();
+        else if (typeof showFeeManagement === 'function') showFeeManagement();
+        setTimeout(() => {
+            const studentSelect = document.getElementById('collectStudentSelect');
+            if (studentSelect) { studentSelect.value = studentId; studentSelect.dispatchEvent(new Event('change')); }
+            const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
+            if (collectTab) collectTab.click();
+        }, 500);
+    };
+
+    window.closeModal = closeModal;
+    window.escapeHtml = escapeHtml;
+    window.formatMoney = formatMoney;
+
+    // ==================== KICK OFF ====================
+    fetchStudentsPage(1);
 }
 
 window.showStudentList = showStudentList;
