@@ -3984,29 +3984,29 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
 
                 if (!student.removedItems) student.removedItems = {};
 
-                let studentChanged = false;
-                for (const newItem of newlyAddedItems) {
-                    // Only add if not already tracked (avoids clobbering an
-                    // existing removed/restored state on re-save).
-                    if (!student.removedItems[newItem.itemId]) {
-                        student.removedItems[newItem.itemId] = {
-                            itemId: newItem.itemId,
-                            itemName: newItem.itemName,
-                            componentId: newItem.componentId,
-                            componentName: newItem.componentName,
-                            defaultAmount: newItem.defaultAmount,
-                            defaultQuantity: newItem.defaultQuantity,
-                            paymentOption: newItem.paymentOption,
-                            removedAt: new Date().toISOString(),
-                            reason: 'New item added to fee structure — not yet activated',
-                            isActive: true
-                            // No academicYear/term stamp: stays removed for ALL
-                            // periods until the bursar restores it.
-                        };
-                        studentChanged = true;
-                        itemsAutoRemovedCount++;
-                    }
-                }
+               let studentChanged = false;
+for (const newItem of newlyAddedItems) {
+    // ✅ Termly items bill every term automatically — skip auto-removal
+    // entirely, no restore step needed.
+    if (newItem.periodType === 'termly') continue;
+
+    if (!student.removedItems[newItem.itemId]) {
+        student.removedItems[newItem.itemId] = {
+            itemId: newItem.itemId,
+            itemName: newItem.itemName,
+            componentId: newItem.componentId,
+            componentName: newItem.componentName,
+            defaultAmount: newItem.defaultAmount,
+            defaultQuantity: newItem.defaultQuantity,
+            paymentOption: newItem.paymentOption,
+            removedAt: new Date().toISOString(),
+            reason: 'New item added to fee structure — not yet activated',
+            isActive: true
+        };
+        studentChanged = true;
+        itemsAutoRemovedCount++;
+    }
+}
 
                 if (studentChanged) {
                     student.hasRemovedItems = true;
