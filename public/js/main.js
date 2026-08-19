@@ -31924,176 +31924,6 @@ function esGetTermName(term) {
     return names[term] || `Term ${term}`;
 }
 
-/* ============================================================================
-   EDIT STUDENT — v2.0 (Modern UI + Status-Group Restore/Remove)
-   ----------------------------------------------------------------------------
-   - Preserves all original business logic:
-       * Year-aware fee assignment (per academicYear)
-       * Per-item customizations (amount/quantity/paymentOption/reason)
-       * Per-item removal, stamped with academicYear + term
-       * Class-change -> enrollment history update
-       * Custom bursary support
-   - Adds:
-       * Restore WHOLE status group (all removed items in a component) at once
-       * Remove WHOLE status group at once
-       * Fully restyled modal: stepper-style sectioned cards, motion/transitions,
-         redesigned item rows & group headers, animated toasts + confirm modal
-   ========================================================================== */
-
-/* ============================== SHARED UI HELPERS ============================== */
-// Toast + confirm-modal system, safe to call multiple times across pages.
-function ensureSharedUiHelpers() {
-    if (window.__sharedUiHelpersReady) return;
-    window.__sharedUiHelpersReady = true;
-
-    if (!document.getElementById('es-shared-ui-styles')) {
-        const style = document.createElement('style');
-        style.id = 'es-shared-ui-styles';
-        style.textContent = `
-            .es-toast-stack {
-                position: fixed; right: 20px; bottom: 20px; z-index: 100000;
-                display: flex; flex-direction: column; gap: 10px; pointer-events: none;
-            }
-            .es-toast {
-                pointer-events: auto;
-                min-width: 260px; max-width: 380px;
-                background: #1f2430; color: #fff;
-                padding: 12px 16px; border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,.25);
-                display: flex; align-items: flex-start; gap: 10px;
-                font-size: 13.5px; line-height: 1.4;
-                transform: translateY(16px) scale(.96); opacity: 0;
-                transition: transform .32s cubic-bezier(.34,1.56,.64,1), opacity .28s ease;
-                border-left: 4px solid #6b7280;
-            }
-            .es-toast.es-toast-show { transform: translateY(0) scale(1); opacity: 1; }
-            .es-toast.es-toast-success { border-left-color:#22c55e; }
-            .es-toast.es-toast-error   { border-left-color:#ef4444; }
-            .es-toast.es-toast-warning { border-left-color:#f59e0b; }
-            .es-toast.es-toast-info    { border-left-color:#3b82f6; }
-            .es-toast-icon { font-size: 16px; margin-top: 1px; }
-            .es-toast-close { margin-left: auto; opacity:.55; cursor:pointer; padding:2px 4px; }
-            .es-toast-close:hover { opacity:1; }
-
-            .es-confirm-overlay {
-                position: fixed; inset:0; background: rgba(15,17,23,.55);
-                backdrop-filter: blur(3px); z-index: 100001;
-                display:flex; align-items:center; justify-content:center;
-                opacity:0; transition: opacity .22s ease;
-            }
-            .es-confirm-overlay.es-show { opacity:1; }
-            .es-confirm-card {
-                background:#fff; border-radius:18px; width: 380px; max-width: 90vw;
-                padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(0,0,0,.3);
-                transform: translateY(14px) scale(.94); opacity:0;
-                transition: transform .28s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
-            }
-            .es-confirm-overlay.es-show .es-confirm-card { transform: translateY(0) scale(1); opacity:1; }
-            .es-confirm-icon {
-                width:46px; height:46px; border-radius:50%;
-                display:flex; align-items:center; justify-content:center;
-                font-size:20px; margin-bottom:12px;
-            }
-            .es-confirm-icon.tone-danger  { background:#fee2e2; color:#dc2626; }
-            .es-confirm-icon.tone-success { background:#dcfce7; color:#16a34a; }
-            .es-confirm-icon.tone-warning { background:#fef3c7; color:#d97706; }
-            .es-confirm-icon.tone-info    { background:#dbeafe; color:#2563eb; }
-            .es-confirm-title { font-size:16.5px; font-weight:700; color:#1f2430; margin-bottom:6px; }
-            .es-confirm-msg { font-size:13.5px; color:#5b6270; line-height:1.5; margin-bottom:18px; white-space:pre-line; }
-            .es-confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
-            .es-confirm-btn { padding:9px 16px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; border:none; transition:.15s; }
-            .es-confirm-btn-cancel { background:#f1f2f5; color:#444; }
-            .es-confirm-btn-cancel:hover { background:#e5e7eb; }
-            .es-confirm-btn-confirm { color:#fff; }
-            .es-confirm-btn-confirm.tone-danger  { background:#dc2626; } .es-confirm-btn-confirm.tone-danger:hover { background:#b91c1c; }
-            .es-confirm-btn-confirm.tone-success { background:#16a34a; } .es-confirm-btn-confirm.tone-success:hover { background:#15803d; }
-            .es-confirm-btn-confirm.tone-warning { background:#d97706; } .es-confirm-btn-confirm.tone-warning:hover { background:#b45309; }
-            .es-confirm-btn-confirm.tone-info    { background:#2563eb; } .es-confirm-btn-confirm.tone-info:hover { background:#1d4ed8; }
-        `;
-        document.head.appendChild(style);
-    }
-
-    if (!document.querySelector('.es-toast-stack')) {
-        const stack = document.createElement('div');
-        stack.className = 'es-toast-stack';
-        document.body.appendChild(stack);
-    }
-
-    if (typeof window.showToast !== 'function') {
-        window.showToast = function (message, type = 'info', duration = 3600) {
-            const stack = document.querySelector('.es-toast-stack');
-            if (!stack) return;
-            const icons = { success: '✅', error: '⛔', warning: '⚠️', info: 'ℹ️' };
-            const el = document.createElement('div');
-            el.className = `es-toast es-toast-${type}`;
-            el.innerHTML = `
-                <span class="es-toast-icon">${icons[type] || icons.info}</span>
-                <span>${message}</span>
-                <span class="es-toast-close">&times;</span>
-            `;
-            stack.appendChild(el);
-            requestAnimationFrame(() => el.classList.add('es-toast-show'));
-            const remove = () => {
-                el.classList.remove('es-toast-show');
-                setTimeout(() => el.remove(), 260);
-            };
-            el.querySelector('.es-toast-close').onclick = remove;
-            setTimeout(remove, duration);
-        };
-    }
-
-    if (typeof window.showConfirmModal !== 'function') {
-        window.showConfirmModal = function ({ tone = 'info', title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel' } = {}) {
-            return new Promise((resolve) => {
-                const icons = { danger: 'fa-triangle-exclamation', success: 'fa-check', warning: 'fa-circle-exclamation', info: 'fa-circle-info' };
-                const overlay = document.createElement('div');
-                overlay.className = 'es-confirm-overlay';
-                overlay.innerHTML = `
-                    <div class="es-confirm-card">
-                        <div class="es-confirm-icon tone-${tone}"><i class="fas ${icons[tone] || icons.info}"></i></div>
-                        <div class="es-confirm-title">${title}</div>
-                        <div class="es-confirm-msg">${message}</div>
-                        <div class="es-confirm-actions">
-                            <button class="es-confirm-btn es-confirm-btn-cancel" data-action="cancel">${cancelLabel}</button>
-                            <button class="es-confirm-btn es-confirm-btn-confirm tone-${tone}" data-action="confirm">${confirmLabel}</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                requestAnimationFrame(() => overlay.classList.add('es-show'));
-
-                function close(result) {
-                    overlay.classList.remove('es-show');
-                    setTimeout(() => overlay.remove(), 220);
-                    resolve(result);
-                }
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay) close(false);
-                    const action = e.target.closest('[data-action]')?.dataset?.action;
-                    if (action === 'confirm') close(true);
-                    if (action === 'cancel') close(false);
-                });
-                document.addEventListener('keydown', function escHandler(e) {
-                    if (e.key === 'Escape') { close(false); document.removeEventListener('keydown', escHandler); }
-                }, { once: true });
-            });
-        };
-    }
-}
-
-/* ============================== SMALL HELPERS ============================== */
-function esEscapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-function esFormatMoney(n) { return Math.round(parseFloat(n) || 0).toLocaleString(); }
-function esGetTermName(term) {
-    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
-    return names[term] || `Term ${term}`;
-}
-
 /* ============================== MODAL STYLES ============================== */
 function injectEditStudentStyles() {
     if (document.getElementById('es-edit-student-styles')) return;
@@ -33226,6 +33056,44 @@ async function editStudentInfoList(studentId) {
         window.showToast('Error loading student data: ' + error.message, 'error', 6000);
     }
 }
+// ==================== HELPER FUNCTIONS ====================
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
+    toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50`;
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// ========== MAKE FUNCTIONS GLOBAL ==========
+window.editStudentInfoList = editStudentInfoList;
+window.closeEditStudentModal = function() {
+    const modal = document.getElementById('editStudentModal');
+    if (modal) modal.remove();
+    window.currentEditStudent = null;
+};
+
+console.log('✅ editStudentInfoList - COMPLETE REBUILT WITH REMOVE ITEM FEATURE LOADED!');
+console.log('   - ✅ Remove Item: Click "Remove" button to permanently remove an item');
+console.log('   - ✅ Restore Item: Click "Restore" to add a removed item back');
+console.log('   - ✅ Visual indication: Removed items show with strike-through and red styling');
+console.log('   - ✅ Badge count: Shows number of removed items');
+console.log('   - ✅ All customizations preserved');
+console.log('   - ✅ Works with all period types (One-Time, Termly, Yearly)');
+console.log('✅ editStudentInfoList - COMPLETE REBUILT VERSION LOADED!');
+console.log('   - Transportation now appears as a regular item');
+console.log('   - Customize buttons work properly');
+console.log('   - Cancel and Close buttons work');
+console.log('   - All event listeners are properly attached');
 // ==================== FIX 2: TUITION VALIDATION - PREVENT EXCEEDING MAX ====================
 // ==================== FIXED: TUITION VALIDATION (Allows any amount up to max) ====================
 function validateAndCalculateTuition() {
