@@ -220,7 +220,37 @@ const files = {
      statusGroups: path.join(dataDir, 'statusGroups.json')
 };
 
+// ==================== HELPER: AUTO-REMOVE ALL ITEMS FOR A NEW STUDENT ====================
+// Used at registration/import time so a brand-new student (no payment history yet)
+// isn't billed for anything until the bursar explicitly restores specific items
+// via Edit Student -> Restore.
+function buildAllItemsRemovedForFeeStructure(feeStructure) {
+    const removedItems = {};
+    if (!feeStructure || !feeStructure.activityComponents) return removedItems;
 
+    for (const comp of feeStructure.activityComponents) {
+        if (!comp || !comp.items) continue;
+        for (const item of comp.items) {
+            if (!item) continue;
+            const itemId = item.id || item.name;
+            removedItems[itemId] = {
+                itemId: itemId,
+                itemName: item.name,
+                componentId: comp.id || null,
+                componentName: comp.name,
+                defaultAmount: item.totalAmount || 0,
+                defaultQuantity: item.quantity || 1,
+                paymentOption: item.paymentOption || 'either',
+                removedAt: new Date().toISOString(),
+                reason: 'New student — not yet activated',
+                isActive: true
+                // No academicYear/term stamp: stays removed for ALL periods
+                // until the bursar restores it.
+            };
+        }
+    }
+    return removedItems;
+}
 // ==================== HELPER FUNCTIONS ====================
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
