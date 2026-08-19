@@ -10753,6 +10753,7 @@ async function showStudentRegistration() {
         }
 
         // Re-render one item row in place (keeps DOM diffing simple & animatable)
+              // Re-render one item row in place (keeps DOM diffing simple & animatable)
         function refreshItemRow(itemId) {
             const el = document.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
             if (!el) return;
