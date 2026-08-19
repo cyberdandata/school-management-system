@@ -1744,7 +1744,7 @@ app.get('/api/students/:id', (req, res) => {
 
 // ==================== IMPORT STUDENTS FROM EXCEL ====================
 app.post('/api/students/import', upload.single('file'), async (req, res) => {
-    console.log('=== STUDENT IMPORT v4.0 - DAY vs BOARDING FIXED ===');
+    console.log('=== STUDENT IMPORT v5.0 - DAY vs BOARDING + DEFAULT-REMOVED ITEMS ===');
     
     try {
         if (!req.file) {
@@ -2048,6 +2048,42 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         }
         
         // ================================================================
+        // STEP 3b: HELPER — AUTO-REMOVE ALL ITEMS FOR A BRAND-NEW STUDENT
+        // ================================================================
+        // Mirrors the same behavior used at manual registration: a newly
+        // imported student (no payment history yet) starts with every
+        // scholastic item in their assigned fee structure marked "removed"
+        // (not billed). The bursar restores whichever items should actually
+        // be charged, via Edit Student -> Restore. Tuition is unaffected.
+        function buildAllItemsRemovedForFeeStructure(feeStructure) {
+            const removed = {};
+            if (!feeStructure || !feeStructure.activityComponents) return removed;
+
+            for (const comp of feeStructure.activityComponents) {
+                if (!comp || !comp.items) continue;
+                for (const item of comp.items) {
+                    if (!item) continue;
+                    const itemId = item.id || item.name;
+                    removed[itemId] = {
+                        itemId: itemId,
+                        itemName: item.name,
+                        componentId: comp.id || null,
+                        componentName: comp.name,
+                        defaultAmount: item.totalAmount || 0,
+                        defaultQuantity: item.quantity || 1,
+                        paymentOption: item.paymentOption || 'either',
+                        removedAt: new Date().toISOString(),
+                        reason: 'Not activated at import',
+                        isActive: true
+                        // No academicYear/term stamp: stays removed for ALL
+                        // periods until the bursar restores it.
+                    };
+                }
+            }
+            return removed;
+        }
+        
+        // ================================================================
         // STEP 4: PROCESS ROWS
         // ================================================================
         const results = {
@@ -2157,8 +2193,13 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 
                 let studentId;
                 let studentData;
+                let isNewStudent = false;
                 
                 if (existingStudent) {
+                    // ========== EXISTING STUDENT: UPDATE, DO NOT TOUCH removedItems ==========
+                    // An existing student may already have payment history and
+                    // active/customized items, so we never auto-remove anything
+                    // for them here.
                     studentId = existingStudent.id;
                     studentData = {
                         ...existingStudent,
@@ -2185,7 +2226,16 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     if (idx !== -1) students[idx] = studentData;
                     results.success++;
                 } else {
+                    // ========== BRAND-NEW STUDENT: AUTO-REMOVE ALL ITEMS ==========
+                    isNewStudent = true;
                     studentId = uuidv4();
+
+                    const feeStructureForNewStudent = feeStructureId
+                        ? feeStructures.find(f => f.id === feeStructureId)
+                        : null;
+                    const autoRemovedItems = buildAllItemsRemovedForFeeStructure(feeStructureForNewStudent);
+                    const hasAutoRemovedItems = Object.keys(autoRemovedItems).length > 0;
+
                     studentData = {
                         id: studentId,
                         admissionNumber: admissionNumber,
@@ -2209,12 +2259,21 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                         enrollmentDate: new Date().toISOString().split('T')[0],
                         status: 'Active',
                         currentClassId: classId || null,
+                        // ========== NEW: items not yet activated for this student ==========
+                        removedItems: hasAutoRemovedItems ? autoRemovedItems : null,
+                        hasRemovedItems: hasAutoRemovedItems,
+                        removedItemsCount: hasAutoRemovedItems ? Object.keys(autoRemovedItems).length : 0,
+                        assignedFeeStructureId: feeStructureId || null,
                         enrolledAt: new Date().toISOString(),
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     };
                     students.push(studentData);
                     results.success++;
+
+                    if (hasAutoRemovedItems) {
+                        console.log(`   🆕 Row ${i+1}: Auto-removed ${Object.keys(autoRemovedItems).length} item(s) for new student "${firstName} ${lastName}" (not yet billed)`);
+                    }
                 }
                 
                 results.students.push(studentData);
@@ -2261,6 +2320,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                             studentId: studentId,
                             feeStructureId: feeStructureId,
                             bursaryId: null,
+                            academicYear: currentYear,
                             assignedAt: new Date().toISOString()
                         });
                     }
@@ -2269,7 +2329,8 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                         studentId: studentId,
                         feeStructureId: feeStructureId,
                         feeStructureName: matchedFeeStructureName || 'Unknown',
-                        isBoarding: isBoardingDetected
+                        isBoarding: isBoardingDetected,
+                        isNewStudent: isNewStudent
                     });
                 }
                 
@@ -2291,9 +2352,12 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         saveFile(files.enrollments, enrollments);
         saveFile(files.studentFeeAssignments, feeAssignments);
         
+        const newStudentCount = results.students.filter(s => s.hasRemovedItems).length;
+        
         console.log(`✅ Import complete: ${results.success} successful, ${results.failed} failed`);
         console.log(`   Class assignments: ${results.classAssignments.length}`);
         console.log(`   Fee assignments: ${results.feeAssignments.length}`);
+        console.log(`   New students with auto-removed items: ${newStudentCount}`);
         
         // Build detailed summary
         let responseMessage = `Import completed: ${results.success} students processed, ${results.failed} failed.\n\n`;
@@ -2316,6 +2380,12 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
             }
         }
         
+        if (newStudentCount > 0) {
+            responseMessage += `\n❌ Items not activated:\n`;
+            responseMessage += `   ${newStudentCount} new student(s) had all fee items auto-removed (not billed).\n`;
+            responseMessage += `   Restore items individually via Edit Student -> Restore.\n`;
+        }
+        
         if (results.errors.length > 0) {
             responseMessage += `\n⚠️ Errors:\n${results.errors.slice(0, 10).join('\n')}`;
             if (results.errors.length > 10) {
@@ -2326,7 +2396,8 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         res.json({
             success: true,
             message: responseMessage,
-            results: results
+            results: results,
+            newStudentsWithRemovedItems: newStudentCount
         });
         
     } catch (error) {
