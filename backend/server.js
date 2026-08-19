@@ -2506,11 +2506,11 @@ app.get('/api/students/import/template', (req, res) => {
 // ==================== UPDATED STUDENT REGISTRATION WITH CUSTOMIZATIONS ====================
 
 app.post('/api/students/register', async (req, res) => {
-    console.log('=== REGISTRATION REQUEST RECEIVED ===');
+    console.log('=== REGISTRATION REQUEST RECEIVED (v2.0 - Default-Removed Items) ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
-    
+
     try {
-        const { 
+        const {
             firstName, lastName, gender, dateOfBirth,
             parentName, parentPhone, parentEmail, parentAltPhone,
             address, enrollmentClass, feeStructureId, bursaryId,
@@ -2519,36 +2519,73 @@ app.post('/api/students/register', async (req, res) => {
             customBursaryAmount,
             customTransportation,
             customItemOverrides, // Custom values for specific items
-            removedItems        // NEW: Items to remove (student does not pay)
+            removedItems         // Items NOT activated for this student (student does not pay)
         } = req.body;
-        
-        // Validate required fields
+
+        // ========== VALIDATE REQUIRED FIELDS ==========
         if (!firstName || !lastName || !gender || !parentName || !parentPhone || !address || !enrollmentClass || !feeStructureId) {
-            console.log('Missing required fields');
+            console.log('❌ Missing required fields');
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        
-        // Read existing data
+
+        // ========== READ EXISTING DATA ==========
         let students = readFile(files.students);
         if (!Array.isArray(students)) students = [];
-        
+
         // Generate admission number
         const currentYear = academicYear || new Date().getFullYear();
         const nextNumber = String(students.length + 1).padStart(4, '0');
         const admissionNumber = `STU${currentYear}${nextNumber}`;
-        
-        // Handle custom bursary
+
+        // ========== FETCH THE FEE STRUCTURE ONCE (shared by overrides + removed items) ==========
+        const feeStructures = readFile(files.feeStructures);
+        const feeStructure = feeStructures.find(f => f && f.id === feeStructureId);
+
+        if (!feeStructure) {
+            console.warn(`⚠️ Fee structure ${feeStructureId} not found — proceeding, but item lookups will be limited`);
+        }
+
+        // Helper: locate an item's defaults inside the fee structure by id or name
+        function findItemDefaults(itemId) {
+            const result = {
+                itemName: itemId,
+                componentId: null,
+                componentName: 'Unknown Component',
+                defaultAmount: 0,
+                defaultQuantity: 1,
+                paymentOption: 'either'
+            };
+            if (!feeStructure || !feeStructure.activityComponents) return result;
+
+            for (const comp of feeStructure.activityComponents) {
+                for (const item of (comp.items || [])) {
+                    if (item.id === itemId || item.name === itemId) {
+                        result.itemName = item.name || itemId;
+                        result.componentId = comp.id || null;
+                        result.componentName = comp.name || 'Unknown Component';
+                        result.defaultAmount = item.totalAmount || 0;
+                        result.defaultQuantity = item.quantity || 1;
+                        result.paymentOption = item.paymentOption || 'either';
+                        return result;
+                    }
+                }
+            }
+            return result;
+        }
+
+        // ========== HANDLE CUSTOM BURSARY ==========
         let customBursary = null;
-        if (customBursaryAmount && customBursaryAmount > 0) {
+        const parsedCustomBursaryAmount = parseFloat(customBursaryAmount) || 0;
+        if (parsedCustomBursaryAmount > 0) {
             customBursary = {
-                amount: customBursaryAmount,
+                amount: parsedCustomBursaryAmount,
                 appliedAt: new Date().toISOString(),
                 description: 'Special custom bursary applied during registration'
             };
-            console.log('Custom bursary applied:', customBursary);
+            console.log('🎖️ Custom bursary applied:', customBursary);
         }
-        
-        // Handle custom transportation
+
+        // ========== HANDLE CUSTOM TRANSPORTATION ==========
         let customTransportationData = null;
         if (customTransportation) {
             customTransportationData = {
@@ -2557,119 +2594,89 @@ app.post('/api/students/register', async (req, res) => {
                 itemId: customTransportation.itemId || null,
                 componentId: customTransportation.componentId || null,
                 appliedAt: new Date().toISOString(),
-                description: customTransportation.hasTransportation ? 
-                    'Custom transportation fee applied' : 
-                    'Student does not use school transport'
+                description: customTransportation.hasTransportation
+                    ? 'Custom transportation fee applied'
+                    : 'Student does not use school transport'
             };
-            console.log('Custom transportation applied:', customTransportationData);
+            console.log('🚌 Custom transportation applied:', customTransportationData);
         }
-        
+
         // ========== HANDLE CUSTOM ITEM OVERRIDES ==========
         let customItemOverridesData = null;
-        if (customItemOverrides && Object.keys(customItemOverrides).length > 0) {
+        if (customItemOverrides && typeof customItemOverrides === 'object' && Object.keys(customItemOverrides).length > 0) {
             customItemOverridesData = {};
-            
-            // Fetch the fee structure to get default values
-            const feeStructures = readFile(files.feeStructures);
-            const feeStructure = feeStructures.find(f => f.id === feeStructureId);
-            
+
             for (const [itemId, customData] of Object.entries(customItemOverrides)) {
-                if (customData.isCustomized) {
-                    // Find the item in the fee structure to get defaults
-                    let defaultAmount = customData.defaultAmount || 0;
-                    let defaultQuantity = customData.defaultQuantity || 1;
-                    let itemName = customData.itemName || itemId;
-                    let componentId = customData.componentId || null;
-                    
-                    // Try to find the item in the fee structure if defaults not provided
-                    if (feeStructure && feeStructure.activityComponents) {
-                        for (const comp of feeStructure.activityComponents) {
-                            for (const item of (comp.items || [])) {
-                                if (item.id === itemId || item.name === itemId) {
-                                    defaultAmount = item.totalAmount || 0;
-                                    defaultQuantity = item.quantity || 1;
-                                    itemName = item.name || itemId;
-                                    componentId = comp.id || componentId;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    
-                    customItemOverridesData[itemId] = {
-                        itemId: itemId,
-                        itemName: customData.itemName || itemName,
-                        componentId: customData.componentId || componentId,
-                        customAmount: customData.customAmount !== null && customData.customAmount !== undefined ? parseFloat(customData.customAmount) : null,
-                        customQuantity: customData.customQuantity !== null && customData.customQuantity !== undefined ? parseInt(customData.customQuantity) : null,
-                        paymentOption: customData.paymentOption || null,
-                        defaultAmount: defaultAmount,
-                        defaultQuantity: defaultQuantity,
-                        reason: customData.reason || 'Customized during registration',
-                        isActive: true,
-                        updatedAt: new Date().toISOString(),
-                        updatedBy: 'Registration'
-                    };
-                }
+                if (!customData || customData.isCustomized === false) continue;
+
+                const defaults = findItemDefaults(itemId);
+                const defaultAmount = customData.defaultAmount ?? defaults.defaultAmount;
+                const defaultQuantity = customData.defaultQuantity ?? defaults.defaultQuantity;
+                const itemName = customData.itemName || defaults.itemName;
+                const componentId = customData.componentId || defaults.componentId;
+
+                customItemOverridesData[itemId] = {
+                    itemId: itemId,
+                    itemName: itemName,
+                    componentId: componentId,
+                    customAmount: (customData.customAmount !== null && customData.customAmount !== undefined)
+                        ? parseFloat(customData.customAmount) : null,
+                    customQuantity: (customData.customQuantity !== null && customData.customQuantity !== undefined)
+                        ? parseInt(customData.customQuantity) : null,
+                    paymentOption: customData.paymentOption || defaults.paymentOption || null,
+                    defaultAmount: defaultAmount,
+                    defaultQuantity: defaultQuantity,
+                    reason: customData.reason || 'Customized during registration',
+                    isActive: true,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: 'Registration'
+                };
             }
-            
-            console.log('Custom item overrides applied:', Object.keys(customItemOverridesData).length);
+
+            if (Object.keys(customItemOverridesData).length === 0) {
+                customItemOverridesData = null;
+            } else {
+                console.log(`⚡ Custom item overrides applied: ${Object.keys(customItemOverridesData).length}`);
+            }
         }
-        
-        // ========== HANDLE REMOVED ITEMS (Student does not pay) ==========
+
+        // ========== HANDLE REMOVED ITEMS (NOT ACTIVATED — student is not billed) ==========
+        // The registration UI now marks every item as removed by default; the bursar
+        // restores whatever should actually be billed. Whatever is still flagged
+        // `true` here at submit time never got restored, so it stays off this
+        // student's bill (tuition is unaffected either way).
         let removedItemsData = null;
-        if (removedItems && Object.keys(removedItems).length > 0) {
+        if (removedItems && typeof removedItems === 'object' && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
-            
-            // Fetch the fee structure to get item details
-            const feeStructures = readFile(files.feeStructures);
-            const feeStructure = feeStructures.find(f => f.id === feeStructureId);
-            
+
             for (const [itemId, isRemoved] of Object.entries(removedItems)) {
-                if (isRemoved === true) {
-                    let itemName = itemId;
-                    let componentName = 'Unknown Component';
-                    let componentId = null;
-                    let defaultAmount = 0;
-                    let defaultQuantity = 1;
-                    let paymentOption = 'either';
-                    
-                    // Try to find the item in the fee structure
-                    if (feeStructure && feeStructure.activityComponents) {
-                        for (const comp of feeStructure.activityComponents) {
-                            for (const item of (comp.items || [])) {
-                                if (item.id === itemId || item.name === itemId) {
-                                    itemName = item.name || itemId;
-                                    componentName = comp.name || 'Unknown Component';
-                                    componentId = comp.id || null;
-                                    defaultAmount = item.totalAmount || 0;
-                                    defaultQuantity = item.quantity || 1;
-                                    paymentOption = item.paymentOption || 'either';
-                                    break;
-                                }
-                            }
-                            if (componentId) break;
-                        }
-                    }
-                    
-                    removedItemsData[itemId] = {
-                        itemId: itemId,
-                        itemName: itemName,
-                        componentId: componentId,
-                        componentName: componentName,
-                        defaultAmount: defaultAmount,
-                        defaultQuantity: defaultQuantity,
-                        paymentOption: paymentOption,
-                        removedAt: new Date().toISOString(),
-                        reason: 'Removed during registration',
-                        isActive: true
-                    };
-                }
+                if (isRemoved !== true) continue;
+
+                const defaults = findItemDefaults(itemId);
+
+                removedItemsData[itemId] = {
+                    itemId: itemId,
+                    itemName: defaults.itemName,
+                    componentId: defaults.componentId,
+                    componentName: defaults.componentName,
+                    defaultAmount: defaults.defaultAmount,
+                    defaultQuantity: defaults.defaultQuantity,
+                    paymentOption: defaults.paymentOption,
+                    removedAt: new Date().toISOString(),
+                    reason: 'Not activated at registration',
+                    isActive: true
+                    // No academicYear/term stamp: item stays removed for ALL
+                    // periods until the bursar restores it in Edit Student.
+                };
             }
-            
-            console.log('Removed items applied:', Object.keys(removedItemsData).length);
+
+            if (Object.keys(removedItemsData).length === 0) {
+                removedItemsData = null;
+            } else {
+                console.log(`❌ Items not activated (removed): ${Object.keys(removedItemsData).length}`);
+            }
         }
-        
+
         // ========== CREATE NEW STUDENT OBJECT ==========
         const newStudent = {
             id: uuidv4(),
@@ -2698,49 +2705,50 @@ app.post('/api/students/register', async (req, res) => {
             enrolledAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            
+
             // Customizations
             customBursary: customBursary,
             customTransportation: customTransportationData,
             customItemOverrides: customItemOverridesData,
-            
-            // ========== NEW: REMOVED ITEMS ==========
+
+            // Items not yet activated for this student
             removedItems: removedItemsData,
-            
+
             // Tracking flags
-            hasCustomizations: customItemOverridesData && Object.keys(customItemOverridesData).length > 0,
-            hasRemovedItems: removedItemsData && Object.keys(removedItemsData).length > 0,
+            hasCustomizations: !!(customItemOverridesData && Object.keys(customItemOverridesData).length > 0),
+            hasRemovedItems: !!(removedItemsData && Object.keys(removedItemsData).length > 0),
             customizationCount: customItemOverridesData ? Object.keys(customItemOverridesData).length : 0,
             removedItemsCount: removedItemsData ? Object.keys(removedItemsData).length : 0,
-            
+
             // Fee structure reference
-            assignedFeeStructureId: feeStructureId
+            assignedFeeStructureId: feeStructureId,
+            feeStructureId: feeStructureId
         };
-        
-        console.log('Creating student with:', {
+
+        console.log('📝 Creating student with:', {
             name: `${firstName} ${lastName}`,
             admissionNumber: admissionNumber,
-            customBursary: customBursary ? true : false,
-            customTransportation: customTransportationData ? true : false,
+            customBursary: !!customBursary,
+            customTransportation: !!customTransportationData,
             customItemOverrides: customItemOverridesData ? Object.keys(customItemOverridesData).length : 0,
             removedItems: removedItemsData ? Object.keys(removedItemsData).length : 0
         });
-        
-        // Save student
+
+        // ========== SAVE STUDENT ==========
         students.push(newStudent);
         const saved = saveFile(files.students, students);
-        
+
         if (!saved) {
-            console.error('Failed to save student to file');
+            console.error('❌ Failed to save student to file');
             return res.status(500).json({ error: 'Failed to save student data' });
         }
-        
-        console.log('Student saved successfully with ID:', newStudent.id);
-        
-        // Create enrollment record
+
+        console.log('✅ Student saved successfully with ID:', newStudent.id);
+
+        // ========== CREATE ENROLLMENT RECORD ==========
         let enrollments = readFile(files.enrollments);
         if (!Array.isArray(enrollments)) enrollments = [];
-        
+
         enrollments.push({
             id: uuidv4(),
             studentId: newStudent.id,
@@ -2750,45 +2758,46 @@ app.post('/api/students/register', async (req, res) => {
             enrolledAt: new Date().toISOString()
         });
         saveFile(files.enrollments, enrollments);
-        
-        // Save fee assignment
+
+        // ========== SAVE FEE ASSIGNMENT ==========
         if (feeStructureId) {
             let assignments = readFile(files.studentFeeAssignments);
             if (!Array.isArray(assignments)) assignments = [];
-            
+
             let finalBursaryId = null;
-            if (bursaryId === 'custom') {
-                finalBursaryId = null;
-            } else if (bursaryId && bursaryId !== '') {
+            if (bursaryId && bursaryId !== '' && bursaryId !== 'custom') {
                 finalBursaryId = bursaryId;
             }
-            
+
             assignments.push({
                 id: uuidv4(),
                 studentId: newStudent.id,
                 feeStructureId: feeStructureId,
                 bursaryId: finalBursaryId,
-                customBursaryAmount: customBursaryAmount > 0 ? customBursaryAmount : null,
+                customBursaryAmount: parsedCustomBursaryAmount > 0 ? parsedCustomBursaryAmount : null,
+                academicYear: parseInt(currentYear),
                 assignedAt: new Date().toISOString()
             });
             saveFile(files.studentFeeAssignments, assignments);
+            console.log(`💰 Fee assignment saved for academic year ${currentYear}`);
         }
-        
-        console.log('Registration complete!');
-        res.json({ 
-            success: true, 
+
+        console.log('✅✅✅ Registration complete!');
+        res.json({
+            success: true,
             student: newStudent,
             message: 'Student registered successfully',
             summary: {
                 customizations: newStudent.customizationCount || 0,
                 removedItems: newStudent.removedItemsCount || 0,
-                hasBursary: customBursary ? true : false,
-                hasCustomTransport: customTransportationData ? true : false
+                hasBursary: !!customBursary,
+                hasCustomTransport: !!customTransportationData
             }
         });
-        
+
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('❌ Registration error:', error);
+        console.error('Stack:', error.stack);
         res.status(500).json({ error: error.message });
     }
 });
