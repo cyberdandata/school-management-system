@@ -2622,32 +2622,34 @@ app.post('/api/students/register', async (req, res) => {
         }
 
         // Helper: locate an item's defaults inside the fee structure by id or name
-        function findItemDefaults(itemId) {
-            const result = {
-                itemName: itemId,
-                componentId: null,
-                componentName: 'Unknown Component',
-                defaultAmount: 0,
-                defaultQuantity: 1,
-                paymentOption: 'either'
-            };
-            if (!feeStructure || !feeStructure.activityComponents) return result;
+       function findItemDefaults(itemId) {
+    const result = {
+        itemName: itemId,
+        componentId: null,
+        componentName: 'Unknown Component',
+        defaultAmount: 0,
+        defaultQuantity: 1,
+        paymentOption: 'either',
+        periodType: 'termly'          // ← add this
+    };
+    if (!feeStructure || !feeStructure.activityComponents) return result;
 
-            for (const comp of feeStructure.activityComponents) {
-                for (const item of (comp.items || [])) {
-                    if (item.id === itemId || item.name === itemId) {
-                        result.itemName = item.name || itemId;
-                        result.componentId = comp.id || null;
-                        result.componentName = comp.name || 'Unknown Component';
-                        result.defaultAmount = item.totalAmount || 0;
-                        result.defaultQuantity = item.quantity || 1;
-                        result.paymentOption = item.paymentOption || 'either';
-                        return result;
-                    }
-                }
+    for (const comp of feeStructure.activityComponents) {
+        for (const item of (comp.items || [])) {
+            if (item.id === itemId || item.name === itemId) {
+                result.itemName = item.name || itemId;
+                result.componentId = comp.id || null;
+                result.componentName = comp.name || 'Unknown Component';
+                result.defaultAmount = item.totalAmount || 0;
+                result.defaultQuantity = item.quantity || 1;
+                result.paymentOption = item.paymentOption || 'either';
+                result.periodType = comp.periodType || 'termly';   // ← add this
+                return result;
             }
-            return result;
         }
+    }
+    return result;
+}
 
         // ========== HANDLE CUSTOM BURSARY ==========
         let customBursary = null;
