@@ -10432,6 +10432,241 @@ async function showStudentRegistration() {
         //     recalcFeeBar();
         // }
 
+                // ========== Load fee structure items for customization ==========
+        function loadFeeStructureItemsForCustomization() {
+            console.log('loadFeeStructureItemsForCustomization called');
+
+            const feeSelect = document.getElementById('feeStructureId');
+            const container = document.getElementById('itemsCustomizationContainer');
+            const list = document.getElementById('itemsCustomizationList');
+
+            if (!feeSelect || !container || !list) {
+                console.warn('Required elements not found');
+                return;
+            }
+
+            if (!feeSelect.value) {
+                container.classList.add('hidden');
+                hideFeeBar();
+                return;
+            }
+
+            container.classList.remove('hidden');
+            container.classList.add('sr-in');
+
+            const selectedOption = feeSelect.options[feeSelect.selectedIndex];
+            let feeStructure = null;
+            try {
+                feeStructure = JSON.parse(selectedOption.dataset.structure);
+            } catch (e) {
+                feeStructure = { activityComponents: [] };
+            }
+
+            window.srCurrentFeeStructure = feeStructure;
+
+            // Clear existing customizations
+            window.tempItemCustomizations = {};
+            window.tempRemovedItems = {};
+            window.srComponentGroups = {}; // componentIndex -> [itemIds]
+
+            const activityComponents = feeStructure.activityComponents || [];
+
+            // ========== PASS 1: auto-remove every item by default ==========
+            // New student = no payment history yet, so nothing should be billed
+            // until the bursar explicitly restores a group or an item.
+            for (const component of activityComponents) {
+                if (!component.items || component.items.length === 0) continue;
+                for (const item of component.items) {
+                    const itemId = item.id || item.name;
+                    window.tempRemovedItems[itemId] = true;
+                }
+            }
+
+            let itemsHtml = '';
+            let hasItems = false;
+            let cardIndex = 0;
+            let componentIndex = 0;
+
+            const accentFor = (periodType) =>
+                periodType === 'one_time' ? { c: '#7C6BEF', label: 'One-time' } :
+                periodType === 'termly' ? { c: '#0E9C8E', label: 'Termly' } :
+                { c: '#DB9A2C', label: 'Yearly' };
+
+            for (const component of activityComponents) {
+                if (!component.items || component.items.length === 0) continue;
+                const { c: accent, label: periodLabel } = accentFor(component.periodType);
+
+                const groupIndex = componentIndex++;
+                const itemIds = component.items.map(item => item.id || item.name);
+                window.srComponentGroups[groupIndex] = itemIds;
+
+                itemsHtml += `
+                    <div class="sr-component sr-in" style="--sr-accent:${accent}; --sr-delay:${cardIndex * 40}ms" data-group-index="${groupIndex}">
+                        <div class="sr-component-head">
+                            <span class="sr-period-chip" style="--sr-accent:${accent}">${periodLabel}</span>
+                            <h4>${escapeHtmlSafe(component.name)}</h4>
+                            <span class="sr-component-total">UGX ${(component.totalAmount || 0).toLocaleString()}</span>
+                        </div>
+                        <div class="sr-group-actions" id="groupActions_${groupIndex}">
+                            ${renderGroupActionButtons(groupIndex)}
+                        </div>
+                        <div class="sr-component-items" id="groupItems_${groupIndex}">
+                            ${component.items.map(item => {
+                                hasItems = true;
+                                cardIndex++;
+                                const itemId = item.id || item.name;
+                                const defaultAmount = item.totalAmount || 0;
+                                const defaultQuantity = item.quantity || 1;
+                                const paymentOption = item.paymentOption || 'either';
+
+                                return renderItemRow({
+                                    itemId, itemName: item.name, componentName: component.name,
+                                    periodType: component.periodType, defaultAmount, defaultQuantity, paymentOption
+                                });
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (hasItems) {
+                list.innerHTML = itemsHtml;
+            } else {
+                list.innerHTML = `
+                    <div class="sr-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No items found in this fee structure</p>
+                    </div>
+                `;
+            }
+
+            recalcFeeBar();
+        }
+
+        // ========== Group status helper ==========
+        function getGroupStatus(groupIndex) {
+            const itemIds = window.srComponentGroups?.[groupIndex] || [];
+            if (itemIds.length === 0) return { removedCount: 0, total: 0, allRemoved: false, noneRemoved: true };
+            const removedCount = itemIds.filter(id => window.tempRemovedItems[id]).length;
+            return {
+                removedCount,
+                total: itemIds.length,
+                allRemoved: removedCount === itemIds.length,
+                noneRemoved: removedCount === 0
+            };
+        }
+
+        // ========== Render the group-level Restore/Remove buttons ==========
+        function renderGroupActionButtons(groupIndex) {
+            const { removedCount, total, allRemoved, noneRemoved } = getGroupStatus(groupIndex);
+
+            let statusText = '';
+            if (allRemoved) statusText = `<span class="sr-tag sr-tag-rose">All ${total} item(s) removed</span>`;
+            else if (noneRemoved) statusText = `<span class="sr-tag sr-tag-green">All ${total} item(s) active</span>`;
+            else statusText = `<span class="sr-tag sr-tag-amber">${removedCount}/${total} removed</span>`;
+
+            return `
+                <div class="sr-group-actions-inner">
+                    ${statusText}
+                    <div class="sr-group-actions-buttons">
+                        ${!noneRemoved ? `
+                            <button type="button" class="sr-btn sr-btn-sm sr-btn-success" onclick="restoreGroupItems(${groupIndex})">
+                                <i class="fas fa-undo"></i> Restore whole group
+                            </button>
+                        ` : ''}
+                        ${!allRemoved ? `
+                            <button type="button" class="sr-btn sr-btn-sm sr-btn-ghost" onclick="removeGroupItems(${groupIndex})">
+                                <i class="fas fa-trash"></i> Remove whole group
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function refreshGroupActions(groupIndex) {
+            const el = document.getElementById(`groupActions_${groupIndex}`);
+            if (el) el.innerHTML = renderGroupActionButtons(groupIndex);
+        }
+
+        // ========== Restore / remove an entire status group ==========
+        window.restoreGroupItems = async function (groupIndex) {
+            const itemIds = window.srComponentGroups?.[groupIndex] || [];
+            if (itemIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'success',
+                title: 'Restore this whole group?',
+                message: `All ${itemIds.length} item(s) in this group will be billed for this student.`,
+                confirmLabel: 'Restore group'
+            });
+            if (!ok) return;
+
+            itemIds.forEach(id => delete window.tempRemovedItems[id]);
+            itemIds.forEach(id => refreshItemRow(id));
+            refreshGroupActions(groupIndex);
+            recalcFeeBar();
+            window.showToast('Group restored — all items in it will be billed', 'success');
+        };
+
+        window.removeGroupItems = async function (groupIndex) {
+            const itemIds = window.srComponentGroups?.[groupIndex] || [];
+            if (itemIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: 'Remove this whole group?',
+                message: `All ${itemIds.length} item(s) in this group will not be charged to this student.`,
+                confirmLabel: 'Remove group'
+            });
+            if (!ok) return;
+
+            itemIds.forEach(id => { window.tempRemovedItems[id] = true; delete window.tempItemCustomizations[id]; });
+            itemIds.forEach(id => refreshItemRow(id));
+            refreshGroupActions(groupIndex);
+            recalcFeeBar();
+            window.showToast('Group removed — nothing in it will be billed', 'info');
+        };
+
+        // ========== Restore / remove everything across all groups ==========
+        window.restoreAllRegistrationItems = async function () {
+            const allIds = Object.values(window.srComponentGroups || {}).flat();
+            if (allIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'success',
+                title: 'Restore all items?',
+                message: `All ${allIds.length} item(s) across every group will be billed for this student.`,
+                confirmLabel: 'Restore all'
+            });
+            if (!ok) return;
+
+            allIds.forEach(id => delete window.tempRemovedItems[id]);
+            allIds.forEach(id => refreshItemRow(id));
+            Object.keys(window.srComponentGroups || {}).forEach(gi => refreshGroupActions(parseInt(gi)));
+            recalcFeeBar();
+            window.showToast('All items restored', 'success');
+        };
+
+        window.removeAllRegistrationItems = async function () {
+            const allIds = Object.values(window.srComponentGroups || {}).flat();
+            if (allIds.length === 0) return;
+
+            const ok = await window.showConfirmModal({
+                tone: 'danger',
+                title: 'Remove all items?',
+                message: `All ${allIds.length} item(s) across every group will not be charged. Only tuition will bill.`,
+                confirmLabel: 'Remove all'
+            });
+            if (!ok) return;
+
+            allIds.forEach(id => { window.tempRemovedItems[id] = true; delete window.tempItemCustomizations[id]; });
+            allIds.forEach(id => refreshItemRow(id));
+            Object.keys(window.srComponentGroups || {}).forEach(gi => refreshGroupActions(parseInt(gi)));
+            recalcFeeBar();
+            window.showToast('All items removed', 'info');
+        };
+
         // ========== Render a single item row (used on initial load and restore) ==========
         function renderItemRow({ itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption }) {
             const custom = window.tempItemCustomizations[itemId] || {};
