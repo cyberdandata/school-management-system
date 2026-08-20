@@ -68556,1294 +68556,1420 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 
 // ==================== ULTRA-COMPREHENSIVE DASHBOARD WITH FEE STRUCTURES ====================
 // Version: 10.0 - Complete School Dashboard with Fee Structure Statistics
-
-// ==================== COMPLETE REBUILT DASHBOARD ====================
-// Version: 11.0 - Full numbers, no abbreviations, accurate calculations
-
-// ==================== COMPLETE REBUILT DASHBOARD ====================
-// Version: 11.0 - Full numbers, no K/M abbreviations, proper formatting
-
-// ==================== COMPLETE REBUILT DASHBOARD ====================
-// Version: 3.0 - Status Group Focused
-
-// ==================== SHOW DASHBOARD ====================
-// ==================== DASHBOARD HELPER FUNCTIONS ====================
-
 // ============================================================================
-// SCHOOL DASHBOARD — MODERN EDITION
-// Version: 12.0 — Ledger-inspired redesign (teal/indigo, receipt-edge signature)
-// Same data contracts & endpoints as before — visuals fully rebuilt.
+// SCHOOL DASHBOARD — ANALYTICS EDITION
+// Version: 14.0 — Fully defensive rebuild. Wrapped in IIFE to prevent
+// redeclaration/TDZ errors from duplicate script loads. Every external
+// dependency (localStorage, other global functions) is guarded so a single
+// failure point can never crash the whole dashboard.
 // ============================================================================
 
-// ---------------------------------------------------------------------------
-// 0. DESIGN SYSTEM — injected once
-// ---------------------------------------------------------------------------
-function injectDashboardDesignSystem() {
-    if (document.getElementById('dashboard-modern-fonts')) return;
+(function () {
+    'use strict';
 
-    const fontLink = document.createElement('link');
-    fontLink.id = 'dashboard-modern-fonts';
-    fontLink.rel = 'stylesheet';
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap';
-    document.head.appendChild(fontLink);
-
-    const style = document.createElement('style');
-    style.id = 'dashboard-modern-styles';
-    style.textContent = `
-        :root{
-            --ink:#0B1324; --ink-soft:#475569; --line:#E7ECF3;
-            --surface:#FFFFFF; --app-bg:#F3F6FB;
-            --teal:#0E9C8E; --teal-dark:#0B7A70; --indigo:#4F5FE8;
-            --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0;
-        }
-        .font-display{font-family:'Sora',ui-sans-serif,system-ui,sans-serif;}
-        .font-body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
-        .font-mono-num{font-family:'JetBrains Mono',ui-monospace,monospace;}
-        #mainContent{ font-family:'Inter',ui-sans-serif,system-ui,sans-serif; color:var(--ink); }
-
-        .db-app-bg{
-            background:
-              radial-gradient(1200px 500px at 100% -10%, rgba(79,95,232,.10), transparent 60%),
-              radial-gradient(1000px 460px at -10% 0%, rgba(14,156,142,.10), transparent 55%),
-              var(--app-bg);
-        }
-
-        /* ---- Hero banner with torn-receipt edge (signature element) ---- */
-        .db-hero{
-            position:relative;
-            background:linear-gradient(115deg,#0B7A70 0%, #0E9C8E 42%, #4F5FE8 100%);
-            border-radius:26px; padding:34px 34px 46px 34px; color:#fff;
-            box-shadow:0 20px 45px -18px rgba(15,23,42,.35);
-            overflow:hidden;
-        }
-        .db-hero::before{
-            content:''; position:absolute; inset:0; opacity:.14; pointer-events:none;
-            background-image:
-              radial-gradient(circle at 18% 22%, #fff 0 1.5px, transparent 1.6px),
-              radial-gradient(circle at 78% 62%, #fff 0 1.5px, transparent 1.6px),
-              radial-gradient(circle at 46% 82%, #fff 0 1.5px, transparent 1.6px);
-            background-size:120px 120px;
-        }
-        .db-hero-edge{
-            position:absolute; left:0; right:0; bottom:-1px; height:16px;
-            background:
-              linear-gradient(135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px,
-              linear-gradient(-135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px;
-            background-repeat:repeat-x;
-        }
-        .db-chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); }
-        .db-chip:hover{ background:rgba(255,255,255,.26); }
-
-        /* ---- Metric / KPI cards ---- */
-        .db-metric{
-            background:var(--surface); border:1px solid var(--line); border-radius:18px;
-            padding:16px; position:relative; overflow:hidden;
-            transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-        }
-        .db-metric:hover{ transform:translateY(-3px); box-shadow:0 16px 30px -18px rgba(15,23,42,.28); border-color:transparent; }
-        .db-metric-icon{
-            width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-            font-size:15px; flex-shrink:0;
-        }
-        .db-metric-value{ font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:-.01em; }
-
-        /* ---- Section headers ---- */
-        .db-eyebrow{
-            font-family:'Sora',sans-serif; font-weight:700; font-size:11px; letter-spacing:.14em;
-            text-transform:uppercase; color:var(--teal-dark);
-        }
-        .db-section-title{ font-family:'Sora',sans-serif; font-weight:700; color:var(--ink); }
-
-        /* ---- Status group cards ---- */
-        .db-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; }
-        .db-card-hd{ border-bottom:1px solid var(--line); }
-        .db-progress-track{ background:#EEF1F6; border-radius:999px; overflow:hidden; }
-        .db-progress-fill{ border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
-
-        /* ---- Table ---- */
-        .db-table thead th{
-            font-family:'Sora',sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
-            color:#7A879C; background:#F8FAFC; position:sticky; top:0; z-index:1;
-        }
-        .db-table tbody tr{ transition:background .12s ease; }
-        .db-table tbody tr:hover{ background:#F7FAFC; }
-
-        /* ---- Badges ---- */
-        .db-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.01em; }
-
-        /* ---- Scrollbars ---- */
-        .db-scroll::-webkit-scrollbar{ width:8px; height:8px; }
-        .db-scroll::-webkit-scrollbar-thumb{ background:#D6DEE9; border-radius:99px; }
-        .db-scroll::-webkit-scrollbar-track{ background:transparent; }
-
-        /* ---- Skeleton ---- */
-        @keyframes db-shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
-        .db-skeleton{
-            background:linear-gradient(90deg,#EEF1F6 25%,#F7F9FC 37%,#EEF1F6 63%);
-            background-size:400px 100%; animation:db-shimmer 1.4s ease-in-out infinite; border-radius:12px;
-        }
-
-        /* ---- Quick action tiles ---- */
-        .db-action{
-            background:var(--surface); border:1px solid var(--line); border-radius:16px;
-            transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-        }
-        .db-action:hover{ transform:translateY(-2px); box-shadow:0 14px 26px -16px rgba(15,23,42,.25); border-color:transparent; }
-
-        .db-fade-in{ animation:db-fadeIn .4s ease both; }
-        @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
-
-        @media (prefers-reduced-motion: reduce){
-            .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// ---------------------------------------------------------------------------
-// 1. HELPERS
-// ---------------------------------------------------------------------------
-function getStatusColor(rate) {
-    if (rate >= 85) return 'text-emerald-600';
-    if (rate >= 70) return 'text-amber-600';
-    if (rate >= 50) return 'text-orange-600';
-    return 'text-rose-600';
-}
-
-function getStatusBarColor(rate) {
-    if (rate >= 85) return 'bg-emerald-500';
-    if (rate >= 70) return 'bg-amber-500';
-    if (rate >= 50) return 'bg-orange-500';
-    return 'bg-rose-500';
-}
-
-function getStatusBadge(rate) {
-    if (rate >= 85) return '<span class="db-badge bg-emerald-50 text-emerald-700 border border-emerald-200">Excellent</span>';
-    if (rate >= 70) return '<span class="db-badge bg-amber-50 text-amber-700 border border-amber-200">Good</span>';
-    if (rate >= 50) return '<span class="db-badge bg-orange-50 text-orange-700 border border-orange-200">Needs Attention</span>';
-    return '<span class="db-badge bg-rose-50 text-rose-700 border border-rose-200">Critical</span>';
-}
-
-function getStatusGroupColor(name) {
-    if (!name) return 'border-slate-300';
-    const colors = {
-        'Transportation': 'border-orange-400',
-        'Admission Fee': 'border-purple-400',
-        'schoolastic requirement': 'border-emerald-400',
-        'Scholastic': 'border-emerald-400',
-        'Sports': 'border-sky-400',
-        'Development': 'border-rose-400',
-        'Tuition': 'border-indigo-400'
-    };
-    const lowerName = (name || '').toLowerCase();
-    for (const [key, color] of Object.entries(colors)) {
-        if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) return color;
+    // Prevent this whole block from running twice if the script tag somehow
+    // gets included more than once (common cause of "already declared" /
+    // TDZ errors in dashboards that get re-injected by a router).
+    if (window.__dashboardV14Loaded) {
+        console.warn('Dashboard v14 already loaded — skipping re-init.');
+        return;
     }
-    return 'border-slate-300';
-}
+    window.__dashboardV14Loaded = true;
 
-function formatMoney(amount) {
-    const num = Math.round(amount || 0);
-    return num.toLocaleString('en-US');
-}
+    // ------------------------------------------------------------------
+    // 0. DESIGN SYSTEM
+    // ------------------------------------------------------------------
+    function injectDashboardDesignSystem() {
+        if (document.getElementById('dashboard-modern-fonts')) return;
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+        try {
+            const fontLink = document.createElement('link');
+            fontLink.id = 'dashboard-modern-fonts';
+            fontLink.rel = 'stylesheet';
+            fontLink.href = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap';
+            document.head.appendChild(fontLink);
+        } catch (e) { console.warn('Font injection failed:', e); }
 
-function getTermName(term) {
-    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
-    return names[term] || `Term ${term}`;
-}
+        try {
+            const style = document.createElement('style');
+            style.id = 'dashboard-modern-styles';
+            style.textContent = `
+                :root{
+                    --ink:#0B1324; --ink-soft:#475569; --line:#E7ECF3;
+                    --surface:#FFFFFF; --app-bg:#F3F6FB;
+                    --teal:#0E9C8E; --teal-dark:#0B7A70; --indigo:#4F5FE8;
+                    --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0;
+                }
+                .font-display{font-family:'Sora',ui-sans-serif,system-ui,sans-serif;}
+                .font-body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
+                .font-mono-num{font-family:'JetBrains Mono',ui-monospace,monospace;}
+                #mainContent{ font-family:'Inter',ui-sans-serif,system-ui,sans-serif; color:var(--ink); }
 
-// ---------------------------------------------------------------------------
-// 2. MAIN DASHBOARD FUNCTION
-// ---------------------------------------------------------------------------
-async function showDashboard() {
-    console.log('showDashboard() — modern edition v12.0');
-    injectDashboardDesignSystem();
+                .db-app-bg{
+                    background:
+                      radial-gradient(1200px 500px at 100% -10%, rgba(79,95,232,.10), transparent 60%),
+                      radial-gradient(1000px 460px at -10% 0%, rgba(14,156,142,.10), transparent 55%),
+                      var(--app-bg);
+                }
 
-    const pageTitle = document.getElementById('pageTitle');
-    if (pageTitle) pageTitle.innerHTML = '<i class="fas fa-chart-pie mr-2"></i>Dashboard';
+                .db-hero{
+                    position:relative;
+                    background:linear-gradient(115deg,#0B7A70 0%, #0E9C8E 42%, #4F5FE8 100%);
+                    border-radius:26px; padding:34px 34px 46px 34px; color:#fff;
+                    box-shadow:0 20px 45px -18px rgba(15,23,42,.35);
+                    overflow:hidden;
+                }
+                .db-hero::before{
+                    content:''; position:absolute; inset:0; opacity:.14; pointer-events:none;
+                    background-image:
+                      radial-gradient(circle at 18% 22%, #fff 0 1.5px, transparent 1.6px),
+                      radial-gradient(circle at 78% 62%, #fff 0 1.5px, transparent 1.6px),
+                      radial-gradient(circle at 46% 82%, #fff 0 1.5px, transparent 1.6px);
+                    background-size:120px 120px;
+                }
+                .db-hero-edge{
+                    position:absolute; left:0; right:0; bottom:-1px; height:16px;
+                    background:
+                      linear-gradient(135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px,
+                      linear-gradient(-135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px;
+                    background-repeat:repeat-x;
+                }
+                .db-chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); }
+                .db-chip:hover{ background:rgba(255,255,255,.26); }
 
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        mainContent.innerHTML = `
-            <div class="db-app-bg -m-4 p-4 min-h-[70vh] rounded-2xl">
-                <div class="db-hero mb-6" style="padding-bottom:30px;">
-                    <div class="db-skeleton h-8 w-64 mb-3 opacity-40"></div>
-                    <div class="db-skeleton h-4 w-40 opacity-30"></div>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                    ${Array(8).fill('<div class="db-skeleton h-24 rounded-2xl"></div>').join('')}
-                </div>
-            </div>
-        `;
-    }
+                .db-metric{
+                    background:var(--surface); border:1px solid var(--line); border-radius:18px;
+                    padding:16px; position:relative; overflow:hidden;
+                    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+                }
+                .db-metric:hover{ transform:translateY(-3px); box-shadow:0 16px 30px -18px rgba(15,23,42,.28); border-color:transparent; }
+                .db-metric-value{ font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:-.01em; }
 
-    try {
-        await initializeAcademicSettings();
-        const { currentYear, currentTerm } = currentAcademicSettings;
-        const termName = getTermName(currentTerm);
+                .db-eyebrow{
+                    font-family:'Sora',sans-serif; font-weight:700; font-size:11px; letter-spacing:.14em;
+                    text-transform:uppercase; color:var(--teal-dark);
+                }
+                .db-section-title{ font-family:'Sora',sans-serif; font-weight:700; color:var(--ink); }
 
-        const response = await fetch('/api/dashboard/stats');
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                .db-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; }
+                .db-card-hd{ border-bottom:1px solid var(--line); }
+                .db-progress-track{ background:#EEF1F6; border-radius:999px; overflow:hidden; }
+                .db-progress-fill{ border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
 
-        const result = await response.json();
-        if (!result.success) throw new Error(result.error || 'Failed to load dashboard data');
+                .db-table thead th{
+                    font-family:'Sora',sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+                    color:#7A879C; background:#F8FAFC; position:sticky; top:0; z-index:1;
+                }
+                .db-table tbody tr{ transition:background .12s ease; }
+                .db-table tbody tr:hover{ background:#F7FAFC; }
 
-        const data = result.data;
-        window.dashboardData = data;
-        renderDashboard(data, termName, currentYear, currentTerm);
+                .db-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.01em; }
 
-    } catch (error) {
-        console.error('Error loading dashboard:', error);
-        if (mainContent) {
-            mainContent.innerHTML = `
-                <div class="db-card p-10 text-center max-w-lg mx-auto mt-10">
-                    <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-triangle-exclamation text-xl"></i>
-                    </div>
-                    <p class="text-slate-800 font-semibold text-lg font-display">Couldn't load the dashboard</p>
-                    <p class="text-slate-500 text-sm mt-1.5">${escapeHtml(error.message)}</p>
-                    <button onclick="showDashboard()" class="mt-5 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">
-                        <i class="fas fa-rotate-right mr-2"></i>Try again
-                    </button>
-                </div>
+                .db-scroll::-webkit-scrollbar{ width:8px; height:8px; }
+                .db-scroll::-webkit-scrollbar-thumb{ background:#D6DEE9; border-radius:99px; }
+                .db-scroll::-webkit-scrollbar-track{ background:transparent; }
+
+                @keyframes db-shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
+                .db-skeleton{
+                    background:linear-gradient(90deg,#EEF1F6 25%,#F7F9FC 37%,#EEF1F6 63%);
+                    background-size:400px 100%; animation:db-shimmer 1.4s ease-in-out infinite; border-radius:12px;
+                }
+
+                .db-action{
+                    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+                    transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+                }
+                .db-action:hover{ transform:translateY(-2px); box-shadow:0 14px 26px -16px rgba(15,23,42,.25); border-color:transparent; }
+
+                .db-fade-in{ animation:db-fadeIn .4s ease both; }
+                @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+                .db-stale-banner{
+                    background:#FFF7ED; border:1px solid #FDBA74; color:#9A3412;
+                    border-radius:14px; padding:10px 16px; font-size:13px; font-weight:600;
+                }
+
+                @media (prefers-reduced-motion: reduce){
+                    .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
+                }
             `;
-        }
+            document.head.appendChild(style);
+        } catch (e) { console.warn('Style injection failed:', e); }
     }
-}
 
-// ---------------------------------------------------------------------------
-// 3. SCHOOL DATA INIT (unchanged behaviour)
-// ---------------------------------------------------------------------------
-function initializeSchoolData() {
-    let school = null;
-    try {
-        const saved = localStorage.getItem('schoolData');
-        if (saved) {
-            school = JSON.parse(saved);
-            if (school && school.schoolName) { updateSchoolInfoUI(school); return; }
+    // ------------------------------------------------------------------
+    // 1. SAFE HELPERS
+    // ------------------------------------------------------------------
+    function getStatusColor(rate) {
+        if (rate >= 85) return 'text-emerald-600';
+        if (rate >= 70) return 'text-amber-600';
+        if (rate >= 50) return 'text-orange-600';
+        return 'text-rose-600';
+    }
+    function getStatusBarColor(rate) {
+        if (rate >= 85) return 'bg-emerald-500';
+        if (rate >= 70) return 'bg-amber-500';
+        if (rate >= 50) return 'bg-orange-500';
+        return 'bg-rose-500';
+    }
+    function getStatusBadge(rate) {
+        if (rate >= 85) return '<span class="db-badge bg-emerald-50 text-emerald-700 border border-emerald-200">Excellent</span>';
+        if (rate >= 70) return '<span class="db-badge bg-amber-50 text-amber-700 border border-amber-200">Good</span>';
+        if (rate >= 50) return '<span class="db-badge bg-orange-50 text-orange-700 border border-orange-200">Needs Attention</span>';
+        return '<span class="db-badge bg-rose-50 text-rose-700 border border-rose-200">Critical</span>';
+    }
+    function getStatusGroupColor(name) {
+        if (!name) return 'border-slate-300';
+        const colors = {
+            'Transportation': 'border-orange-400', 'Admission': 'border-purple-400',
+            'Scholastic': 'border-emerald-400', 'Sports': 'border-sky-400',
+            'Development': 'border-rose-400', 'Tuition': 'border-indigo-400', 'Uniform': 'border-pink-400'
+        };
+        const lowerName = (name || '').toLowerCase();
+        for (const key in colors) {
+            if (lowerName.indexOf(key.toLowerCase()) !== -1) return colors[key];
         }
-    } catch (e) {}
-
-    fetch('/api/school')
-        .then(res => res.json())
-        .then(data => {
-            if (data.school && data.school.schoolName) {
-                school = data.school;
-                try { localStorage.setItem('schoolData', JSON.stringify(school)); } catch (e) {}
-                updateSchoolInfoUI(school);
+        return 'border-slate-300';
+    }
+    function formatMoney(amount) {
+        const num = Math.round(safeNum(amount));
+        return num.toLocaleString('en-US');
+    }
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+    function getTermName(term) {
+        const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+        return names[term] || ('Term ' + term);
+    }
+    function safeNum(v) {
+        const n = Number(v);
+        return isNaN(n) ? 0 : n;
+    }
+    // Defensive wrapper: call any global function only if it exists,
+    // never let a missing dependency throw and break the dashboard.
+    function safeCall(fnName) {
+        try {
+            const fn = window[fnName];
+            if (typeof fn === 'function') {
+                const args = Array.prototype.slice.call(arguments, 1);
+                return fn.apply(window, args);
             }
-        })
-        .catch(e => console.warn('Could not fetch school data:', e));
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    initializeSchoolData();
-    initializeSidebar();
-});
-
-// ---------------------------------------------------------------------------
-// 4. RENDER DASHBOARD
-// ---------------------------------------------------------------------------
-function renderDashboard(data, termName, currentYear, currentTerm) {
-    const mainContent = document.getElementById('mainContent');
-    if (!mainContent) return;
-
-    const {
-        school, studentStats, financialStats, statusGroups,
-        statusGroupHealth, items, recentPayments,
-        statusGroupsCount, totalItemsCount, timestamp
-    } = data;
-
-    const schoolName = school?.schoolName || 'School Name';
-    const schoolMotto = school?.motto || 'Quality Education for All';
-
-    // ---- Tuition-only stats (same logic as before) ----
-    var tuitionExpected = 0, tuitionCollected = 0, tuitionFullyPaidCount = 0;
-
-    if (data.tuitionStats) {
-        tuitionExpected = data.tuitionStats.expected || 0;
-        tuitionCollected = data.tuitionStats.collected || 0;
-        tuitionFullyPaidCount = data.tuitionStats.fullyPaid || 0;
-    } else if (financialStats) {
-        tuitionExpected = financialStats.totalExpected || 0;
-        tuitionCollected = financialStats.totalCollected || 0;
-    }
-
-    if (tuitionExpected === 0 && window.dashboardStudents && window.dashboardStudents.length > 0) {
-        var students = window.dashboardStudents;
-        for (var i = 0; i < students.length; i++) {
-            tuitionExpected += students[i].expectedTuition || 0;
-            tuitionCollected += students[i].tuitionPaid || 0;
+        } catch (e) {
+            console.warn('safeCall(' + fnName + ') failed:', e);
         }
-        tuitionFullyPaidCount = studentStats?.paymentStatus?.fullyPaid || 0;
+        return undefined;
     }
-
-    if (tuitionExpected === 0 && data.studentStats && data.studentStats.students) {
-        var allStudents = data.studentStats.students || [];
-        for (var j = 0; j < allStudents.length; j++) {
-            tuitionExpected += allStudents[j].expectedTuition || 0;
-            tuitionCollected += allStudents[j].tuitionPaid || 0;
+    async function safeCallAsync(fnName) {
+        try {
+            const fn = window[fnName];
+            if (typeof fn === 'function') {
+                const args = Array.prototype.slice.call(arguments, 1);
+                return await fn.apply(window, args);
+            }
+        } catch (e) {
+            console.warn('safeCallAsync(' + fnName + ') failed:', e);
         }
+        return undefined;
     }
 
-    var tuitionOutstanding = Math.max(0, tuitionExpected - tuitionCollected);
-    var tuitionRate = tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0;
+    // ------------------------------------------------------------------
+    // 2. PREFERENCES — var (not let/const) avoids TDZ entirely.
+    // Wrapped in try/catch since localStorage can throw in private/
+    // restricted browsing contexts.
+    // ------------------------------------------------------------------
+    var DB_PREFS_KEY = 'dashboardPrefs_v14';
+    var DB_CACHE_KEY = 'dashboardDataCache_v14';
 
-    var tuitionRateColor = 'emerald';
-    if (tuitionRate < 50) tuitionRateColor = 'rose';
-    else if (tuitionRate < 70) tuitionRateColor = 'amber';
-
-    var fullyPaidCount = tuitionFullyPaidCount || studentStats?.paymentStatus?.fullyPaid || 0;
-    var totalStudents = studentStats?.total || 0;
-
-    var html = '';
-
-    // ======================= SECTION 0: WRAPPER + HERO =======================
-    html += '<div class="db-app-bg -m-4 p-4 space-y-6 pb-8 rounded-2xl">';
-
-    html += '<div class="db-hero db-fade-in">';
-    html += '  <div class="db-hero-edge"></div>';
-    html += '  <div class="relative z-10 flex justify-between items-start flex-wrap gap-5">';
-    html += '    <div class="flex items-center gap-4">';
-    if (school?.logo) {
-        html += '<img src="' + escapeHtml(school.logo) + '" class="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-lg">';
-    } else {
-        html += '<div class="w-16 h-16 bg-white/15 border border-white/25 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-graduation-cap"></i></div>';
+    function loadDashboardPrefs() {
+        var defaults = { hideFinancials: false, autoRefresh: false };
+        try {
+            var raw = localStorage.getItem(DB_PREFS_KEY);
+            if (raw) {
+                var parsed = JSON.parse(raw);
+                return Object.assign({}, defaults, parsed || {});
+            }
+        } catch (e) { console.warn('loadDashboardPrefs failed:', e); }
+        return defaults;
     }
-    html += '      <div>';
-    html += '        <p class="db-eyebrow text-white/70" style="color:rgba(255,255,255,.7)">' + termName + ' &middot; ' + currentYear + '</p>';
-    html += '        <h1 class="font-display text-3xl font-bold tracking-tight">' + escapeHtml(schoolName) + '</h1>';
-    html += '        <p class="text-sm text-white/80 italic mt-0.5">' + escapeHtml(schoolMotto) + '</p>';
-    html += '      </div>';
-    html += '    </div>';
-    html += '    <div class="flex flex-wrap gap-2">';
-    html += '      <button onclick="showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
-    html += '      <button onclick="printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
-    html += '      <button onclick="refreshDashboard()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-arrows-rotate"></i> Refresh</button>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
+    function saveDashboardPrefs(prefs) {
+        try { localStorage.setItem(DB_PREFS_KEY, JSON.stringify(prefs)); } catch (e) { console.warn('saveDashboardPrefs failed:', e); }
+    }
+    function cacheDashboardData(data) {
+        try {
+            localStorage.setItem(DB_CACHE_KEY, JSON.stringify({ data: data, cachedAt: new Date().toISOString() }));
+        } catch (e) { console.warn('cacheDashboardData failed:', e); }
+    }
+    function readCachedDashboardData() {
+        try {
+            var raw = localStorage.getItem(DB_CACHE_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch (e) { console.warn('readCachedDashboardData failed:', e); }
+        return null;
+    }
 
-    // ======================= SECTION 1: KPI CARDS =======================
-    html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
-    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F');
-    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (Object.keys(statusGroupHealth || {}).length) + ' active');
-    html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items');
-    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected');
-    html += renderMetricCardEnhanced('Total Expected', 'UGX ' + formatMoney(tuitionExpected), 'fa-file-invoice', 'indigo', 'Tuition only');
-    html += renderMetricCardEnhanced('Total Collected', 'UGX ' + formatMoney(tuitionCollected), 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate');
-    html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance');
-    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students');
-    html += '</div>';
+    // `var` — fully hoisted, no TDZ, safe even if this IIFE somehow runs
+    // twice in a weird bundler scenario (guarded above anyway).
+    var dashboardPrefs = loadDashboardPrefs();
+    var dashboardAutoRefreshTimer = null;
 
-    // ======================= SECTION 2: STATUS GROUP CARDS =======================
-    html += '<div>';
-    html += '  <div class="flex justify-between items-center mb-4">';
-    html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
-    html += '    <span class="text-sm text-slate-400 font-medium">' + (statusGroups || []).length + ' groups</span>';
-    html += '  </div>';
-    html += '  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">';
-    if (statusGroups && statusGroups.length > 0) {
-        for (var sgIdx = 0; sgIdx < statusGroups.length; sgIdx++) html += renderStatusGroupCard(statusGroups[sgIdx]);
-    } else {
-        html += '<div class="col-span-2 db-card p-10 text-center border-dashed">';
-        html += '<i class="fas fa-tags text-slate-300 text-4xl mb-3"></i>';
-        html += '<p class="text-slate-500 font-medium">No status groups found</p>';
-        html += '<p class="text-sm text-slate-400 mt-1">Status groups appear once fee structures with activity components are created</p>';
+    // ------------------------------------------------------------------
+    // 3. MAIN ENTRY POINT
+    // ------------------------------------------------------------------
+    async function showDashboard() {
+        try {
+            injectDashboardDesignSystem();
+        } catch (e) { console.warn('injectDashboardDesignSystem failed:', e); }
+
+        var pageTitle = document.getElementById('pageTitle');
+        if (pageTitle) pageTitle.innerHTML = '<i class="fas fa-chart-pie mr-2"></i>Dashboard';
+
+        var mainContent = document.getElementById('mainContent');
+        if (mainContent) {
+            mainContent.innerHTML =
+                '<div class="db-app-bg -m-4 p-4 min-h-[70vh] rounded-2xl">' +
+                '  <div class="db-hero mb-6" style="padding-bottom:30px;">' +
+                '    <div class="db-skeleton h-8 w-64 mb-3 opacity-40"></div>' +
+                '    <div class="db-skeleton h-4 w-40 opacity-30"></div>' +
+                '  </div>' +
+                '  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">' +
+                Array(8).fill('<div class="db-skeleton h-24 rounded-2xl"></div>').join('') +
+                '  </div>' +
+                '</div>';
+        }
+
+        var currentYear = new Date().getFullYear();
+        var currentTerm = 1;
+
+        try {
+            await safeCallAsync('initializeAcademicSettings');
+            var settings = window.currentAcademicSettings || { currentYear: currentYear, currentTerm: currentTerm };
+            currentYear = settings.currentYear || currentYear;
+            currentTerm = settings.currentTerm || currentTerm;
+        } catch (e) {
+            console.warn('Academic settings init failed, using defaults:', e);
+        }
+
+        var termName = getTermName(currentTerm);
+
+        try {
+            var response = await fetch('/api/dashboard/stats');
+            if (!response.ok) throw new Error('Server returned ' + response.status);
+
+            var result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Failed to load dashboard data');
+
+            var data = normalizeDashboardData(result.data);
+            window.dashboardData = data;
+            cacheDashboardData(data);
+            renderDashboard(data, termName, currentYear, currentTerm, { usedCache: false });
+
+        } catch (error) {
+            console.error('Error loading dashboard, attempting cached data:', error);
+            var cached = readCachedDashboardData();
+
+            if (cached && cached.data) {
+                renderDashboard(cached.data, termName, currentYear, currentTerm, {
+                    usedCache: true,
+                    cachedAt: cached.cachedAt,
+                    errorMessage: error.message
+                });
+            } else if (mainContent) {
+                mainContent.innerHTML =
+                    '<div class="db-card p-10 text-center max-w-lg mx-auto mt-10">' +
+                    '  <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">' +
+                    '    <i class="fas fa-triangle-exclamation text-xl"></i>' +
+                    '  </div>' +
+                    '  <p class="text-slate-800 font-semibold text-lg font-display">Couldn\'t load the dashboard</p>' +
+                    '  <p class="text-slate-500 text-sm mt-1.5">' + escapeHtml(error.message) + '</p>' +
+                    '  <p class="text-slate-400 text-xs mt-1">No cached data available either.</p>' +
+                    '  <button onclick="window.showDashboard()" class="mt-5 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">' +
+                    '    <i class="fas fa-rotate-right mr-2"></i>Try again' +
+                    '  </button>' +
+                    '</div>';
+            }
+        }
+
+        try { setupAutoRefresh(); } catch (e) { console.warn('setupAutoRefresh failed:', e); }
+    }
+
+    // ------------------------------------------------------------------
+    // 4. NORMALIZE BACKEND DATA (defensive against bad/missing fields)
+    // ------------------------------------------------------------------
+    function normalizeDashboardData(raw) {
+        var data = raw || {};
+        var totalStudents = safeNum(data.studentStats && data.studentStats.total);
+
+        var statusGroups = [];
+        if (Array.isArray(data.statusGroups)) {
+            for (var i = 0; i < data.statusGroups.length; i++) {
+                var sg = data.statusGroups[i] || {};
+                var totalRequired = safeNum(sg.totalRequired);
+                var totalCollected = Math.min(safeNum(sg.totalCollected), totalRequired > 0 ? totalRequired : safeNum(sg.totalCollected));
+                var totalRemaining = Math.max(0, totalRequired - totalCollected);
+
+                var studentCount = safeNum(sg.studentCount);
+                var suspect = false;
+                if (totalStudents > 0 && studentCount > totalStudents) {
+                    studentCount = totalStudents;
+                    suspect = true;
+                }
+
+                var merged = Object.assign({}, sg, {
+                    totalRequired: totalRequired,
+                    totalCollected: totalCollected,
+                    totalRemaining: totalRemaining,
+                    studentCount: studentCount,
+                    _studentCountSuspect: suspect
+                });
+                statusGroups.push(merged);
+            }
+        }
+
+        var items = [];
+        if (Array.isArray(data.items)) {
+            for (var j = 0; j < data.items.length; j++) {
+                var it = data.items[j] || {};
+                var required = safeNum(it.required);
+                var collected = safeNum(it.collected);
+                items.push(Object.assign({}, it, {
+                    required: required,
+                    collected: collected,
+                    remaining: Math.max(0, required - collected),
+                    students: safeNum(it.students)
+                }));
+            }
+        }
+
+        return Object.assign({}, data, { statusGroups: statusGroups, items: items });
+    }
+
+    // ------------------------------------------------------------------
+    // 5. AUTO REFRESH
+    // ------------------------------------------------------------------
+    function setupAutoRefresh() {
+        if (dashboardAutoRefreshTimer) {
+            clearInterval(dashboardAutoRefreshTimer);
+            dashboardAutoRefreshTimer = null;
+        }
+        if (!dashboardPrefs.autoRefresh) return;
+
+        dashboardAutoRefreshTimer = setInterval(function () {
+            var marker = document.getElementById('dashboardAutoRefreshMarker');
+            if (!marker) {
+                clearInterval(dashboardAutoRefreshTimer);
+                dashboardAutoRefreshTimer = null;
+                return;
+            }
+            showDashboard();
+        }, 5 * 60 * 1000);
+    }
+
+    function toggleAutoRefresh() {
+        dashboardPrefs.autoRefresh = !dashboardPrefs.autoRefresh;
+        saveDashboardPrefs(dashboardPrefs);
+        setupAutoRefresh();
+        showDashboard();
+    }
+
+    // ------------------------------------------------------------------
+    // 6. SCHOOL DATA INIT
+    // ------------------------------------------------------------------
+    function initializeSchoolDataSafe() {
+        var school = null;
+        try {
+            var saved = localStorage.getItem('schoolData');
+            if (saved) {
+                school = JSON.parse(saved);
+                if (school && school.schoolName) {
+                    safeCall('updateSchoolInfoUI', school);
+                    return;
+                }
+            }
+        } catch (e) { console.warn('initializeSchoolDataSafe cache read failed:', e); }
+
+        fetch('/api/school')
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.school && data.school.schoolName) {
+                    try { localStorage.setItem('schoolData', JSON.stringify(data.school)); } catch (e) {}
+                    safeCall('updateSchoolInfoUI', data.school);
+                }
+            })
+            .catch(function (e) { console.warn('Could not fetch school data:', e); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        try { initializeSchoolDataSafe(); } catch (e) { console.warn('initializeSchoolDataSafe failed:', e); }
+        try { safeCall('initializeSidebar'); } catch (e) { console.warn('initializeSidebar failed:', e); }
+    });
+
+    // ------------------------------------------------------------------
+    // 7. RENDER DASHBOARD
+    // ------------------------------------------------------------------
+    function renderDashboard(data, termName, currentYear, currentTerm, meta) {
+        meta = meta || {};
+        var mainContent = document.getElementById('mainContent');
+        if (!mainContent) return;
+
+        var school = data.school || {};
+        var studentStats = data.studentStats || {};
+        var statusGroups = data.statusGroups || [];
+        var statusGroupHealth = data.statusGroupHealth || [];
+        var items = data.items || [];
+        var recentPayments = data.recentPayments || [];
+        var statusGroupsCount = data.statusGroupsCount;
+        var totalItemsCount = data.totalItemsCount;
+        var timestamp = data.timestamp;
+
+        var schoolName = school.schoolName || 'School Name';
+        var schoolMotto = school.motto || 'Quality Education for All';
+
+        var tuitionExpected = safeNum(data.tuitionStats && data.tuitionStats.expected);
+        var tuitionCollected = safeNum(data.tuitionStats && data.tuitionStats.collected);
+        var tuitionOutstanding = Math.max(0, tuitionExpected - tuitionCollected);
+        var tuitionRate = tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0;
+
+        var activityExpected = safeNum(data.activityStats && data.activityStats.expected);
+        var activityCollected = safeNum(data.activityStats && data.activityStats.collected);
+        var activityOutstanding = Math.max(0, activityExpected - activityCollected);
+        var activityRate = activityExpected > 0 ? (activityCollected / activityExpected * 100) : 0;
+
+        var combinedExpected = tuitionExpected + activityExpected;
+        var combinedCollected = tuitionCollected + activityCollected;
+        var combinedOutstanding = Math.max(0, combinedExpected - combinedCollected);
+        var combinedRate = combinedExpected > 0 ? (combinedCollected / combinedExpected * 100) : 0;
+
+        function rateColorFor(r) { return r >= 85 ? 'emerald' : r >= 70 ? 'amber' : r >= 50 ? 'orange' : 'rose'; }
+
+        var fullyPaidCount = safeNum((data.tuitionStats && data.tuitionStats.fullyPaid) != null ? data.tuitionStats.fullyPaid : (studentStats.paymentStatus && studentStats.paymentStatus.fullyPaid));
+        var totalStudents = safeNum(studentStats.total);
+
+        var distinctCategories = {};
+        var totalItemsRequired = 0, totalItemsCollected = 0;
+        for (var ii = 0; ii < items.length; ii++) {
+            if (items[ii].statusGroup) distinctCategories[items[ii].statusGroup] = true;
+            totalItemsRequired += safeNum(items[ii].required);
+            totalItemsCollected += safeNum(items[ii].collected);
+        }
+        var itemsOverallRate = totalItemsRequired > 0 ? (totalItemsCollected / totalItemsRequired * 100) : 0;
+        var distinctCategoryCount = Object.keys(distinctCategories).length;
+
+        var html = '';
+        html += '<div class="db-app-bg -m-4 p-4 space-y-6 pb-8 rounded-2xl" id="dashboardAutoRefreshMarker">';
+
+        if (meta.usedCache) {
+            var cachedWhen = meta.cachedAt ? new Date(meta.cachedAt).toLocaleString() : 'unknown time';
+            html += '<div class="db-stale-banner db-fade-in flex items-center gap-2">' +
+                '<i class="fas fa-wifi-slash"></i>' +
+                '<span>Showing cached data from ' + escapeHtml(cachedWhen) + ' — couldn\'t reach the server' +
+                (meta.errorMessage ? ' (' + escapeHtml(meta.errorMessage) + ')' : '') + '. </span>' +
+                '<button onclick="window.showDashboard()" class="underline font-bold ml-1">Retry</button>' +
+                '</div>';
+        }
+
+        // HERO
+        html += '<div class="db-hero db-fade-in">';
+        html += '  <div class="db-hero-edge"></div>';
+        html += '  <div class="relative z-10 flex justify-between items-start flex-wrap gap-5">';
+        html += '    <div class="flex items-center gap-4">';
+        if (school.logo) {
+            html += '<img src="' + escapeHtml(school.logo) + '" class="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-lg">';
+        } else {
+            html += '<div class="w-16 h-16 bg-white/15 border border-white/25 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-graduation-cap"></i></div>';
+        }
+        html += '      <div>';
+        html += '        <p class="db-eyebrow text-white/70" style="color:rgba(255,255,255,.7)">' + escapeHtml(termName) + ' &middot; ' + currentYear + '</p>';
+        html += '        <h1 class="font-display text-3xl font-bold tracking-tight">' + escapeHtml(schoolName) + '</h1>';
+        html += '        <p class="text-sm text-white/80 italic mt-0.5">' + escapeHtml(schoolMotto) + '</p>';
+        html += '      </div>';
+        html += '    </div>';
+        html += '    <div class="flex flex-wrap gap-2">';
+        html += '      <button onclick="window.showAcademicSettingsModal && window.showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
+        html += '      <button onclick="window.toggleAutoRefresh()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas ' + (dashboardPrefs.autoRefresh ? 'fa-toggle-on' : 'fa-toggle-off') + '"></i> Auto-refresh</button>';
+        html += '      <button onclick="window.exportDashboardCSV()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-file-csv"></i> Export</button>';
+        html += '      <button onclick="window.printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
+        html += '      <button onclick="window.refreshDashboard()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-arrows-rotate"></i> Refresh</button>';
+        html += '    </div>';
+        html += '  </div>';
         html += '</div>';
-    }
-    html += '  </div>';
-    html += '</div>';
 
-    // ======================= SECTION 3: PAYMENT STATUS + CLASS PERFORMANCE =======================
-    html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
-
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
-    html += '      <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-chart-pie text-sm"></i></div>';
-    html += '      <h3 class="font-display font-bold text-slate-800">Payment Status</h3>';
-    html += '    </div>';
-    html += '    <div class="p-5">';
-    html += '      <div class="h-60" id="paymentStatusChartContainer"><canvas id="paymentStatusChart"></canvas></div>';
-    html += '      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-5">';
-
-    var ps = studentStats?.paymentStatus || {};
-    var statusLabels = [
-        { key: 'fullyPaid', label: 'Fully Paid', icon: 'fa-circle-check', color: 'emerald' },
-        { key: 'paymentDue', label: 'Payment Due', icon: 'fa-clock', color: 'amber' },
-        { key: 'criticalOverdue', label: 'Critical', icon: 'fa-fire', color: 'rose' },
-        { key: 'noPayment', label: 'No Payment', icon: 'fa-file', color: 'slate' },
-        { key: 'creditBalance', label: 'Credit', icon: 'fa-sack-dollar', color: 'sky' }
-    ];
-    var chipColorMap = {
-        emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700',
-        rose: 'bg-rose-50 text-rose-700', slate: 'bg-slate-100 text-slate-600', sky: 'bg-sky-50 text-sky-700'
-    };
-    for (var si = 0; si < statusLabels.length; si++) {
-        var sl = statusLabels[si];
-        var val = ps[sl.key] || 0;
-        html += '<div class="text-center p-2.5 rounded-xl ' + chipColorMap[sl.color] + '">';
-        html += '  <i class="fas ' + sl.icon + ' text-xs mb-1 opacity-70"></i>';
-        html += '  <p class="text-[11px] font-semibold">' + sl.label + '</p>';
-        html += '  <p class="text-xl font-bold font-mono-num">' + val + '</p>';
+        // KPI CARDS
+        html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
+        html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', safeNum(studentStats.male) + ' M &middot; ' + safeNum(studentStats.female) + ' F', false);
+        html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || statusGroups.length, 'fa-tags', 'sky', statusGroupHealth.length + ' tracked', false);
+        html += renderMetricCardEnhanced('Total Items', totalItemsCount || items.length, 'fa-boxes-stacked', 'teal', distinctCategoryCount + ' categories', false);
+        html += renderMetricCardEnhanced('Overall Collection', combinedRate.toFixed(1) + '%', 'fa-chart-line', rateColorFor(combinedRate), 'Tuition + fees combined', true);
+        html += renderMetricCardEnhanced('Total Expected', 'UGX ' + formatMoney(combinedExpected), 'fa-file-invoice', 'indigo', 'Tuition UGX ' + formatMoney(tuitionExpected) + ' + fees UGX ' + formatMoney(activityExpected), true);
+        html += renderMetricCardEnhanced('Total Collected', 'UGX ' + formatMoney(combinedCollected), 'fa-circle-check', 'emerald', combinedRate.toFixed(1) + '% of expected', true);
+        html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(combinedOutstanding), 'fa-triangle-exclamation', combinedOutstanding > 0 ? 'rose' : 'emerald', 'Across all fee categories', true);
+        html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students (tuition)', false);
         html += '</div>';
-    }
-    html += '      </div>';
-    html += '    </div>';
-    html += '  </div>';
 
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
-    html += '      <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
-    html += '      <h3 class="font-display font-bold text-slate-800">Class Performance</h3>';
-    html += '    </div>';
-    html += '    <div class="p-4 max-h-80 overflow-y-auto db-scroll">';
-    html += renderClassPerformanceTable(statusGroups || []);
-    html += '    </div>';
-    html += '  </div>';
+        // BREAKDOWN
+        html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+        html += renderBreakdownCard('Tuition', tuitionExpected, tuitionCollected, tuitionOutstanding, tuitionRate, 'fa-graduation-cap', 'indigo');
+        html += renderBreakdownCard('Scholastic & Other Fees', activityExpected, activityCollected, activityOutstanding, activityRate, 'fa-layer-group', 'teal');
+        html += '</div>';
 
-    html += '</div>';
-
-    // ======================= SECTION 4: ITEM COLLECTION TABLE =======================
-    html += '<div>';
-    html += '  <div class="flex justify-between items-center mb-4">';
-    html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
-    html += '    <span class="text-sm text-slate-400 font-medium">' + (items || []).length + ' items</span>';
-    html += '  </div>';
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="p-4">';
-    html += '      <div class="flex flex-wrap gap-3 mb-4">';
-    html += '        <div class="relative flex-1 min-w-[220px]">';
-    html += '          <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>';
-    html += '          <input type="text" id="itemSearchInput" placeholder="Search items..." class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">';
-    html += '        </div>';
-    html += '        <select id="itemStatusGroupFilter" class="border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500/40 outline-none bg-white">';
-    html += '          <option value="">All Status Groups</option>';
-    if (statusGroups) {
-        for (var sg2 = 0; sg2 < statusGroups.length; sg2++) {
-            html += '<option value="' + escapeHtml(statusGroups[sg2].name) + '">' + escapeHtml(statusGroups[sg2].name) + '</option>';
-        }
-    }
-    html += '        </select>';
-    html += '        <button onclick="filterItemsTable()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-filter mr-1.5"></i>Filter</button>';
-    html += '        <button onclick="resetItemFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-rotate-left mr-1.5"></i>Reset</button>';
-    html += '      </div>';
-    html += '      <div class="overflow-x-auto max-h-96 overflow-y-auto db-scroll rounded-xl border border-slate-100" id="itemsTableContainer">';
-    html += '        <table class="w-full text-sm" id="itemsTable">';
-    html += '          <thead class="db-table"><tr>';
-    html += '            <th class="p-3 text-left cursor-pointer" onclick="sortItemsTable(\'name\')">Item Name <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '            <th class="p-3 text-left cursor-pointer" onclick="sortItemsTable(\'statusGroup\')">Status Group <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'required\')">Required <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'collected\')">Collected <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'remaining\')">Remaining <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '            <th class="p-3 text-center cursor-pointer" onclick="sortItemsTable(\'rate\')">Rate <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'students\')">Students <i class="fas fa-sort ml-1 opacity-40"></i></th>';
-    html += '          </tr></thead><tbody class="divide-y divide-slate-100">';
-
-    if (items && items.length > 0) {
-        for (var itm = 0; itm < items.length; itm++) {
-            var item = items[itm];
-            var required = item.required || 0;
-            var collected = item.collected || 0;
-            var rate = required > 0 ? (collected / required * 100) : 0;
-            var rateColor = getStatusColor(rate);
-            var barColor = getStatusBarColor(rate);
-
-            html += '<tr class="item-row"';
-            html += ' data-name="' + escapeHtml(item.name).toLowerCase() + '"';
-            html += ' data-group="' + escapeHtml(item.statusGroup) + '"';
-            html += ' data-required="' + required + '"';
-            html += ' data-collected="' + collected + '"';
-            html += ' data-remaining="' + (item.remaining || 0) + '"';
-            html += ' data-rate="' + rate + '">';
-            html += '<td class="p-3 font-medium text-slate-700"><i class="fas fa-box-open text-slate-300 mr-2"></i>' + escapeHtml(item.name) + '</td>';
-            html += '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + escapeHtml(item.statusGroup) + '</span></td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-slate-600">' + required + '</td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">' + collected + '</td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-rose-500">' + (item.remaining || 0) + '</td>';
-            html += '<td class="p-3 text-center">';
-            html += '  <span class="font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
-            html += '  <div class="db-progress-track h-1.5 mt-1.5 w-24 mx-auto"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
-            html += '</td>';
-            html += '<td class="p-3 text-right text-slate-500">' + (item.students || 0) + '</td>';
-            html += '</tr>';
-        }
-    } else {
-        html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No items found</td></tr>';
-    }
-
-    html += '        </tbody></table>';
-    html += '      </div>';
-    html += '      <div class="mt-4 flex justify-between items-center text-sm text-slate-500 border-t border-slate-100 pt-3">';
-
-    var totalRequired = 0, totalCollectedItems = 0;
-    if (items) {
-        for (var itm2 = 0; itm2 < items.length; itm2++) {
-            totalRequired += items[itm2].required || 0;
-            totalCollectedItems += items[itm2].collected || 0;
-        }
-    }
-    html += '        <span>Showing <span id="itemsVisibleCount" class="font-semibold text-slate-700">' + (items || []).length + '</span> of ' + (items || []).length + ' items</span>';
-    html += '        <span class="font-mono-num">Required: <b>' + totalRequired + '</b> &middot; Collected: <b class="text-emerald-600">' + totalCollectedItems + '</b></span>';
-    html += '      </div>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
-
-    // ======================= SECTION 5: RECENT PAYMENTS =======================
-    html += '<div>';
-    html += '  <div class="mb-4"><p class="db-eyebrow">Cash Flow</p><h2 class="db-section-title text-xl mt-0.5">Recent Payments</h2></div>';
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="overflow-x-auto max-h-72 overflow-y-auto db-scroll">';
-    html += '      <table class="w-full text-sm">';
-    html += '        <thead class="db-table"><tr>';
-    html += '          <th class="p-3 text-left">Date</th><th class="p-3 text-left">Receipt</th><th class="p-3 text-left">Student</th>';
-    html += '          <th class="p-3 text-right">Amount</th><th class="p-3 text-left">Method</th><th class="p-3 text-left">Items</th><th class="p-3 text-center">Action</th>';
-    html += '        </tr></thead><tbody class="divide-y divide-slate-100">';
-
-    var methodChip = { cash: 'bg-emerald-50 text-emerald-700', bank: 'bg-sky-50 text-sky-700', mobile: 'bg-indigo-50 text-indigo-700' };
-    if (recentPayments && recentPayments.length > 0) {
-        for (var rp = 0; rp < recentPayments.length; rp++) {
-            var p = recentPayments[rp];
-            var methodClass = methodChip[p.method] || 'bg-slate-100 text-slate-600';
-            html += '<tr class="cursor-pointer" onclick="viewPaymentReceipt(\'' + p.receiptNumber + '\')">';
-            html += '<td class="p-3 whitespace-nowrap text-slate-500">' + new Date(p.date).toLocaleDateString() + '</td>';
-            html += '<td class="p-3 font-mono-num text-xs font-semibold text-indigo-600">' + escapeHtml(p.receiptNumber) + '</td>';
-            html += '<td class="p-3 font-medium text-slate-700">' + escapeHtml(p.studentName) + '</td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">UGX ' + formatMoney(p.amount) + '</td>';
-            html += '<td class="p-3"><span class="db-badge ' + methodClass + '">' + (p.method || 'cash').toUpperCase() + '</span></td>';
-            html += '<td class="p-3 text-sm text-slate-500">' + escapeHtml(p.items || '-') + '</td>';
-            html += '<td class="p-3 text-center"><button onclick="event.stopPropagation(); printReceipt(\'' + p.receiptNumber + '\')" class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition" title="Print Receipt"><i class="fas fa-print"></i></button></td>';
-            html += '</tr>';
-        }
-    } else {
-        html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No recent payments</td></tr>';
-    }
-    html += '        </tbody></table>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
-
-    // ======================= SECTION 6: QUICK ACTIONS =======================
-    html += '<div class="db-card overflow-hidden">';
-    html += '  <div class="px-5 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center gap-2">';
-    html += '    <i class="fas fa-bolt text-amber-400"></i><h3 class="font-display font-bold">Quick Actions</h3>';
-    html += '  </div>';
-    html += '  <div class="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
-
-    var actions = [
-        { onclick: 'showStudentRegistration()', icon: 'fa-user-plus', color: 'indigo', label: 'Register' },
-        { onclick: 'showFeeManagement()', icon: 'fa-money-bill-wave', color: 'emerald', label: 'Collect Fees' },
-        { onclick: 'showReports()', icon: 'fa-file-lines', color: 'sky', label: 'Reports' },
-        { onclick: 'showInventory()', icon: 'fa-boxes-stacked', color: 'teal', label: 'Inventory' },
-        { onclick: 'showUniformManagement()', icon: 'fa-shirt', color: 'purple', label: 'Uniform' },
-        { onclick: 'showStudentList()', icon: 'fa-users', color: 'rose', label: 'Students' },
-        { onclick: 'showSettings()', icon: 'fa-gear', color: 'slate', label: 'Settings' },
-        { onclick: 'showBackup()', icon: 'fa-database', color: 'amber', label: 'Backup' }
-    ];
-    var actionIconBg = {
-        indigo: 'bg-indigo-50 text-indigo-600', emerald: 'bg-emerald-50 text-emerald-600', sky: 'bg-sky-50 text-sky-600',
-        teal: 'bg-teal-50 text-teal-600', purple: 'bg-purple-50 text-purple-600', rose: 'bg-rose-50 text-rose-600',
-        slate: 'bg-slate-100 text-slate-600', amber: 'bg-amber-50 text-amber-600'
-    };
-    for (var a = 0; a < actions.length; a++) {
-        var act = actions[a];
-        html += '<button onclick="' + act.onclick + '" class="db-action p-4 text-center group">';
-        html += '  <div class="w-10 h-10 rounded-xl ' + actionIconBg[act.color] + ' flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform"><i class="fas ' + act.icon + '"></i></div>';
-        html += '  <p class="text-xs font-semibold text-slate-600">' + act.label + '</p>';
-        html += '</button>';
-    }
-    html += '  </div>';
-    html += '</div>';
-
-    // ======================= SECTION 7: STATUS GROUP HEALTH =======================
-    html += '<div>';
-    html += '  <div class="mb-4"><p class="db-eyebrow">Diagnostics</p><h2 class="db-section-title text-xl mt-0.5">Status Group Health</h2></div>';
-    html += '  <div class="db-card p-4">';
-
-    if (statusGroupHealth && statusGroupHealth.length > 0) {
-        for (var sh = 0; sh < statusGroupHealth.length; sh++) {
-            var sg = statusGroupHealth[sh];
-            var rate = sg.rate || 0;
-            var rateColor = getStatusColor(rate);
-            var barColor = getStatusBarColor(rate);
-            var badge = getStatusBadge(rate);
-
-            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')">';
-            html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor + '"></div>';
-            html += '  <div class="flex-1 min-w-0">';
-            html += '    <div class="flex justify-between items-center">';
-            html += '      <span class="font-semibold text-sm text-slate-700 truncate">' + escapeHtml(sg.name) + '</span>';
-            html += '      <span class="text-sm font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
-            html += '    </div>';
-            html += '    <div class="db-progress-track h-1.5 mt-1.5"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
-            html += '  </div>';
-            html += '  <div class="flex-shrink-0">' + badge + '</div>';
+        // STATUS GROUP CARDS
+        html += '<div>';
+        html += '  <div class="flex justify-between items-center mb-4">';
+        html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
+        html += '    <span class="text-sm text-slate-400 font-medium">' + statusGroups.length + ' groups</span>';
+        html += '  </div>';
+        html += '  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">';
+        if (statusGroups.length > 0) {
+            var sortedGroups = statusGroups.slice().sort(function (a, b) {
+                var rateA = a.totalRequired > 0 ? (a.totalCollected / a.totalRequired) : 0;
+                var rateB = b.totalRequired > 0 ? (b.totalCollected / b.totalRequired) : 0;
+                return rateA - rateB;
+            });
+            for (var sgi = 0; sgi < sortedGroups.length; sgi++) html += renderStatusGroupCard(sortedGroups[sgi]);
+        } else {
+            html += '<div class="col-span-2 db-card p-10 text-center border-dashed">';
+            html += '<i class="fas fa-tags text-slate-300 text-4xl mb-3"></i>';
+            html += '<p class="text-slate-500 font-medium">No status groups found</p>';
+            html += '<p class="text-sm text-slate-400 mt-1">Status groups appear once fee structures with activity components are created</p>';
             html += '</div>';
         }
-    } else {
-        html += '<div class="text-center py-10 text-slate-400">No status groups found</div>';
+        html += '  </div>';
+        html += '</div>';
+
+        // PAYMENT STATUS + CLASS PERFORMANCE
+        html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
+
+        html += '  <div class="db-card overflow-hidden">';
+        html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+        html += '      <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-chart-pie text-sm"></i></div>';
+        html += '      <h3 class="font-display font-bold text-slate-800">Payment Status (Tuition)</h3>';
+        html += '    </div>';
+        html += '    <div class="p-5">';
+        html += '      <div class="h-60" id="paymentStatusChartContainer"><canvas id="paymentStatusChart"></canvas></div>';
+        html += '      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-5">';
+
+        var ps = studentStats.paymentStatus || {};
+        var psAccountedFor = safeNum(ps.fullyPaid) + safeNum(ps.paymentDue) + safeNum(ps.criticalOverdue) + safeNum(ps.noPayment) + safeNum(ps.creditBalance);
+        var statusLabels = [
+            { key: 'fullyPaid', label: 'Fully Paid', icon: 'fa-circle-check', color: 'emerald' },
+            { key: 'paymentDue', label: 'Payment Due', icon: 'fa-clock', color: 'amber' },
+            { key: 'criticalOverdue', label: 'Critical', icon: 'fa-fire', color: 'rose' },
+            { key: 'noPayment', label: 'No Payment', icon: 'fa-file', color: 'slate' },
+            { key: 'creditBalance', label: 'Credit', icon: 'fa-sack-dollar', color: 'sky' }
+        ];
+        var chipColorMap = {
+            emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700',
+            rose: 'bg-rose-50 text-rose-700', slate: 'bg-slate-100 text-slate-600', sky: 'bg-sky-50 text-sky-700'
+        };
+        for (var sli = 0; sli < statusLabels.length; sli++) {
+            var sl = statusLabels[sli];
+            var val = safeNum(ps[sl.key]);
+            html += '<div class="text-center p-2.5 rounded-xl ' + chipColorMap[sl.color] + '">';
+            html += '  <i class="fas ' + sl.icon + ' text-xs mb-1 opacity-70"></i>';
+            html += '  <p class="text-[11px] font-semibold">' + sl.label + '</p>';
+            html += '  <p class="text-xl font-bold font-mono-num">' + val + '</p>';
+            html += '</div>';
+        }
+        html += '      </div>';
+        if (totalStudents > 0 && psAccountedFor < totalStudents) {
+            html += '      <p class="text-xs text-slate-400 mt-3 text-center"><i class="fas fa-circle-info mr-1"></i>' + (totalStudents - psAccountedFor) + ' student(s) have no fee structure assigned and aren\'t reflected above.</p>';
+        }
+        html += '    </div>';
+        html += '  </div>';
+
+        html += '  <div class="db-card overflow-hidden">';
+        html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+        html += '      <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
+        html += '      <h3 class="font-display font-bold text-slate-800">Class Performance</h3>';
+        html += '    </div>';
+        html += '    <div class="p-4 max-h-80 overflow-y-auto db-scroll">';
+        html += renderClassPerformanceTable(statusGroups);
+        html += '    </div>';
+        html += '  </div>';
+
+        html += '</div>';
+
+        // ITEM COLLECTION TABLE
+        html += '<div>';
+        html += '  <div class="flex justify-between items-center mb-4">';
+        html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
+        html += '    <span class="text-sm text-slate-400 font-medium">' + items.length + ' items</span>';
+        html += '  </div>';
+        html += '  <div class="db-card overflow-hidden">';
+        html += '    <div class="p-4">';
+        html += '      <div class="flex flex-wrap gap-3 mb-4">';
+        html += '        <div class="relative flex-1 min-w-[220px]">';
+        html += '          <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>';
+        html += '          <input type="text" id="itemSearchInput" placeholder="Search items..." class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">';
+        html += '        </div>';
+        html += '        <select id="itemStatusGroupFilter" class="border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500/40 outline-none bg-white">';
+        html += '          <option value="">All Status Groups</option>';
+        for (var sg2i = 0; sg2i < statusGroups.length; sg2i++) {
+            html += '<option value="' + escapeHtml(statusGroups[sg2i].name) + '">' + escapeHtml(statusGroups[sg2i].name) + '</option>';
+        }
+        html += '        </select>';
+        html += '        <button onclick="window.filterItemsTable()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-filter mr-1.5"></i>Filter</button>';
+        html += '        <button onclick="window.resetItemFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-rotate-left mr-1.5"></i>Reset</button>';
+        html += '      </div>';
+        html += '      <div class="overflow-x-auto max-h-96 overflow-y-auto db-scroll rounded-xl border border-slate-100" id="itemsTableContainer">';
+        html += '        <table class="w-full text-sm" id="itemsTable">';
+        html += '          <thead class="db-table"><tr>';
+        html += '            <th class="p-3 text-left cursor-pointer" onclick="window.sortItemsTable(\'name\')">Item Name <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '            <th class="p-3 text-left cursor-pointer" onclick="window.sortItemsTable(\'statusGroup\')">Status Group <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '            <th class="p-3 text-right cursor-pointer" onclick="window.sortItemsTable(\'required\')">Required <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '            <th class="p-3 text-right cursor-pointer" onclick="window.sortItemsTable(\'collected\')">Collected <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '            <th class="p-3 text-right cursor-pointer" onclick="window.sortItemsTable(\'remaining\')">Remaining <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '            <th class="p-3 text-center cursor-pointer" onclick="window.sortItemsTable(\'rate\')">Rate <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '            <th class="p-3 text-right cursor-pointer" onclick="window.sortItemsTable(\'students\')">Students <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+        html += '          </tr></thead><tbody class="divide-y divide-slate-100">';
+
+        if (items.length > 0) {
+            for (var itmi = 0; itmi < items.length; itmi++) {
+                var item = items[itmi];
+                var required = safeNum(item.required);
+                var collected = safeNum(item.collected);
+                var rate = required > 0 ? (collected / required * 100) : 0;
+                var rateColor = getStatusColor(rate);
+                var barColor = getStatusBarColor(rate);
+
+                html += '<tr class="item-row"';
+                html += ' data-name="' + escapeHtml(item.name).toLowerCase() + '"';
+                html += ' data-group="' + escapeHtml(item.statusGroup) + '"';
+                html += ' data-required="' + required + '"';
+                html += ' data-collected="' + collected + '"';
+                html += ' data-remaining="' + safeNum(item.remaining) + '"';
+                html += ' data-rate="' + rate + '"';
+                html += ' data-students="' + safeNum(item.students) + '">';
+                html += '<td class="p-3 font-medium text-slate-700"><i class="fas fa-box-open text-slate-300 mr-2"></i>' + escapeHtml(item.name) + '</td>';
+                html += '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + escapeHtml(item.statusGroup) + '</span></td>';
+                html += '<td class="p-3 text-right font-mono-num font-semibold text-slate-600">' + required + '</td>';
+                html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">' + collected + '</td>';
+                html += '<td class="p-3 text-right font-mono-num font-semibold text-rose-500">' + safeNum(item.remaining) + '</td>';
+                html += '<td class="p-3 text-center">';
+                html += '  <span class="font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
+                html += '  <div class="db-progress-track h-1.5 mt-1.5 w-24 mx-auto"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
+                html += '</td>';
+                html += '<td class="p-3 text-right text-slate-500">' + safeNum(item.students) + '</td>';
+                html += '</tr>';
+            }
+        } else {
+            html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No items found</td></tr>';
+        }
+
+        html += '        </tbody></table>';
+        html += '      </div>';
+        html += '      <div class="mt-4 flex justify-between items-center text-sm text-slate-500 border-t border-slate-100 pt-3">';
+        html += '        <span>Showing <span id="itemsVisibleCount" class="font-semibold text-slate-700">' + items.length + '</span> of ' + items.length + ' items</span>';
+        html += '        <span class="font-mono-num">Required: <b>' + totalItemsRequired + '</b> &middot; Collected: <b class="text-emerald-600">' + totalItemsCollected + '</b> &middot; <b>' + itemsOverallRate.toFixed(1) + '%</b></span>';
+        html += '      </div>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '</div>';
+
+        // RECENT PAYMENTS
+        html += '<div>';
+        html += '  <div class="mb-4"><p class="db-eyebrow">Cash Flow</p><h2 class="db-section-title text-xl mt-0.5">Recent Payments</h2></div>';
+        html += '  <div class="db-card overflow-hidden">';
+        html += '    <div class="overflow-x-auto max-h-72 overflow-y-auto db-scroll">';
+        html += '      <table class="w-full text-sm">';
+        html += '        <thead class="db-table"><tr>';
+        html += '          <th class="p-3 text-left">Date</th><th class="p-3 text-left">Receipt</th><th class="p-3 text-left">Student</th>';
+        html += '          <th class="p-3 text-right">Amount</th><th class="p-3 text-left">Method</th><th class="p-3 text-left">Items</th><th class="p-3 text-center">Action</th>';
+        html += '        </tr></thead><tbody class="divide-y divide-slate-100">';
+
+        var methodChip = { cash: 'bg-emerald-50 text-emerald-700', bank: 'bg-sky-50 text-sky-700', mobile: 'bg-indigo-50 text-indigo-700' };
+        if (recentPayments.length > 0) {
+            for (var rpi = 0; rpi < recentPayments.length; rpi++) {
+                var p = recentPayments[rpi];
+                var methodClass = methodChip[p.method] || 'bg-slate-100 text-slate-600';
+                var safeDate = p.date ? new Date(p.date).toLocaleDateString() : '-';
+                html += '<tr class="cursor-pointer" onclick="window.viewPaymentReceipt(\'' + escapeHtml(p.receiptNumber) + '\')">';
+                html += '<td class="p-3 whitespace-nowrap text-slate-500">' + safeDate + '</td>';
+                html += '<td class="p-3 font-mono-num text-xs font-semibold text-indigo-600">' + escapeHtml(p.receiptNumber) + '</td>';
+                html += '<td class="p-3 font-medium text-slate-700">' + escapeHtml(p.studentName) + '</td>';
+                html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">UGX ' + formatMoney(p.amount) + '</td>';
+                html += '<td class="p-3"><span class="db-badge ' + methodClass + '">' + (p.method || 'cash').toUpperCase() + '</span></td>';
+                html += '<td class="p-3 text-sm text-slate-500">' + escapeHtml(p.items || '-') + '</td>';
+                html += '<td class="p-3 text-center"><button onclick="event.stopPropagation(); window.printReceipt(\'' + escapeHtml(p.receiptNumber) + '\')" class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition" title="Print Receipt"><i class="fas fa-print"></i></button></td>';
+                html += '</tr>';
+            }
+        } else {
+            html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No recent payments' + (meta.usedCache ? ' (cached view)' : ' yet this term') + '</td></tr>';
+        }
+        html += '        </tbody></table>';
+        html += '    </div>';
+        html += '  </div>';
+        html += '</div>';
+
+        // QUICK ACTIONS
+        html += '<div class="db-card overflow-hidden">';
+        html += '  <div class="px-5 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center gap-2">';
+        html += '    <i class="fas fa-bolt text-amber-400"></i><h3 class="font-display font-bold">Quick Actions</h3>';
+        html += '  </div>';
+        html += '  <div class="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
+
+        var actions = [
+            { onclick: "window.showStudentRegistration && window.showStudentRegistration()", icon: 'fa-user-plus', color: 'indigo', label: 'Register' },
+            { onclick: "window.showFeeManagement && window.showFeeManagement()", icon: 'fa-money-bill-wave', color: 'emerald', label: 'Collect Fees' },
+            { onclick: "window.showReports && window.showReports()", icon: 'fa-file-lines', color: 'sky', label: 'Reports' },
+            { onclick: "window.showInventory && window.showInventory()", icon: 'fa-boxes-stacked', color: 'teal', label: 'Inventory' },
+            { onclick: "window.showUniformManagement && window.showUniformManagement()", icon: 'fa-shirt', color: 'purple', label: 'Uniform' },
+            { onclick: "window.showStudentList && window.showStudentList()", icon: 'fa-users', color: 'rose', label: 'Students' },
+            { onclick: "window.showSettings && window.showSettings()", icon: 'fa-gear', color: 'slate', label: 'Settings' },
+            { onclick: "window.showBackup && window.showBackup()", icon: 'fa-database', color: 'amber', label: 'Backup' }
+        ];
+        var actionIconBg = {
+            indigo: 'bg-indigo-50 text-indigo-600', emerald: 'bg-emerald-50 text-emerald-600', sky: 'bg-sky-50 text-sky-600',
+            teal: 'bg-teal-50 text-teal-600', purple: 'bg-purple-50 text-purple-600', rose: 'bg-rose-50 text-rose-600',
+            slate: 'bg-slate-100 text-slate-600', amber: 'bg-amber-50 text-amber-600'
+        };
+        for (var ai = 0; ai < actions.length; ai++) {
+            var act = actions[ai];
+            html += '<button onclick="' + act.onclick + '" class="db-action p-4 text-center group">';
+            html += '  <div class="w-10 h-10 rounded-xl ' + actionIconBg[act.color] + ' flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform"><i class="fas ' + act.icon + '"></i></div>';
+            html += '  <p class="text-xs font-semibold text-slate-600">' + act.label + '</p>';
+            html += '</button>';
+        }
+        html += '  </div>';
+        html += '</div>';
+
+        // STATUS GROUP HEALTH
+        html += '<div>';
+        html += '  <div class="mb-4"><p class="db-eyebrow">Diagnostics</p><h2 class="db-section-title text-xl mt-0.5">Status Group Health</h2></div>';
+        html += '  <div class="db-card p-4">';
+
+        if (statusGroupHealth.length > 0) {
+            var sortedHealth = statusGroupHealth.slice().sort(function (a, b) { return safeNum(a.rate) - safeNum(b.rate); });
+            for (var shi = 0; shi < sortedHealth.length; shi++) {
+                var sgh = sortedHealth[shi];
+                var rate2 = safeNum(sgh.rate);
+                var rateColor2 = getStatusColor(rate2);
+                var barColor2 = getStatusBarColor(rate2);
+                var badge2 = getStatusBadge(rate2);
+
+                html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="window.navigateToStatusGroupReport(\'' + escapeHtml(sgh.name) + '\')">';
+                html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor2 + '"></div>';
+                html += '  <div class="flex-1 min-w-0">';
+                html += '    <div class="flex justify-between items-center">';
+                html += '      <span class="font-semibold text-sm text-slate-700 truncate">' + escapeHtml(sgh.name) + '</span>';
+                html += '      <span class="text-sm font-bold font-mono-num ' + rateColor2 + '">' + rate2.toFixed(1) + '%</span>';
+                html += '    </div>';
+                html += '    <div class="db-progress-track h-1.5 mt-1.5"><div class="db-progress-fill ' + barColor2 + ' h-1.5" style="width:' + Math.min(100, rate2) + '%"></div></div>';
+                html += '  </div>';
+                html += '  <div class="flex-shrink-0">' + badge2 + '</div>';
+                html += '</div>';
+            }
+        } else {
+            html += '<div class="text-center py-10 text-slate-400">No status groups found</div>';
+        }
+        html += '  </div>';
+        html += '</div>';
+
+        // FOOTER
+        html += '<div class="text-center text-xs text-slate-400 py-4 border-t border-slate-200">';
+        html += '  <div class="flex flex-wrap justify-center gap-4">';
+        html += '    <span><i class="fas fa-rotate ' + (meta.usedCache ? 'text-amber-500' : 'text-emerald-500') + ' mr-1"></i>' + (meta.usedCache ? 'Cached data' : 'Live data') + '</span>';
+        html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
+        html += '    <span>Dashboard v14.0</span>';
+        html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + statusGroups.length + ' status groups</span>';
+        html += '  </div>';
+        html += '</div>';
+
+        html += '</div>';
+
+        mainContent.innerHTML = html;
+
+        setTimeout(function () {
+            try { initializePaymentStatusChart(studentStats.paymentStatus || {}); } catch (e) { console.warn('Chart init failed:', e); }
+        }, 150);
+        try { initializeItemFilters(); } catch (e) { console.warn('Item filters init failed:', e); }
     }
-    html += '  </div>';
-    html += '</div>';
 
-    // ======================= FOOTER =======================
-    html += '<div class="text-center text-xs text-slate-400 py-4 border-t border-slate-200">';
-    html += '  <div class="flex flex-wrap justify-center gap-4">';
-    html += '    <span><i class="fas fa-rotate text-emerald-500 mr-1"></i>Live data</span>';
-    html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
-    html += '    <span>Dashboard v12.0</span>';
-    html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + (statusGroupsCount || 0) + ' status groups</span>';
-    html += '  </div>';
-    html += '</div>';
+    // ------------------------------------------------------------------
+    // 8. BREAKDOWN CARD
+    // ------------------------------------------------------------------
+    function renderBreakdownCard(label, expected, collected, outstanding, rate, icon, color) {
+        var rateColor = getStatusColor(rate);
+        var barColor = getStatusBarColor(rate);
+        var iconBg = { indigo: 'bg-indigo-50 text-indigo-600', teal: 'bg-teal-50 text-teal-600' }[color] || 'bg-slate-100 text-slate-600';
 
-    html += '</div>'; // close wrapper
+        return '' +
+            '<div class="db-card p-5">' +
+            '  <div class="flex items-center justify-between mb-4">' +
+            '    <div class="flex items-center gap-2">' +
+            '      <div class="w-9 h-9 rounded-xl ' + iconBg + ' flex items-center justify-center"><i class="fas ' + icon + '"></i></div>' +
+            '      <h3 class="font-display font-bold text-slate-800">' + escapeHtml(label) + '</h3>' +
+            '    </div>' +
+            '    <span class="font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>' +
+            '  </div>' +
+            '  <div class="db-progress-track h-2 mb-4"><div class="db-progress-fill ' + barColor + ' h-2" style="width:' + Math.min(100, rate) + '%"></div></div>' +
+            '  <div class="grid grid-cols-3 gap-2 text-center">' +
+            '    <div><p class="text-[10px] text-slate-400 uppercase font-semibold">Expected</p><p class="text-sm font-bold font-mono-num text-slate-700">UGX ' + formatMoney(expected) + '</p></div>' +
+            '    <div><p class="text-[10px] text-slate-400 uppercase font-semibold">Collected</p><p class="text-sm font-bold font-mono-num text-emerald-600">UGX ' + formatMoney(collected) + '</p></div>' +
+            '    <div><p class="text-[10px] text-slate-400 uppercase font-semibold">Outstanding</p><p class="text-sm font-bold font-mono-num text-rose-500">UGX ' + formatMoney(outstanding) + '</p></div>' +
+            '  </div>' +
+            '</div>';
+    }
 
-    mainContent.innerHTML = html;
+    // ------------------------------------------------------------------
+    // 9. METRIC CARD (reads dashboardPrefs safely — var is hoisted)
+    // ------------------------------------------------------------------
+    function renderMetricCardEnhanced(label, value, icon, color, subtext, isFinancial) {
+        var colorMap = {
+            blue: 'border-blue-500', green: 'border-green-500', red: 'border-red-500',
+            yellow: 'border-yellow-500', purple: 'border-purple-500', indigo: 'border-indigo-500',
+            pink: 'border-pink-500', emerald: 'border-emerald-500', orange: 'border-orange-500',
+            teal: 'border-teal-500', rose: 'border-rose-500', amber: 'border-amber-500', gold: 'border-amber-500', sky: 'border-sky-500'
+        };
+        var bgLight = {
+            blue: 'bg-blue-100', green: 'bg-green-100', red: 'bg-red-100', yellow: 'bg-yellow-100',
+            purple: 'bg-purple-100', indigo: 'bg-indigo-100', pink: 'bg-pink-100', emerald: 'bg-emerald-100',
+            orange: 'bg-orange-100', teal: 'bg-teal-100', rose: 'bg-rose-100', amber: 'bg-amber-100', gold: 'bg-amber-100', sky: 'bg-sky-100'
+        };
+        var border = colorMap[color] || 'border-gray-500';
+        var bg = bgLight[color] || 'bg-gray-100';
 
-    setTimeout(function () { initializePaymentStatusChart(studentStats?.paymentStatus || {}); }, 150);
-    initializeItemFilters();
+        var cardId = 'metric_' + String(label).replace(/[^a-zA-Z0-9]/g, '_');
+        var hideFinancials = !!(dashboardPrefs && dashboardPrefs.hideFinancials);
+        var shouldMask = !!isFinancial && hideFinancials;
+        var displayValue = shouldMask ? '••••••••' : value;
+        var displaySub = shouldMask ? '••••••••' : (subtext || '');
 
-    console.log('✅ Dashboard v12.0 rendered — modern edition');
-}
+        return '' +
+            '<div class="bg-white rounded-xl shadow-sm border-l-4 ' + border + ' p-3 transition-all duration-300 hover:shadow-lg hover:scale-105 hover:z-10 group relative ' + (isFinancial ? 'cursor-pointer' : '') + '"' +
+            '     id="' + cardId + '"' +
+            (isFinancial ? ' onclick="window.toggleMetricVisibility(\'' + cardId + '\')"' : '') +
+            '     data-original-value="' + escapeHtml(String(value)) + '"' +
+            '     data-original-sub="' + escapeHtml(subtext || '') + '">' +
+            '  <div class="flex justify-between items-start">' +
+            '    <div class="min-w-0 flex-1">' +
+            '      <p class="text-xs text-gray-500 truncate flex items-center gap-1">' +
+            escapeHtml(label) +
+            (isFinancial ? '<span class="text-gray-300 text-[10px]">' + (shouldMask ? '👁️‍🗨️' : '👁️') + '</span>' : '') +
+            '      </p>' +
+            '      <p class="text-lg font-bold truncate metric-value db-metric-value" id="' + cardId + '_value">' + displayValue + '</p>' +
+            (subtext ? '      <p class="text-xs text-gray-400 truncate metric-sub" id="' + cardId + '_sub">' + displaySub + '</p>' : '') +
+            '    </div>' +
+            '    <div class="w-8 h-8 ' + bg + ' rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110">' +
+            '      <i class="fas ' + icon + ' text-sm"></i>' +
+            '    </div>' +
+            '  </div>' +
+            '</div>';
+    }
 
-// ---------------------------------------------------------------------------
-// 5. METRIC CARD
-// ---------------------------------------------------------------------------
-function renderMetricCardEnhanced(label, value, icon, color, subtext) {
-    const colorMap = {
-        blue: 'from-blue-500 to-blue-600 border-blue-500',
-        green: 'from-green-500 to-green-600 border-green-500',
-        red: 'from-red-500 to-red-600 border-red-500',
-        yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
-        purple: 'from-purple-500 to-purple-600 border-purple-500',
-        indigo: 'from-indigo-500 to-indigo-600 border-indigo-500',
-        pink: 'from-pink-500 to-pink-600 border-pink-500',
-        emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
-        orange: 'from-orange-500 to-orange-600 border-orange-500',
-        teal: 'from-teal-500 to-teal-600 border-teal-500'
-    };
-    
-    const gradient = colorMap[color] || 'from-gray-500 to-gray-600 border-gray-500';
-    const bgLight = color === 'blue' ? 'bg-blue-100' : 
-                    color === 'green' ? 'bg-green-100' : 
-                    color === 'red' ? 'bg-red-100' : 
-                    color === 'yellow' ? 'bg-yellow-100' : 
-                    color === 'purple' ? 'bg-purple-100' : 
-                    color === 'indigo' ? 'bg-indigo-100' : 
-                    color === 'pink' ? 'bg-pink-100' : 
-                    color === 'emerald' ? 'bg-emerald-100' : 
-                    color === 'orange' ? 'bg-orange-100' : 
-                    color === 'teal' ? 'bg-teal-100' : 'bg-gray-100';
-    
-    // Determine if this is a financial card
-    const isFinancial = label.includes('Expected') || label.includes('Collected') || label.includes('Outstanding') || label.includes('Collection Rate');
-    const cardId = 'metric_' + label.replace(/\s/g, '_');
-    
-    return `
-        <div class="bg-white rounded-xl shadow-sm border-l-4 ${gradient} p-3 transition-all duration-300 hover:shadow-lg hover:scale-105 hover:z-10 group relative cursor-pointer" 
-             id="${cardId}"
-             onclick="toggleMetricVisibility('${cardId}')">
-            <div class="flex justify-between items-start">
-                <div class="min-w-0 flex-1">
-                    <p class="text-xs text-gray-500 truncate flex items-center gap-1">
-                        ${label}
-                        ${isFinancial ? `<span class="text-gray-300 text-[10px]">👁️</span>` : ''}
-                    </p>
-                    <p class="text-lg font-bold truncate metric-value" id="${cardId}_value">
-                        ${isFinancial ? '••••••••••' : value}
-                    </p>
-                    ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtext}</p>` : ''}
-                </div>
-                <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110">
-                    <i class="fas ${icon} text-sm"></i>
-                </div>
-            </div>
-            <!-- Hover tooltip with full details -->
-            <div class="absolute hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 z-50 -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full w-64 shadow-xl">
-                <p class="font-bold">${label}</p>
-                <p class="text-lg font-mono">${value}</p>
-                ${subtext ? `<p class="text-gray-300 text-xs mt-1">${subtext}</p>` : ''}
-                <div class="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                <p class="text-[10px] text-gray-400 mt-1">Click to toggle visibility</p>
-            </div>
-        </div>
-    `;
-}
+    function toggleMetricVisibility(cardId) {
+        var card = document.getElementById(cardId);
+        if (!card) return;
 
-let metricVisibilityState = {};
-function toggleMetricVisibility(cardId) {
-    const valueEl = document.getElementById(cardId + '_value');
-    const subEl = document.getElementById(cardId + '_sub');
-    if (!valueEl) return;
+        dashboardPrefs.hideFinancials = !dashboardPrefs.hideFinancials;
+        saveDashboardPrefs(dashboardPrefs);
 
-    if (!metricVisibilityState[cardId]) metricVisibilityState[cardId] = false;
-    metricVisibilityState[cardId] = !metricVisibilityState[cardId];
-    const isVisible = metricVisibilityState[cardId];
+        var allCards = document.querySelectorAll('[data-original-value]');
+        for (var i = 0; i < allCards.length; i++) {
+            var el = allCards[i];
+            var valueEl = el.querySelector('.metric-value');
+            var subEl = el.querySelector('.metric-sub');
+            var isFinancialCard = !!el.getAttribute('onclick');
+            if (!isFinancialCard || !valueEl) continue;
 
-    const card = document.getElementById(cardId);
-    const originalValue = card?.dataset.originalValue || valueEl.textContent;
-    const originalSub = card?.dataset.originalSub || (subEl ? subEl.textContent : '');
+            var original = el.getAttribute('data-original-value');
+            var originalSub = el.getAttribute('data-original-sub');
 
-    if (isVisible) {
-        valueEl.textContent = originalValue;
-        if (subEl && originalSub) subEl.textContent = originalSub;
-        valueEl.className = 'db-metric-value text-lg font-bold text-emerald-600 truncate mt-1';
-    } else {
-        const isFinancial = cardId.includes('Expected') || cardId.includes('Collected') || cardId.includes('Outstanding') || cardId.includes('Collection_Rate');
-        if (isFinancial) {
-            valueEl.textContent = '••••••••';
-            valueEl.className = 'db-metric-value text-lg font-bold text-slate-300 truncate mt-1';
-            if (subEl) subEl.textContent = '••••••••';
+            if (dashboardPrefs.hideFinancials) {
+                valueEl.textContent = '••••••••';
+                if (subEl) subEl.textContent = '••••••••';
+            } else {
+                valueEl.textContent = original;
+                if (subEl && originalSub) subEl.textContent = originalSub;
+            }
         }
     }
-}
 
-// ---------------------------------------------------------------------------
-// 6. STATUS GROUP CARD
-// ---------------------------------------------------------------------------
-function renderStatusGroupCard(sg) {
-    const rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
-    const rateColor = getStatusColor(rate);
-    const barColor = getStatusBarColor(rate);
-    const badge = getStatusBadge(rate);
+    // ------------------------------------------------------------------
+    // 10. STATUS GROUP CARD
+    // ------------------------------------------------------------------
+    function renderStatusGroupCard(sg) {
+        var rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
+        var rateColor = getStatusColor(rate);
+        var barColor = getStatusBarColor(rate);
+        var badge = getStatusBadge(rate);
 
-    const items = Object.values(sg.items || {});
-    const topItems = items
-        .sort((a, b) => (b.collected / b.required || 0) - (a.collected / a.required || 0))
-        .slice(0, 4);
+        var itemsArr = Object.values(sg.items || {});
+        var topItems = itemsArr.slice().sort(function (a, b) {
+            return (a.collected / (a.required || 1)) - (b.collected / (b.required || 1));
+        }).slice(0, 4);
 
-    const borderClass = getStatusGroupColor(sg.name);
+        var borderClass = getStatusGroupColor(sg.name);
+        var periodLabel = sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'termly' ? 'Termly' : 'Yearly';
 
-    return `
-        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow">
-            <div class="p-4">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <i class="fas fa-tag text-indigo-400 text-sm"></i>
-                            <h4 class="font-display font-bold text-slate-800">${escapeHtml(sg.name)}</h4>
-                            ${badge}
-                        </div>
-                        <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'termly' ? 'Termly' : 'Yearly'}</p>
-                    </div>
-                    <p class="text-2xl font-bold font-mono-num ${rateColor}">${rate.toFixed(1)}%</p>
-                </div>
-
-                <div class="grid grid-cols-4 gap-2 mb-3">
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Required</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.totalRequired}</p></div>
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collected</p><p class="text-base font-bold font-mono-num text-emerald-600">${sg.totalCollected}</p></div>
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p><p class="text-base font-bold font-mono-num text-rose-500">${sg.totalRemaining}</p></div>
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Students</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.studentCount || 0}</p></div>
-                </div>
-
-                <div class="db-progress-track h-2 mb-3"><div class="db-progress-fill ${barColor} h-2" style="width:${Math.min(100, rate)}%"></div></div>
-
-                ${topItems.length > 0 ? `
-                    <div class="mt-3 pt-3 border-t border-slate-100">
-                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Items</p>
-                        <div class="space-y-1.5">
-                            ${topItems.map(item => {
-                                const itemRate = item.required > 0 ? (item.collected / item.required * 100) : 0;
-                                const itemColor = getStatusColor(itemRate);
-                                const itemBar = getStatusBarColor(itemRate);
-                                return `
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xs font-medium text-slate-600 flex-1 truncate">${escapeHtml(item.name)}</span>
-                                        <span class="text-xs font-bold font-mono-num ${itemColor}">${item.collected}/${item.required}</span>
-                                        <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
-                                    </div>
-                                `;
-                            }).join('')}
-                            ${Object.values(sg.items || {}).length > 4 ? `<p class="text-xs text-slate-400 text-center pt-1">+${Object.values(sg.items || {}).length - 4} more items</p>` : ''}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <button onclick="navigateToStatusGroupReport('${escapeHtml(sg.name)}')"
-                        class="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm py-2 rounded-xl transition font-semibold">
-                    <i class="fas fa-eye mr-1.5"></i>View Details
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-// ---------------------------------------------------------------------------
-// 7. CLASS PERFORMANCE TABLE
-// ---------------------------------------------------------------------------
-function renderClassPerformanceTable(statusGroups) {
-    const classSet = new Set();
-    statusGroups.forEach(sg => Object.keys(sg.classBreakdown || {}).forEach(cls => classSet.add(cls)));
-    const classes = Array.from(classSet).sort();
-
-    if (classes.length === 0) {
-        return `<div class="text-center py-10 text-slate-400">
-            <i class="fas fa-chalkboard text-3xl mb-2 text-slate-300"></i>
-            <p class="font-medium">No class performance data available</p>
-            <p class="text-sm text-slate-400 mt-1">Data appears once students are assigned to classes</p>
-        </div>`;
-    }
-
-    const groupsWithData = statusGroups.filter(sg => Object.keys(sg.classBreakdown || {}).length > 0);
-    if (groupsWithData.length === 0) {
-        return `<div class="text-center py-10 text-slate-400"><i class="fas fa-tags text-3xl mb-2 text-slate-300"></i><p>No status group data by class</p></div>`;
-    }
-
-    let html = `<table class="w-full text-xs">
-        <thead class="db-table"><tr>
-            <th class="p-2 text-left sticky left-0 bg-slate-50 z-10">Status Group</th>
-            ${classes.map(cls => `<th class="p-2 text-center min-w-12">${escapeHtml(cls)}</th>`).join('')}
-        </tr></thead><tbody class="divide-y divide-slate-100">`;
-
-    for (const sg of groupsWithData) {
-        const breakdown = sg.classBreakdown || {};
-        const rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
-        const rowTint = rate >= 85 ? 'bg-emerald-50/40' : rate >= 70 ? 'bg-amber-50/40' : rate >= 50 ? 'bg-orange-50/40' : 'bg-rose-50/40';
-
-        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(sg.name)}')">
-            <td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">${escapeHtml(sg.name)}</td>`;
-
-        for (const cls of classes) {
-            const dataC = breakdown[cls] || { required: 0, collected: 0 };
-            const clsRate = dataC.required > 0 ? (dataC.collected / dataC.required * 100) : 0;
-            const clsColor = getStatusColor(clsRate);
-            const clsBg = clsRate >= 85 ? 'bg-emerald-100/70' : clsRate >= 70 ? 'bg-amber-100/70' : clsRate >= 50 ? 'bg-orange-100/70' : 'bg-rose-100/70';
-            html += `<td class="p-2 text-center ${clsBg} rounded-lg">
-                ${dataC.required > 0 ? `<span class="font-bold font-mono-num ${clsColor}">${clsRate.toFixed(0)}%</span>` : '-'}
-                ${dataC.required > 0 ? `<div class="text-[10px] text-slate-400">${dataC.collected}/${dataC.required}</div>` : ''}
-            </td>`;
+        var itemsHtml = '';
+        if (topItems.length > 0) {
+            itemsHtml += '<div class="mt-3 pt-3 border-t border-slate-100">';
+            itemsHtml += '<p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Weakest Items</p>';
+            itemsHtml += '<div class="space-y-1.5">';
+            for (var i = 0; i < topItems.length; i++) {
+                var item = topItems[i];
+                var itemRate = item.required > 0 ? (item.collected / item.required * 100) : 0;
+                var itemColor = getStatusColor(itemRate);
+                var itemBar = getStatusBarColor(itemRate);
+                itemsHtml += '<div class="flex items-center gap-2">' +
+                    '<span class="text-xs font-medium text-slate-600 flex-1 truncate">' + escapeHtml(item.name) + '</span>' +
+                    '<span class="text-xs font-bold font-mono-num ' + itemColor + '">' + item.collected + '/' + item.required + '</span>' +
+                    '<div class="w-16 db-progress-track h-1"><div class="db-progress-fill ' + itemBar + ' h-1" style="width:' + Math.min(100, itemRate) + '%"></div></div>' +
+                    '</div>';
+            }
+            if (itemsArr.length > 4) itemsHtml += '<p class="text-xs text-slate-400 text-center pt-1">+' + (itemsArr.length - 4) + ' more items</p>';
+            itemsHtml += '</div></div>';
         }
-        html += `</tr>`;
+
+        return '' +
+            '<div class="db-card border-l-4 ' + borderClass + ' overflow-hidden hover:shadow-lg transition-shadow">' +
+            '  <div class="p-4">' +
+            '    <div class="flex justify-between items-start mb-3">' +
+            '      <div>' +
+            '        <div class="flex items-center gap-2 flex-wrap">' +
+            '          <i class="fas fa-tag text-indigo-400 text-sm"></i>' +
+            '          <h4 class="font-display font-bold text-slate-800">' + escapeHtml(sg.name) + '</h4>' +
+            '          ' + badge +
+            '        </div>' +
+            '        <p class="text-xs text-slate-400 mt-0.5">' + periodLabel + '</p>' +
+            '      </div>' +
+            '      <p class="text-2xl font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</p>' +
+            '    </div>' +
+            '    <div class="grid grid-cols-4 gap-2 mb-3">' +
+            '      <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Required</p><p class="text-base font-bold font-mono-num text-slate-700">' + sg.totalRequired + '</p></div>' +
+            '      <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collected</p><p class="text-base font-bold font-mono-num text-emerald-600">' + sg.totalCollected + '</p></div>' +
+            '      <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p><p class="text-base font-bold font-mono-num text-rose-500">' + sg.totalRemaining + '</p></div>' +
+            '      <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Students</p><p class="text-base font-bold font-mono-num text-slate-700">' + (sg.studentCount || 0) + (sg._studentCountSuspect ? '<span class="text-amber-500" title="Clamped to total enrollment">*</span>' : '') + '</p></div>' +
+            '    </div>' +
+            '    <div class="db-progress-track h-2 mb-3"><div class="db-progress-fill ' + barColor + ' h-2" style="width:' + Math.min(100, rate) + '%"></div></div>' +
+            itemsHtml +
+            '    <button onclick="window.navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')" class="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm py-2 rounded-xl transition font-semibold">' +
+            '      <i class="fas fa-eye mr-1.5"></i>View Details' +
+            '    </button>' +
+            '  </div>' +
+            '</div>';
     }
 
-    html += `</tbody></table>
-        <div class="mt-3 text-[11px] text-slate-400 text-center flex flex-wrap justify-center gap-x-3 gap-y-1">
-            <span><span class="inline-block w-2.5 h-2.5 bg-emerald-400 rounded-sm mr-1"></span>&ge;85%</span>
-            <span><span class="inline-block w-2.5 h-2.5 bg-amber-400 rounded-sm mr-1"></span>70&ndash;84%</span>
-            <span><span class="inline-block w-2.5 h-2.5 bg-orange-400 rounded-sm mr-1"></span>50&ndash;69%</span>
-            <span><span class="inline-block w-2.5 h-2.5 bg-rose-400 rounded-sm mr-1"></span>&lt;50%</span>
-            <span class="text-slate-300">|</span>
-            <span>Click a row for details</span>
-        </div>`;
+    // ------------------------------------------------------------------
+    // 11. CLASS PERFORMANCE TABLE
+    // ------------------------------------------------------------------
+    function renderClassPerformanceTable(statusGroups) {
+        var classSet = {};
+        for (var i = 0; i < statusGroups.length; i++) {
+            var bd = statusGroups[i].classBreakdown || {};
+            for (var cls in bd) classSet[cls] = true;
+        }
+        var classes = Object.keys(classSet).sort();
 
-    return html;
-}
+        if (classes.length === 0) {
+            return '<div class="text-center py-10 text-slate-400">' +
+                '<i class="fas fa-chalkboard text-3xl mb-2 text-slate-300"></i>' +
+                '<p class="font-medium">No class performance data available</p>' +
+                '<p class="text-sm text-slate-400 mt-1">Data appears once students are assigned to classes</p>' +
+                '</div>';
+        }
 
-// ---------------------------------------------------------------------------
-// 8. PAYMENT STATUS CHART
-// ---------------------------------------------------------------------------
-function initializePaymentStatusChart(paymentStatus) {
-    const canvas = document.getElementById('paymentStatusChart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+        var groupsWithData = statusGroups.filter(function (sg) { return Object.keys(sg.classBreakdown || {}).length > 0; });
+        if (groupsWithData.length === 0) {
+            return '<div class="text-center py-10 text-slate-400"><i class="fas fa-tags text-3xl mb-2 text-slate-300"></i><p>No status group data by class</p></div>';
+        }
 
-    const data = {
-        labels: ['Fully Paid', 'Payment Due', 'Critical Overdue', 'No Payment', 'Credit Balance'],
-        datasets: [{
-            data: [
-                paymentStatus.fullyPaid || 0,
-                paymentStatus.paymentDue || 0,
-                paymentStatus.criticalOverdue || 0,
-                paymentStatus.noPayment || 0,
-                paymentStatus.creditBalance || 0
-            ],
-            backgroundColor: ['#12A66B', '#DB9A2C', '#E45B6B', '#94A3B8', '#2F8FE0'],
-            borderWidth: 3,
-            borderColor: '#ffffff',
-            hoverOffset: 6
-        }]
-    };
+        var html = '<table class="w-full text-xs"><thead class="db-table"><tr>' +
+            '<th class="p-2 text-left sticky left-0 bg-slate-50 z-10">Status Group</th>';
+        for (var ci = 0; ci < classes.length; ci++) {
+            html += '<th class="p-2 text-center min-w-12">' + escapeHtml(classes[ci]) + '</th>';
+        }
+        html += '</tr></thead><tbody class="divide-y divide-slate-100">';
 
-    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+        for (var gi = 0; gi < groupsWithData.length; gi++) {
+            var sg = groupsWithData[gi];
+            var breakdown = sg.classBreakdown || {};
+            var rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
+            var rowTint = rate >= 85 ? 'bg-emerald-50/40' : rate >= 70 ? 'bg-amber-50/40' : rate >= 50 ? 'bg-orange-50/40' : 'bg-rose-50/40';
 
-    if (window._paymentStatusChartInstance) {
-        try { window._paymentStatusChartInstance.destroy(); } catch (e) {}
+            html += '<tr class="' + rowTint + ' hover:brightness-95 cursor-pointer" onclick="window.navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')">' +
+                '<td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">' + escapeHtml(sg.name) + '</td>';
+
+            for (var cj = 0; cj < classes.length; cj++) {
+                var dataC = breakdown[classes[cj]] || { required: 0, collected: 0 };
+                var clsRate = dataC.required > 0 ? (dataC.collected / dataC.required * 100) : 0;
+                var clsColor = getStatusColor(clsRate);
+                var clsBg = clsRate >= 85 ? 'bg-emerald-100/70' : clsRate >= 70 ? 'bg-amber-100/70' : clsRate >= 50 ? 'bg-orange-100/70' : 'bg-rose-100/70';
+                html += '<td class="p-2 text-center ' + (dataC.required > 0 ? clsBg : '') + ' rounded-lg">' +
+                    (dataC.required > 0 ? '<span class="font-bold font-mono-num ' + clsColor + '">' + clsRate.toFixed(0) + '%</span>' : '<span class="text-slate-300">-</span>') +
+                    (dataC.required > 0 ? '<div class="text-[10px] text-slate-400">' + dataC.collected + '/' + dataC.required + '</div>' : '') +
+                    '</td>';
+            }
+            html += '</tr>';
+        }
+
+        html += '</tbody></table>' +
+            '<div class="mt-3 text-[11px] text-slate-400 text-center flex flex-wrap justify-center gap-x-3 gap-y-1">' +
+            '<span><span class="inline-block w-2.5 h-2.5 bg-emerald-400 rounded-sm mr-1"></span>&ge;85%</span>' +
+            '<span><span class="inline-block w-2.5 h-2.5 bg-amber-400 rounded-sm mr-1"></span>70&ndash;84%</span>' +
+            '<span><span class="inline-block w-2.5 h-2.5 bg-orange-400 rounded-sm mr-1"></span>50&ndash;69%</span>' +
+            '<span><span class="inline-block w-2.5 h-2.5 bg-rose-400 rounded-sm mr-1"></span>&lt;50%</span>' +
+            '<span class="text-slate-300">|</span>' +
+            '<span>Click a row for details</span>' +
+            '</div>';
+
+        return html;
     }
 
-    window._paymentStatusChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '68%',
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' }
-                },
-                tooltip: {
-                    backgroundColor: '#0B1324',
-                    padding: 10,
-                    cornerRadius: 10,
-                    titleFont: { family: 'Sora', weight: '700' },
-                    bodyFont: { family: 'Inter' },
-                    callbacks: {
-                        label: function (context) {
-                            const value = context.raw;
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return `${context.label}: ${value} (${percentage}%)`;
+    // ------------------------------------------------------------------
+    // 12. PAYMENT STATUS CHART
+    // ------------------------------------------------------------------
+    function initializePaymentStatusChart(paymentStatus) {
+        var canvas = document.getElementById('paymentStatusChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var ctx = canvas.getContext('2d');
+
+        var dataObj = {
+            labels: ['Fully Paid', 'Payment Due', 'Critical Overdue', 'No Payment', 'Credit Balance'],
+            datasets: [{
+                data: [
+                    safeNum(paymentStatus.fullyPaid), safeNum(paymentStatus.paymentDue),
+                    safeNum(paymentStatus.criticalOverdue), safeNum(paymentStatus.noPayment),
+                    safeNum(paymentStatus.creditBalance)
+                ],
+                backgroundColor: ['#12A66B', '#DB9A2C', '#E45B6B', '#94A3B8', '#2F8FE0'],
+                borderWidth: 3, borderColor: '#ffffff', hoverOffset: 6
+            }]
+        };
+        var total = dataObj.datasets[0].data.reduce(function (a, b) { return a + b; }, 0);
+
+        if (window._paymentStatusChartInstance) {
+            try { window._paymentStatusChartInstance.destroy(); } catch (e) {}
+        }
+
+        if (total === 0) {
+            var parent = canvas.parentElement;
+            if (parent) parent.innerHTML = '<div class="h-full flex items-center justify-center text-slate-400 text-sm"><i class="fas fa-chart-pie mr-2 text-2xl opacity-30"></i>No fee-assignment data yet</div>';
+            return;
+        }
+
+        window._paymentStatusChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: dataObj,
+            options: {
+                responsive: true, maintainAspectRatio: true, cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' } },
+                    tooltip: {
+                        backgroundColor: '#0B1324', padding: 10, cornerRadius: 10,
+                        titleFont: { family: 'Sora', weight: '700' }, bodyFont: { family: 'Inter' },
+                        callbacks: {
+                            label: function (context) {
+                                var value = context.raw;
+                                var percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return context.label + ': ' + value + ' (' + percentage + '%)';
+                            }
                         }
                     }
                 }
             }
-        }
-    });
-}
-
-// ---------------------------------------------------------------------------
-// 9. ITEM FILTERS
-// ---------------------------------------------------------------------------
-function initializeItemFilters() {
-    const searchInput = document.getElementById('itemSearchInput');
-    const groupFilter = document.getElementById('itemStatusGroupFilter');
-    if (searchInput) {
-        searchInput.addEventListener('keyup', filterItemsTable);
-        searchInput.addEventListener('input', filterItemsTable);
+        });
     }
-    if (groupFilter) groupFilter.addEventListener('change', filterItemsTable);
-}
 
-function filterItemsTable() {
-    const searchTerm = (document.getElementById('itemSearchInput')?.value || '').toLowerCase().trim();
-    const groupValue = document.getElementById('itemStatusGroupFilter')?.value || '';
+    // ------------------------------------------------------------------
+    // 13. ITEM FILTERS + SORT
+    // ------------------------------------------------------------------
+    function initializeItemFilters() {
+        var searchInput = document.getElementById('itemSearchInput');
+        var groupFilter = document.getElementById('itemStatusGroupFilter');
+        if (searchInput) searchInput.addEventListener('input', filterItemsTable);
+        if (groupFilter) groupFilter.addEventListener('change', filterItemsTable);
+    }
 
-    const rows = document.querySelectorAll('#itemsTable .item-row');
-    let visibleCount = 0;
+    function filterItemsTable() {
+        var searchTerm = ((document.getElementById('itemSearchInput') || {}).value || '').toLowerCase().trim();
+        var groupValue = (document.getElementById('itemStatusGroupFilter') || {}).value || '';
 
-    rows.forEach(row => {
-        const name = row.getAttribute('data-name') || '';
-        const group = row.getAttribute('data-group') || '';
+        var rows = document.querySelectorAll('#itemsTable .item-row');
+        var visibleCount = 0;
 
-        let matchesSearch = true;
-        if (searchTerm) matchesSearch = name.includes(searchTerm);
-
-        let matchesGroup = true;
-        if (groupValue) matchesGroup = group === groupValue.toLowerCase();
-
-        const isVisible = matchesSearch && matchesGroup;
-        row.style.display = isVisible ? '' : 'none';
-        if (isVisible) visibleCount++;
-    });
-
-    const countSpan = document.getElementById('itemsVisibleCount');
-    if (countSpan) countSpan.innerText = visibleCount;
-}
-
-function resetItemFilters() {
-    const searchInput = document.getElementById('itemSearchInput');
-    const groupFilter = document.getElementById('itemStatusGroupFilter');
-    if (searchInput) searchInput.value = '';
-    if (groupFilter) groupFilter.value = '';
-    filterItemsTable();
-}
-
-let itemsSortDirection = {};
-function sortItemsTable(column) {
-    const rows = document.querySelectorAll('#itemsTable .item-row');
-    const rowArray = Array.from(rows);
-
-    if (!itemsSortDirection[column]) itemsSortDirection[column] = 'asc';
-    else if (itemsSortDirection[column] === 'asc') itemsSortDirection[column] = 'desc';
-    else itemsSortDirection[column] = 'asc';
-
-    const direction = itemsSortDirection[column];
-
-    rowArray.sort((a, b) => {
-        let aVal, bVal;
-        switch (column) {
-            case 'name': aVal = a.getAttribute('data-name') || ''; bVal = b.getAttribute('data-name') || ''; break;
-            case 'statusGroup': aVal = a.getAttribute('data-group') || ''; bVal = b.getAttribute('data-group') || ''; break;
-            case 'required': aVal = parseInt(a.getAttribute('data-required')) || 0; bVal = parseInt(b.getAttribute('data-required')) || 0; break;
-            case 'collected': aVal = parseInt(a.getAttribute('data-collected')) || 0; bVal = parseInt(b.getAttribute('data-collected')) || 0; break;
-            case 'remaining': aVal = parseInt(a.getAttribute('data-remaining')) || 0; bVal = parseInt(b.getAttribute('data-remaining')) || 0; break;
-            case 'rate': aVal = parseFloat(a.getAttribute('data-rate')) || 0; bVal = parseFloat(b.getAttribute('data-rate')) || 0; break;
-            case 'students': aVal = parseInt(a.getAttribute('data-students')) || 0; bVal = parseInt(b.getAttribute('data-students')) || 0; break;
-            default: return 0;
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var name = row.getAttribute('data-name') || '';
+            var group = row.getAttribute('data-group') || '';
+            var matchesSearch = !searchTerm || name.indexOf(searchTerm) !== -1;
+            var matchesGroup = !groupValue || group === groupValue;
+            var isVisible = matchesSearch && matchesGroup;
+            row.style.display = isVisible ? '' : 'none';
+            if (isVisible) visibleCount++;
         }
-        if (typeof aVal === 'string') return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        return direction === 'asc' ? aVal - bVal : bVal - aVal;
-    });
 
-    const tbody = document.querySelector('#itemsTable tbody');
-    if (tbody) rowArray.forEach(row => tbody.appendChild(row));
-}
+        var countSpan = document.getElementById('itemsVisibleCount');
+        if (countSpan) countSpan.innerText = visibleCount;
+    }
 
-// ---------------------------------------------------------------------------
-// 10. NAVIGATION
-// ---------------------------------------------------------------------------
-function navigateToStatusGroupReport(statusGroupName) {
-    showReports();
-    setTimeout(() => {
-        const filterSelect = document.getElementById('reportStatusGroupFilter');
-        if (filterSelect) {
-            for (let i = 0; i < filterSelect.options.length; i++) {
-                if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
+    function resetItemFilters() {
+        var searchInput = document.getElementById('itemSearchInput');
+        var groupFilter = document.getElementById('itemStatusGroupFilter');
+        if (searchInput) searchInput.value = '';
+        if (groupFilter) groupFilter.value = '';
+        filterItemsTable();
+    }
+
+    var itemsSortDirection = {};
+    function sortItemsTable(column) {
+        var rows = document.querySelectorAll('#itemsTable .item-row');
+        var rowArray = Array.prototype.slice.call(rows);
+
+        itemsSortDirection[column] = itemsSortDirection[column] === 'asc' ? 'desc' : 'asc';
+        var direction = itemsSortDirection[column];
+
+        rowArray.sort(function (a, b) {
+            var aVal, bVal;
+            switch (column) {
+                case 'name': aVal = a.getAttribute('data-name') || ''; bVal = b.getAttribute('data-name') || ''; break;
+                case 'statusGroup': aVal = a.getAttribute('data-group') || ''; bVal = b.getAttribute('data-group') || ''; break;
+                case 'required': aVal = parseInt(a.getAttribute('data-required')) || 0; bVal = parseInt(b.getAttribute('data-required')) || 0; break;
+                case 'collected': aVal = parseInt(a.getAttribute('data-collected')) || 0; bVal = parseInt(b.getAttribute('data-collected')) || 0; break;
+                case 'remaining': aVal = parseInt(a.getAttribute('data-remaining')) || 0; bVal = parseInt(b.getAttribute('data-remaining')) || 0; break;
+                case 'rate': aVal = parseFloat(a.getAttribute('data-rate')) || 0; bVal = parseFloat(b.getAttribute('data-rate')) || 0; break;
+                case 'students': aVal = parseInt(a.getAttribute('data-students')) || 0; bVal = parseInt(b.getAttribute('data-students')) || 0; break;
+                default: return 0;
             }
-            setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
-        }
-    }, 300);
-}
+            if (typeof aVal === 'string') return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            return direction === 'asc' ? aVal - bVal : bVal - aVal;
+        });
 
-// ---------------------------------------------------------------------------
-// 11. RECEIPT PRINTING (visual refresh, same data flow)
-// ---------------------------------------------------------------------------
-async function printReceipt(receiptNumber) {
-    if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
-        alert('Invalid receipt number. Cannot print receipt.');
-        return;
+        var tbody = document.querySelector('#itemsTable tbody');
+        if (tbody) for (var i = 0; i < rowArray.length; i++) tbody.appendChild(rowArray[i]);
     }
 
-    try {
-        const response = await fetch('/api/fee/payments');
-        if (!response.ok) throw new Error('Failed to fetch payments');
-        const payments = await response.json();
-
-        let payment = payments.find(p => p.receiptNumber === receiptNumber);
-        if (!payment) payment = payments.find(p => p.receiptNumber?.toLowerCase() === receiptNumber.toLowerCase());
-        if (!payment) payment = payments.find(p => p.receiptNumber?.includes(receiptNumber) || receiptNumber.includes(p.receiptNumber));
-        if (!payment) payment = payments.find(p => p.id === receiptNumber);
-
-        if (!payment) { alert('Payment record not found for receipt: ' + receiptNumber); return; }
-
-        const schoolRes = await fetch('/api/school');
-        const schoolData = await schoolRes.json();
-        const school = schoolData.school || {};
-
-        let oneTimeTotal = 0, termlyTotal = 0, yearlyTotal = 0;
-        if (payment.activityItemPayments) {
-            oneTimeTotal += payment.activityItemPayments.filter(i => i.periodType === 'one_time').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            termlyTotal += payment.activityItemPayments.filter(i => i.periodType === 'termly').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            yearlyTotal += payment.activityItemPayments.filter(i => i.periodType === 'yearly').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+    // ------------------------------------------------------------------
+    // 14. CSV EXPORT
+    // ------------------------------------------------------------------
+    function exportDashboardCSV() {
+        var data = window.dashboardData;
+        if (!data || !data.items || data.items.length === 0) {
+            alert('No item data available to export.');
+            return;
         }
-        if (payment.paymentsByPeriodType) {
-            oneTimeTotal += (payment.paymentsByPeriodType.one_time || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            termlyTotal += (payment.paymentsByPeriodType.termly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            yearlyTotal += (payment.paymentsByPeriodType.yearly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+
+        var rows = [['Item Name', 'Status Group', 'Required', 'Collected', 'Remaining', 'Rate %', 'Students']];
+        for (var i = 0; i < data.items.length; i++) {
+            var item = data.items[i];
+            var required = safeNum(item.required);
+            var collected = safeNum(item.collected);
+            var rate = required > 0 ? (collected / required * 100).toFixed(1) : '0.0';
+            rows.push([item.name, item.statusGroup, required, collected, safeNum(item.remaining), rate, safeNum(item.students)]);
         }
-        const totalPaid = (payment.tuitionPaid || 0) + oneTimeTotal + termlyTotal + yearlyTotal;
 
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) { alert('Please allow popups to print receipts'); return; }
+        var csv = rows.map(function (r) {
+            return r.map(function (cell) { return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(',');
+        }).join('\n');
 
-        printWindow.document.write(`
-            <!DOCTYPE html><html><head><title>Payment Receipt - ${payment.receiptNumber}</title>
-            <style>
-                *{margin:0;padding:0;box-sizing:border-box;}
-                body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;padding:40px;background:#F1F5F9;}
-                .receipt{max-width:460px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 20px 45px -20px rgba(15,23,42,.3);}
-                .header{background:linear-gradient(115deg,#0B7A70,#0E9C8E 45%,#4F5FE8);color:#fff;text-align:center;padding:28px;position:relative;}
-                .title{font-size:22px;font-weight:800;letter-spacing:.02em;}
-                .school-name{font-size:15px;font-weight:700;margin-top:6px;}
-                .receipt-no{font-size:11px;margin-top:10px;opacity:.85;font-family:monospace;letter-spacing:.03em;}
-                .content{padding:26px;}
-                .row{display:flex;justify-content:space-between;margin:11px 0;padding:6px 0;border-bottom:1px dashed #E2E8F0;font-size:13.5px;}
-                .total{font-size:18px;font-weight:800;border-top:2px solid #0B1324;padding-top:16px;margin-top:12px;border-bottom:none;}
-                .footer{background:#F8FAFC;text-align:center;padding:16px;font-size:11px;color:#94A3B8;}
-                .highlight{color:#0E9C8E;font-weight:800;}
-                .period-section{background:#F8FAFC;border-radius:12px;padding:14px;margin:12px 0;border:1px solid #EEF1F6;}
-                .period-title{font-weight:700;margin-bottom:8px;color:#0B7A70;font-size:13px;}
-                .items-list{font-size:12px;margin-top:6px;}
-                .items-list div{display:flex;justify-content:space-between;padding:4px 0;color:#475569;}
-                @media print{ body{padding:0;background:#fff;} .no-print{display:none;} }
-            </style></head>
-            <body>
-                <div class="receipt">
-                    <div class="header">
-                        <div class="title">FEE PAYMENT RECEIPT</div>
-                        <div class="school-name">${escapeHtml(school.schoolName || 'School Name')}</div>
-                        <div class="receipt-no">RCT: ${payment.receiptNumber}</div>
-                    </div>
-                    <div class="content">
-                        <div class="row"><strong>Date</strong><span>${new Date(payment.date).toLocaleDateString()}</span></div>
-                        <div class="row"><strong>Student</strong><span>${escapeHtml(payment.studentName)}</span></div>
-                        <div class="row"><strong>Admission No.</strong><span>${payment.admissionNumber}</span></div>
-                        <div class="row"><strong>Period</strong><span>${payment.academicYear} &middot; Term ${payment.term}</span></div>
-                        <div class="row"><strong>Method</strong><span>${payment.method?.toUpperCase() || 'CASH'}</span></div>
-                        ${payment.reference ? `<div class="row"><strong>Reference</strong><span>${payment.reference}</span></div>` : ''}
-                        ${payment.tuitionPaid > 0 ? `<div class="period-section"><div class="period-title">Tuition</div><div class="row" style="margin:0;padding:5px 0"><strong>Amount</strong><span>UGX ${(payment.tuitionPaid || 0).toLocaleString()}</span></div></div>` : ''}
-                        ${termlyTotal > 0 ? `<div class="period-section"><div class="period-title">Termly Items</div><div class="items-list">
-                            ${(payment.activityItemPayments || []).filter(i => i.periodType === 'termly').map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
-                            ${(payment.paymentsByPeriodType?.termly || []).map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
-                        </div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ${termlyTotal.toLocaleString()}</span></div></div>` : ''}
-                        ${oneTimeTotal > 0 ? `<div class="period-section"><div class="period-title">One-Time Items</div><div class="items-list">
-                            ${(payment.activityItemPayments || []).filter(i => i.periodType === 'one_time').map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
-                            ${(payment.paymentsByPeriodType?.one_time || []).map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
-                        </div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ${oneTimeTotal.toLocaleString()}</span></div></div>` : ''}
-                        ${yearlyTotal > 0 ? `<div class="period-section"><div class="period-title">Yearly Items</div><div class="items-list">
-                            ${(payment.activityItemPayments || []).filter(i => i.periodType === 'yearly').map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
-                            ${(payment.paymentsByPeriodType?.yearly || []).map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
-                        </div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ${yearlyTotal.toLocaleString()}</span></div></div>` : ''}
-                        <div class="row total"><strong>TOTAL PAID</strong><span class="highlight">UGX ${totalPaid.toLocaleString()}</span></div>
-                        ${payment.notes ? `<div class="row"><strong>Notes</strong><span>${payment.notes}</span></div>` : ''}
-                    </div>
-                    <div class="footer">Thank you for your payment &middot; Computer-generated receipt</div>
-                </div>
-                <div class="no-print" style="text-align:center;margin-top:20px;">
-                    <button onclick="window.print()" style="padding:11px 22px;background:#0B1324;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;">Print Receipt</button>
-                    <button onclick="window.close()" style="padding:11px 22px;background:#E2E8F0;color:#334155;border:none;border-radius:10px;cursor:pointer;font-weight:600;margin-left:8px;">Close</button>
-                </div>
-            </body></html>
-        `);
-        printWindow.document.close();
-
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
-    }
-}
-
-function viewPaymentReceipt(receiptNumber) { printReceipt(receiptNumber); }
-function printDashboard() { window.print(); }
-
-async function refreshDashboard() {
-    const btn = document.querySelector('[onclick="refreshDashboard()"]');
-    if (btn) {
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        btn.disabled = true;
-        await showDashboard();
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-    } else {
-        await showDashboard();
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 12. PRINT DASHBOARD SUMMARY REPORT
-// ---------------------------------------------------------------------------
-async function printDashboardReport() {
-    const { currentYear, currentTerm } = currentAcademicSettings;
-    const termName = getTermName(currentTerm);
-
-    const schoolRes = await fetch('/api/school');
-    const schoolData = await schoolRes.json();
-    const school = schoolData.school || {};
-
-    const students = window.dashboardStudents || [];
-    const totalExpected = students.reduce((sum, s) => sum + s.totalExpected, 0);
-    const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
-    const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected * 100).toFixed(1) : 0;
-
-    const feeStructuresRes = await fetch('/api/fee/structures');
-    const feeStructures = await feeStructuresRes.json();
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) { alert('Please allow popups to print the report'); return; }
-
-    printWindow.document.write(`
-        <!DOCTYPE html><html><head><title>Dashboard Report - ${school.schoolName || 'School'}</title>
-        <style>
-            *{margin:0;padding:0;box-sizing:border-box;}
-            body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;padding:40px;background:#fff;color:#0B1324;}
-            .report{max-width:1100px;margin:0 auto;}
-            .header{text-align:center;margin-bottom:30px;border-bottom:3px solid #0E9C8E;padding-bottom:22px;}
-            .title{font-size:26px;font-weight:800;color:#0B1324;margin-bottom:6px;}
-            .subtitle{font-size:15px;color:#64748B;margin-bottom:4px;}
-            .date{font-size:12px;color:#94A3B8;margin-top:10px;}
-            .section{margin-bottom:30px;}
-            .section-title{font-size:16px;font-weight:800;border-left:4px solid #0E9C8E;padding-left:14px;margin-bottom:18px;}
-            .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;}
-            .stat-card{background:#F8FAFC;border-radius:14px;padding:16px;text-align:center;border:1px solid #EEF1F6;}
-            .stat-label{font-size:11px;color:#94A3B8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
-            .stat-value{font-size:22px;font-weight:800;color:#0B7A70;}
-            .footer{text-align:center;margin-top:36px;padding-top:18px;border-top:1px solid #E2E8F0;font-size:11px;color:#94A3B8;}
-            @media print{ body{padding:20px;} .no-print{display:none;} }
-        </style></head>
-        <body>
-            <div class="report">
-                <div class="header">
-                    <div class="title">DASHBOARD SUMMARY REPORT</div>
-                    <div class="subtitle">${escapeHtml(school.schoolName || 'School Name')}</div>
-                    <div class="subtitle">${termName} ${currentYear}</div>
-                    <div class="date">Generated: ${new Date().toLocaleString()}</div>
-                </div>
-                <div class="section">
-                    <div class="section-title">Executive Summary</div>
-                    <div class="stats-grid">
-                        <div class="stat-card"><div class="stat-label">Total Students</div><div class="stat-value">${students.length}</div></div>
-                        <div class="stat-card"><div class="stat-label">Total Expected</div><div class="stat-value">UGX ${(totalExpected / 1000000).toFixed(1)}M</div></div>
-                        <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value">UGX ${(totalCollected / 1000000).toFixed(1)}M</div></div>
-                        <div class="stat-card"><div class="stat-label">Collection Rate</div><div class="stat-value">${collectionRate}%</div></div>
-                    </div>
-                </div>
-                <div class="section">
-                    <div class="section-title">Fee Structures Overview</div>
-                    <div class="stats-grid">
-                        <div class="stat-card"><div class="stat-label">Total Fee Structures</div><div class="stat-value">${feeStructures.length}</div></div>
-                        <div class="stat-card"><div class="stat-label">Nursery</div><div class="stat-value">${feeStructures.filter(f => f.level === 'Nursery').length}</div></div>
-                        <div class="stat-card"><div class="stat-label">Lower Primary</div><div class="stat-value">${feeStructures.filter(f => f.level === 'LowerPrimary').length}</div></div>
-                        <div class="stat-card"><div class="stat-label">Upper Primary</div><div class="stat-value">${feeStructures.filter(f => f.level === 'UpperPrimary').length}</div></div>
-                    </div>
-                </div>
-                <div class="footer">Computer-generated dashboard report &middot; School Management System</div>
-            </div>
-            <div class="no-print" style="text-align:center;margin-top:20px;">
-                <button onclick="window.print()" style="padding:11px 22px;background:#0B1324;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;">Print</button>
-                <button onclick="window.close()" style="padding:11px 22px;background:#E2E8F0;color:#334155;border:none;border-radius:10px;cursor:pointer;font-weight:600;margin-left:8px;">Close</button>
-            </div>
-        </body></html>
-    `);
-    printWindow.document.close();
-}
-
-// ---------------------------------------------------------------------------
-// 13. SIDEBAR LOGO
-// ---------------------------------------------------------------------------
-async function updateSidebarLogo() {
-    try {
-        const response = await fetch('/api/school');
-        const data = await response.json();
-        const school = data.school;
-
-        if (school && school.logo) {
-            const logoContainer = document.getElementById('schoolLogoContainer');
-            const icon = document.getElementById('sidebarSchoolIcon');
-            if (icon) icon.style.display = 'none';
-
-            const img = document.createElement('img');
-            img.src = school.logo;
-            img.className = 'w-full h-full object-cover rounded-xl';
-            img.id = 'sidebarSchoolLogo';
-
-            const existingImg = document.getElementById('sidebarSchoolLogo');
-            if (existingImg) existingImg.remove();
-
-            if (logoContainer) logoContainer.appendChild(img);
+        try {
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'dashboard-items-' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error('CSV export failed:', e);
+            alert('Export failed: ' + e.message);
         }
-    } catch (error) {
-        console.error('Error loading logo:', error);
     }
-}
-updateSidebarLogo();
 
-// ---------------------------------------------------------------------------
-// 14. GLOBAL EXPORTS
-// ---------------------------------------------------------------------------
-window.showDashboard = showDashboard;
-window.refreshDashboard = refreshDashboard;
-window.printDashboard = printDashboard;
-window.printDashboardReport = printDashboardReport;
-window.printReceipt = printReceipt;
-window.viewPaymentReceipt = viewPaymentReceipt;
-window.navigateToStatusGroupReport = navigateToStatusGroupReport;
-window.filterItemsTable = filterItemsTable;
-window.resetItemFilters = resetItemFilters;
-window.sortItemsTable = sortItemsTable;
-window.escapeHtml = escapeHtml;
-window.getTermName = getTermName;
-window.toggleMetricVisibility = toggleMetricVisibility;
-window.injectDashboardDesignSystem = injectDashboardDesignSystem;
+    // ------------------------------------------------------------------
+    // 15. NAVIGATION
+    // ------------------------------------------------------------------
+    function navigateToStatusGroupReport(statusGroupName) {
+        safeCall('showReports');
+        setTimeout(function () {
+            var filterSelect = document.getElementById('reportStatusGroupFilter');
+            if (filterSelect) {
+                for (var i = 0; i < filterSelect.options.length; i++) {
+                    if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
+                }
+                setTimeout(function () { safeCall('generateReportV2'); }, 200);
+            }
+        }, 300);
+    }
 
+    // ------------------------------------------------------------------
+    // 16. RECEIPT PRINTING
+    // ------------------------------------------------------------------
+    async function printReceipt(receiptNumber) {
+        if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
+            alert('Invalid receipt number. Cannot print receipt.');
+            return;
+        }
+
+        try {
+            var response = await fetch('/api/fee/payments');
+            if (!response.ok) throw new Error('Failed to fetch payments');
+            var payments = await response.json();
+
+            var payment = payments.find(function (p) { return p.receiptNumber === receiptNumber; })
+                || payments.find(function (p) { return p.receiptNumber && p.receiptNumber.toLowerCase() === receiptNumber.toLowerCase(); })
+                || payments.find(function (p) { return p.receiptNumber && (p.receiptNumber.indexOf(receiptNumber) !== -1 || receiptNumber.indexOf(p.receiptNumber) !== -1); })
+                || payments.find(function (p) { return p.id === receiptNumber; });
+
+            if (!payment) { alert('Payment record not found for receipt: ' + receiptNumber); return; }
+
+            var schoolRes = await fetch('/api/school');
+            var schoolData = await schoolRes.json();
+            var school = schoolData.school || {};
+
+            var oneTimeTotal = 0, termlyTotal = 0, yearlyTotal = 0;
+            if (payment.activityItemPayments) {
+                oneTimeTotal += payment.activityItemPayments.filter(function (i) { return i.periodType === 'one_time'; }).reduce(function (s, i) { return s + (i.amountPaid || i.cashEquivalent || 0); }, 0);
+                termlyTotal += payment.activityItemPayments.filter(function (i) { return i.periodType === 'termly'; }).reduce(function (s, i) { return s + (i.amountPaid || i.cashEquivalent || 0); }, 0);
+                yearlyTotal += payment.activityItemPayments.filter(function (i) { return i.periodType === 'yearly'; }).reduce(function (s, i) { return s + (i.amountPaid || i.cashEquivalent || 0); }, 0);
+            }
+            if (payment.paymentsByPeriodType) {
+                oneTimeTotal += (payment.paymentsByPeriodType.one_time || []).reduce(function (s, i) { return s + (i.amountPaid || i.cashEquivalent || 0); }, 0);
+                termlyTotal += (payment.paymentsByPeriodType.termly || []).reduce(function (s, i) { return s + (i.amountPaid || i.cashEquivalent || 0); }, 0);
+                yearlyTotal += (payment.paymentsByPeriodType.yearly || []).reduce(function (s, i) { return s + (i.amountPaid || i.cashEquivalent || 0); }, 0);
+            }
+            var totalPaid = (payment.tuitionPaid || 0) + oneTimeTotal + termlyTotal + yearlyTotal;
+
+            var printWindow = window.open('', '_blank');
+            if (!printWindow) { alert('Please allow popups to print receipts'); return; }
+
+            printWindow.document.write(
+                '<!DOCTYPE html><html><head><title>Payment Receipt - ' + payment.receiptNumber + '</title>' +
+                '<style>' +
+                '*{margin:0;padding:0;box-sizing:border-box;}' +
+                'body{font-family:Inter,ui-sans-serif,system-ui,sans-serif;padding:40px;background:#F1F5F9;}' +
+                '.receipt{max-width:460px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 20px 45px -20px rgba(15,23,42,.3);}' +
+                '.header{background:linear-gradient(115deg,#0B7A70,#0E9C8E 45%,#4F5FE8);color:#fff;text-align:center;padding:28px;}' +
+                '.title{font-size:22px;font-weight:800;letter-spacing:.02em;}' +
+                '.school-name{font-size:15px;font-weight:700;margin-top:6px;}' +
+                '.receipt-no{font-size:11px;margin-top:10px;opacity:.85;font-family:monospace;}' +
+                '.content{padding:26px;}' +
+                '.row{display:flex;justify-content:space-between;margin:11px 0;padding:6px 0;border-bottom:1px dashed #E2E8F0;font-size:13.5px;}' +
+                '.total{font-size:18px;font-weight:800;border-top:2px solid #0B1324;padding-top:16px;margin-top:12px;border-bottom:none;}' +
+                '.footer{background:#F8FAFC;text-align:center;padding:16px;font-size:11px;color:#94A3B8;}' +
+                '.highlight{color:#0E9C8E;font-weight:800;}' +
+                '.period-section{background:#F8FAFC;border-radius:12px;padding:14px;margin:12px 0;border:1px solid #EEF1F6;}' +
+                '.period-title{font-weight:700;margin-bottom:8px;color:#0B7A70;font-size:13px;}' +
+                '.items-list{font-size:12px;margin-top:6px;}' +
+                '.items-list div{display:flex;justify-content:space-between;padding:4px 0;color:#475569;}' +
+                '@media print{ body{padding:0;background:#fff;} .no-print{display:none;} }' +
+                '</style></head><body>' +
+                '<div class="receipt">' +
+                '<div class="header"><div class="title">FEE PAYMENT RECEIPT</div>' +
+                '<div class="school-name">' + escapeHtml(school.schoolName || 'School Name') + '</div>' +
+                '<div class="receipt-no">RCT: ' + payment.receiptNumber + '</div></div>' +
+                '<div class="content">' +
+                '<div class="row"><strong>Date</strong><span>' + new Date(payment.date).toLocaleDateString() + '</span></div>' +
+                '<div class="row"><strong>Student</strong><span>' + escapeHtml(payment.studentName) + '</span></div>' +
+                '<div class="row"><strong>Admission No.</strong><span>' + payment.admissionNumber + '</span></div>' +
+                '<div class="row"><strong>Period</strong><span>' + payment.academicYear + ' &middot; Term ' + payment.term + '</span></div>' +
+                '<div class="row"><strong>Method</strong><span>' + (payment.method ? payment.method.toUpperCase() : 'CASH') + '</span></div>' +
+                (payment.reference ? '<div class="row"><strong>Reference</strong><span>' + payment.reference + '</span></div>' : '') +
+                (payment.tuitionPaid > 0 ? '<div class="period-section"><div class="period-title">Tuition</div><div class="row" style="margin:0;padding:5px 0"><strong>Amount</strong><span>UGX ' + (payment.tuitionPaid || 0).toLocaleString() + '</span></div></div>' : '') +
+                (termlyTotal > 0 ? '<div class="period-section"><div class="period-title">Termly Items</div><div class="items-list">' +
+                    (payment.activityItemPayments || []).filter(function (i) { return i.periodType === 'termly'; }).map(function (i) { return '<div><span>' + escapeHtml(i.itemName) + '</span><span>UGX ' + (i.amountPaid || i.cashEquivalent || 0).toLocaleString() + '</span></div>'; }).join('') +
+                    ((payment.paymentsByPeriodType && payment.paymentsByPeriodType.termly) || []).map(function (i) { return '<div><span>' + escapeHtml(i.itemName) + '</span><span>UGX ' + (i.amountPaid || i.cashEquivalent || 0).toLocaleString() + '</span></div>'; }).join('') +
+                    '</div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ' + termlyTotal.toLocaleString() + '</span></div></div>' : '') +
+                (oneTimeTotal > 0 ? '<div class="period-section"><div class="period-title">One-Time Items</div><div class="items-list">' +
+                    (payment.activityItemPayments || []).filter(function (i) { return i.periodType === 'one_time'; }).map(function (i) { return '<div><span>' + escapeHtml(i.itemName) + '</span><span>UGX ' + (i.amountPaid || i.cashEquivalent || 0).toLocaleString() + '</span></div>'; }).join('') +
+                    ((payment.paymentsByPeriodType && payment.paymentsByPeriodType.one_time) || []).map(function (i) { return '<div><span>' + escapeHtml(i.itemName) + '</span><span>UGX ' + (i.amountPaid || i.cashEquivalent || 0).toLocaleString() + '</span></div>'; }).join('') +
+                    '</div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ' + oneTimeTotal.toLocaleString() + '</span></div></div>' : '') +
+                (yearlyTotal > 0 ? '<div class="period-section"><div class="period-title">Yearly Items</div><div class="items-list">' +
+                    (payment.activityItemPayments || []).filter(function (i) { return i.periodType === 'yearly'; }).map(function (i) { return '<div><span>' + escapeHtml(i.itemName) + '</span><span>UGX ' + (i.amountPaid || i.cashEquivalent || 0).toLocaleString() + '</span></div>'; }).join('') +
+                    ((payment.paymentsByPeriodType && payment.paymentsByPeriodType.yearly) || []).map(function (i) { return '<div><span>' + escapeHtml(i.itemName) + '</span><span>UGX ' + (i.amountPaid || i.cashEquivalent || 0).toLocaleString() + '</span></div>'; }).join('') +
+                    '</div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ' + yearlyTotal.toLocaleString() + '</span></div></div>' : '') +
+                '<div class="row total"><strong>TOTAL PAID</strong><span class="highlight">UGX ' + totalPaid.toLocaleString() + '</span></div>' +
+                (payment.notes ? '<div class="row"><strong>Notes</strong><span>' + payment.notes + '</span></div>' : '') +
+                '</div>' +
+                '<div class="footer">Thank you for your payment &middot; Computer-generated receipt</div>' +
+                '</div>' +
+                '<div class="no-print" style="text-align:center;margin-top:20px;">' +
+                '<button onclick="window.print()" style="padding:11px 22px;background:#0B1324;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;">Print Receipt</button>' +
+                '<button onclick="window.close()" style="padding:11px 22px;background:#E2E8F0;color:#334155;border:none;border-radius:10px;cursor:pointer;font-weight:600;margin-left:8px;">Close</button>' +
+                '</div></body></html>'
+            );
+            printWindow.document.close();
+
+        } catch (error) {
+            console.error('Error printing receipt:', error);
+            alert('Error printing receipt: ' + error.message);
+        }
+    }
+
+    function viewPaymentReceipt(receiptNumber) { printReceipt(receiptNumber); }
+    function printDashboard() { window.print(); }
+
+    async function refreshDashboard() {
+        var btn = document.querySelector('[onclick="window.refreshDashboard()"]');
+        if (btn) {
+            var originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            btn.disabled = true;
+            await showDashboard();
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        } else {
+            await showDashboard();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 17. SIDEBAR LOGO
+    // ------------------------------------------------------------------
+    async function updateSidebarLogo() {
+        try {
+            var response = await fetch('/api/school');
+            var data = await response.json();
+            var school = data.school;
+
+            if (school && school.logo) {
+                var logoContainer = document.getElementById('schoolLogoContainer');
+                var icon = document.getElementById('sidebarSchoolIcon');
+                if (icon) icon.style.display = 'none';
+
+                var existingImg = document.getElementById('sidebarSchoolLogo');
+                if (existingImg) existingImg.remove();
+
+                var img = document.createElement('img');
+                img.src = school.logo;
+                img.className = 'w-full h-full object-cover rounded-xl';
+                img.id = 'sidebarSchoolLogo';
+
+                if (logoContainer) logoContainer.appendChild(img);
+            }
+        } catch (error) {
+            console.error('Error loading logo:', error);
+        }
+    }
+
+    try { updateSidebarLogo(); } catch (e) { console.warn('updateSidebarLogo failed:', e); }
+
+    // ------------------------------------------------------------------
+    // 18. GLOBAL EXPORTS — all functions exposed on window explicitly.
+    // ------------------------------------------------------------------
+    window.showDashboard = showDashboard;
+    window.refreshDashboard = refreshDashboard;
+    window.printDashboard = printDashboard;
+    window.printReceipt = printReceipt;
+    window.viewPaymentReceipt = viewPaymentReceipt;
+    window.navigateToStatusGroupReport = navigateToStatusGroupReport;
+    window.filterItemsTable = filterItemsTable;
+    window.resetItemFilters = resetItemFilters;
+    window.sortItemsTable = sortItemsTable;
+    window.escapeHtml = escapeHtml;
+    window.getTermName = getTermName;
+    window.toggleMetricVisibility = toggleMetricVisibility;
+    window.toggleAutoRefresh = toggleAutoRefresh;
+    window.exportDashboardCSV = exportDashboardCSV;
+    window.injectDashboardDesignSystem = injectDashboardDesignSystem;
+
+})();
 console.log('✅ Dashboard v12.0 (Modern Edition) loaded — teal/indigo ledger design system');
 // ==================== RENDER FEE STRUCTURE STATISTICS PAGE ====================
 
