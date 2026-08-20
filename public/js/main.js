@@ -69912,6 +69912,7 @@ window.toggleMetricVisibility = toggleMetricVisibility;
 window.toggleAutoRefresh = toggleAutoRefresh;
 window.exportDashboardCSV = exportDashboardCSV;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
+window.dashboardPrefs=dashboardPrefs;
 console.log('✅ Dashboard v12.0 (Modern Edition) loaded — teal/indigo ledger design system');
 // ==================== RENDER FEE STRUCTURE STATISTICS PAGE ====================
 
