@@ -68813,8 +68813,13 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 
     // `var` — fully hoisted, no TDZ, safe even if this IIFE somehow runs
     // twice in a weird bundler scenario (guarded above anyway).
+    // FIX: Moved these declarations to the very top (after helpers) and
+    // assigned immediately to avoid any TDZ confusion.
     var dashboardPrefs = loadDashboardPrefs();
     var dashboardAutoRefreshTimer = null;
+
+    // Also expose on window for safe cross‑function access
+    window.dashboardPrefs = dashboardPrefs;
 
     // ------------------------------------------------------------------
     // 3. MAIN ENTRY POINT
@@ -68951,11 +68956,14 @@ console.log('Comprehensive Reports System v5.0 loaded!');
     // 5. AUTO REFRESH
     // ------------------------------------------------------------------
     function setupAutoRefresh() {
+        // Defensive: read the current prefs from the global or local var
+        var prefs = window.dashboardPrefs || dashboardPrefs || { autoRefresh: false };
+
         if (dashboardAutoRefreshTimer) {
             clearInterval(dashboardAutoRefreshTimer);
             dashboardAutoRefreshTimer = null;
         }
-        if (!dashboardPrefs.autoRefresh) return;
+        if (!prefs.autoRefresh) return;
 
         dashboardAutoRefreshTimer = setInterval(function () {
             var marker = document.getElementById('dashboardAutoRefreshMarker');
@@ -68969,8 +68977,12 @@ console.log('Comprehensive Reports System v5.0 loaded!');
     }
 
     function toggleAutoRefresh() {
-        dashboardPrefs.autoRefresh = !dashboardPrefs.autoRefresh;
-        saveDashboardPrefs(dashboardPrefs);
+        // Use the global ref to keep in sync
+        var prefs = window.dashboardPrefs || dashboardPrefs || { hideFinancials: false, autoRefresh: false };
+        prefs.autoRefresh = !prefs.autoRefresh;
+        saveDashboardPrefs(prefs);
+        dashboardPrefs = prefs;
+        window.dashboardPrefs = prefs;
         setupAutoRefresh();
         showDashboard();
     }
@@ -69433,7 +69445,8 @@ console.log('Comprehensive Reports System v5.0 loaded!');
         var bg = bgLight[color] || 'bg-gray-100';
 
         var cardId = 'metric_' + String(label).replace(/[^a-zA-Z0-9]/g, '_');
-        var hideFinancials = !!(dashboardPrefs && dashboardPrefs.hideFinancials);
+        // Defensive: read from the global or local var
+        var hideFinancials = !!(window.dashboardPrefs && window.dashboardPrefs.hideFinancials) || !!(dashboardPrefs && dashboardPrefs.hideFinancials);
         var shouldMask = !!isFinancial && hideFinancials;
         var displayValue = shouldMask ? '••••••••' : value;
         var displaySub = shouldMask ? '••••••••' : (subtext || '');
@@ -69464,8 +69477,12 @@ console.log('Comprehensive Reports System v5.0 loaded!');
         var card = document.getElementById(cardId);
         if (!card) return;
 
-        dashboardPrefs.hideFinancials = !dashboardPrefs.hideFinancials;
-        saveDashboardPrefs(dashboardPrefs);
+        // Use the global refs
+        var prefs = window.dashboardPrefs || dashboardPrefs || { hideFinancials: false };
+        prefs.hideFinancials = !prefs.hideFinancials;
+        saveDashboardPrefs(prefs);
+        dashboardPrefs = prefs;
+        window.dashboardPrefs = prefs;
 
         var allCards = document.querySelectorAll('[data-original-value]');
         for (var i = 0; i < allCards.length; i++) {
@@ -69478,7 +69495,7 @@ console.log('Comprehensive Reports System v5.0 loaded!');
             var original = el.getAttribute('data-original-value');
             var originalSub = el.getAttribute('data-original-sub');
 
-            if (dashboardPrefs.hideFinancials) {
+            if (prefs.hideFinancials) {
                 valueEl.textContent = '••••••••';
                 if (subEl) subEl.textContent = '••••••••';
             } else {
