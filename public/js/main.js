@@ -68755,7 +68755,7 @@ function saveDashboardPrefs(prefs) {
     try { localStorage.setItem(DB_PREFS_KEY, JSON.stringify(prefs)); } catch (e) {}
 }
 let dashboardPrefs = loadDashboardPrefs();
-
+window.dashboardPrefs=dashboardPrefs;
 // ---------------------------------------------------------------------------
 // 3. OFFLINE CACHE (so a dropped connection still shows the last known data)
 // ---------------------------------------------------------------------------
