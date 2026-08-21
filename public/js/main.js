@@ -32329,7 +32329,7 @@ async function editStudentInfoList(studentId) {
 
         let selectedFeeStructure = currentFeeStructureId ? (feeStructures.find(f => f.id === currentFeeStructureId) || null) : null;
 
-        // Maps groupKey -> { name, itemIds: [] } — rebuilt every render pass (only for currently-rendered groups)
+        // Maps groupKey -> { name, itemIds: [] }
         window.esComponentGroups = {};
 
         // ---- item search / status-group filter state ----
@@ -32402,7 +32402,7 @@ async function editStudentInfoList(studentId) {
             updateEditCustomizationBadgeCount();
         }
 
-        /* -------------------- per-item actions -------------------- */
+        /* -------------------- per‑item actions (unchanged) -------------------- */
         async function confirmRemoveItemFromEdit(itemId, itemName, componentName) {
             const termName = esGetTermName(currentTerm);
             const ok = await window.showConfirmModal({
@@ -32448,6 +32448,7 @@ async function editStudentInfoList(studentId) {
 
             delete student.removedItems[itemId];
             if (student.customItemOverrides) delete student.customItemOverrides[itemId];
+            delete existingCustomizations[itemId]; // also remove from our live cache
 
             try {
                 await persistRemovedAndCustomizations();
@@ -32484,7 +32485,7 @@ async function editStudentInfoList(studentId) {
             }
         }
 
-        /* -------------------- whole status-group actions -------------------- */
+        /* -------------------- whole‑group actions (unchanged) -------------------- */
         async function restoreGroupItemsInEdit(groupKey) {
             const group = window.esComponentGroups[groupKey];
             if (!group) return;
@@ -32547,7 +32548,7 @@ async function editStudentInfoList(studentId) {
             }
         }
 
-        /* -------------------- customization form toggle / save / clear -------------------- */
+        /* -------------------- custom form toggle / save / clear -------------------- */
         function toggleEditItemCustomization(itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption) {
             const form = document.getElementById(`editCustomForm_${itemId}`);
             if (!form) return;
@@ -32601,9 +32602,13 @@ async function editStudentInfoList(studentId) {
                 });
                 if (!res.ok) throw new Error(`status ${res.status}`);
 
-                existingCustomizations[itemId] = { ...payload, itemId, isCustomized: true, updatedAt: new Date().toISOString() };
+                const data = await res.json();
+                const saved = data.customization || { ...payload, itemId, isCustomized: true, updatedAt: new Date().toISOString() };
+
+                // ✅ UPDATE BOTH CACHES
+                existingCustomizations[itemId] = saved;
                 if (!student.customItemOverrides) student.customItemOverrides = {};
-                student.customItemOverrides[itemId] = existingCustomizations[itemId];
+                student.customItemOverrides[itemId] = saved;
 
                 refreshItemsPanel();
                 window.showToast(`Customized "${itemName}"`, 'success');
@@ -32640,13 +32645,12 @@ async function editStudentInfoList(studentId) {
             if (!badge) return;
             const customCount = Object.keys(existingCustomizations || {}).length;
             const removedCount = Object.keys(student.removedItems || {}).length;
-            const total = customCount;
             badge.innerHTML = removedCount > 0
-                ? `${total} customized <span style="color:#fca5a5; margin-left:4px;">(${removedCount} removed)</span>`
-                : `${total} customized`;
+                ? `${customCount} customized <span style="color:#fca5a5; margin-left:4px;">(${removedCount} removed)</span>`
+                : `${customCount} customized`;
         }
 
-        /* -------------------- search / status-group filter -------------------- */
+        /* -------------------- search / filter -------------------- */
         function populateGroupFilterOptions(feeStructure) {
             const select = document.getElementById('itemsGroupFilter');
             if (!select) return;
@@ -32682,7 +32686,7 @@ async function editStudentInfoList(studentId) {
             refreshItemsPanel();
         }
 
-        /* -------------------- render items panel -------------------- */
+        /* -------------------- render items panel (unchanged) -------------------- */
         function groupStatus(groupKey) {
             const group = window.esComponentGroups[groupKey];
             if (!group) return { removedCount: 0, total: 0, allRemoved: false, noneRemoved: true };
@@ -32748,17 +32752,14 @@ async function editStudentInfoList(studentId) {
                 const removedInComponent = itemIds.filter(id => removedItems[id] && removedItems[id].isActive !== false).length;
                 if (removedInComponent > 0) totalRemovedCount += removedInComponent;
 
-                // status-group filter: skip this whole component if it doesn't match the selected group
                 if (groupFilter !== 'all' && component.name !== groupFilter) return;
 
-                // live search filter: only render items whose name matches the query
                 const itemsToRender = query
                     ? component.items.filter(item => (item.name || '').toLowerCase().includes(query))
                     : component.items;
 
                 if (itemsToRender.length === 0) return;
 
-                // register the FULL group (not just the filtered items) so whole-group actions still work correctly
                 window.esComponentGroups[groupKey] = { name: component.name, itemIds, itemMeta };
                 renderedItemCount += itemsToRender.length;
 
@@ -32898,7 +32899,6 @@ async function editStudentInfoList(studentId) {
             return buildItemsCustomizationHTML(selectedFeeStructure);
         }
 
-        /* -------------------- delegated click handling for items panel -------------------- */
         function attachItemsPanelDelegation() {
             const container = document.getElementById('editItemsCustomizationContainer');
             if (!container || container.__esDelegated) return;
@@ -32924,7 +32924,7 @@ async function editStudentInfoList(studentId) {
             });
         }
 
-        /* ============================== MODAL MARKUP ============================== */
+        // ============================== MODAL MARKUP ==============================
         const modalHtml = `
             <div class="es-overlay" id="editStudentModal">
                 <div class="es-modal">
@@ -33090,7 +33090,7 @@ async function editStudentInfoList(studentId) {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         attachItemsPanelDelegation();
         populateGroupFilterOptions(selectedFeeStructure);
-        updateFilterCountDisplay(0, 0); // will be corrected by the initial buildItemsSection() render above via updateFilterCountDisplay calls
+        updateFilterCountDisplay(0, 0); // will be corrected by the initial buildItemsSection() render
 
         /* -------------------- search / group-filter listeners -------------------- */
         document.getElementById('itemsSearchInput')?.addEventListener('input', () => {
@@ -33117,7 +33117,6 @@ async function editStudentInfoList(studentId) {
             try { fs = JSON.parse(opt.dataset.structure); } catch (_) { fs = { activityComponents: [] }; }
             selectedFeeStructure = fs;
 
-            // reset filters for the newly selected structure
             itemsSearchQuery = '';
             itemsGroupFilter = 'all';
             const searchInput = document.getElementById('itemsSearchInput');
@@ -33169,6 +33168,7 @@ async function editStudentInfoList(studentId) {
             const originalStudent = student;
             const updatedData = {};
 
+            // ---- Personal & academic fields (unchanged) ----
             const firstName = document.getElementById('editFirstName').value.trim();
             if (firstName !== originalStudent.firstName) updatedData.firstName = firstName;
             const lastName = document.getElementById('editLastName').value.trim();
@@ -33211,7 +33211,7 @@ async function editStudentInfoList(studentId) {
             const status = document.getElementById('editStatus').value;
             if (status !== originalStudent.status) updatedData.status = status;
 
-            // bursary
+            // ---- bursary (unchanged) ----
             const bursarySelect = document.getElementById('editBursary');
             const customBursaryAmountInput = document.getElementById('editCustomBursaryAmount');
             let newBursaryId = bursarySelect.value || null;
@@ -33237,8 +33237,10 @@ async function editStudentInfoList(studentId) {
                 }
             }
 
-            // customizations + removed items (already in `student` / `existingCustomizations` due to in-place edits)
-            updatedData.customItemOverrides = student.customItemOverrides || existingCustomizations || {};
+            // ========== CRITICAL FIX ==========
+            // Use 'existingCustomizations' which is always up‑to‑date,
+            // instead of student.customItemOverrides (which might be stale).
+            updatedData.customItemOverrides = existingCustomizations;   // ✅ all customisations kept
             updatedData.removedItems = student.removedItems || {};
 
             const feeStructureId = document.getElementById('editFeeStructure').value;
