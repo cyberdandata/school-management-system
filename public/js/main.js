@@ -3068,125 +3068,199 @@ async function showStudentList() {
             `;
         }
 
-        function renderStatusGroupCell(student, sg) {
-            const sgData = student.statusGroupTotals?.[sg.name] || {
-                expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
-                hasStructure: false, periodTypes: new Set(), isTransportation: false,
-                customAmountApplied: false, customTransportAmount: null, customItemsCount: 0, existsInFeeStructure: false
-            };
+      function renderStatusGroupCell(student, sg) {
+    const sgData = student.statusGroupTotals?.[sg.name] || {
+        expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
+        hasStructure: false, periodTypes: new Set(), isTransportation: false,
+        customAmountApplied: false, customTransportAmount: null, customItemsCount: 0, existsInFeeStructure: false
+    };
 
-            if (!student.hasFeeStructure) {
-                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                    <span class="italic">No Fee Structure</span>
-                </td>`;
+    if (!student.hasFeeStructure) {
+        return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+            <span class="italic">No Fee Structure</span>
+        </td>`;
+    }
+
+    // Check if this status group exists in the student's fee structure
+    let groupExistsInFeeStructure = false;
+    const feeStructure = feeStructures.find(f => f && f.id === student.feeStructureId);
+    if (feeStructure && feeStructure.activityComponents) {
+        for (const comp of feeStructure.activityComponents) {
+            const compGroupName = comp.statusGroupName || comp.name || 'Other';
+            if (compGroupName === sg.name) {
+                groupExistsInFeeStructure = true;
+                break;
             }
+        }
+    }
 
-            let groupExistsInFeeStructure = false;
+    if (!groupExistsInFeeStructure) {
+        const displayName = sg.name === 'schoolastic requirement' ? 'Scholastic' :
+            sg.name === 'Admission Fee' ? 'Admission' : sg.name;
+        return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+            <span class="italic">Does not pay ${escapeHtml(displayName)}</span>
+        </td>`;
+    }
+
+    // Handle transportation disabled
+    if (sgData.isTransportation && student.customTransportation) {
+        if (student.customTransportation.hasTransportation === false) {
+            return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+                <span class="italic">Transport disabled</span>
+            </td>`;
+        }
+    }
+
+    const expected = sgData.expected || 0;
+    const paid = sgData.paid || 0;
+    const balance = sgData.balance || 0;
+    const moneyRemaining = sgData.moneyRemaining || 0;
+    const itemsRemaining = sgData.itemsRemaining || 0;
+    const customItemsCount = sgData.customItemsCount || 0;
+    const hasCustomItems = customItemsCount > 0;
+
+    // ========== NEW: Handle case where expected, paid, itemsRemaining are all zero ==========
+    if (expected === 0 && paid === 0 && itemsRemaining === 0) {
+        // Check if this group has any custom overrides from the student
+        let customTotal = 0;
+        let hasCustom = false;
+
+        // 1. Check customTransportation for Transportation group
+        if (sgData.isTransportation && student.customTransportation && student.customTransportation.hasTransportation !== false) {
+            const transportAmount = student.customTransportation.amount || 0;
+            if (transportAmount > 0) {
+                customTotal += transportAmount;
+                hasCustom = true;
+            }
+        }
+
+        // 2. Check customItemOverrides for items that belong to this group
+        if (student.customItemOverrides) {
+            // We need to know which items belong to this status group.
+            // We can use the feeStructure to map item IDs/names to groups.
             const feeStructure = feeStructures.find(f => f && f.id === student.feeStructureId);
             if (feeStructure && feeStructure.activityComponents) {
+                // Build a set of item IDs/names that belong to this status group
+                const groupItemIds = new Set();
+                const groupItemNames = new Set();
                 for (const comp of feeStructure.activityComponents) {
                     const compGroupName = comp.statusGroupName || comp.name || 'Other';
-                    if (compGroupName === sg.name) { groupExistsInFeeStructure = true; break; }
+                    if (compGroupName === sg.name) {
+                        for (const item of (comp.items || [])) {
+                            const id = item.id || item.name;
+                            groupItemIds.add(id);
+                            groupItemNames.add(item.name);
+                        }
+                    }
+                }
+
+                // Now iterate over student's custom overrides
+                for (const [itemId, custom] of Object.entries(student.customItemOverrides)) {
+                    if (custom.isActive === false) continue;
+                    // Check if this item belongs to this group
+                    let belongs = groupItemIds.has(itemId) || groupItemNames.has(custom.itemName);
+                    if (!belongs) {
+                        // Also check if the custom override references a component that matches this group
+                        if (custom.componentName && custom.componentName === sg.name) {
+                            belongs = true;
+                        }
+                    }
+                    if (belongs) {
+                        const amount = custom.customAmount !== undefined && custom.customAmount !== null ? custom.customAmount : custom.defaultAmount || 0;
+                        customTotal += amount;
+                        hasCustom = true;
+                    }
                 }
             }
-
-            if (!groupExistsInFeeStructure) {
-                const displayName = sg.name === 'schoolastic requirement' ? 'Scholastic' :
-                    sg.name === 'Admission Fee' ? 'Admission' : sg.name;
-                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                    <span class="italic">Does not pay ${escapeHtml(displayName)}</span>
-                </td>`;
-            }
-
-            if (sgData.isTransportation && student.customTransportation) {
-                if (student.customTransportation.hasTransportation === false) {
-                    return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                        <span class="italic">Transport disabled</span>
-                    </td>`;
-                }
-            }
-
-            const expected = sgData.expected || 0;
-            const paid = sgData.paid || 0;
-            const balance = sgData.balance || 0;
-            const moneyRemaining = sgData.moneyRemaining || 0;
-            const itemsRemaining = sgData.itemsRemaining || 0;
-            const customItemsCount = sgData.customItemsCount || 0;
-            const hasCustomItems = customItemsCount > 0;
-
-            let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false;
-            let totalItemsBrought = 0, totalItemsRequired = 0;
-
-            for (const item of (sgData.items || [])) {
-                if (item.isFullyPaid) {
-                    if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
-                    else if (item.paymentOption === 'cash_only' || (item.paymentOption === 'either' && item.cashPaid >= item.totalAmount)) hasCashOnlyPaid = true;
-                    else if (item.paymentOption === 'either' && item.cashPaid > 0 && item.itemsBrought > 0) hasBothPaid = true;
-                }
-                totalItemsBrought += item.itemsBrought || 0;
-                totalItemsRequired += item.quantityRequired || 0;
-            }
-
-            const customBadge = hasCustomItems ? `<span class="db-badge bg-amber-50 text-amber-600 ml-1">⚡${customItemsCount}</span>` : '';
-
-            const periodIcons = [];
-            const periodTypes = sgData.periodTypes || new Set();
-            if (periodTypes.has('one_time')) periodIcons.push('⭐');
-            if (periodTypes.has('termly')) periodIcons.push('📅');
-            if (periodTypes.has('yearly')) periodIcons.push('📆');
-            const periodBadge = periodIcons.length > 0 ? `<span class="text-[10px] text-slate-300 block">${periodIcons.join(' ')}</span>` : '';
-
-            let orBadge = '';
-            if (hasItemOnlyPaid && hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-purple-500 block font-medium">Both (Cash + Items)</span>`;
-            else if (hasItemOnlyPaid) orBadge = `<span class="text-[10px] text-indigo-500 block font-medium">Items Only</span>`;
-            else if (hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-emerald-500 block font-medium">Cash Only</span>`;
-
-            let displayHtml = '';
-            if (expected === 0 && paid === 0 && itemsRemaining === 0) {
-                displayHtml = `<span class="text-slate-300">—</span>`;
-            } else if (balance <= 0 && paid >= 0 && itemsRemaining === 0) {
-                displayHtml = `<span class="text-emerald-600 font-bold text-xs"><i class="fas fa-circle-check mr-1"></i>Fully Paid</span>`;
-                if (hasItemOnlyPaid && !hasCashOnlyPaid) displayHtml += `<div class="text-[10px] text-indigo-500">Items only</div>`;
-                else if (hasCashOnlyPaid && !hasItemOnlyPaid) displayHtml += `<div class="text-[10px] text-emerald-500">Cash only</div>`;
-                else if (hasBothPaid) displayHtml += `<div class="text-[10px] text-purple-500">Cash + Items</div>`;
-            } else if (balance < 0) {
-                displayHtml = `<span class="text-sky-600 font-bold font-mono-num">Credit ${formatMoney(Math.abs(balance))}</span>`;
-            } else if (moneyRemaining > 0 && itemsRemaining > 0) {
-                displayHtml = `
-                    <div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>
-                    <div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>
-                    <div class="text-[10px] text-slate-300">Cash OR Items</div>
-                    ${customBadge}${periodBadge}${orBadge}`;
-            } else if (moneyRemaining > 0) {
-                displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>${customBadge}${periodBadge}${orBadge}`;
-            } else if (itemsRemaining > 0) {
-                displayHtml = `<div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>${customBadge}${periodBadge}${orBadge}`;
-            } else if (paid > 0) {
-                displayHtml = `<span class="text-emerald-600 font-mono-num font-semibold">UGX ${formatMoney(paid)}</span>${orBadge}${customBadge}${periodBadge}`;
-            } else {
-                displayHtml = `<span class="text-rose-600 font-mono-num font-semibold">UGX ${formatMoney(expected)}</span>${orBadge}${customBadge}${periodBadge}`;
-            }
-
-            let itemsSummary = '';
-            if (totalItemsRequired > 0) {
-                itemsSummary = `<div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-box-open mr-0.5"></i>${totalItemsBrought}/${totalItemsRequired} items</div>`;
-            }
-
-            const infoIcon = expected > 0 || itemsRemaining > 0 ?
-                `<i class="fas fa-circle-info text-indigo-400 ml-1 cursor-pointer hover:text-indigo-600"
-                    onclick="event.stopPropagation(); showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')"></i>` : '';
-
-            return `
-                <td class="p-2 text-center border-r border-slate-100 text-xs">
-                    <div class="cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 transition"
-                         onclick="showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')">
-                        ${displayHtml}
-                        ${itemsSummary}
-                        ${infoIcon}
-                    </div>
-                </td>
-            `;
         }
+
+        if (hasCustom && customTotal > 0) {
+            // Show the custom total
+            return `<td class="p-2 text-center border-r border-slate-100 text-xs">
+                <div class="font-semibold text-orange-600">UGX ${formatMoney(customTotal)}</div>
+                <div class="text-[10px] text-slate-400">Custom amount</div>
+            </td>`;
+        }
+
+        // No custom values – show dash
+        return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+            <span>—</span>
+        </td>`;
+    }
+
+    // ========== Existing display logic for non-zero values ==========
+    let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false;
+    let totalItemsBrought = 0, totalItemsRequired = 0;
+
+    for (const item of (sgData.items || [])) {
+        if (item.isFullyPaid) {
+            if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
+            else if (item.paymentOption === 'cash_only' || (item.paymentOption === 'either' && item.cashPaid >= item.totalAmount)) hasCashOnlyPaid = true;
+            else if (item.paymentOption === 'either' && item.cashPaid > 0 && item.itemsBrought > 0) hasBothPaid = true;
+        }
+        totalItemsBrought += item.itemsBrought || 0;
+        totalItemsRequired += item.quantityRequired || 0;
+    }
+
+    const customBadge = hasCustomItems ? `<span class="db-badge bg-amber-50 text-amber-600 ml-1">⚡${customItemsCount}</span>` : '';
+
+    const periodIcons = [];
+    const periodTypes = sgData.periodTypes || new Set();
+    if (periodTypes.has('one_time')) periodIcons.push('⭐');
+    if (periodTypes.has('termly')) periodIcons.push('📅');
+    if (periodTypes.has('yearly')) periodIcons.push('📆');
+    const periodBadge = periodIcons.length > 0 ? `<span class="text-[10px] text-slate-300 block">${periodIcons.join(' ')}</span>` : '';
+
+    let orBadge = '';
+    if (hasItemOnlyPaid && hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-purple-500 block font-medium">Both (Cash + Items)</span>`;
+    else if (hasItemOnlyPaid) orBadge = `<span class="text-[10px] text-indigo-500 block font-medium">Items Only</span>`;
+    else if (hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-emerald-500 block font-medium">Cash Only</span>`;
+
+    let displayHtml = '';
+    if (balance <= 0 && paid >= 0 && itemsRemaining === 0) {
+        displayHtml = `<span class="text-emerald-600 font-bold text-xs"><i class="fas fa-circle-check mr-1"></i>Fully Paid</span>`;
+        if (hasItemOnlyPaid && !hasCashOnlyPaid) displayHtml += `<div class="text-[10px] text-indigo-500">Items only</div>`;
+        else if (hasCashOnlyPaid && !hasItemOnlyPaid) displayHtml += `<div class="text-[10px] text-emerald-500">Cash only</div>`;
+        else if (hasBothPaid) displayHtml += `<div class="text-[10px] text-purple-500">Cash + Items</div>`;
+    } else if (balance < 0) {
+        displayHtml = `<span class="text-sky-600 font-bold font-mono-num">Credit ${formatMoney(Math.abs(balance))}</span>`;
+    } else if (moneyRemaining > 0 && itemsRemaining > 0) {
+        displayHtml = `
+            <div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>
+            <div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>
+            <div class="text-[10px] text-slate-300">Cash OR Items</div>
+            ${customBadge}${periodBadge}${orBadge}`;
+    } else if (moneyRemaining > 0) {
+        displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(moneyRemaining)}</div>${customBadge}${periodBadge}${orBadge}`;
+    } else if (itemsRemaining > 0) {
+        displayHtml = `<div class="text-orange-600 text-[10px] font-medium">${itemsRemaining} item(s) remaining</div>${customBadge}${periodBadge}${orBadge}`;
+    } else if (paid > 0) {
+        displayHtml = `<span class="text-emerald-600 font-mono-num font-semibold">UGX ${formatMoney(paid)}</span>${orBadge}${customBadge}${periodBadge}`;
+    } else {
+        // expected > 0, paid 0, itemsRemaining 0
+        displayHtml = `<span class="text-rose-600 font-mono-num font-semibold">UGX ${formatMoney(expected)}</span>${orBadge}${customBadge}${periodBadge}`;
+    }
+
+    let itemsSummary = '';
+    if (totalItemsRequired > 0) {
+        itemsSummary = `<div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-box-open mr-0.5"></i>${totalItemsBrought}/${totalItemsRequired} items</div>`;
+    }
+
+    const infoIcon = expected > 0 || itemsRemaining > 0 ?
+        `<i class="fas fa-circle-info text-indigo-400 ml-1 cursor-pointer hover:text-indigo-600"
+            onclick="event.stopPropagation(); showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')"></i>` : '';
+
+    return `
+        <td class="p-2 text-center border-r border-slate-100 text-xs">
+            <div class="cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 transition"
+                 onclick="showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')">
+                ${displayHtml}
+                ${itemsSummary}
+                ${infoIcon}
+            </div>
+        </td>
+    `;
+}
 
         // ========== BUILD HEADERS ==========
         let statusGroupHeaders = '';
