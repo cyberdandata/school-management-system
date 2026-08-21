@@ -2464,7 +2464,6 @@ async function showStudentList() {
 
         // ========== GET PAID AMOUNTS WITH OR LOGIC (same as viewStudentDetailsList) ==========
         function getPaidAmountsWithOrLogic(studentId, componentName, itemName, periodType, quantityRequired, amountExpected, unitPrice, paymentOption, paymentsToCheck) {
-            // paymentsToCheck is passed from the caller with correct period scoping
             let cashPaid = 0;
             let itemsBrought = 0;
             const paymentHistories = [];
@@ -2585,7 +2584,7 @@ async function showStudentList() {
         const enhancedStudents = [];
         let totalStudents = 0, maleCount = 0, femaleCount = 0, activeCount = 0;
         let totalTuitionExpected = 0, totalTuitionCollected = 0;
-        let totalCurrentItemsOutstanding = 0; // only current period scholastic items
+        let totalCurrentItemsOutstanding = 0;
         let studentsWithCustomizations = 0, noFeeStructureCount = 0;
         let fullyPaidCount = 0, paymentDueCount = 0, noPaymentCount = 0, creditCount = 0, criticalCount = 0;
         let nurseryCount = 0, lowerPrimaryCount = 0, upperPrimaryCount = 0;
@@ -2751,6 +2750,10 @@ async function showStudentList() {
 
             let currentPeriodItemsRemaining = 0;
 
+            // ========== CASH‑ONLY TOTALS (new) ==========
+            let cashOnlyExpected = 0;
+            let cashOnlyPaid = 0;
+
             if (feeStructure && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     const periodType = component.periodType || 'termly';
@@ -2788,16 +2791,13 @@ async function showStudentList() {
                     // Determine scoped payments for this period type
                     let scopedPayments = [];
                     if (periodType === 'yearly') {
-                        // All payments in the same year
                         scopedPayments = allPayments.filter(p =>
                             p && p.studentId === student.id &&
                             parseInt(p.academicYear) === currentYear
                         );
                     } else if (periodType === 'one_time') {
-                        // All payments ever
                         scopedPayments = allPayments.filter(p => p && p.studentId === student.id);
                     } else {
-                        // termly – current term only
                         scopedPayments = studentPayments;
                     }
 
@@ -2877,11 +2877,23 @@ async function showStudentList() {
                         });
 
                         if (isCustomized) statusGroupTotals[groupName].customItemsCount++;
+
+                        // ========== ACCUMULATE CASH‑ONLY TOTALS ==========
+                        if (effectivePaymentOption === 'cash_only') {
+                            cashOnlyExpected += effectiveAmount;
+                            cashOnlyPaid += cashPaid;
+                        }
                     }
                 }
             }
 
-            // ========== CALCULATE TOTALS ==========
+            // ========== ADD TUITION TO CASH‑ONLY TOTALS ==========
+            cashOnlyExpected += expectedTuition;
+            cashOnlyPaid += tuitionPaid;
+
+            const cashOnlyBalance = cashOnlyExpected - cashOnlyPaid;
+
+            // ========== CALCULATE TOTALS (original, for reference) ==========
             let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
             for (const sg of sortedStatusGroups) {
                 const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
@@ -2891,7 +2903,6 @@ async function showStudentList() {
                 totalRemainingItems += dataSg.itemsRemaining;
                 totalCustomItems += dataSg.customItemsCount;
             }
-
             totalExpected += expectedTuition;
             totalPaid += tuitionPaid;
             totalBalance += tuitionBalance;
@@ -2901,15 +2912,33 @@ async function showStudentList() {
             const hasCustomizations = student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0;
             if (hasCustomizations) studentsWithCustomizations++;
 
-            let overallStatusText = 'Payment Due';
-            let overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
-            let overallStatusIcon = '⚠️';
-
-            if (totalBalance < -10) { overallStatusText = 'Credit Balance'; overallStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; overallStatusIcon = '💰'; }
-            else if (Math.abs(totalBalance) <= 10 && totalPaid > 0) { overallStatusText = 'Fully Paid'; overallStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; overallStatusIcon = '✅'; }
-            else if (totalPaid === 0 && totalExpected > 0) { overallStatusText = 'No Payment'; overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; overallStatusIcon = '📋'; }
-            else if (totalBalance > 0 && totalPaid > 0) { overallStatusText = 'Payment Due'; overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200'; overallStatusIcon = '⚠️'; }
-            else if (totalBalance > totalExpected && totalExpected > 0) { overallStatusText = 'Critical Overdue'; overallStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; overallStatusIcon = '🔴'; }
+            // ========== OVERALL STATUS (now based on CASH‑ONLY) ==========
+            let overallStatusText, overallStatusColor, overallStatusIcon;
+            if (cashOnlyBalance < -10) {
+                overallStatusText = 'Credit Balance';
+                overallStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200';
+                overallStatusIcon = '💰';
+            } else if (Math.abs(cashOnlyBalance) <= 10 && cashOnlyPaid > 0) {
+                overallStatusText = 'Fully Paid';
+                overallStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                overallStatusIcon = '✅';
+            } else if (cashOnlyPaid === 0 && cashOnlyExpected > 0) {
+                overallStatusText = 'No Payment';
+                overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200';
+                overallStatusIcon = '📋';
+            } else if (cashOnlyBalance > 0 && cashOnlyPaid > 0) {
+                overallStatusText = 'Payment Due';
+                overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                overallStatusIcon = '⚠️';
+            } else if (cashOnlyBalance > 0 && cashOnlyPaid === 0) {
+                overallStatusText = 'No Payment';
+                overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200';
+                overallStatusIcon = '📋';
+            } else {
+                overallStatusText = 'Payment Due';
+                overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
+                overallStatusIcon = '⚠️';
+            }
 
             enhancedStudents.push({
                 id: student.id, firstName: student.firstName || '', lastName: student.lastName || '',
@@ -2925,8 +2954,12 @@ async function showStudentList() {
                 tuitionBalance: tuitionBalance, tuitionStatusText: tuitionStatusText, tuitionStatusColor: tuitionStatusColor,
                 tuitionStatusIcon: tuitionStatusIcon, totalExpected: totalExpected, totalPaid: totalPaid,
                 totalBalance: totalBalance, totalRemainingItems: totalRemainingItems,
-                currentPeriodItemsRemaining: currentPeriodItemsRemaining, // new field
+                currentPeriodItemsRemaining: currentPeriodItemsRemaining,
                 totalCustomItems: totalCustomItems,
+                // ========== NEW CASH‑ONLY FIELDS ==========
+                cashOnlyExpected: cashOnlyExpected,
+                cashOnlyPaid: cashOnlyPaid,
+                cashOnlyBalance: cashOnlyBalance,
                 overallStatus: overallStatusText, overallStatusColor: overallStatusColor, overallStatusIcon: overallStatusIcon,
                 paymentCount: studentPayments.length, hasFeeStructure: !!feeStructure,
                 customTransportation: student.customTransportation || null, customItemOverrides: student.customItemOverrides || {},
@@ -3301,10 +3334,13 @@ async function showStudentList() {
                                     let statusGroupCells = '';
                                     for (const sg of sortedStatusGroups) statusGroupCells += renderStatusGroupCell(student, sg);
 
-                                    const totalPaidDisplay = student.totalPaid > 0 ? formatMoney(student.totalPaid) : '0';
+                                    // ========== CASH‑ONLY VALUES ==========
+                                    const cashPaid = student.cashOnlyPaid || 0;
+                                    const cashBalance = student.cashOnlyBalance || 0;
+                                    const cashPaidDisplay = cashPaid > 0 ? formatMoney(cashPaid) : '0';
                                     let balanceDisplay = '', balanceClass = '';
-                                    if (student.totalBalance < 0) { balanceDisplay = `Credit: ${formatMoney(Math.abs(student.totalBalance))}`; balanceClass = 'text-sky-600'; }
-                                    else if (student.totalBalance > 0) { balanceDisplay = formatMoney(student.totalBalance); balanceClass = 'text-rose-600 font-bold'; }
+                                    if (cashBalance < 0) { balanceDisplay = `Credit: ${formatMoney(Math.abs(cashBalance))}`; balanceClass = 'text-sky-600'; }
+                                    else if (cashBalance > 0) { balanceDisplay = formatMoney(cashBalance); balanceClass = 'text-rose-600 font-bold'; }
                                     else { balanceDisplay = '0'; balanceClass = 'text-emerald-600'; }
 
                                     const initials = `${(student.firstName || '').charAt(0)}${(student.lastName || '').charAt(0)}`.toUpperCase();
@@ -3315,11 +3351,6 @@ async function showStudentList() {
                                     const noStructureBadge = !student.hasFeeStructure ? `<div class="text-[10px] text-rose-500 mt-1"><i class="fas fa-triangle-exclamation mr-0.5"></i>No Fee Structure</div>` : '';
                                     const customBadge = student.hasCustomizations ? `<div class="text-[10px] text-amber-500 mt-1"><i class="fas fa-bolt mr-0.5"></i>${student.totalCustomItems} custom items</div>` : '';
                                     const removedBadge = student.removedItemsCount > 0 ? `<div class="text-[10px] text-rose-400 mt-1"><i class="fas fa-xmark mr-0.5"></i>${student.removedItemsCount} removed</div>` : '';
-                                    let orStatusBadge = '';
-                                    if (student.totalPaid > 0 && student.totalRemainingItems > 0) orStatusBadge = `<div class="text-[10px] text-purple-500 mt-0.5 font-medium">Cash OR Items</div>`;
-
-                                    // Use the corrected current period items remaining in the balance column
-                                    const currentItemsRemaining = student.currentPeriodItemsRemaining || 0;
 
                                     return `
                                         <tr class="student-row hover:bg-slate-50/80 transition-colors"
@@ -3339,7 +3370,7 @@ async function showStudentList() {
                                                     <div class="min-w-0">
                                                         <p class="font-semibold text-slate-700 truncate">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</p>
                                                         <p class="text-[10px] text-slate-400">${student.gender} &middot; ${student.enrollmentDate ? new Date(student.enrollmentDate).toLocaleDateString() : 'N/A'}</p>
-                                                        ${customBadge}${removedBadge}${orStatusBadge}
+                                                        ${customBadge}${removedBadge}
                                                     </div>
                                                 </div>
                                             </td>
@@ -3351,13 +3382,13 @@ async function showStudentList() {
                                             </td>
                                             ${renderTuitionCell(student)}
                                             ${statusGroupCells}
-                                            <td class="p-2 text-right font-mono-num font-bold ${student.totalPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
-                                                ${student.totalPaid > 0 ? `UGX ${totalPaidDisplay}` : 'UGX 0'}
-                                                ${student.totalPaid > 0 && currentItemsRemaining > 0 ? `<div class="text-[10px] text-purple-500 font-sans font-medium">+ ${currentItemsRemaining} items OR</div>` : ''}
+                                            <td class="p-2 text-right font-mono-num font-bold ${cashPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
+                                                ${cashPaid > 0 ? `UGX ${cashPaidDisplay}` : 'UGX 0'}
+                                                <div class="text-[10px] text-slate-400 font-sans font-medium">(T + C/o)</div>
                                             </td>
                                             <td class="p-2 text-right font-mono-num font-bold ${balanceClass}">
-                                                ${student.totalBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
-                                                ${currentItemsRemaining > 0 ? `<div class="text-[10px] text-orange-600 font-sans font-medium">${currentItemsRemaining} items OR</div>` : ''}
+                                                ${cashBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
+                                                <div class="text-[10px] text-slate-400 font-sans font-medium">(T + C/o)</div>
                                             </td>
                                             <td class="p-2"><span class="db-badge ${student.overallStatusColor}">${student.overallStatusIcon} ${student.overallStatus}</span></td>
                                             <td class="p-2 text-center">
