@@ -9555,153 +9555,153 @@ app.get('/api/students/customizations/summary', (req, res) => {
     }
 }); 
 
-// ==================== CUSTOM ITEM OVERRIDE API ENDPOINTS ====================
+// // ==================== CUSTOM ITEM OVERRIDE API ENDPOINTS ====================
 
-// GET all customizations for a student
-app.get('/api/students/:studentId/customizations', (req, res) => {
-    try {
-        const students = readFile(files.students);
-        const student = students.find(s => s.id === req.params.studentId);
-        if (!student) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
-        res.json(student.customItemOverrides || {});
-    } catch (error) {
-        console.error('Error getting customizations:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// // GET all customizations for a student
+// app.get('/api/students/:studentId/customizations', (req, res) => {
+//     try {
+//         const students = readFile(files.students);
+//         const student = students.find(s => s.id === req.params.studentId);
+//         if (!student) {
+//             return res.status(404).json({ error: 'Student not found' });
+//         }
+//         res.json(student.customItemOverrides || {});
+//     } catch (error) {
+//         console.error('Error getting customizations:', error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
 
-// GET customization for a specific item
-app.get('/api/students/:studentId/customizations/:itemId', (req, res) => {
-    try {
-        const students = readFile(files.students);
-        const student = students.find(s => s.id === req.params.studentId);
-        if (!student) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
-        const override = student.customItemOverrides?.[req.params.itemId];
-        res.json(override || null);
-    } catch (error) {
-        console.error('Error getting customization:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// // GET customization for a specific item
+// app.get('/api/students/:studentId/customizations/:itemId', (req, res) => {
+//     try {
+//         const students = readFile(files.students);
+//         const student = students.find(s => s.id === req.params.studentId);
+//         if (!student) {
+//             return res.status(404).json({ error: 'Student not found' });
+//         }
+//         const override = student.customItemOverrides?.[req.params.itemId];
+//         res.json(override || null);
+//     } catch (error) {
+//         console.error('Error getting customization:', error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
 
-// CREATE or UPDATE customization for a specific item
-app.put('/api/students/:studentId/customizations/:itemId', (req, res) => {
-    try {
-        const { customAmount, customQuantity, paymentOption, reason, componentId, itemName, defaultAmount, defaultQuantity } = req.body;
-        const students = readFile(files.students);
-        const index = students.findIndex(s => s.id === req.params.studentId);
+// // CREATE or UPDATE customization for a specific item
+// app.put('/api/students/:studentId/customizations/:itemId', (req, res) => {
+//     try {
+//         const { customAmount, customQuantity, paymentOption, reason, componentId, itemName, defaultAmount, defaultQuantity } = req.body;
+//         const students = readFile(files.students);
+//         const index = students.findIndex(s => s.id === req.params.studentId);
         
-        if (index === -1) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
+//         if (index === -1) {
+//             return res.status(404).json({ error: 'Student not found' });
+//         }
         
-        if (!students[index].customItemOverrides) {
-            students[index].customItemOverrides = {};
-        }
+//         if (!students[index].customItemOverrides) {
+//             students[index].customItemOverrides = {};
+//         }
         
-        // Get existing or create new
-        const existing = students[index].customItemOverrides[req.params.itemId] || {};
+//         // Get existing or create new
+//         const existing = students[index].customItemOverrides[req.params.itemId] || {};
         
-        // Build the customization object
-        const customization = {
-            itemId: req.params.itemId,
-            itemName: itemName || existing.itemName || req.params.itemId,
-            componentId: componentId || existing.componentId || null,
-            customAmount: customAmount !== undefined && customAmount !== null && customAmount !== '' ? parseFloat(customAmount) : null,
-            customQuantity: customQuantity !== undefined && customQuantity !== null && customQuantity !== '' ? parseInt(customQuantity) : null,
-            paymentOption: paymentOption || existing.paymentOption || null,
-            defaultAmount: defaultAmount !== undefined ? parseFloat(defaultAmount) : (existing.defaultAmount || 0),
-            defaultQuantity: defaultQuantity !== undefined ? parseInt(defaultQuantity) : (existing.defaultQuantity || 1),
-            isActive: true,
-            reason: reason || existing.reason || '',
-            updatedAt: new Date().toISOString(),
-            updatedBy: req.body.updatedBy || 'System'
-        };
+//         // Build the customization object
+//         const customization = {
+//             itemId: req.params.itemId,
+//             itemName: itemName || existing.itemName || req.params.itemId,
+//             componentId: componentId || existing.componentId || null,
+//             customAmount: customAmount !== undefined && customAmount !== null && customAmount !== '' ? parseFloat(customAmount) : null,
+//             customQuantity: customQuantity !== undefined && customQuantity !== null && customQuantity !== '' ? parseInt(customQuantity) : null,
+//             paymentOption: paymentOption || existing.paymentOption || null,
+//             defaultAmount: defaultAmount !== undefined ? parseFloat(defaultAmount) : (existing.defaultAmount || 0),
+//             defaultQuantity: defaultQuantity !== undefined ? parseInt(defaultQuantity) : (existing.defaultQuantity || 1),
+//             isActive: true,
+//             reason: reason || existing.reason || '',
+//             updatedAt: new Date().toISOString(),
+//             updatedBy: req.body.updatedBy || 'System'
+//         };
         
-        // If both customAmount and customQuantity are null/empty, remove the customization
-        if (customization.customAmount === null && customization.customQuantity === null) {
-            delete students[index].customItemOverrides[req.params.itemId];
-            const count = Object.keys(students[index].customItemOverrides).length;
-            students[index].hasCustomizations = count > 0;
-            students[index].customizationCount = count;
-            saveFile(files.students, students);
-            return res.json({ 
-                success: true, 
-                message: 'Customization removed (no values provided)',
-                customization: null
-            });
-        }
+//         // If both customAmount and customQuantity are null/empty, remove the customization
+//         if (customization.customAmount === null && customization.customQuantity === null) {
+//             delete students[index].customItemOverrides[req.params.itemId];
+//             const count = Object.keys(students[index].customItemOverrides).length;
+//             students[index].hasCustomizations = count > 0;
+//             students[index].customizationCount = count;
+//             saveFile(files.students, students);
+//             return res.json({ 
+//                 success: true, 
+//                 message: 'Customization removed (no values provided)',
+//                 customization: null
+//             });
+//         }
         
-        students[index].customItemOverrides[req.params.itemId] = customization;
-        students[index].hasCustomizations = true;
-        students[index].customizationCount = Object.keys(students[index].customItemOverrides).length;
+//         students[index].customItemOverrides[req.params.itemId] = customization;
+//         students[index].hasCustomizations = true;
+//         students[index].customizationCount = Object.keys(students[index].customItemOverrides).length;
         
-        saveFile(files.students, students);
+//         saveFile(files.students, students);
         
-        res.json({ 
-            success: true, 
-            customization: students[index].customItemOverrides[req.params.itemId],
-            message: 'Customization saved successfully'
-        });
-    } catch (error) {
-        console.error('Error saving customization:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+//         res.json({ 
+//             success: true, 
+//             customization: students[index].customItemOverrides[req.params.itemId],
+//             message: 'Customization saved successfully'
+//         });
+//     } catch (error) {
+//         console.error('Error saving customization:', error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
 
-// DELETE a customization (revert to default)
-app.delete('/api/students/:studentId/customizations/:itemId', (req, res) => {
-    try {
-        const students = readFile(files.students);
-        const index = students.findIndex(s => s.id === req.params.studentId);
+// // DELETE a customization (revert to default)
+// app.delete('/api/students/:studentId/customizations/:itemId', (req, res) => {
+//     try {
+//         const students = readFile(files.students);
+//         const index = students.findIndex(s => s.id === req.params.studentId);
         
-        if (index === -1) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
+//         if (index === -1) {
+//             return res.status(404).json({ error: 'Student not found' });
+//         }
         
-        if (students[index].customItemOverrides) {
-            delete students[index].customItemOverrides[req.params.itemId];
+//         if (students[index].customItemOverrides) {
+//             delete students[index].customItemOverrides[req.params.itemId];
             
-            const count = Object.keys(students[index].customItemOverrides).length;
-            students[index].hasCustomizations = count > 0;
-            students[index].customizationCount = count;
-        }
+//             const count = Object.keys(students[index].customItemOverrides).length;
+//             students[index].hasCustomizations = count > 0;
+//             students[index].customizationCount = count;
+//         }
         
-        saveFile(files.students, students);
-        res.json({ 
-            success: true, 
-            message: 'Customization removed successfully'
-        });
-    } catch (error) {
-        console.error('Error removing customization:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+//         saveFile(files.students, students);
+//         res.json({ 
+//             success: true, 
+//             message: 'Customization removed successfully'
+//         });
+//     } catch (error) {
+//         console.error('Error removing customization:', error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
 
-// GET all students with customizations (for reporting)
-app.get('/api/students/customizations/summary', (req, res) => {
-    try {
-        const students = readFile(files.students);
-        const customizedStudents = students.filter(s => s.hasCustomizations && s.customItemOverrides);
+// // GET all students with customizations (for reporting)
+// app.get('/api/students/customizations/summary', (req, res) => {
+//     try {
+//         const students = readFile(files.students);
+//         const customizedStudents = students.filter(s => s.hasCustomizations && s.customItemOverrides);
         
-        const summary = customizedStudents.map(s => ({
-            id: s.id,
-            name: `${s.firstName || ''} ${s.lastName || ''}`.trim(),
-            admissionNumber: s.admissionNumber,
-            customizationCount: s.customizationCount || Object.keys(s.customItemOverrides).length,
-            customizations: s.customItemOverrides
-        }));
+//         const summary = customizedStudents.map(s => ({
+//             id: s.id,
+//             name: `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+//             admissionNumber: s.admissionNumber,
+//             customizationCount: s.customizationCount || Object.keys(s.customItemOverrides).length,
+//             customizations: s.customItemOverrides
+//         }));
         
-        res.json(summary);
-    } catch (error) {
-        console.error('Error getting customizations summary:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
+//         res.json(summary);
+//     } catch (error) {
+//         console.error('Error getting customizations summary:', error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
 
 // ==================== SCHOOL STOCK MANAGEMENT SYSTEM ====================
 // Version: 1.0 - Manual Stock Items (Food, Supplies, etc.)
