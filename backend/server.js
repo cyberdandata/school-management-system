@@ -3938,19 +3938,22 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
                         processedItems.push(processedItem);
 
                         // ========== DETECT NEW ITEM ==========
-                   // ========== DETECT NEW ITEM ==========
-if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
-    newlyAddedItems.push({
-        itemId: itemId,
-        itemName: processedItem.name,
-        componentId: component.id || null,
-        componentName: component.name,
-        defaultAmount: processedItem.totalAmount,
-        defaultQuantity: processedItem.quantity,
-        paymentOption: processedItem.paymentOption,
-        periodType: component.periodType || 'termly'   // ← add this
-    });
-}
+                        if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
+                            newlyAddedItems.push({
+                                itemId: itemId,
+                                itemName: processedItem.name,
+                                componentId: component.id || null,
+                                componentName: component.name,
+                                defaultAmount: processedItem.totalAmount,
+                                defaultQuantity: processedItem.quantity,
+                                paymentOption: processedItem.paymentOption,
+                                periodType: component.periodType || 'termly',
+                                // ✅ Opt-in components (e.g. Transportation/Van) must stay
+                                // removed by default even though they're termly, since not
+                                // every student uses them — bursar restores manually.
+                                isOptIn: isOptInComponent(component.statusGroupName || component.name)
+                            });
+                        }
                     }
                 }
                 
@@ -3991,6 +3994,11 @@ if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
         // Edit Student -> Remove would — the bursar restores it per student
         // once it should actually be charged. Tuition and any pre-existing
         // items are never touched by this.
+        //
+        // EXCEPTION: genuinely termly items (scholastic requirements, etc.)
+        // are billed automatically every term and skip this auto-remove step
+        // entirely — UNLESS the component is an opt-in one like Transportation
+        // (Van Fee), which stays removed by default even though it's termly.
         let studentsUpdatedCount = 0;
         let itemsAutoRemovedCount = 0;
 
@@ -4026,29 +4034,33 @@ if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
 
                 if (!student.removedItems) student.removedItems = {};
 
-              let studentChanged = false;
-for (const newItem of newlyAddedItems) {
-    // ✅ Termly items bill every term automatically — skip auto-removal
-    // entirely, no restore step needed.
-    if (newItem.periodType === 'termly') continue;
+                let studentChanged = false;
+                for (const newItem of newlyAddedItems) {
+                    // ✅ Skip auto-removal only for genuinely auto-billed termly
+                    // items. Opt-in components (Transportation) stay removed
+                    // even though they're termly.
+                    const isTermlyAutoBilled = newItem.periodType === 'termly' && !newItem.isOptIn;
+                    if (isTermlyAutoBilled) continue;
 
-    if (!student.removedItems[newItem.itemId]) {
-        student.removedItems[newItem.itemId] = {
-            itemId: newItem.itemId,
-            itemName: newItem.itemName,
-            componentId: newItem.componentId,
-            componentName: newItem.componentName,
-            defaultAmount: newItem.defaultAmount,
-            defaultQuantity: newItem.defaultQuantity,
-            paymentOption: newItem.paymentOption,
-            removedAt: new Date().toISOString(),
-            reason: 'New item added to fee structure — not yet activated',
-            isActive: true
-        };
-        studentChanged = true;
-        itemsAutoRemovedCount++;
-    }
-}
+                    if (!student.removedItems[newItem.itemId]) {
+                        student.removedItems[newItem.itemId] = {
+                            itemId: newItem.itemId,
+                            itemName: newItem.itemName,
+                            componentId: newItem.componentId,
+                            componentName: newItem.componentName,
+                            defaultAmount: newItem.defaultAmount,
+                            defaultQuantity: newItem.defaultQuantity,
+                            paymentOption: newItem.paymentOption,
+                            removedAt: new Date().toISOString(),
+                            reason: newItem.isOptIn
+                                ? 'Optional item (Transportation) — requires manual activation by bursar'
+                                : 'New item added to fee structure — not yet activated',
+                            isActive: true
+                        };
+                        studentChanged = true;
+                        itemsAutoRemovedCount++;
+                    }
+                }
 
                 if (studentChanged) {
                     student.hasRemovedItems = true;
