@@ -33237,7 +33237,7 @@ async function editStudentInfoList(studentId) {
             }
 
             // customizations + removed items (already in `student` / `existingCustomizations` due to in-place edits)
-            updatedData.customItemOverrides = student.customItemOverrides || existingCustomizations || {};
+            // updatedData.customItemOverrides = student.customItemOverrides || existingCustomizations || {};
             updatedData.removedItems = student.removedItems || {};
 
             const feeStructureId = document.getElementById('editFeeStructure').value;
