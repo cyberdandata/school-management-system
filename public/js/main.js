@@ -2274,7 +2274,7 @@ function renderStatusGroupCellWithAllPeriods(student, sg, allStatusGroups, forma
 // ============================================================================
 
 async function showStudentList() {
-    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED');
+    console.log('showStudentList called - v14.0 TUITION + CASH-ONLY (T + C/o) TOTALS');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -2730,12 +2730,6 @@ async function showStudentList() {
             totalTuitionExpected += expectedTuition;
             totalTuitionCollected += tuitionPaid;
 
-            if (tuitionStatusText === 'Fully Paid') fullyPaidCount++;
-            else if (tuitionStatusText === 'Payment Due') paymentDueCount++;
-            else if (tuitionStatusText === 'No Payment') noPaymentCount++;
-            else if (tuitionStatusText === 'Credit Balance') creditCount++;
-            else if (tuitionStatusText === 'Critical Overdue') criticalCount++;
-
             if (!feeStructure) noFeeStructureCount++;
 
             // ========== BUILD STATUS GROUP DATA – only for current period, only scholastic groups ==========
@@ -2750,6 +2744,14 @@ async function showStudentList() {
             }
 
             let currentPeriodItemsRemaining = 0;
+
+            // ========== TUITION + CASH-ONLY (T + C/o) ACCUMULATORS ==========
+            // Only items whose payment option is strictly "cash_only" (not "either",
+            // not "item_only") contribute here — this feeds the Total Paid / Balance /
+            // Status columns which now represent Tuition + Cash-Only obligations only,
+            // deliberately excluding anything with an item-based (OR / items-only) component.
+            let cashOnlyExpected = 0;
+            let cashOnlyPaid = 0;
 
             if (feeStructure && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
@@ -2841,6 +2843,14 @@ async function showStudentList() {
                         const remainingAmount = paidInfo.remainingAmount;
                         const remainingQuantity = paidInfo.remainingItems;
 
+                        // ========== TUITION + CASH-ONLY (T + C/o) ACCUMULATION ==========
+                        // Strictly cash_only items only — "either" (OR-logic) and
+                        // "item_only" items never contribute to this total.
+                        if (effectivePaymentOption === 'cash_only') {
+                            cashOnlyExpected += effectiveAmount;
+                            cashOnlyPaid += cashPaid;
+                        }
+
                         let statusText = 'Not Paid', statusClass = 'bg-rose-50 text-rose-600', statusIcon = '❌';
 
                         if (isFullyPaid) {
@@ -2881,7 +2891,7 @@ async function showStudentList() {
                 }
             }
 
-            // ========== CALCULATE TOTALS ==========
+            // ========== CALCULATE TOTALS (full, unchanged — used for CSV export etc.) ==========
             let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
             for (const sg of sortedStatusGroups) {
                 const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
@@ -2901,15 +2911,34 @@ async function showStudentList() {
             const hasCustomizations = student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0;
             if (hasCustomizations) studentsWithCustomizations++;
 
+            // ========== TUITION + CASH-ONLY (T + C/o) TOTALS ==========
+            // This is the basis for the Total Paid / Balance / Status columns and the
+            // "No Payment" / "Fully Paid" etc. counts shown in the Tuition Status card.
+            // It deliberately excludes item-based obligations (item_only and either/OR
+            // items) — those remain visible only in their own per-status-group cells.
+            const tcExpected = expectedTuition + cashOnlyExpected;
+            const tcPaid = tuitionPaid + cashOnlyPaid;
+            const tcBalance = tcExpected - tcPaid;
+
             let overallStatusText = 'Payment Due';
             let overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
             let overallStatusIcon = '⚠️';
 
-            if (totalBalance < -10) { overallStatusText = 'Credit Balance'; overallStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; overallStatusIcon = '💰'; }
-            else if (Math.abs(totalBalance) <= 10 && totalPaid > 0) { overallStatusText = 'Fully Paid'; overallStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; overallStatusIcon = '✅'; }
-            else if (totalPaid === 0 && totalExpected > 0) { overallStatusText = 'No Payment'; overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; overallStatusIcon = '📋'; }
-            else if (totalBalance > 0 && totalPaid > 0) { overallStatusText = 'Payment Due'; overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200'; overallStatusIcon = '⚠️'; }
-            else if (totalBalance > totalExpected && totalExpected > 0) { overallStatusText = 'Critical Overdue'; overallStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; overallStatusIcon = '🔴'; }
+            if (tcBalance < -10) { overallStatusText = 'Credit Balance'; overallStatusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; overallStatusIcon = '💰'; }
+            else if (Math.abs(tcBalance) <= 10 && tcPaid > 0) { overallStatusText = 'Fully Paid'; overallStatusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; overallStatusIcon = '✅'; }
+            else if (tcPaid === 0 && tcExpected > 0) { overallStatusText = 'No Payment'; overallStatusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; overallStatusIcon = '📋'; }
+            else if (tcBalance > 0 && tcPaid > 0) { overallStatusText = 'Payment Due'; overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200'; overallStatusIcon = '⚠️'; }
+            else if (tcBalance > tcExpected && tcExpected > 0) { overallStatusText = 'Critical Overdue'; overallStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; overallStatusIcon = '🔴'; }
+
+            if (overallStatusText === 'Fully Paid') fullyPaidCount++;
+            else if (overallStatusText === 'Payment Due') paymentDueCount++;
+            else if (overallStatusText === 'No Payment') noPaymentCount++;
+            else if (overallStatusText === 'Credit Balance') creditCount++;
+            else if (overallStatusText === 'Critical Overdue') criticalCount++;
+
+            if (paymentStatus && paymentStatus !== 'all') {
+                // (left intentionally untouched — filter is applied later via DOM data-status)
+            }
 
             enhancedStudents.push({
                 id: student.id, firstName: student.firstName || '', lastName: student.lastName || '',
@@ -2925,8 +2954,10 @@ async function showStudentList() {
                 tuitionBalance: tuitionBalance, tuitionStatusText: tuitionStatusText, tuitionStatusColor: tuitionStatusColor,
                 tuitionStatusIcon: tuitionStatusIcon, totalExpected: totalExpected, totalPaid: totalPaid,
                 totalBalance: totalBalance, totalRemainingItems: totalRemainingItems,
-                currentPeriodItemsRemaining: currentPeriodItemsRemaining, // new field
+                currentPeriodItemsRemaining: currentPeriodItemsRemaining, // still used by per-group cells
                 totalCustomItems: totalCustomItems,
+                // ========== Tuition + Cash-Only (T + C/o) fields — used by the Total Paid / Balance / Status columns ==========
+                tcExpected: tcExpected, tcPaid: tcPaid, tcBalance: tcBalance,
                 overallStatus: overallStatusText, overallStatusColor: overallStatusColor, overallStatusIcon: overallStatusIcon,
                 paymentCount: studentPayments.length, hasFeeStructure: !!feeStructure,
                 customTransportation: student.customTransportation || null, customItemOverrides: student.customItemOverrides || {},
@@ -3214,12 +3245,13 @@ async function showStudentList() {
                         <span class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 opacity-80"></span>
                         <div class="flex justify-between items-start">
                             <div>
-                                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tuition Status</p>
+                                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tuition + Cash-Only Status</p>
                                 <p class="text-[11px] text-emerald-600 font-semibold mt-1.5">✅ Fully Paid: ${fullyPaidCount}</p>
                                 <p class="text-[11px] text-amber-600 font-semibold">⚠️ Due: ${paymentDueCount}</p>
                                 <p class="text-[11px] text-rose-600 font-semibold">🔴 Critical: ${criticalCount}</p>
                                 <p class="text-[11px] text-sky-600 font-semibold">💰 Credit: ${creditCount}</p>
                                 <p class="text-[11px] text-slate-500 font-semibold">📋 No Payment: ${noPaymentCount}</p>
+                                <p class="text-[9px] text-slate-400 mt-1">T + C/o = Tuition + Cash-Only items</p>
                             </div>
                             <div class="db-metric-icon bg-rose-50 text-rose-600"><i class="fas fa-chart-bar"></i></div>
                         </div>
@@ -3290,8 +3322,8 @@ async function showStudentList() {
                                     <th class="p-2.5 text-left">Parent</th>
                                     <th class="p-2.5 text-center min-w-32 bg-indigo-50/60 border-r border-slate-100">Tuition</th>
                                     ${statusGroupHeaders}
-                                    <th class="p-2.5 text-right">Total Paid</th>
-                                    <th class="p-2.5 text-right">Balance</th>
+                                    <th class="p-2.5 text-right">Total Paid<br><span class="text-[9px] font-normal opacity-70">T + C/o</span></th>
+                                    <th class="p-2.5 text-right">Balance<br><span class="text-[9px] font-normal opacity-70">T + C/o</span></th>
                                     <th class="p-2.5 text-left">Status</th>
                                     <th class="p-2.5 text-center">Actions</th>
                                 </tr>
@@ -3301,11 +3333,12 @@ async function showStudentList() {
                                     let statusGroupCells = '';
                                     for (const sg of sortedStatusGroups) statusGroupCells += renderStatusGroupCell(student, sg);
 
-                                    const totalPaidDisplay = student.totalPaid > 0 ? formatMoney(student.totalPaid) : '0';
-                                    let balanceDisplay = '', balanceClass = '';
-                                    if (student.totalBalance < 0) { balanceDisplay = `Credit: ${formatMoney(Math.abs(student.totalBalance))}`; balanceClass = 'text-sky-600'; }
-                                    else if (student.totalBalance > 0) { balanceDisplay = formatMoney(student.totalBalance); balanceClass = 'text-rose-600 font-bold'; }
-                                    else { balanceDisplay = '0'; balanceClass = 'text-emerald-600'; }
+                                    // ========== TUITION + CASH-ONLY (T + C/o) DISPLAY VALUES ==========
+                                    const tcPaidDisplay = student.tcPaid > 0 ? formatMoney(student.tcPaid) : '0';
+                                    let tcBalanceDisplay = '', tcBalanceClass = '';
+                                    if (student.tcBalance < 0) { tcBalanceDisplay = `Credit: ${formatMoney(Math.abs(student.tcBalance))}`; tcBalanceClass = 'text-sky-600'; }
+                                    else if (student.tcBalance > 0) { tcBalanceDisplay = formatMoney(student.tcBalance); tcBalanceClass = 'text-rose-600 font-bold'; }
+                                    else { tcBalanceDisplay = '0'; tcBalanceClass = 'text-emerald-600'; }
 
                                     const initials = `${(student.firstName || '').charAt(0)}${(student.lastName || '').charAt(0)}`.toUpperCase();
                                     const avatarColors = ['bg-gradient-to-br from-rose-400 to-rose-600', 'bg-gradient-to-br from-indigo-400 to-indigo-600', 'bg-gradient-to-br from-emerald-400 to-emerald-600', 'bg-gradient-to-br from-purple-400 to-purple-600', 'bg-gradient-to-br from-amber-400 to-amber-600', 'bg-gradient-to-br from-teal-400 to-teal-600'];
@@ -3317,9 +3350,6 @@ async function showStudentList() {
                                     const removedBadge = student.removedItemsCount > 0 ? `<div class="text-[10px] text-rose-400 mt-1"><i class="fas fa-xmark mr-0.5"></i>${student.removedItemsCount} removed</div>` : '';
                                     let orStatusBadge = '';
                                     if (student.totalPaid > 0 && student.totalRemainingItems > 0) orStatusBadge = `<div class="text-[10px] text-purple-500 mt-0.5 font-medium">Cash OR Items</div>`;
-
-                                    // Use the corrected current period items remaining in the balance column
-                                    const currentItemsRemaining = student.currentPeriodItemsRemaining || 0;
 
                                     return `
                                         <tr class="student-row hover:bg-slate-50/80 transition-colors"
@@ -3351,13 +3381,13 @@ async function showStudentList() {
                                             </td>
                                             ${renderTuitionCell(student)}
                                             ${statusGroupCells}
-                                            <td class="p-2 text-right font-mono-num font-bold ${student.totalPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
-                                                ${student.totalPaid > 0 ? `UGX ${totalPaidDisplay}` : 'UGX 0'}
-                                                ${student.totalPaid > 0 && currentItemsRemaining > 0 ? `<div class="text-[10px] text-purple-500 font-sans font-medium">+ ${currentItemsRemaining} items OR</div>` : ''}
+                                            <td class="p-2 text-right font-mono-num font-bold ${student.tcPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
+                                                ${student.tcPaid > 0 ? `UGX ${tcPaidDisplay}` : 'UGX 0'}
+                                                <div class="text-[9px] text-slate-400 font-sans font-medium mt-0.5">T + C/o</div>
                                             </td>
-                                            <td class="p-2 text-right font-mono-num font-bold ${balanceClass}">
-                                                ${student.totalBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
-                                                ${currentItemsRemaining > 0 ? `<div class="text-[10px] text-orange-600 font-sans font-medium">${currentItemsRemaining} items OR</div>` : ''}
+                                            <td class="p-2 text-right font-mono-num font-bold ${tcBalanceClass}">
+                                                ${student.tcBalance < 0 ? `(${tcBalanceDisplay})` : `UGX ${tcBalanceDisplay}`}
+                                                <div class="text-[9px] text-slate-400 font-sans font-medium mt-0.5">T + C/o</div>
                                             </td>
                                             <td class="p-2"><span class="db-badge ${student.overallStatusColor}">${student.overallStatusIcon} ${student.overallStatus}</span></td>
                                             <td class="p-2 text-center">
@@ -3435,7 +3465,7 @@ async function showStudentList() {
                 headers.push(`${sg.name} Items Remaining`);
                 headers.push(`${sg.name} Balance`);
             }
-            headers.push('Total Expected', 'Total Paid (Cash)', 'Total Items Brought', 'Total Items Remaining', 'Balance');
+            headers.push('Total Expected', 'Total Paid (Cash)', 'Total Items Brought', 'Total Items Remaining', 'Balance', 'T+C/o Paid', 'T+C/o Balance');
 
             const rows = studentsData.map(s => {
                 const row = [s.admissionNumber || '', s.firstName || '', s.lastName || '', s.currentClass || '', s.parentName || '', s.parentPhone || '', s.overallStatus || ''];
@@ -3459,6 +3489,8 @@ async function showStudentList() {
                 row.push(totalItemsBrought);
                 row.push(totalItemsRemaining);
                 row.push(s.totalBalance || 0);
+                row.push(s.tcPaid || 0);
+                row.push(s.tcBalance || 0);
                 return row;
             });
 
