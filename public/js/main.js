@@ -32311,12 +32311,6 @@ async function editStudentInfoList(studentId) {
         const currentYear = academicSettings.currentYear || new Date().getFullYear();
         const currentTerm = academicSettings.currentTerm || 1;
 
-        // ---- SINGLE SOURCE OF TRUTH for customizations ----
-        // Merge existing student overrides with fetched ones
-        let customizations = { ...(student.customItemOverrides || {}), ...existingCustomizations };
-        // Keep the student object and the local reference in sync
-        student.customItemOverrides = customizations;
-
         window.currentEditStudent = student;
         window.currentAcademicYear = currentYear;
 
@@ -32346,7 +32340,7 @@ async function editStudentInfoList(studentId) {
         /* -------------------- helpers -------------------- */
         function getCustomizedItemValue(itemId, defaultAmount, defaultQuantity, defaultPaymentOption) {
             const isRemoved = student.removedItems && student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
-            const custom = customizations?.[itemId];
+            const custom = existingCustomizations?.[itemId];
             if (custom) {
                 return {
                     amount: custom.customAmount ?? defaultAmount,
@@ -32383,10 +32377,9 @@ async function editStudentInfoList(studentId) {
             }
         }
 
-        async function persistRemovedAndCustomizations() {
+                async function persistRemovedAndCustomizations() {
             const updateData = {
                 removedItems: student.removedItems || {},
-                customItemOverrides: { ...customizations }, // send a fresh copy
                 updatedAt: new Date().toISOString()
             };
             const res = await fetch(`/api/students/${student.id}`, {
@@ -32395,14 +32388,7 @@ async function editStudentInfoList(studentId) {
                 body: JSON.stringify(updateData)
             });
             if (!res.ok) throw new Error(`Failed to save (status ${res.status})`);
-            const result = await res.json();
-            // Keep our local objects in sync with the saved data
-            if (result.student) {
-                student.customItemOverrides = result.student.customItemOverrides || customizations;
-                student.removedItems = result.student.removedItems || {};
-                customizations = { ...student.customItemOverrides };
-            }
-            return result;
+            return res.json();
         }
 
         function refreshItemsPanel() {
@@ -32448,7 +32434,7 @@ async function editStudentInfoList(studentId) {
             const itemName = removedItem?.itemName || itemId;
             if (!removedItem) return window.showToast('Item not found', 'warning');
 
-            const hasCustom = customizations && customizations[itemId];
+            const hasCustom = student.customItemOverrides && student.customItemOverrides[itemId];
             const ok = await window.showConfirmModal({
                 tone: 'danger',
                 title: `Permanently delete "${itemName}"?`,
@@ -32460,9 +32446,7 @@ async function editStudentInfoList(studentId) {
             if (!ok) return;
 
             delete student.removedItems[itemId];
-            if (customizations) delete customizations[itemId];
-            // Also remove from the existingCustomizations reference if needed
-            if (existingCustomizations) delete existingCustomizations[itemId];
+            if (student.customItemOverrides) delete student.customItemOverrides[itemId];
 
             try {
                 await persistRemovedAndCustomizations();
@@ -32479,7 +32463,7 @@ async function editStudentInfoList(studentId) {
             const componentName = removedItem?.componentName || 'Unknown';
             if (!removedItem) return window.showToast('Item not found in removed items', 'warning');
 
-            const hasCustom = customizations && customizations[itemId];
+            const hasCustom = student.customItemOverrides && student.customItemOverrides[itemId];
             const ok = await window.showConfirmModal({
                 tone: 'success',
                 title: `Restore "${itemName}"?`,
@@ -32616,16 +32600,9 @@ async function editStudentInfoList(studentId) {
                 });
                 if (!res.ok) throw new Error(`status ${res.status}`);
 
-                // ---- FIX: MERGE the new customization into the master object ----
-                customizations[itemId] = {
-                    ...payload,
-                    itemId,
-                    isCustomized: true,
-                    updatedAt: new Date().toISOString()
-                };
-                // Keep the legacy reference in sync
-                existingCustomizations[itemId] = customizations[itemId];
-                student.customItemOverrides = customizations;
+                existingCustomizations[itemId] = { ...payload, itemId, isCustomized: true, updatedAt: new Date().toISOString() };
+                if (!student.customItemOverrides) student.customItemOverrides = {};
+                student.customItemOverrides[itemId] = existingCustomizations[itemId];
 
                 refreshItemsPanel();
                 window.showToast(`Customized "${itemName}"`, 'success');
@@ -32647,9 +32624,8 @@ async function editStudentInfoList(studentId) {
                 const res = await fetch(`/api/students/${studentId}/customizations/${itemId}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(`status ${res.status}`);
 
-                delete customizations[itemId];
                 delete existingCustomizations[itemId];
-                student.customItemOverrides = customizations;
+                if (student.customItemOverrides) delete student.customItemOverrides[itemId];
 
                 refreshItemsPanel();
                 window.showToast('Customization cleared — using defaults', 'info');
@@ -32661,7 +32637,7 @@ async function editStudentInfoList(studentId) {
         function updateEditCustomizationBadgeCount() {
             const badge = document.getElementById('customizationCountBadge');
             if (!badge) return;
-            const customCount = Object.keys(customizations || {}).length;
+            const customCount = Object.keys(existingCustomizations || {}).length;
             const removedCount = Object.keys(student.removedItems || {}).length;
             const total = customCount;
             badge.innerHTML = removedCount > 0
@@ -33077,7 +33053,7 @@ async function editStudentInfoList(studentId) {
                                     <span class="es-card-icon"><i class="fas fa-sliders"></i></span>
                                     <div><div class="es-card-title">Item Customizations</div><div class="es-card-sub">Search, filter by status group, override defaults, remove or restore items</div></div>
                                 </div>
-                                <span class="es-tag es-tag-slate" id="customizationCountBadge" style="font-size:11.5px;">${Object.keys(customizations).length} customized${student.removedItems && Object.keys(student.removedItems).length ? ` <span style="color:#b91c1c;margin-left:4px;">(${Object.keys(student.removedItems).length} removed)</span>` : ''}</span>
+                                <span class="es-tag es-tag-slate" id="customizationCountBadge" style="font-size:11.5px;">${Object.keys(existingCustomizations).length} customized${student.removedItems && Object.keys(student.removedItems).length ? ` <span style="color:#b91c1c;margin-left:4px;">(${Object.keys(student.removedItems).length} removed)</span>` : ''}</span>
                             </div>
                             <div class="es-card-body">
                                 <div class="es-items-hint">
@@ -33261,7 +33237,7 @@ async function editStudentInfoList(studentId) {
             }
 
             // customizations + removed items (already in `student` / `existingCustomizations` due to in-place edits)
-            updatedData.customItemOverrides = student.customItemOverrides || customizations || {};
+            updatedData.customItemOverrides = student.customItemOverrides || existingCustomizations || {};
             updatedData.removedItems = student.removedItems || {};
 
             const feeStructureId = document.getElementById('editFeeStructure').value;
