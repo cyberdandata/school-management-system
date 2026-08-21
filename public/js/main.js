@@ -2274,7 +2274,7 @@ function renderStatusGroupCellWithAllPeriods(student, sg, allStatusGroups, forma
 // ============================================================================
 
 async function showStudentList() {
-    console.log('showStudentList called - v14.0 TOTAL PAID/BALANCE = TUITION + CASH-ONLY ITEMS ONLY (T + C/O)');
+    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -2730,6 +2730,12 @@ async function showStudentList() {
             totalTuitionExpected += expectedTuition;
             totalTuitionCollected += tuitionPaid;
 
+            if (tuitionStatusText === 'Fully Paid') fullyPaidCount++;
+            else if (tuitionStatusText === 'Payment Due') paymentDueCount++;
+            else if (tuitionStatusText === 'No Payment') noPaymentCount++;
+            else if (tuitionStatusText === 'Credit Balance') creditCount++;
+            else if (tuitionStatusText === 'Critical Overdue') criticalCount++;
+
             if (!feeStructure) noFeeStructureCount++;
 
             // ========== BUILD STATUS GROUP DATA – only for current period, only scholastic groups ==========
@@ -2744,16 +2750,6 @@ async function showStudentList() {
             }
 
             let currentPeriodItemsRemaining = 0;
-
-            // ========== NEW: Tuition + Cash-Only tracking ("T + C/O") ==========
-            // These accumulators ONLY include items whose payment option is
-            // strictly 'cash_only' (no OR-items, no item-only). They drive the
-            // Total Paid / Balance / Status columns in the table, together with
-            // tuition. Which status group the cash-only item belongs to does not
-            // matter — every cash_only item across every group is included.
-            let cashOnlyExpected = 0;
-            let cashOnlyPaid = 0;
-            let cashOnlyBalance = 0;
 
             if (feeStructure && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
@@ -2881,36 +2877,24 @@ async function showStudentList() {
                         });
 
                         if (isCustomized) statusGroupTotals[groupName].customItemsCount++;
-
-                        // ========== NEW: Tuition + Cash-Only ("T + C/O") accumulation ==========
-                        // ONLY items with paymentOption === 'cash_only' count here, regardless
-                        // of which status group they belong to. OR-items ("either") and
-                        // item_only items are deliberately excluded from this total.
-                        if (effectivePaymentOption === 'cash_only') {
-                            cashOnlyExpected += effectiveAmount;
-                            cashOnlyPaid += cashPaid;
-                            cashOnlyBalance += remainingAmount;
-                        }
                     }
                 }
             }
 
             // ========== CALCULATE TOTALS ==========
-            // "totalRemainingItems" and "totalCustomItems" still reflect ALL status
-            // groups (used for the "Items Outstanding" / "⚡ custom" badges elsewhere).
-            let totalRemainingItems = 0, totalCustomItems = 0;
+            let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
             for (const sg of sortedStatusGroups) {
-                const dataSg = statusGroupTotals[sg.name] || { itemsRemaining: 0, customItemsCount: 0 };
+                const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
+                totalExpected += dataSg.expected;
+                totalPaid += dataSg.paid;
+                totalBalance += dataSg.balance;
                 totalRemainingItems += dataSg.itemsRemaining;
                 totalCustomItems += dataSg.customItemsCount;
             }
 
-            // ========== "T + C/O" TOTALS ==========
-            // Total Paid / Balance / Status columns (and the badge shown per row)
-            // now represent ONLY Tuition + Cash-Only items — nothing else.
-            const totalExpected = expectedTuition + cashOnlyExpected;
-            const totalPaid = tuitionPaid + cashOnlyPaid;
-            const totalBalance = totalExpected - totalPaid;
+            totalExpected += expectedTuition;
+            totalPaid += tuitionPaid;
+            totalBalance += tuitionBalance;
 
             totalCurrentItemsOutstanding += currentPeriodItemsRemaining;
 
@@ -2927,16 +2911,6 @@ async function showStudentList() {
             else if (totalBalance > 0 && totalPaid > 0) { overallStatusText = 'Payment Due'; overallStatusColor = 'bg-amber-50 text-amber-700 border border-amber-200'; overallStatusIcon = '⚠️'; }
             else if (totalBalance > totalExpected && totalExpected > 0) { overallStatusText = 'Critical Overdue'; overallStatusColor = 'bg-rose-50 text-rose-700 border border-rose-200'; overallStatusIcon = '🔴'; }
 
-            // ========== Stat-card counts (Tuition Status panel) ==========
-            // These now reflect the same T + C/O status as the row badge, so the
-            // "📋 No Payment" (and Fully Paid / Due / Critical / Credit) counts in
-            // the stat cards match the per-row Status column exactly.
-            if (overallStatusText === 'Fully Paid') fullyPaidCount++;
-            else if (overallStatusText === 'Payment Due') paymentDueCount++;
-            else if (overallStatusText === 'No Payment') noPaymentCount++;
-            else if (overallStatusText === 'Credit Balance') creditCount++;
-            else if (overallStatusText === 'Critical Overdue') criticalCount++;
-
             enhancedStudents.push({
                 id: student.id, firstName: student.firstName || '', lastName: student.lastName || '',
                 admissionNumber: student.admissionNumber || '', gender: student.gender || 'N/A',
@@ -2949,14 +2923,9 @@ async function showStudentList() {
                 bursaryName: bursaryName || null, discountDisplay: discountDisplay || '',
                 statusGroupTotals: statusGroupTotals, tuitionExpected: expectedTuition, tuitionPaid: tuitionPaid,
                 tuitionBalance: tuitionBalance, tuitionStatusText: tuitionStatusText, tuitionStatusColor: tuitionStatusColor,
-                tuitionStatusIcon: tuitionStatusIcon,
-                // T + C/O totals (Tuition + Cash-Only items only)
-                totalExpected: totalExpected, totalPaid: totalPaid,
-                totalBalance: totalBalance,
-                cashOnlyExpected: cashOnlyExpected, cashOnlyPaid: cashOnlyPaid, cashOnlyBalance: cashOnlyBalance,
-                // All-groups metrics (unrelated to T + C/O, kept for other badges)
-                totalRemainingItems: totalRemainingItems,
-                currentPeriodItemsRemaining: currentPeriodItemsRemaining,
+                tuitionStatusIcon: tuitionStatusIcon, totalExpected: totalExpected, totalPaid: totalPaid,
+                totalBalance: totalBalance, totalRemainingItems: totalRemainingItems,
+                currentPeriodItemsRemaining: currentPeriodItemsRemaining, // new field
                 totalCustomItems: totalCustomItems,
                 overallStatus: overallStatusText, overallStatusColor: overallStatusColor, overallStatusIcon: overallStatusIcon,
                 paymentCount: studentPayments.length, hasFeeStructure: !!feeStructure,
@@ -3245,8 +3214,7 @@ async function showStudentList() {
                         <span class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 opacity-80"></span>
                         <div class="flex justify-between items-start">
                             <div>
-                                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">T + C/O Status</p>
-                                <p class="text-[9px] text-slate-300 -mt-0.5">Tuition &amp; Cash-Only items</p>
+                                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tuition Status</p>
                                 <p class="text-[11px] text-emerald-600 font-semibold mt-1.5">✅ Fully Paid: ${fullyPaidCount}</p>
                                 <p class="text-[11px] text-amber-600 font-semibold">⚠️ Due: ${paymentDueCount}</p>
                                 <p class="text-[11px] text-rose-600 font-semibold">🔴 Critical: ${criticalCount}</p>
@@ -3322,18 +3290,9 @@ async function showStudentList() {
                                     <th class="p-2.5 text-left">Parent</th>
                                     <th class="p-2.5 text-center min-w-32 bg-indigo-50/60 border-r border-slate-100">Tuition</th>
                                     ${statusGroupHeaders}
-                                    <th class="p-2.5 text-right">
-                                        Total Paid
-                                        <div class="text-[9px] font-normal text-slate-300 normal-case tracking-normal" title="Tuition + Cash-Only items">T + C/O</div>
-                                    </th>
-                                    <th class="p-2.5 text-right">
-                                        Balance
-                                        <div class="text-[9px] font-normal text-slate-300 normal-case tracking-normal" title="Tuition + Cash-Only items">T + C/O</div>
-                                    </th>
-                                    <th class="p-2.5 text-left">
-                                        Status
-                                        <div class="text-[9px] font-normal text-slate-300 normal-case tracking-normal" title="Tuition + Cash-Only items">T + C/O</div>
-                                    </th>
+                                    <th class="p-2.5 text-right">Total Paid</th>
+                                    <th class="p-2.5 text-right">Balance</th>
+                                    <th class="p-2.5 text-left">Status</th>
                                     <th class="p-2.5 text-center">Actions</th>
                                 </tr>
                             </thead>
@@ -3359,8 +3318,7 @@ async function showStudentList() {
                                     let orStatusBadge = '';
                                     if (student.totalPaid > 0 && student.totalRemainingItems > 0) orStatusBadge = `<div class="text-[10px] text-purple-500 mt-0.5 font-medium">Cash OR Items</div>`;
 
-                                    // "Items Outstanding" stat still refers to ALL scholastic items
-                                    // (unrelated to the T + C/O Total Paid / Balance columns below).
+                                    // Use the corrected current period items remaining in the balance column
                                     const currentItemsRemaining = student.currentPeriodItemsRemaining || 0;
 
                                     return `
@@ -3395,9 +3353,11 @@ async function showStudentList() {
                                             ${statusGroupCells}
                                             <td class="p-2 text-right font-mono-num font-bold ${student.totalPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
                                                 ${student.totalPaid > 0 ? `UGX ${totalPaidDisplay}` : 'UGX 0'}
+                                                ${student.totalPaid > 0 && currentItemsRemaining > 0 ? `<div class="text-[10px] text-purple-500 font-sans font-medium">+ ${currentItemsRemaining} items OR</div>` : ''}
                                             </td>
                                             <td class="p-2 text-right font-mono-num font-bold ${balanceClass}">
                                                 ${student.totalBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
+                                                ${currentItemsRemaining > 0 ? `<div class="text-[10px] text-orange-600 font-sans font-medium">${currentItemsRemaining} items OR</div>` : ''}
                                             </td>
                                             <td class="p-2"><span class="db-badge ${student.overallStatusColor}">${student.overallStatusIcon} ${student.overallStatus}</span></td>
                                             <td class="p-2 text-center">
@@ -3475,7 +3435,7 @@ async function showStudentList() {
                 headers.push(`${sg.name} Items Remaining`);
                 headers.push(`${sg.name} Balance`);
             }
-            headers.push('Total Expected (T+C/O)', 'Total Paid (T+C/O)', 'Total Items Brought', 'Total Items Remaining', 'Balance (T+C/O)');
+            headers.push('Total Expected', 'Total Paid (Cash)', 'Total Items Brought', 'Total Items Remaining', 'Balance');
 
             const rows = studentsData.map(s => {
                 const row = [s.admissionNumber || '', s.firstName || '', s.lastName || '', s.currentClass || '', s.parentName || '', s.parentPhone || '', s.overallStatus || ''];
@@ -3509,7 +3469,7 @@ async function showStudentList() {
             link.download = `students_export_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
-            alert(`✅ ${studentsData.length} students exported! (Total columns = Tuition + Cash-Only items only)`);
+            alert(`✅ ${studentsData.length} students exported! (Cash and Items tracked separately)`);
         };
 
         window.printStudentListReport = function () { window.print(); };
