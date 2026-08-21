@@ -8,10 +8,11 @@ const { AsyncLocalStorage } = require('async_hooks'); // ✅ For atomic transact
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const configuredDataDir = process.env.SCHOOL_DATA_DIR;
 
 // ==================== ATOMIC TRANSACTION SYSTEM ====================
 const transactionStorage = new AsyncLocalStorage();
-const TEMP_DIR = path.join(__dirname, 'data', '.tmp');
+const TEMP_DIR = path.join(configuredDataDir || path.join(__dirname, 'data'), '.tmp');
 
 // Ensure temp directory exists and clean up any leftover temp files on startup
 if (!fs.existsSync(TEMP_DIR)) {
@@ -188,7 +189,7 @@ const upload = multer({
 });
 
 // ==================== FILE PATHS ====================
-const dataDir = path.join(__dirname, 'data');
+const dataDir = configuredDataDir || path.join(__dirname, 'data');
 
 // Ensure data directory exists
 // Ensure data directory exists with proper permissions
