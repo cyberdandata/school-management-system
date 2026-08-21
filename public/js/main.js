@@ -45575,8 +45575,8 @@ function showEditAddItemModal() {
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Cash Amount (UGX)</label>
-                                <input type="number" id="editItemCashAmount" class="w-full border rounded-lg px-3 py-2" value="0" min="-1" step="1">
-                                <p class="text-xs text-gray-400 mt-1">Enter any amount (e.g., 2500, 3500, 5700, 45500, etc.)</p>
+                                <input type="number" id="editItemCashAmount" class="w-full border rounded-lg px-3 py-2" value="0" min="0" step="1">
+                                <p class="text-xs text-gray-400 mt-1">Enter any amount (e.g., 0, 2500, 3500, 5700, 45500, etc.)</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">Quantity to Bring</label>
@@ -45618,7 +45618,7 @@ function showEditAddItemModal() {
                 <div>
                     <label class="block text-sm font-medium mb-1 required-field">Amount (UGX) *</label>
                     <input type="number" id="editItemCashAmount" class="w-full border rounded-lg px-3 py-2" value="0" min="0" step="1">
-                    <p class="text-xs text-gray-400 mt-1">Enter any amount (e.g., 2500, 3500, 5700, 45500, etc.)</p>
+                    <p class="text-xs text-gray-400 mt-1">Enter any amount, including 0 (e.g., 0, 2500, 3500, 5700, 45500, etc.)</p>
                 </div>
             `;
         } else if (selectedOption === 'item_only') {
@@ -45634,7 +45634,7 @@ function showEditAddItemModal() {
                     <div>
                         <label class="block text-sm font-medium mb-1">Cash Amount (UGX)</label>
                         <input type="number" id="editItemCashAmount" class="w-full border rounded-lg px-3 py-2" value="0" min="0" step="1">
-                        <p class="text-xs text-gray-400 mt-1">Enter any amount</p>
+                        <p class="text-xs text-gray-400 mt-1">Enter any amount, including 0</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Quantity to Bring</label>
@@ -45683,9 +45683,17 @@ function showEditAddItemModal() {
         let cashAmount = 0;
         
         if (paymentOption === 'cash_only') {
-            cashAmount = parseFloat(document.getElementById('editItemCashAmount')?.value) || 0;
-            if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+            // ✅ FIX: 0 is now a valid cash amount — e.g. free items that just
+            // need to be "activated" on the bill at UGX 0. Only reject if the
+            // field genuinely has no usable number (blank/invalid input).
+            const rawValue = document.getElementById('editItemCashAmount')?.value;
+            if (rawValue === '' || rawValue === null || isNaN(parseFloat(rawValue))) {
+                alert('Please enter a cash amount (0 is allowed)');
+                return;
+            }
+            cashAmount = parseFloat(rawValue);
+            if (cashAmount < 0) {
+                alert('Cash amount cannot be negative');
                 return;
             }
             quantity = 1;
