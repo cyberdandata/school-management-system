@@ -225,6 +225,18 @@ const files = {
 // Used at registration/import time so a brand-new student (no payment history yet)
 // isn't billed for anything until the bursar explicitly restores specific items
 // via Edit Student -> Restore.
+// Component names matching these keywords are "optional" items that must
+// stay removed-by-default even though they're termly — e.g. Transportation
+// isn't used by every student, unlike scholastic requirements which apply
+// to everyone. These require the bursar to manually restore per student.
+const OPT_IN_COMPONENT_KEYWORDS = ['transport', 'van'];
+
+function isOptInComponent(componentName) {
+    if (!componentName) return false;
+    const lower = componentName.toLowerCase();
+    return OPT_IN_COMPONENT_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function buildAllItemsRemovedForFeeStructure(feeStructure) {
     const removedItems = {};
     if (!feeStructure || !feeStructure.activityComponents) return removedItems;
@@ -232,9 +244,14 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
     for (const comp of feeStructure.activityComponents) {
         if (!comp || !comp.items) continue;
 
-        // ✅ Termly items are billed every term by default — never auto-remove.
         const periodType = comp.periodType || 'termly';
-        if (periodType === 'termly') continue;
+        const isOptIn = isOptInComponent(comp.statusGroupName || comp.name);
+
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        // EXCEPTION: opt-in components (e.g. Transportation/Van) stay removed
+        // by default even though they're termly, since not every student
+        // uses them — the bursar must manually restore per student.
+        if (periodType === 'termly' && !isOptIn) continue;
 
         for (const item of comp.items) {
             if (!item) continue;
@@ -248,7 +265,9 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
                 defaultQuantity: item.quantity || 1,
                 paymentOption: item.paymentOption || 'either',
                 removedAt: new Date().toISOString(),
-                reason: 'New student — not yet activated',
+                reason: isOptIn
+                    ? 'Optional item (Transportation) — requires manual activation by bursar'
+                    : 'New student — not yet activated',
                 isActive: true
             };
         }
@@ -2623,34 +2642,34 @@ app.post('/api/students/register', async (req, res) => {
         }
 
         // Helper: locate an item's defaults inside the fee structure by id or name
-       function findItemDefaults(itemId) {
-    const result = {
-        itemName: itemId,
-        componentId: null,
-        componentName: 'Unknown Component',
-        defaultAmount: 0,
-        defaultQuantity: 1,
-        paymentOption: 'either',
-        periodType: 'termly'          // ← add this
-    };
-    if (!feeStructure || !feeStructure.activityComponents) return result;
+        function findItemDefaults(itemId) {
+            const result = {
+                itemName: itemId,
+                componentId: null,
+                componentName: 'Unknown Component',
+                defaultAmount: 0,
+                defaultQuantity: 1,
+                paymentOption: 'either',
+                periodType: 'termly'
+            };
+            if (!feeStructure || !feeStructure.activityComponents) return result;
 
-    for (const comp of feeStructure.activityComponents) {
-        for (const item of (comp.items || [])) {
-            if (item.id === itemId || item.name === itemId) {
-                result.itemName = item.name || itemId;
-                result.componentId = comp.id || null;
-                result.componentName = comp.name || 'Unknown Component';
-                result.defaultAmount = item.totalAmount || 0;
-                result.defaultQuantity = item.quantity || 1;
-                result.paymentOption = item.paymentOption || 'either';
-                result.periodType = comp.periodType || 'termly';   // ← add this
-                return result;
+            for (const comp of feeStructure.activityComponents) {
+                for (const item of (comp.items || [])) {
+                    if (item.id === itemId || item.name === itemId) {
+                        result.itemName = item.name || itemId;
+                        result.componentId = comp.id || null;
+                        result.componentName = comp.name || 'Unknown Component';
+                        result.defaultAmount = item.totalAmount || 0;
+                        result.defaultQuantity = item.quantity || 1;
+                        result.paymentOption = item.paymentOption || 'either';
+                        result.periodType = comp.periodType || 'termly';
+                        return result;
+                    }
+                }
             }
+            return result;
         }
-    }
-    return result;
-}
 
         // ========== HANDLE CUSTOM BURSARY ==========
         let customBursary = null;
@@ -2724,31 +2743,41 @@ app.post('/api/students/register', async (req, res) => {
         // restores whatever should actually be billed. Whatever is still flagged
         // `true` here at submit time never got restored, so it stays off this
         // student's bill (tuition is unaffected either way).
+        //
+        // EXCEPTION: genuinely termly items (scholastic requirements, etc.) are
+        // billed automatically every term and should never be registered as
+        // "removed" — UNLESS the component is an opt-in one like Transportation
+        // (Van Fee), which stays removed by default even though it's termly,
+        // since not every student uses it and it requires manual bursar activation.
         let removedItemsData = null;
         if (removedItems && typeof removedItems === 'object' && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
 
-           for (const [itemId, isRemoved] of Object.entries(removedItems)) {
-    if (isRemoved !== true) continue;
+            for (const [itemId, isRemoved] of Object.entries(removedItems)) {
+                if (isRemoved !== true) continue;
 
-    const defaults = findItemDefaults(itemId);
+                const defaults = findItemDefaults(itemId);
+                const isOptIn = isOptInComponent(defaults.componentName);
 
-    // ✅ Never let a termly item register as "removed" — it's billed every term.
-    if (defaults.periodType === 'termly') continue;
+                // ✅ Skip auto-removal only for genuinely auto-billed termly items.
+                // Opt-in components (Transportation/Van) stay removed even if termly.
+                if (defaults.periodType === 'termly' && !isOptIn) continue;
 
-    removedItemsData[itemId] = {
-        itemId: itemId,
-        itemName: defaults.itemName,
-        componentId: defaults.componentId,
-        componentName: defaults.componentName,
-        defaultAmount: defaults.defaultAmount,
-        defaultQuantity: defaults.defaultQuantity,
-        paymentOption: defaults.paymentOption,
-        removedAt: new Date().toISOString(),
-        reason: 'Not activated at registration',
-        isActive: true
-    };
-}
+                removedItemsData[itemId] = {
+                    itemId: itemId,
+                    itemName: defaults.itemName,
+                    componentId: defaults.componentId,
+                    componentName: defaults.componentName,
+                    defaultAmount: defaults.defaultAmount,
+                    defaultQuantity: defaults.defaultQuantity,
+                    paymentOption: defaults.paymentOption,
+                    removedAt: new Date().toISOString(),
+                    reason: isOptIn
+                        ? 'Optional item (Transportation) — requires manual activation by bursar'
+                        : 'Not activated at registration',
+                    isActive: true
+                };
+            }
 
             if (Object.keys(removedItemsData).length === 0) {
                 removedItemsData = null;
