@@ -2274,7 +2274,7 @@ function renderStatusGroupCellWithAllPeriods(student, sg, allStatusGroups, forma
 // ============================================================================
 
 async function showStudentList() {
-    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED');
+    console.log('showStudentList called - v14.0 TOTAL PAID/BALANCE = TUITION + CASH-ONLY (T + C/o)');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -2751,6 +2751,15 @@ async function showStudentList() {
 
             let currentPeriodItemsRemaining = 0;
 
+            // ✅ Accumulators for "Tuition + Cash-Only" (T + C/o) — the ONLY
+            // items counted toward Total Paid / Balance / per-row Status below
+            // are items whose paymentOption is exactly 'cash_only'. Items with
+            // 'either' or 'item_only' are excluded from these two totals (they
+            // remain fully visible per status-group column and in the "Items
+            // Outstanding" stat card, unaffected by this change).
+            let cashOnlyExpected = 0;
+            let cashOnlyPaid = 0;
+
             if (feeStructure && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     const periodType = component.periodType || 'termly';
@@ -2841,6 +2850,12 @@ async function showStudentList() {
                         const remainingAmount = paidInfo.remainingAmount;
                         const remainingQuantity = paidInfo.remainingItems;
 
+                        // ✅ Cash-Only accumulation for the "T + C/o" totals
+                        if (effectivePaymentOption === 'cash_only') {
+                            cashOnlyExpected += effectiveAmount;
+                            cashOnlyPaid += cashPaid;
+                        }
+
                         let statusText = 'Not Paid', statusClass = 'bg-rose-50 text-rose-600', statusIcon = '❌';
 
                         if (isFullyPaid) {
@@ -2882,19 +2897,22 @@ async function showStudentList() {
             }
 
             // ========== CALCULATE TOTALS ==========
-            let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
+            // ✅ "Total Paid" / "Balance" (and the per-row Status badge derived
+            // from them) now reflect Tuition + Cash-Only items ONLY — labeled
+            // "T + C/o" in the table header. Items with paymentOption 'either'
+            // or 'item_only' are excluded from these two totals; they remain
+            // fully visible in their own status-group column and in the
+            // "Items Outstanding" stat card above, which are unaffected.
+            let totalRemainingItems = 0, totalCustomItems = 0;
             for (const sg of sortedStatusGroups) {
-                const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
-                totalExpected += dataSg.expected;
-                totalPaid += dataSg.paid;
-                totalBalance += dataSg.balance;
+                const dataSg = statusGroupTotals[sg.name] || { itemsRemaining: 0, customItemsCount: 0 };
                 totalRemainingItems += dataSg.itemsRemaining;
                 totalCustomItems += dataSg.customItemsCount;
             }
 
-            totalExpected += expectedTuition;
-            totalPaid += tuitionPaid;
-            totalBalance += tuitionBalance;
+            const totalExpected = expectedTuition + cashOnlyExpected;
+            const totalPaid = tuitionPaid + cashOnlyPaid;
+            const totalBalance = totalExpected - totalPaid;
 
             totalCurrentItemsOutstanding += currentPeriodItemsRemaining;
 
@@ -2925,6 +2943,7 @@ async function showStudentList() {
                 tuitionBalance: tuitionBalance, tuitionStatusText: tuitionStatusText, tuitionStatusColor: tuitionStatusColor,
                 tuitionStatusIcon: tuitionStatusIcon, totalExpected: totalExpected, totalPaid: totalPaid,
                 totalBalance: totalBalance, totalRemainingItems: totalRemainingItems,
+                cashOnlyExpected: cashOnlyExpected, cashOnlyPaid: cashOnlyPaid,
                 currentPeriodItemsRemaining: currentPeriodItemsRemaining, // new field
                 totalCustomItems: totalCustomItems,
                 overallStatus: overallStatusText, overallStatusColor: overallStatusColor, overallStatusIcon: overallStatusIcon,
@@ -3290,8 +3309,14 @@ async function showStudentList() {
                                     <th class="p-2.5 text-left">Parent</th>
                                     <th class="p-2.5 text-center min-w-32 bg-indigo-50/60 border-r border-slate-100">Tuition</th>
                                     ${statusGroupHeaders}
-                                    <th class="p-2.5 text-right">Total Paid</th>
-                                    <th class="p-2.5 text-right">Balance</th>
+                                    <th class="p-2.5 text-right">
+                                        <div>Total Paid</div>
+                                        <div class="text-[9px] font-normal opacity-60 normal-case" title="Tuition + Cash Only items">T + C/o</div>
+                                    </th>
+                                    <th class="p-2.5 text-right">
+                                        <div>Balance</div>
+                                        <div class="text-[9px] font-normal opacity-60 normal-case" title="Tuition + Cash Only items">T + C/o</div>
+                                    </th>
                                     <th class="p-2.5 text-left">Status</th>
                                     <th class="p-2.5 text-center">Actions</th>
                                 </tr>
@@ -3317,9 +3342,6 @@ async function showStudentList() {
                                     const removedBadge = student.removedItemsCount > 0 ? `<div class="text-[10px] text-rose-400 mt-1"><i class="fas fa-xmark mr-0.5"></i>${student.removedItemsCount} removed</div>` : '';
                                     let orStatusBadge = '';
                                     if (student.totalPaid > 0 && student.totalRemainingItems > 0) orStatusBadge = `<div class="text-[10px] text-purple-500 mt-0.5 font-medium">Cash OR Items</div>`;
-
-                                    // Use the corrected current period items remaining in the balance column
-                                    const currentItemsRemaining = student.currentPeriodItemsRemaining || 0;
 
                                     return `
                                         <tr class="student-row hover:bg-slate-50/80 transition-colors"
@@ -3353,11 +3375,9 @@ async function showStudentList() {
                                             ${statusGroupCells}
                                             <td class="p-2 text-right font-mono-num font-bold ${student.totalPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
                                                 ${student.totalPaid > 0 ? `UGX ${totalPaidDisplay}` : 'UGX 0'}
-                                                ${student.totalPaid > 0 && currentItemsRemaining > 0 ? `<div class="text-[10px] text-purple-500 font-sans font-medium">+ ${currentItemsRemaining} items OR</div>` : ''}
                                             </td>
                                             <td class="p-2 text-right font-mono-num font-bold ${balanceClass}">
                                                 ${student.totalBalance < 0 ? `(${balanceDisplay})` : `UGX ${balanceDisplay}`}
-                                                ${currentItemsRemaining > 0 ? `<div class="text-[10px] text-orange-600 font-sans font-medium">${currentItemsRemaining} items OR</div>` : ''}
                                             </td>
                                             <td class="p-2"><span class="db-badge ${student.overallStatusColor}">${student.overallStatusIcon} ${student.overallStatus}</span></td>
                                             <td class="p-2 text-center">
@@ -3435,7 +3455,7 @@ async function showStudentList() {
                 headers.push(`${sg.name} Items Remaining`);
                 headers.push(`${sg.name} Balance`);
             }
-            headers.push('Total Expected', 'Total Paid (Cash)', 'Total Items Brought', 'Total Items Remaining', 'Balance');
+            headers.push('Total Expected (T+C/o)', 'Total Paid (T+C/o)', 'Total Items Brought', 'Total Items Remaining', 'Balance (T+C/o)');
 
             const rows = studentsData.map(s => {
                 const row = [s.admissionNumber || '', s.firstName || '', s.lastName || '', s.currentClass || '', s.parentName || '', s.parentPhone || '', s.overallStatus || ''];
