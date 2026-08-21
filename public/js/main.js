@@ -2462,7 +2462,7 @@ async function showStudentList() {
             return student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
         }
 
-        // ========== GET PAID AMOUNTS WITH OR LOGIC (same as viewStudentDetailsList) ==========
+        // ========== GET PAID AMOUNTS WITH OR LOGIC ==========
         function getPaidAmountsWithOrLogic(studentId, componentName, itemName, periodType, quantityRequired, amountExpected, unitPrice, paymentOption, paymentsToCheck) {
             let cashPaid = 0;
             let itemsBrought = 0;
@@ -2589,12 +2589,10 @@ async function showStudentList() {
         let fullyPaidCount = 0, paymentDueCount = 0, noPaymentCount = 0, creditCount = 0, criticalCount = 0;
         let nurseryCount = 0, lowerPrimaryCount = 0, upperPrimaryCount = 0;
 
-        // ========== For each student, compute periods and maxTermByYear / oldestPeriod ==========
         for (const student of students) {
             // Determine all periods for this student from payments, term records, fee assignments
             const studentPeriods = new Map();
 
-            // From payments
             allPayments.forEach(p => {
                 if (p && p.studentId === student.id && p.academicYear && p.term !== undefined) {
                     const key = `${p.academicYear}_${p.term}`;
@@ -2604,7 +2602,6 @@ async function showStudentList() {
                 }
             });
 
-            // From term records
             for (const [key, record] of Object.entries(termRecords)) {
                 if (key.startsWith(student.id + '_')) {
                     const parts = key.split('_');
@@ -2619,7 +2616,6 @@ async function showStudentList() {
                 }
             }
 
-            // From fee assignments
             feeAssignments.forEach(a => {
                 if (a && a.studentId === student.id && a.academicYear) {
                     const year = parseInt(a.academicYear);
@@ -2631,12 +2627,10 @@ async function showStudentList() {
                 }
             });
 
-            // If no periods, default to current period
             if (studentPeriods.size === 0) {
                 studentPeriods.set(`${currentYear}_${currentTerm}`, { year: currentYear, term: currentTerm });
             }
 
-            // Compute maxTermByYear and oldest period
             const maxTermByYear = {};
             let oldestYear = Infinity, oldestTerm = Infinity, oldestPeriodKey = null;
             for (const [key, data] of studentPeriods) {
@@ -2651,7 +2645,6 @@ async function showStudentList() {
                 }
             }
 
-            // Determine if current period is the latest term for its year
             const isLatestTermForCurrentYear = (currentTerm === maxTermByYear[currentYear]);
             const isOldestPeriod = (oldestPeriodKey === `${currentYear}_${currentTerm}`);
 
@@ -2750,15 +2743,11 @@ async function showStudentList() {
 
             let currentPeriodItemsRemaining = 0;
 
-            // ========== CASH‑ONLY TOTALS (new) ==========
-            let cashOnlyExpected = 0;
-            let cashOnlyPaid = 0;
-
+            // ========== MAIN LOOP OVER COMPONENTS (for status groups and OR totals) ==========
             if (feeStructure && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     const periodType = component.periodType || 'termly';
 
-                    // Determine if this component should be included in current period
                     let shouldInclude = false;
                     if (periodType === 'termly') shouldInclude = true;
                     else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
@@ -2788,7 +2777,6 @@ async function showStudentList() {
                     statusGroupTotals[groupName].periodTypes.add(periodType);
                     statusGroupTotals[groupName].isTransportation = isTransportation;
 
-                    // Determine scoped payments for this period type
                     let scopedPayments = [];
                     if (periodType === 'yearly') {
                         scopedPayments = allPayments.filter(p =>
@@ -2856,7 +2844,6 @@ async function showStudentList() {
                             statusText = '❌ Unpaid'; statusClass = 'bg-rose-50 text-rose-600'; statusIcon = '❌';
                         }
 
-                        // Only count items if the group is Scholastic
                         const isScholastic = groupName.toLowerCase().includes('scholastic');
                         if (isScholastic) {
                             currentPeriodItemsRemaining += remainingQuantity;
@@ -2877,23 +2864,11 @@ async function showStudentList() {
                         });
 
                         if (isCustomized) statusGroupTotals[groupName].customItemsCount++;
-
-                        // ========== ACCUMULATE CASH‑ONLY TOTALS ==========
-                        if (effectivePaymentOption === 'cash_only') {
-                            cashOnlyExpected += effectiveAmount;
-                            cashOnlyPaid += cashPaid;
-                        }
                     }
                 }
             }
 
-            // ========== ADD TUITION TO CASH‑ONLY TOTALS ==========
-            cashOnlyExpected += expectedTuition;
-            cashOnlyPaid += tuitionPaid;
-
-            const cashOnlyBalance = cashOnlyExpected - cashOnlyPaid;
-
-            // ========== CALCULATE TOTALS (original, for reference) ==========
+            // ========== CALCULATE ORIGINAL TOTALS (for reference) ==========
             let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
             for (const sg of sortedStatusGroups) {
                 const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
@@ -2912,7 +2887,81 @@ async function showStudentList() {
             const hasCustomizations = student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0;
             if (hasCustomizations) studentsWithCustomizations++;
 
-            // ========== OVERALL STATUS (now based on CASH‑ONLY) ==========
+            // ========== COMPUTE CASH‑ONLY TOTALS (tuition + all cash‑only items, regardless of period) ==========
+            let cashOnlyExpected = expectedTuition;
+            let cashOnlyPaid = tuitionPaid;
+
+            if (feeStructure && feeStructure.activityComponents) {
+                for (const component of feeStructure.activityComponents) {
+                    const groupName = component.statusGroupName || component.name || 'Other';
+                    const isTransportation = component.name.toLowerCase().includes('transport') ||
+                        (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
+
+                    for (const item of (component.items || [])) {
+                        const itemId = item.id || item.name;
+                        if (isItemRemoved(student, itemId)) continue;
+                        if (isTransportation && student.customTransportation && student.customTransportation.hasTransportation === false) continue;
+
+                        const defaultAmount = item.totalAmount || 0;
+                        const defaultQuantity = item.quantity || 1;
+                        const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
+                        const defaultPaymentOption = item.paymentOption || 'either';
+
+                        const customValues = getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
+                        const effectiveAmount = customValues.amount;
+                        const effectivePaymentOption = customValues.paymentOption;
+                        let effectiveQuantity = customValues.quantity;
+                        let effectiveUnitPrice = customValues.unitPrice;
+
+                        if (isTransportation && student.customTransportation) {
+                            if (student.customTransportation.hasTransportation === false) continue;
+                            if (student.customTransportation.amount) {
+                                effectiveAmount = student.customTransportation.amount;
+                                effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
+                            }
+                        }
+
+                        // Only add if paymentOption is cash_only
+                        if (effectivePaymentOption !== 'cash_only') continue;
+
+                        cashOnlyExpected += effectiveAmount;
+
+                        // Sum all cash payments for this item across ALL periods
+                        let itemCashPaid = 0;
+                        for (const payment of allPayments) {
+                            if (payment.studentId !== student.id) continue;
+                            // Search in activityItemPayments
+                            if (payment.activityItemPayments) {
+                                for (const paidItem of payment.activityItemPayments) {
+                                    if (paidItem.componentName === component.name && paidItem.itemName === item.name) {
+                                        if (paidItem.paymentType === 'paid_cash') {
+                                            itemCashPaid += paidItem.amountPaid || 0;
+                                        }
+                                    }
+                                }
+                            }
+                            // Search in paymentsByPeriodType
+                            if (payment.paymentsByPeriodType) {
+                                for (const pt of ['one_time', 'termly', 'yearly']) {
+                                    const periodItems = payment.paymentsByPeriodType[pt] || [];
+                                    for (const paidItem of periodItems) {
+                                        if (paidItem.componentName === component.name && paidItem.itemName === item.name) {
+                                            if (paidItem.paymentType === 'paid_cash') {
+                                                itemCashPaid += paidItem.amountPaid || 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        cashOnlyPaid += itemCashPaid;
+                    }
+                }
+            }
+
+            const cashOnlyBalance = cashOnlyExpected - cashOnlyPaid;
+
+            // ========== OVERALL STATUS (based on cash‑only) ==========
             let overallStatusText, overallStatusColor, overallStatusIcon;
             if (cashOnlyBalance < -10) {
                 overallStatusText = 'Credit Balance';
@@ -2979,7 +3028,7 @@ async function showStudentList() {
         const totalOutstanding = totalTuitionExpected - totalTuitionCollected;
 
         // ====================================================================
-        // RENDER FUNCTIONS (modern styling) – mostly unchanged
+        // RENDER FUNCTIONS (unchanged)
         // ====================================================================
 
         function renderTuitionCell(student) {
