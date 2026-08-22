@@ -2886,11 +2886,13 @@ async function showStudentList() {
             const hasCustomizations = student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0;
             if (hasCustomizations) studentsWithCustomizations++;
 
-            // ========== COMPUTE CASH‑ONLY TOTALS (FIXED – using deduplicated items) ==========
+            // ========== COMPUTE CASH-ONLY TOTALS - REVISED ==========
+            // Use statusGroupTotals (which already has period logic) and also fallback to fee structure
+            // to catch any cash-only items that might have been skipped (like MDD).
             let cashOnlyExpected = expectedTuition;
             let cashOnlyPaid = tuitionPaid;
 
-            // Iterate over all statusGroupTotals and sum only cash‑only items
+            // First, sum from statusGroupTotals
             for (const sgName in statusGroupTotals) {
                 const sg = statusGroupTotals[sgName];
                 if (!sg || !sg.items) continue;
@@ -2898,6 +2900,67 @@ async function showStudentList() {
                     if (item.paymentOption === 'cash_only') {
                         cashOnlyExpected += item.totalAmount;
                         cashOnlyPaid += item.cashPaid;
+                    }
+                }
+            }
+
+            // Second, scan fee structure directly to catch any missed cash-only items
+            // (this is the same fallback logic used in renderStatusGroupCell)
+            if (feeStructure && feeStructure.activityComponents) {
+                for (const component of feeStructure.activityComponents) {
+                    const periodType = component.periodType || 'termly';
+                    let shouldInclude = false;
+                    if (periodType === 'termly') shouldInclude = true;
+                    else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
+                    else if (periodType === 'yearly') shouldInclude = isLatestTermForCurrentYear;
+                    if (!shouldInclude) continue;
+
+                    const isTransportation = component.name.toLowerCase().includes('transport') ||
+                        (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
+
+                    for (const item of (component.items || [])) {
+                        const itemId = item.id || item.name;
+                        if (isItemRemoved(student, itemId)) continue;
+                        if (isTransportation && student.customTransportation && student.customTransportation.hasTransportation === false) continue;
+
+                        const defaultAmount = item.totalAmount || 0;
+                        const defaultQuantity = item.quantity || 1;
+                        const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
+                        const defaultPaymentOption = item.paymentOption || 'either';
+
+                        const customValues = getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
+                        const effectiveAmount = customValues.amount;
+                        const effectivePaymentOption = customValues.paymentOption;
+
+                        if (effectivePaymentOption !== 'cash_only') continue;
+
+                        // Check if this item is already added from statusGroupTotals by comparing name and component
+                        let alreadyAdded = false;
+                        for (const sgName in statusGroupTotals) {
+                            const sg = statusGroupTotals[sgName];
+                            if (!sg || !sg.items) continue;
+                            for (const existingItem of sg.items) {
+                                if (existingItem.name === item.name && existingItem.componentName === component.name) {
+                                    alreadyAdded = true;
+                                    break;
+                                }
+                            }
+                            if (alreadyAdded) break;
+                        }
+
+                        if (!alreadyAdded) {
+                            // This cash-only item was missed by statusGroupTotals, so add it now
+                            cashOnlyExpected += effectiveAmount;
+                            // Also compute its paid amount
+                            const scopedPayments = studentPayments;
+                            const paidInfo = getPaidAmountsWithOrLogic(
+                                student.id, component.name, item.name, periodType,
+                                customValues.quantity, effectiveAmount, customValues.unitPrice, effectivePaymentOption,
+                                scopedPayments
+                            );
+                            cashOnlyPaid += paidInfo.cashPaid;
+                            console.log(`⚠️ Fallback: added cash-only item "${item.name}" (${effectiveAmount}) to totals`);
+                        }
                     }
                 }
             }
@@ -2932,7 +2995,6 @@ async function showStudentList() {
                 overallStatusIcon = '⚠️';
             }
 
-            // Store student data with corrected cash‑only fields
             enhancedStudents.push({
                 id: student.id, firstName: student.firstName || '', lastName: student.lastName || '',
                 admissionNumber: student.admissionNumber || '', gender: student.gender || 'N/A',
@@ -2971,7 +3033,7 @@ async function showStudentList() {
         const totalOutstanding = totalTuitionExpected - totalTuitionCollected;
 
         // ====================================================================
-        // RENDER FUNCTIONS
+        // RENDER FUNCTIONS (unchanged – keep the same as before)
         // ====================================================================
 
         function renderTuitionCell(student) {
