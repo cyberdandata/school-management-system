@@ -12226,6 +12226,23 @@ if (newFeeStructureId) {
     console.log(`   ✅ Fee assignment saved for ${nextYear}`);
 }
 
+// ========== AUTO-REMOVE NON-TERMLY ITEMS ON PROMOTION ==========
+// Promotion always assigns a (potentially new) fee structure for the next
+// level — apply the same rule as manual reassignment: every non-termly
+// item starts removed, termly items always stay active.
+if (newFeeStructureId) {
+    const feeStructuresMap = {};
+    feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
+
+    const priorFeeStructureId = currentFeeStructureId; // resolved earlier in this loop iteration
+    const removalApplied = applyFeeAssignmentRemovalRule(
+        student, newFeeStructureId, priorFeeStructureId, feeStructuresMap
+    );
+
+    if (removalApplied) {
+        console.log(`   🆕 Non-termly items auto-removed for ${student.firstName} ${student.lastName} (${student.removedItemsCount} total removed) — fee structure ${priorFeeStructureId || 'none'} -> ${newFeeStructureId}`);
+    }
+}
                 // Update student
                 student.currentClassId = toClassId;
                 if (newFeeStructureId) {
