@@ -2274,7 +2274,7 @@ function renderStatusGroupCellWithAllPeriods(student, sg, allStatusGroups, forma
 // ============================================================================
 
 async function showStudentList() {
-    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED');
+    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED + FUZZY SEARCH');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -2401,6 +2401,80 @@ async function showStudentList() {
         function closeModal() {
             const modal = document.querySelector('.fixed.inset-0');
             if (modal) modal.remove();
+        }
+
+        // ========== FUZZY SEARCH HELPERS ==========
+        // Levenshtein edit distance (classic DP implementation) — counts the
+        // minimum number of single-character insertions, deletions, or
+        // substitutions needed to turn `a` into `b`.
+        function levenshteinDistance(a, b) {
+            a = a || ''; b = b || '';
+            const m = a.length, n = b.length;
+            if (m === 0) return n;
+            if (n === 0) return m;
+
+            let prevRow = new Array(n + 1);
+            let currRow = new Array(n + 1);
+            for (let j = 0; j <= n; j++) prevRow[j] = j;
+
+            for (let i = 1; i <= m; i++) {
+                currRow[0] = i;
+                for (let j = 1; j <= n; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    currRow[j] = Math.min(
+                        currRow[j - 1] + 1,      // insertion
+                        prevRow[j] + 1,           // deletion
+                        prevRow[j - 1] + cost     // substitution
+                    );
+                }
+                [prevRow, currRow] = [currRow, prevRow];
+            }
+            return prevRow[n];
+        }
+
+        // Returns a 0..1 similarity score between a search query and a single
+        // word/token, tolerant of typos, missing letters, or transpositions.
+        function fuzzyWordScore(query, word) {
+            if (!query || !word) return 0;
+            if (word === query) return 1;
+            if (word.startsWith(query)) return 0.95;
+            if (word.includes(query)) return 0.85;
+
+            const dist = levenshteinDistance(query, word);
+            const maxLen = Math.max(query.length, word.length);
+            if (maxLen === 0) return 0;
+            return Math.max(0, 1 - dist / maxLen);
+        }
+
+        // Fuzzy-matches a search query against a full text field (a student
+        // name, admission number, etc). Checks the whole string plus each
+        // individual word (so "gabriela" still matches "Gabriella Sserunjogi"
+        // even though the word order/spelling isn't exact), and requires a
+        // minimum query length before applying edit-distance tolerance so
+        // very short queries ("sg") don't produce noisy false positives.
+        function fuzzyTextMatch(query, text, threshold = 0.6) {
+            const q = (query || '').toLowerCase().trim();
+            const t = (text || '').toLowerCase().trim();
+            if (!q) return true;
+            if (!t) return false;
+
+            // Fast path: plain substring match always counts, regardless of length.
+            if (t.includes(q)) return true;
+
+            // Short queries: don't apply fuzzy edit-distance (too noisy on 1-2
+            // char inputs) — only substring/word-prefix matching applies.
+            if (q.length < 3) {
+                return t.split(/\s+/).some(word => word.startsWith(q));
+            }
+
+            // Whole-string similarity (helps when comparing full names)
+            const fullScore = fuzzyWordScore(q, t);
+            if (fullScore >= threshold) return true;
+
+            // Per-word similarity (helps when the query matches just one
+            // part of a multi-word name/field, e.g. only the first name)
+            const words = t.split(/\s+/).filter(Boolean);
+            return words.some(word => fuzzyWordScore(q, word) >= threshold);
         }
 
         // ========== GET CUSTOMIZED ITEM VALUE ==========
@@ -3433,7 +3507,7 @@ async function showStudentList() {
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                         <div class="relative">
                             <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                            <input type="text" id="studentSearchInput" placeholder="Search by name, admission..." class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">
+                            <input type="text" id="studentSearchInput" placeholder="Search by name, admission... (typo-tolerant)" class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">
                         </div>
                         <select id="classFilterInput" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-teal-500/40 outline-none">
                             <option value="">All Classes</option>
@@ -3588,7 +3662,15 @@ async function showStudentList() {
                 const studentLevel = row.getAttribute('data-level') || '';
                 const studentStatus = row.getAttribute('data-status') || '';
 
-                const matchSearch = searchTerm === '' || name.includes(searchTerm) || admission.includes(searchTerm);
+                // ========== FUZZY SEARCH MATCH ==========
+                // Matches on plain substring first (fast path, always exact),
+                // then falls back to typo-tolerant fuzzy matching against the
+                // full name and admission number, so a slightly misspelled or
+                // incomplete search term still surfaces the intended student.
+                const matchSearch = searchTerm === '' ||
+                    fuzzyTextMatch(searchTerm, name, 0.62) ||
+                    fuzzyTextMatch(searchTerm, admission, 0.7);
+
                 const matchClass = classValue === '' || studentClass === classValue;
                 const matchLevel = levelValue === '' || studentLevel === levelValue;
                 const matchStatus = statusValue === '' || studentStatus === statusValue;
