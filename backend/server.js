@@ -12192,38 +12192,39 @@ app.post('/api/students/promote', async (req, res) => {
                 enrollmentsToAdd.push(newEnrollment);
 
                 // Save fee assignment
-                if (newFeeStructureId) {
-                    console.log(`   📝 Assigning fee structure for ${nextYear}: ${newFeeStructureName} (${newFeeStructureId})`);
-                    
-                    let currentFeeAssignments = readJSON('studentFeeAssignments.json');
-                    if (!Array.isArray(currentFeeAssignments)) currentFeeAssignments = [];
-                    
-                    const existingIdx = currentFeeAssignments.findIndex(a =>
-                        a.studentId === studentId && a.academicYear === nextYear
-                    );
-                    
-                    const assignmentToSave = {
-                        id: existingIdx !== -1 ? currentFeeAssignments[existingIdx].id : uuidv4(),
-                        studentId: studentId,
-                        feeStructureId: newFeeStructureId,
-                        bursaryId: currentAssignment.bursaryId || null,
-                        academicYear: nextYear,
-                        term: currentTerm,
-                        assignedAt: existingIdx !== -1 ? currentFeeAssignments[existingIdx].assignedAt : new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    };
-                    
-                    if (existingIdx !== -1) {
-                        currentFeeAssignments[existingIdx] = assignmentToSave;
-                        console.log(`   ✅ Updated existing fee assignment for ${nextYear}`);
-                    } else {
-                        currentFeeAssignments.push(assignmentToSave);
-                        console.log(`   ✅ Created new fee assignment for ${nextYear}`);
-                    }
-                    
-                    saveJSON('studentFeeAssignments.json', currentFeeAssignments);
-                    console.log(`   ✅ Fee assignment saved for ${nextYear}`);
-                }
+              // Save fee assignment
+if (newFeeStructureId) {
+    console.log(`   📝 Assigning fee structure for ${nextYear}: ${newFeeStructureName} (${newFeeStructureId})`);
+    
+    let currentFeeAssignments = readJSON('studentFeeAssignments.json');
+    if (!Array.isArray(currentFeeAssignments)) currentFeeAssignments = [];
+    
+    const existingIdx = currentFeeAssignments.findIndex(a =>
+        a.studentId === studentId && a.academicYear === nextYear
+    );
+    
+    const assignmentToSave = {
+        id: existingIdx !== -1 ? currentFeeAssignments[existingIdx].id : uuidv4(),
+        studentId: studentId,
+        feeStructureId: newFeeStructureId,
+        bursaryId: currentAssignment.bursaryId || null,
+        academicYear: nextYear,
+        term: currentTerm,
+        assignedAt: existingIdx !== -1 ? currentFeeAssignments[existingIdx].assignedAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    
+    if (existingIdx !== -1) {
+        currentFeeAssignments[existingIdx] = assignmentToSave;
+        console.log(`   ✅ Updated existing fee assignment for ${nextYear}`);
+    } else {
+        currentFeeAssignments.push(assignmentToSave);
+        console.log(`   ✅ Created new fee assignment for ${nextYear}`);
+    }
+    
+    saveJSON('studentFeeAssignments.json', currentFeeAssignments);
+    console.log(`   ✅ Fee assignment saved for ${nextYear}`);
+}
 
                 // Update student
                 student.currentClassId = toClassId;
