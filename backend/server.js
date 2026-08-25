@@ -4247,13 +4247,10 @@ app.get('/api/student-fee-assignments', (req, res) => {
     res.json(readFile(files.studentFeeAssignments));
 });
 
-// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE) ====================
-// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
-// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
-// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
-// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL) ====================
-// Works for BOTH promotion and edit student
-// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL - FULLY FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL - WITH AUTO-REMOVAL RULE) ====================
+// Version: 2.0 - When a NEW or CHANGED fee structure is assigned to a student,
+// every non-termly item in it starts removed (not billed). Termly items always
+// stay active. Works for both promotion and manual Edit Student assignment.
 app.post('/api/student-fee-assignments', (req, res) => {
     const { studentId, feeStructureId, bursaryId, academicYear, term } = req.body;
 
@@ -4271,10 +4268,12 @@ app.post('/api/student-fee-assignments', (req, res) => {
     if (!Array.isArray(assignments)) assignments = [];
 
     // SIMPLE FIND - works for both promotion and edit
-    const existingIndex = assignments.findIndex(a => 
-        a.studentId === studentId && 
+    const existingIndex = assignments.findIndex(a =>
+        a.studentId === studentId &&
         a.academicYear === year
     );
+
+    const previousFeeStructureId = existingIndex !== -1 ? assignments[existingIndex].feeStructureId : null;
 
     // Build assignment
     const assignment = {
@@ -4305,32 +4304,61 @@ app.post('/api/student-fee-assignments', (req, res) => {
     saveFile(files.studentFeeAssignments, assignments);
 
     // ================================================================
-    // CRITICAL: Update the student's assignedFeeStructureId
+    // CRITICAL: Update the student's assignedFeeStructureId AND apply the
+    // "remove all non-termly items" rule if the fee structure actually changed.
     // ================================================================
     let students = readFile(files.students);
     if (Array.isArray(students)) {
         const studentIndex = students.findIndex(s => s.id === studentId);
         if (studentIndex !== -1) {
+            const student = students[studentIndex];
+            const priorAssignedId = student.assignedFeeStructureId || student.feeStructureId || previousFeeStructureId;
+
+            // ========== AUTO-REMOVE NON-TERMLY ITEMS ON NEW/CHANGED ASSIGNMENT ==========
+            let removalApplied = false;
+            if (feeStructureId) {
+                const feeStructures = readFile(files.feeStructures) || [];
+                const feeStructuresMap = {};
+                feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
+
+                removalApplied = applyFeeAssignmentRemovalRule(
+                    student, feeStructureId, priorAssignedId, feeStructuresMap
+                );
+
+                if (removalApplied) {
+                    console.log(`🆕 Fee structure changed for student ${studentId} (${priorAssignedId || 'none'} -> ${feeStructureId}): non-termly items auto-removed (${student.removedItemsCount} total removed)`);
+                }
+            }
+
             // Force update the student's fee structure IDs
-            students[studentIndex].assignedFeeStructureId = feeStructureId || null;
-            students[studentIndex].feeStructureId = feeStructureId || null;
-            students[studentIndex]._feeAssignmentPeriod = { year: year, term: termNum };
-            students[studentIndex].updatedAt = new Date().toISOString();
-            
+            student.assignedFeeStructureId = feeStructureId || null;
+            student.feeStructureId = feeStructureId || null;
+            student._feeAssignmentPeriod = { year: year, term: termNum };
+            student.updatedAt = new Date().toISOString();
+
+            students[studentIndex] = student;
             saveFile(files.students, students);
             console.log(`✅ Updated student ${studentId} assignedFeeStructureId to ${feeStructureId}`);
-            
+
             // Verify the update
             const verifyStudents = readFile(files.students);
             const verifiedStudent = verifyStudents.find(s => s.id === studentId);
             console.log(`🔍 Verified student fee structure ID: ${verifiedStudent?.assignedFeeStructureId}`);
+
+            return res.json({
+                success: true,
+                assignment: assignment,
+                studentUpdated: true,
+                removalRuleApplied: removalApplied,
+                removedItemsCount: student.removedItemsCount || 0
+            });
         } else {
             console.warn(`⚠️ Student ${studentId} not found in students file`);
         }
     }
 
-    res.json({ 
-        success: true, 
+    res.json({
+        success: true,
         assignment: assignment,
         studentUpdated: true
     });
