@@ -274,6 +274,99 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
     }
     return removedItems;
 }
+
+
+// ==================== HELPER: REMOVE ALL NON-TERMLY ITEMS ON FEE ASSIGNMENT ====================
+// When a fee structure is (re)assigned to a student — via manual assignment,
+// Edit Student, or promotion — every item EXCEPT termly items starts removed
+// (not billed). Termly items are always left active since they bill every
+// term regardless of period gating. The bursar restores whichever
+// one_time/yearly items should actually be charged, via Edit Student -> Restore.
+function buildRemovedItemsExceptTermly(feeStructure) {
+    const removed = {};
+    if (!feeStructure || !feeStructure.activityComponents) return removed;
+
+    for (const comp of feeStructure.activityComponents) {
+        if (!comp || !comp.items) continue;
+        const periodType = comp.periodType || 'termly';
+        if (periodType === 'termly') continue; // termly items always stay active
+
+        for (const item of comp.items) {
+            if (!item) continue;
+            const itemId = item.id || item.name;
+            removed[itemId] = {
+                itemId: itemId,
+                itemName: item.name,
+                componentId: comp.id || null,
+                componentName: comp.name,
+                defaultAmount: item.totalAmount || 0,
+                defaultQuantity: item.quantity || 1,
+                paymentOption: item.paymentOption || 'either',
+                removedAt: new Date().toISOString(),
+                reason: 'Fee structure (re)assigned — not yet activated',
+                isActive: true
+                // No academicYear/term stamp: stays removed for ALL periods
+                // until the bursar restores it.
+            };
+        }
+    }
+    return removed;
+}
+
+// Returns the set of item IDs that are termly within a fee structure — used
+// to make sure no stale removal entry lingers on a termly item after a
+// (re)assignment, since termly items must always remain billable.
+function getTermlyItemIds(feeStructure) {
+    const ids = new Set();
+    if (!feeStructure || !feeStructure.activityComponents) return ids;
+    for (const comp of feeStructure.activityComponents) {
+        if (!comp || (comp.periodType || 'termly') !== 'termly') continue;
+        for (const item of (comp.items || [])) {
+            if (!item) continue;
+            ids.add(item.id || item.name);
+        }
+    }
+    return ids;
+}
+
+// Applies the "remove all non-termly items" rule onto a student object in
+// place. Only triggers when the fee structure is actually new/changed for
+// this student (so re-saving other fields on an unchanged assignment doesn't
+// keep re-removing items the bursar already restored). Returns true if the
+// student object was modified.
+function applyFeeAssignmentRemovalRule(student, newFeeStructureId, previousFeeStructureId, feeStructuresMap) {
+    if (!newFeeStructureId) return false;
+    if (newFeeStructureId === previousFeeStructureId) return false; // unchanged — don't touch removedItems
+
+    const feeStructure = feeStructuresMap[newFeeStructureId];
+    if (!feeStructure) return false;
+
+    const nonTermlyRemoved = buildRemovedItemsExceptTermly(feeStructure);
+    const termlyIds = getTermlyItemIds(feeStructure);
+
+    if (!student.removedItems) student.removedItems = {};
+
+    // Add removal entries for every non-termly item in the new structure
+    // (only if not already tracked, so we never clobber a restore/customization
+    // that happens to share an item ID with a previous structure).
+    for (const [itemId, entry] of Object.entries(nonTermlyRemoved)) {
+        if (!student.removedItems[itemId]) {
+            student.removedItems[itemId] = entry;
+        }
+    }
+
+    // Guarantee termly items are never left removed after a (re)assignment.
+    for (const itemId of termlyIds) {
+        if (student.removedItems[itemId]) {
+            delete student.removedItems[itemId];
+        }
+    }
+
+    student.hasRemovedItems = Object.keys(student.removedItems).length > 0;
+    student.removedItemsCount = Object.keys(student.removedItems).length;
+
+    return true;
+}
 // ==================== HELPER FUNCTIONS ====================
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
