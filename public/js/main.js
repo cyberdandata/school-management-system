@@ -46132,7 +46132,7 @@ function renderEditCurrentGroupItems() {
             return;
         }
         
-        container.innerHTML = window.tempGroupItems.map((item, idx) => {
+         container.innerHTML = window.tempGroupItems.map((item, idx) => {
             let detailsDisplay = '';
             if (item.paymentOption === 'cash_only') {
                 detailsDisplay = `UGX ${(item.cashAmount || item.totalAmount || 0).toLocaleString()}`;
@@ -46151,9 +46151,14 @@ function renderEditCurrentGroupItems() {
                         <p class="font-medium">${escapeHtml(item.name)}</p>
                         <p class="text-xs text-gray-500">${detailsDisplay}</p>
                     </div>
-                    <button type="button" onclick="removeEditTempItem(${idx})" class="text-red-600 text-sm hover:text-red-800 p-1 rounded hover:bg-red-50">
-                        <i class="fas fa-times"></i> Remove
-                    </button>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="editTempGroupItemValues(${idx})" class="text-blue-600 text-sm hover:text-blue-800 p-1 rounded hover:bg-blue-50">
+                            <i class="fas fa-pen"></i> Edit
+                        </button>
+                        <button type="button" onclick="removeEditTempItem(${idx})" class="text-red-600 text-sm hover:text-red-800 p-1 rounded hover:bg-red-50">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -46336,7 +46341,7 @@ function renderEditCurrentGroupItems() {
             return;
         }
         
-        container.innerHTML = window.tempGroupItems.map((item, idx) => {
+         container.innerHTML = window.tempGroupItems.map((item, idx) => {
             let detailsDisplay = '';
             if (item.paymentOption === 'cash_only') {
                 detailsDisplay = `UGX ${(item.cashAmount || item.totalAmount || 0).toLocaleString()}`;
@@ -46355,9 +46360,14 @@ function renderEditCurrentGroupItems() {
                         <p class="font-medium">${escapeHtml(item.name)}</p>
                         <p class="text-xs text-gray-500">${detailsDisplay}</p>
                     </div>
-                    <button type="button" onclick="removeEditTempItem(${idx})" class="text-red-600 text-sm hover:text-red-800 p-1 rounded hover:bg-red-50">
-                        <i class="fas fa-times"></i> Remove
-                    </button>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="editTempGroupItemValues(${idx})" class="text-blue-600 text-sm hover:text-blue-800 p-1 rounded hover:bg-blue-50">
+                            <i class="fas fa-pen"></i> Edit
+                        </button>
+                        <button type="button" onclick="removeEditTempItem(${idx})" class="text-red-600 text-sm hover:text-red-800 p-1 rounded hover:bg-red-50">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -46526,6 +46536,210 @@ function saveEditActivityGroup() {
     updateEditSummaryTotals();
 }
 
+
+// ==================== EDIT EXISTING TEMP ITEM VALUES ====================
+// Opens a small modal pre-filled with an item's current values so the user
+// can update name / payment option / cash amount / quantity for an item
+// already sitting in window.tempGroupItems (works for both the "add new
+// group" flow and the "edit existing group" flow, since both use the same
+// tempGroupItems array).
+
+function editTempGroupItemValues(index) {
+    console.log('editTempGroupItemValues called for index:', index);
+
+    if (!window.tempGroupItems || !window.tempGroupItems[index]) {
+        console.error('Item not found at index:', index);
+        return;
+    }
+
+    const item = window.tempGroupItems[index];
+
+    // Close any existing edit-item modal first
+    const existingModal = document.getElementById('editTempItemModalContainer');
+    if (existingModal) existingModal.remove();
+
+    const modalHtml = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80]" id="editTempItemModalContainer">
+            <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                    <h4 class="text-lg font-bold">Edit Item</h4>
+                    <button type="button" onclick="closeEditTempItemModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+
+                <form id="editTempItemForm" class="space-y-4" onsubmit="return false;">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 required-field">Item Name *</label>
+                        <input type="text" id="editTempItemName" class="w-full border rounded-lg px-3 py-2" value="${escapeHtml(item.name)}">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1 required-field">Payment Option *</label>
+                        <div class="space-y-2">
+                            <label class="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="editTempPaymentOption" value="cash_only" class="mr-3 mt-1" ${item.paymentOption === 'cash_only' ? 'checked' : ''}>
+                                <div>
+                                    <div class="font-medium">💵 Cash Only</div>
+                                    <div class="text-xs text-gray-500">Must be paid in cash</div>
+                                </div>
+                            </label>
+                            <label class="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="editTempPaymentOption" value="item_only" class="mr-3 mt-1" ${item.paymentOption === 'item_only' ? 'checked' : ''}>
+                                <div>
+                                    <div class="font-medium">📦 Item Only</div>
+                                    <div class="text-xs text-gray-500">Must be brought physically</div>
+                                </div>
+                            </label>
+                            <label class="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="editTempPaymentOption" value="either" class="mr-3 mt-1" ${(!item.paymentOption || item.paymentOption === 'either') ? 'checked' : ''}>
+                                <div>
+                                    <div class="font-medium">🔄 Either (Cash or Item)</div>
+                                    <div class="text-xs text-gray-500">Can be paid cash OR bring items</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="editTempItemDynamicFields"></div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" id="confirmEditTempItem" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                        <button type="button" onclick="closeEditTempItemModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const dynamicFieldsContainer = document.getElementById('editTempItemDynamicFields');
+
+    function updateDynamicFields(selectedOption) {
+        if (!dynamicFieldsContainer) return;
+
+        if (selectedOption === 'cash_only') {
+            dynamicFieldsContainer.innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium mb-1 required-field">Amount (UGX) *</label>
+                    <input type="number" id="editTempItemCashAmount" class="w-full border rounded-lg px-3 py-2" value="${item.cashAmount || item.totalAmount || 0}" min="0" step="1">
+                    <p class="text-xs text-gray-400 mt-1">Enter any amount, including 0</p>
+                </div>
+            `;
+        } else if (selectedOption === 'item_only') {
+            dynamicFieldsContainer.innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium mb-1 required-field">Quantity to Bring *</label>
+                    <input type="number" id="editTempItemQuantity" class="w-full border rounded-lg px-3 py-2" value="${item.quantity || 1}" min="1" step="1">
+                </div>
+            `;
+        } else {
+            dynamicFieldsContainer.innerHTML = `
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Cash Amount (UGX)</label>
+                        <input type="number" id="editTempItemCashAmount" class="w-full border rounded-lg px-3 py-2" value="${item.cashAmount || 0}" min="0" step="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Quantity to Bring</label>
+                        <input type="number" id="editTempItemQuantity" class="w-full border rounded-lg px-3 py-2" value="${item.quantity || 0}" min="0" step="1">
+                    </div>
+                </div>
+                <div class="bg-yellow-50 p-2 rounded text-xs text-yellow-700 mt-2">Enter either cash amount, quantity, or both</div>
+            `;
+        }
+    }
+
+    document.querySelectorAll('input[name="editTempPaymentOption"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            if (this.checked) updateDynamicFields(this.value);
+        });
+    });
+
+    updateDynamicFields(item.paymentOption || 'either');
+
+    function handleSaveEdit(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+
+        const newName = document.getElementById('editTempItemName')?.value?.trim() || '';
+        const paymentOption = document.querySelector('input[name="editTempPaymentOption"]:checked')?.value || 'either';
+
+        if (!newName) {
+            alert('Please enter an item name');
+            return;
+        }
+
+        let quantity = 0;
+        let cashAmount = 0;
+
+        if (paymentOption === 'cash_only') {
+            const rawValue = document.getElementById('editTempItemCashAmount')?.value;
+            if (rawValue === '' || rawValue === null || isNaN(parseFloat(rawValue))) {
+                alert('Please enter a cash amount (0 is allowed)');
+                return;
+            }
+            cashAmount = parseFloat(rawValue);
+            if (cashAmount < 0) { alert('Cash amount cannot be negative'); return; }
+            quantity = 1;
+        } else if (paymentOption === 'item_only') {
+            quantity = parseInt(document.getElementById('editTempItemQuantity')?.value) || 0;
+            if (quantity <= 0) { alert('Please enter a valid quantity'); return; }
+            cashAmount = 0;
+        } else {
+            cashAmount = parseFloat(document.getElementById('editTempItemCashAmount')?.value) || 0;
+            quantity = parseInt(document.getElementById('editTempItemQuantity')?.value) || 0;
+            if (cashAmount <= 0 && quantity <= 0) {
+                alert('Please enter either cash amount, quantity, or both');
+                return;
+            }
+        }
+
+        cashAmount = Math.round(cashAmount);
+
+        // Update the item in place, keeping its original id
+        window.tempGroupItems[index] = {
+            ...window.tempGroupItems[index],
+            name: newName,
+            quantity: quantity,
+            cashAmount: cashAmount,
+            totalAmount: cashAmount,
+            paymentOption: paymentOption,
+            isTangible: paymentOption !== 'cash_only'
+        };
+
+        console.log('Item updated:', window.tempGroupItems[index]);
+
+        closeEditTempItemModal();
+        refreshTempGroupItemsDisplay();
+    }
+
+    document.getElementById('editTempItemForm')?.addEventListener('submit', handleSaveEdit);
+    document.getElementById('confirmEditTempItem')?.addEventListener('click', handleSaveEdit);
+}
+
+function closeEditTempItemModal() {
+    document.getElementById('editTempItemModalContainer')?.remove();
+}
+
+// Refreshes whichever items-list container is currently on screen, since
+// window.tempGroupItems is shared across the "add new group" and "edit
+// existing group" flows.
+function refreshTempGroupItemsDisplay() {
+    if (document.getElementById('editGroupItemsContainer')) {
+        renderEditCurrentGroupItems();
+    } else if (document.getElementById('editExistingGroupItemsContainer')) {
+        document.getElementById('editExistingGroupItemsContainer').innerHTML = renderEditExistingGroupItems();
+    } else if (document.getElementById('currentGroupItemsContainer')) {
+        renderCurrentGroupItems();
+    }
+}
+
+window.editTempGroupItemValues = editTempGroupItemValues;
+window.closeEditTempItemModal = closeEditTempItemModal;
+window.refreshTempGroupItemsDisplay = refreshTempGroupItemsDisplay;
 // ==================== EDIT EXISTING ACTIVITY GROUP ====================
 
 function editExistingActivityGroup(groupId) {
@@ -46586,7 +46800,7 @@ function renderEditExistingGroupItems() {
             if (item.quantity > 0) parts.push(`${item.quantity} item(s)`);
             details = parts.join(' + ');
         }
-        return `<div class="bg-white rounded-lg p-3 border flex justify-between items-center"><div><p class="font-medium">📦 ${escapeHtml(item.name)}</p><p class="text-sm text-green-600">${details}</p></div><button onclick="removeEditExistingItem(${idx})" class="text-red-600 text-sm">Remove</button></div>`;
+        return `<div class="bg-white rounded-lg p-3 border flex justify-between items-center"><div><p class="font-medium">📦 ${escapeHtml(item.name)}</p><p class="text-sm text-green-600">${details}</p></div><div class="flex gap-2"><button onclick="editTempGroupItemValues(${idx})" class="text-blue-600 text-sm hover:text-blue-800"><i class="fas fa-pen"></i> Edit</button><button onclick="removeEditExistingItem(${idx})" class="text-red-600 text-sm">Remove</button></div></div>`;
     }).join('');
 }
 
@@ -46625,6 +46839,37 @@ function updateExistingActivityGroup() {
     alert('✅ Activity group updated!');
 }
 
+
+        container.innerHTML = window.tempGroupItems.map((item, idx) => {
+            let detailsDisplay = '';
+            if (item.paymentOption === 'cash_only') {
+                detailsDisplay = `UGX ${(item.cashAmount || item.totalAmount || 0).toLocaleString()}`;
+            } else if (item.paymentOption === 'item_only') {
+                detailsDisplay = `${item.quantity} item(s)`;
+            } else {
+                const parts = [];
+                if (item.cashAmount > 0) parts.push(`UGX ${item.cashAmount.toLocaleString()}`);
+                if (item.quantity > 0) parts.push(`${item.quantity} item(s)`);
+                detailsDisplay = parts.join(' + ');
+            }
+            
+            return `
+                <div class="bg-white rounded-lg p-3 border flex justify-between items-center hover:bg-gray-50">
+                    <div>
+                        <p class="font-medium">${escapeHtml(item.name)}</p>
+                        <p class="text-xs text-gray-500">${detailsDisplay}</p>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="editTempGroupItemValues(${idx})" class="text-blue-600 text-sm hover:text-blue-800 p-1 rounded hover:bg-blue-50">
+                            <i class="fas fa-pen"></i> Edit
+                        </button>
+                        <button type="button" onclick="removeEditTempItem(${idx})" class="text-red-600 text-sm hover:text-red-800 p-1 rounded hover:bg-red-50">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
 // ==================== DELETE EXISTING ACTIVITY GROUP ====================
 
 async function deleteExistingActivityGroup(groupId) {
