@@ -274,99 +274,6 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
     }
     return removedItems;
 }
-
-
-// ==================== HELPER: REMOVE ALL NON-TERMLY ITEMS ON FEE ASSIGNMENT ====================
-// When a fee structure is (re)assigned to a student — via manual assignment,
-// Edit Student, or promotion — every item EXCEPT termly items starts removed
-// (not billed). Termly items are always left active since they bill every
-// term regardless of period gating. The bursar restores whichever
-// one_time/yearly items should actually be charged, via Edit Student -> Restore.
-function buildRemovedItemsExceptTermly(feeStructure) {
-    const removed = {};
-    if (!feeStructure || !feeStructure.activityComponents) return removed;
-
-    for (const comp of feeStructure.activityComponents) {
-        if (!comp || !comp.items) continue;
-        const periodType = comp.periodType || 'termly';
-        if (periodType === 'termly') continue; // termly items always stay active
-
-        for (const item of comp.items) {
-            if (!item) continue;
-            const itemId = item.id || item.name;
-            removed[itemId] = {
-                itemId: itemId,
-                itemName: item.name,
-                componentId: comp.id || null,
-                componentName: comp.name,
-                defaultAmount: item.totalAmount || 0,
-                defaultQuantity: item.quantity || 1,
-                paymentOption: item.paymentOption || 'either',
-                removedAt: new Date().toISOString(),
-                reason: 'Fee structure (re)assigned — not yet activated',
-                isActive: true
-                // No academicYear/term stamp: stays removed for ALL periods
-                // until the bursar restores it.
-            };
-        }
-    }
-    return removed;
-}
-
-// Returns the set of item IDs that are termly within a fee structure — used
-// to make sure no stale removal entry lingers on a termly item after a
-// (re)assignment, since termly items must always remain billable.
-function getTermlyItemIds(feeStructure) {
-    const ids = new Set();
-    if (!feeStructure || !feeStructure.activityComponents) return ids;
-    for (const comp of feeStructure.activityComponents) {
-        if (!comp || (comp.periodType || 'termly') !== 'termly') continue;
-        for (const item of (comp.items || [])) {
-            if (!item) continue;
-            ids.add(item.id || item.name);
-        }
-    }
-    return ids;
-}
-
-// Applies the "remove all non-termly items" rule onto a student object in
-// place. Only triggers when the fee structure is actually new/changed for
-// this student (so re-saving other fields on an unchanged assignment doesn't
-// keep re-removing items the bursar already restored). Returns true if the
-// student object was modified.
-function applyFeeAssignmentRemovalRule(student, newFeeStructureId, previousFeeStructureId, feeStructuresMap) {
-    if (!newFeeStructureId) return false;
-    if (newFeeStructureId === previousFeeStructureId) return false; // unchanged — don't touch removedItems
-
-    const feeStructure = feeStructuresMap[newFeeStructureId];
-    if (!feeStructure) return false;
-
-    const nonTermlyRemoved = buildRemovedItemsExceptTermly(feeStructure);
-    const termlyIds = getTermlyItemIds(feeStructure);
-
-    if (!student.removedItems) student.removedItems = {};
-
-    // Add removal entries for every non-termly item in the new structure
-    // (only if not already tracked, so we never clobber a restore/customization
-    // that happens to share an item ID with a previous structure).
-    for (const [itemId, entry] of Object.entries(nonTermlyRemoved)) {
-        if (!student.removedItems[itemId]) {
-            student.removedItems[itemId] = entry;
-        }
-    }
-
-    // Guarantee termly items are never left removed after a (re)assignment.
-    for (const itemId of termlyIds) {
-        if (student.removedItems[itemId]) {
-            delete student.removedItems[itemId];
-        }
-    }
-
-    student.hasRemovedItems = Object.keys(student.removedItems).length > 0;
-    student.removedItemsCount = Object.keys(student.removedItems).length;
-
-    return true;
-}
 // ==================== HELPER FUNCTIONS ====================
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
@@ -4247,10 +4154,13 @@ app.get('/api/student-fee-assignments', (req, res) => {
     res.json(readFile(files.studentFeeAssignments));
 });
 
-// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL - WITH AUTO-REMOVAL RULE) ====================
-// Version: 2.0 - When a NEW or CHANGED fee structure is assigned to a student,
-// every non-termly item in it starts removed (not billed). Termly items always
-// stay active. Works for both promotion and manual Edit Student assignment.
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL) ====================
+// Works for BOTH promotion and edit student
+// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL - FULLY FIXED) ====================
 app.post('/api/student-fee-assignments', (req, res) => {
     const { studentId, feeStructureId, bursaryId, academicYear, term } = req.body;
 
@@ -4268,12 +4178,10 @@ app.post('/api/student-fee-assignments', (req, res) => {
     if (!Array.isArray(assignments)) assignments = [];
 
     // SIMPLE FIND - works for both promotion and edit
-    const existingIndex = assignments.findIndex(a =>
-        a.studentId === studentId &&
+    const existingIndex = assignments.findIndex(a => 
+        a.studentId === studentId && 
         a.academicYear === year
     );
-
-    const previousFeeStructureId = existingIndex !== -1 ? assignments[existingIndex].feeStructureId : null;
 
     // Build assignment
     const assignment = {
@@ -4304,61 +4212,32 @@ app.post('/api/student-fee-assignments', (req, res) => {
     saveFile(files.studentFeeAssignments, assignments);
 
     // ================================================================
-    // CRITICAL: Update the student's assignedFeeStructureId AND apply the
-    // "remove all non-termly items" rule if the fee structure actually changed.
+    // CRITICAL: Update the student's assignedFeeStructureId
     // ================================================================
     let students = readFile(files.students);
     if (Array.isArray(students)) {
         const studentIndex = students.findIndex(s => s.id === studentId);
         if (studentIndex !== -1) {
-            const student = students[studentIndex];
-            const priorAssignedId = student.assignedFeeStructureId || student.feeStructureId || previousFeeStructureId;
-
-            // ========== AUTO-REMOVE NON-TERMLY ITEMS ON NEW/CHANGED ASSIGNMENT ==========
-            let removalApplied = false;
-            if (feeStructureId) {
-                const feeStructures = readFile(files.feeStructures) || [];
-                const feeStructuresMap = {};
-                feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
-
-                removalApplied = applyFeeAssignmentRemovalRule(
-                    student, feeStructureId, priorAssignedId, feeStructuresMap
-                );
-
-                if (removalApplied) {
-                    console.log(`🆕 Fee structure changed for student ${studentId} (${priorAssignedId || 'none'} -> ${feeStructureId}): non-termly items auto-removed (${student.removedItemsCount} total removed)`);
-                }
-            }
-
             // Force update the student's fee structure IDs
-            student.assignedFeeStructureId = feeStructureId || null;
-            student.feeStructureId = feeStructureId || null;
-            student._feeAssignmentPeriod = { year: year, term: termNum };
-            student.updatedAt = new Date().toISOString();
-
-            students[studentIndex] = student;
+            students[studentIndex].assignedFeeStructureId = feeStructureId || null;
+            students[studentIndex].feeStructureId = feeStructureId || null;
+            students[studentIndex]._feeAssignmentPeriod = { year: year, term: termNum };
+            students[studentIndex].updatedAt = new Date().toISOString();
+            
             saveFile(files.students, students);
             console.log(`✅ Updated student ${studentId} assignedFeeStructureId to ${feeStructureId}`);
-
+            
             // Verify the update
             const verifyStudents = readFile(files.students);
             const verifiedStudent = verifyStudents.find(s => s.id === studentId);
             console.log(`🔍 Verified student fee structure ID: ${verifiedStudent?.assignedFeeStructureId}`);
-
-            return res.json({
-                success: true,
-                assignment: assignment,
-                studentUpdated: true,
-                removalRuleApplied: removalApplied,
-                removedItemsCount: student.removedItemsCount || 0
-            });
         } else {
             console.warn(`⚠️ Student ${studentId} not found in students file`);
         }
     }
 
-    res.json({
-        success: true,
+    res.json({ 
+        success: true, 
         assignment: assignment,
         studentUpdated: true
     });
@@ -12192,57 +12071,39 @@ app.post('/api/students/promote', async (req, res) => {
                 enrollmentsToAdd.push(newEnrollment);
 
                 // Save fee assignment
-              // Save fee assignment
-if (newFeeStructureId) {
-    console.log(`   📝 Assigning fee structure for ${nextYear}: ${newFeeStructureName} (${newFeeStructureId})`);
-    
-    let currentFeeAssignments = readJSON('studentFeeAssignments.json');
-    if (!Array.isArray(currentFeeAssignments)) currentFeeAssignments = [];
-    
-    const existingIdx = currentFeeAssignments.findIndex(a =>
-        a.studentId === studentId && a.academicYear === nextYear
-    );
-    
-    const assignmentToSave = {
-        id: existingIdx !== -1 ? currentFeeAssignments[existingIdx].id : uuidv4(),
-        studentId: studentId,
-        feeStructureId: newFeeStructureId,
-        bursaryId: currentAssignment.bursaryId || null,
-        academicYear: nextYear,
-        term: currentTerm,
-        assignedAt: existingIdx !== -1 ? currentFeeAssignments[existingIdx].assignedAt : new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    };
-    
-    if (existingIdx !== -1) {
-        currentFeeAssignments[existingIdx] = assignmentToSave;
-        console.log(`   ✅ Updated existing fee assignment for ${nextYear}`);
-    } else {
-        currentFeeAssignments.push(assignmentToSave);
-        console.log(`   ✅ Created new fee assignment for ${nextYear}`);
-    }
-    
-    saveJSON('studentFeeAssignments.json', currentFeeAssignments);
-    console.log(`   ✅ Fee assignment saved for ${nextYear}`);
-}
+                if (newFeeStructureId) {
+                    console.log(`   📝 Assigning fee structure for ${nextYear}: ${newFeeStructureName} (${newFeeStructureId})`);
+                    
+                    let currentFeeAssignments = readJSON('studentFeeAssignments.json');
+                    if (!Array.isArray(currentFeeAssignments)) currentFeeAssignments = [];
+                    
+                    const existingIdx = currentFeeAssignments.findIndex(a =>
+                        a.studentId === studentId && a.academicYear === nextYear
+                    );
+                    
+                    const assignmentToSave = {
+                        id: existingIdx !== -1 ? currentFeeAssignments[existingIdx].id : uuidv4(),
+                        studentId: studentId,
+                        feeStructureId: newFeeStructureId,
+                        bursaryId: currentAssignment.bursaryId || null,
+                        academicYear: nextYear,
+                        term: currentTerm,
+                        assignedAt: existingIdx !== -1 ? currentFeeAssignments[existingIdx].assignedAt : new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    
+                    if (existingIdx !== -1) {
+                        currentFeeAssignments[existingIdx] = assignmentToSave;
+                        console.log(`   ✅ Updated existing fee assignment for ${nextYear}`);
+                    } else {
+                        currentFeeAssignments.push(assignmentToSave);
+                        console.log(`   ✅ Created new fee assignment for ${nextYear}`);
+                    }
+                    
+                    saveJSON('studentFeeAssignments.json', currentFeeAssignments);
+                    console.log(`   ✅ Fee assignment saved for ${nextYear}`);
+                }
 
-// ========== AUTO-REMOVE NON-TERMLY ITEMS ON PROMOTION ==========
-// Promotion always assigns a (potentially new) fee structure for the next
-// level — apply the same rule as manual reassignment: every non-termly
-// item starts removed, termly items always stay active.
-if (newFeeStructureId) {
-    const feeStructuresMap = {};
-    feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
-
-    const priorFeeStructureId = currentFeeStructureId; // resolved earlier in this loop iteration
-    const removalApplied = applyFeeAssignmentRemovalRule(
-        student, newFeeStructureId, priorFeeStructureId, feeStructuresMap
-    );
-
-    if (removalApplied) {
-        console.log(`   🆕 Non-termly items auto-removed for ${student.firstName} ${student.lastName} (${student.removedItemsCount} total removed) — fee structure ${priorFeeStructureId || 'none'} -> ${newFeeStructureId}`);
-    }
-}
                 // Update student
                 student.currentClassId = toClassId;
                 if (newFeeStructureId) {
