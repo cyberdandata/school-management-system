@@ -10271,7 +10271,7 @@ function renderTermCardFee(term, paidAmount, expectedAmount, studentId) {
 // ============================================================================
 
 async function showStudentRegistration() {
-    console.log('showStudentRegistration called - v5.0 (Default-Removed Items edition)');
+    console.log('showStudentRegistration called - v6.0 (Default-Removed Items + Fuzzy Search/Filter edition)');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -10315,9 +10315,86 @@ async function showStudentRegistration() {
         window.tempRemovedItems = {};
         window.srComponentGroups = {};
 
+        // Item search / status-group filter state (reset per fee-structure load)
+        window.srItemsFilter = { query: '', groupFilter: 'all' };
+        let srItemsSearchDebounceHandle = null;
+
         // Ensure supporting UI helpers exist (toast + confirm modal), without
         // clobbering any app-wide versions that may already be defined.
         ensureSharedUiHelpers();
+
+        // ========== FUZZY SEARCH HELPERS ==========
+        // Levenshtein edit distance (classic DP implementation) — counts the
+        // minimum number of single-character insertions, deletions, or
+        // substitutions needed to turn `a` into `b`.
+        function levenshteinDistance(a, b) {
+            a = a || ''; b = b || '';
+            const m = a.length, n = b.length;
+            if (m === 0) return n;
+            if (n === 0) return m;
+
+            let prevRow = new Array(n + 1);
+            let currRow = new Array(n + 1);
+            for (let j = 0; j <= n; j++) prevRow[j] = j;
+
+            for (let i = 1; i <= m; i++) {
+                currRow[0] = i;
+                for (let j = 1; j <= n; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    currRow[j] = Math.min(
+                        currRow[j - 1] + 1,
+                        prevRow[j] + 1,
+                        prevRow[j - 1] + cost
+                    );
+                }
+                [prevRow, currRow] = [currRow, prevRow];
+            }
+            return prevRow[n];
+        }
+
+        function fuzzyWordScore(query, word) {
+            if (!query || !word) return 0;
+            if (word === query) return 1;
+            if (word.startsWith(query)) return 0.95;
+            if (word.includes(query)) return 0.85;
+
+            const dist = levenshteinDistance(query, word);
+            const maxLen = Math.max(query.length, word.length);
+            if (maxLen === 0) return 0;
+            return Math.max(0, 1 - dist / maxLen);
+        }
+
+        // Fuzzy-matches a search query against an item name, tolerant of
+        // typos, missing letters, or partial words.
+        function fuzzyTextMatch(query, text, threshold = 0.6) {
+            const q = (query || '').toLowerCase().trim();
+            const t = (text || '').toLowerCase().trim();
+            if (!q) return true;
+            if (!t) return false;
+
+            if (t.includes(q)) return true;
+
+            if (q.length < 3) {
+                return t.split(/\s+/).some(word => word.startsWith(q));
+            }
+
+            const fullScore = fuzzyWordScore(q, t);
+            if (fullScore >= threshold) return true;
+
+            const words = t.split(/\s+/).filter(Boolean);
+            return words.some(word => fuzzyWordScore(q, word) >= threshold);
+        }
+
+        function highlightMatch(text, query) {
+            if (!query) return escapeHtmlSafe(text);
+            const escaped = escapeHtmlSafe(text);
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            try {
+                return escaped.replace(new RegExp(`(${escapedQuery})`, 'ig'), '<mark>$1</mark>');
+            } catch (_) {
+                return escaped;
+            }
+        }
 
         const html = `
             ${styleBlock()}
@@ -10540,6 +10617,22 @@ async function showStudentRegistration() {
                                         </button>
                                     </div>
                                 </div>
+
+                                <!-- SEARCH & STATUS GROUP FILTER -->
+                                <div class="sr-items-filter-bar">
+                                    <div class="sr-items-filter-search">
+                                        <i class="fas fa-magnifying-glass"></i>
+                                        <input type="text" id="srItemsSearchInput" class="sr-input" placeholder="Search items… (typo-tolerant)" autocomplete="off">
+                                        <button type="button" id="srItemsSearchClear" class="sr-search-clear hidden" title="Clear search"><i class="fas fa-xmark"></i></button>
+                                    </div>
+                                    <div class="sr-items-filter-group">
+                                        <select id="srItemsGroupFilter" class="sr-input">
+                                            <option value="all">All status groups</option>
+                                        </select>
+                                    </div>
+                                    <span class="sr-items-filter-count" id="srItemsFilterCount"></span>
+                                </div>
+
                                 <div id="itemsCustomizationList" class="sr-items-list">
                                     <div class="sr-empty-state" id="emptyItemsMsg">
                                         <i class="fas fa-inbox"></i>
@@ -10620,9 +10713,29 @@ async function showStudentRegistration() {
             });
         }
 
+        // ========== Populate the status-group filter dropdown for the current structure ==========
+        function populateGroupFilterOptions(feeStructure) {
+            const select = document.getElementById('srItemsGroupFilter');
+            if (!select) return;
+            const groups = (feeStructure?.activityComponents || []).filter(c => c.items && c.items.length);
+            select.innerHTML = `<option value="all">All status groups (${groups.length})</option>` +
+                groups.map(c => `<option value="${escapeHtmlSafe(c.name)}">${escapeHtmlSafe(c.name)} (${c.items.length})</option>`).join('');
+            select.value = window.srItemsFilter.groupFilter;
+        }
+
+        function updateFilterCountDisplay(shown, total) {
+            const el = document.getElementById('srItemsFilterCount');
+            if (!el) return;
+            const { query, groupFilter } = window.srItemsFilter;
+            el.textContent = (query || groupFilter !== 'all')
+                ? `Showing ${shown} of ${total} item(s)`
+                : `${total} item(s)`;
+        }
+
         // ========== Load fee structure items for customization ==========
-        // v5.0: EVERY item starts REMOVED by default. The bursar must explicitly
+        // v6.0: EVERY item starts REMOVED by default. The bursar must explicitly
         // restore a whole group or individual items before they will be billed.
+        // Also resets the search/filter state for the newly selected structure.
         function loadFeeStructureItemsForCustomization() {
             console.log('loadFeeStructureItemsForCustomization called (default-removed mode)');
 
@@ -10654,10 +10767,15 @@ async function showStudentRegistration() {
 
             window.srCurrentFeeStructure = feeStructure;
 
-            // Clear existing customizations & group map
+            // Clear existing customizations, group map, and filters
             window.tempItemCustomizations = {};
             window.tempRemovedItems = {};
             window.srComponentGroups = {};
+            window.srItemsFilter = { query: '', groupFilter: 'all' };
+
+            const searchInput = document.getElementById('srItemsSearchInput');
+            if (searchInput) searchInput.value = '';
+            document.getElementById('srItemsSearchClear')?.classList.add('hidden');
 
             const activityComponents = feeStructure.activityComponents || [];
 
@@ -10672,23 +10790,70 @@ async function showStudentRegistration() {
                 }
             }
 
-            let itemsHtml = '';
-            let hasItems = false;
-            let cardIndex = 0;
-            let componentIndex = 0;
+            populateGroupFilterOptions(feeStructure);
+            renderItemsList();
+            recalcFeeBar();
+        }
+
+        // ========== Render the items list, applying current search/group filter ==========
+        // This is the single source of truth for what's shown — called on
+        // initial fee-structure load, and again whenever the search box or
+        // group filter changes (does NOT reset removal state).
+        function renderItemsList() {
+            const list = document.getElementById('itemsCustomizationList');
+            if (!list) return;
+
+            const feeStructure = window.srCurrentFeeStructure;
+            if (!feeStructure || !feeStructure.activityComponents || feeStructure.activityComponents.length === 0) {
+                list.innerHTML = `
+                    <div class="sr-empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No items found in this fee structure</p>
+                    </div>
+                `;
+                updateFilterCountDisplay(0, 0);
+                return;
+            }
+
+            const { query, groupFilter } = window.srItemsFilter;
+            window.srComponentGroups = {}; // rebuilt each render pass (only for currently-rendered groups)
 
             const accentFor = (periodType) =>
                 periodType === 'one_time' ? { c: '#7C6BEF', label: 'One-time' } :
                 periodType === 'termly' ? { c: '#0E9C8E', label: 'Termly' } :
                 { c: '#DB9A2C', label: 'Yearly' };
 
-            for (const component of activityComponents) {
+            let itemsHtml = '';
+            let hasAnyItems = false;
+            let totalItemCount = 0;
+            let renderedItemCount = 0;
+            let cardIndex = 0;
+            let componentIndex = 0;
+
+            for (const component of feeStructure.activityComponents) {
                 if (!component.items || component.items.length === 0) continue;
-                const { c: accent, label: periodLabel } = accentFor(component.periodType);
+                hasAnyItems = true;
+                totalItemCount += component.items.length;
 
                 const groupIndex = componentIndex++;
-                const itemIds = component.items.map(item => item.id || item.name);
-                window.srComponentGroups[groupIndex] = itemIds;
+                const fullItemIds = component.items.map(item => item.id || item.name);
+
+                // status-group filter: skip this whole component if it doesn't match
+                if (groupFilter !== 'all' && component.name !== groupFilter) continue;
+
+                // live search filter: only render items whose name matches the query
+                const itemsToRender = query
+                    ? component.items.filter(item => fuzzyTextMatch(query, item.name, 0.62))
+                    : component.items;
+
+                if (itemsToRender.length === 0) continue;
+
+                // Register the FULL group (not just filtered items) so whole-group
+                // Restore/Remove actions still operate on every item in the group.
+                window.srComponentGroups[groupIndex] = fullItemIds;
+                renderedItemCount += itemsToRender.length;
+
+                const { c: accent, label: periodLabel } = accentFor(component.periodType);
 
                 itemsHtml += `
                     <div class="sr-component sr-in" style="--sr-accent:${accent}; --sr-delay:${cardIndex * 40}ms" data-group-index="${groupIndex}">
@@ -10701,8 +10866,7 @@ async function showStudentRegistration() {
                             ${renderGroupActionButtons(groupIndex)}
                         </div>
                         <div class="sr-component-items" id="groupItems_${groupIndex}">
-                            ${component.items.map(item => {
-                                hasItems = true;
+                            ${itemsToRender.map(item => {
                                 cardIndex++;
                                 const itemId = item.id || item.name;
                                 const defaultAmount = item.totalAmount || 0;
@@ -10711,7 +10875,8 @@ async function showStudentRegistration() {
 
                                 return renderItemRow({
                                     itemId, itemName: item.name, componentName: component.name,
-                                    periodType: component.periodType, defaultAmount, defaultQuantity, paymentOption
+                                    periodType: component.periodType, defaultAmount, defaultQuantity, paymentOption,
+                                    highlightQuery: query
                                 });
                             }).join('')}
                         </div>
@@ -10719,19 +10884,54 @@ async function showStudentRegistration() {
                 `;
             }
 
-            if (hasItems) {
-                list.innerHTML = itemsHtml;
-            } else {
+            if (!hasAnyItems) {
                 list.innerHTML = `
                     <div class="sr-empty-state">
                         <i class="fas fa-inbox"></i>
                         <p>No items found in this fee structure</p>
                     </div>
                 `;
+                updateFilterCountDisplay(0, 0);
+                return;
             }
 
-            recalcFeeBar();
+            updateFilterCountDisplay(renderedItemCount, totalItemCount);
+
+            if (renderedItemCount === 0) {
+                const parts = [];
+                if (query) parts.push(`matching "${escapeHtmlSafe(document.getElementById('srItemsSearchInput')?.value.trim() || query)}"`);
+                if (groupFilter !== 'all') parts.push(`in "${escapeHtmlSafe(groupFilter)}"`);
+                const msg = parts.length ? `No items found ${parts.join(' ')}` : 'No items found';
+                list.innerHTML = `
+                    <div class="sr-empty-state">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <p>${msg}</p>
+                        <button type="button" class="sr-btn sr-btn-sm sr-btn-ghost" onclick="clearRegistrationItemsFilters()" style="margin-top:10px;">Clear filters</button>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = itemsHtml;
         }
+
+        // ========== Filter bar wiring ==========
+        function applyItemsFilter() {
+            window.srItemsFilter.query = document.getElementById('srItemsSearchInput')?.value.trim().toLowerCase() || '';
+            window.srItemsFilter.groupFilter = document.getElementById('srItemsGroupFilter')?.value || 'all';
+            document.getElementById('srItemsSearchClear')?.classList.toggle('hidden', !window.srItemsFilter.query);
+            renderItemsList();
+        }
+
+        window.clearRegistrationItemsFilters = function () {
+            window.srItemsFilter = { query: '', groupFilter: 'all' };
+            const searchInput = document.getElementById('srItemsSearchInput');
+            if (searchInput) searchInput.value = '';
+            const groupSelect = document.getElementById('srItemsGroupFilter');
+            if (groupSelect) groupSelect.value = 'all';
+            document.getElementById('srItemsSearchClear')?.classList.add('hidden');
+            renderItemsList();
+        };
 
         // ========== Group status helper ==========
         function getGroupStatus(groupIndex) {
@@ -10780,9 +10980,10 @@ async function showStudentRegistration() {
         }
 
         // ========== Render a single item row (used on initial load and restore) ==========
-        function renderItemRow({ itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption }) {
+        function renderItemRow({ itemId, itemName, componentName, periodType, defaultAmount, defaultQuantity, paymentOption, highlightQuery }) {
             const custom = window.tempItemCustomizations[itemId] || {};
             const isRemoved = !!window.tempRemovedItems[itemId];
+            const nameDisplay = highlightQuery ? highlightMatch(itemName, highlightQuery) : escapeHtmlSafe(itemName);
 
             const paymentBadge =
                 paymentOption === 'cash_only' ? '<span class="sr-tag sr-tag-blue">Cash only</span>' :
@@ -10798,7 +10999,7 @@ async function showStudentRegistration() {
                     <div class="sr-item-top">
                         <div class="sr-item-info">
                             <div class="sr-item-name-row">
-                                <span class="sr-item-name ${isRemoved ? 'sr-strike' : ''}">${escapeHtmlSafe(itemName)}</span>
+                                <span class="sr-item-name ${isRemoved ? 'sr-strike' : ''}">${nameDisplay}</span>
                                 ${paymentBadge}
                                 ${custom.isCustomized && !isRemoved ? '<span class="sr-tag sr-tag-amber sr-badge-pop">Custom</span>' : ''}
                                 ${isRemoved ? '<span class="sr-tag sr-tag-rose sr-badge-pop">Not activated</span>' : ''}
@@ -10876,7 +11077,7 @@ async function showStudentRegistration() {
             const html = renderItemRow({
                 itemId, itemName: d.itemName, componentName: d.componentName, periodType: d.periodType,
                 defaultAmount: parseFloat(d.defaultAmount) || 0, defaultQuantity: parseInt(d.defaultQuantity) || 1,
-                paymentOption: d.paymentOption
+                paymentOption: d.paymentOption, highlightQuery: window.srItemsFilter?.query || ''
             });
             const wrapper = document.createElement('div');
             wrapper.innerHTML = html.trim();
@@ -10944,8 +11145,7 @@ async function showStudentRegistration() {
             if (!ok) return;
 
             itemIds.forEach(id => delete window.tempRemovedItems[id]);
-            itemIds.forEach(id => refreshItemRow(id));
-            refreshGroupActions(groupIndex);
+            renderItemsList();
             recalcFeeBar();
             window.showToast('Group restored — all items in it will be billed', 'success');
         };
@@ -10963,15 +11163,29 @@ async function showStudentRegistration() {
             if (!ok) return;
 
             itemIds.forEach(id => { window.tempRemovedItems[id] = true; delete window.tempItemCustomizations[id]; });
-            itemIds.forEach(id => refreshItemRow(id));
-            refreshGroupActions(groupIndex);
+            renderItemsList();
             recalcFeeBar();
             window.showToast('Group removed — nothing in it will be billed', 'info');
         };
 
         // ========== Restore / remove everything across all groups ==========
+        // NOTE: uses the FULL fee-structure item set (not just what's currently
+        // filtered/visible), so "Restore all" / "Remove all" always act on the
+        // whole fee structure regardless of an active search or group filter.
+        function getAllItemIdsInStructure() {
+            const fs = window.srCurrentFeeStructure;
+            if (!fs || !fs.activityComponents) return [];
+            const ids = [];
+            for (const comp of fs.activityComponents) {
+                for (const item of (comp.items || [])) {
+                    ids.push(item.id || item.name);
+                }
+            }
+            return ids;
+        }
+
         window.restoreAllRegistrationItems = async function () {
-            const allIds = Object.values(window.srComponentGroups || {}).flat();
+            const allIds = getAllItemIdsInStructure();
             if (allIds.length === 0) return;
 
             const ok = await window.showConfirmModal({
@@ -10983,14 +11197,13 @@ async function showStudentRegistration() {
             if (!ok) return;
 
             allIds.forEach(id => delete window.tempRemovedItems[id]);
-            allIds.forEach(id => refreshItemRow(id));
-            Object.keys(window.srComponentGroups || {}).forEach(gi => refreshGroupActions(parseInt(gi)));
+            renderItemsList();
             recalcFeeBar();
             window.showToast('All items restored', 'success');
         };
 
         window.removeAllRegistrationItems = async function () {
-            const allIds = Object.values(window.srComponentGroups || {}).flat();
+            const allIds = getAllItemIdsInStructure();
             if (allIds.length === 0) return;
 
             const ok = await window.showConfirmModal({
@@ -11002,8 +11215,7 @@ async function showStudentRegistration() {
             if (!ok) return;
 
             allIds.forEach(id => { window.tempRemovedItems[id] = true; delete window.tempItemCustomizations[id]; });
-            allIds.forEach(id => refreshItemRow(id));
-            Object.keys(window.srComponentGroups || {}).forEach(gi => refreshGroupActions(parseInt(gi)));
+            renderItemsList();
             recalcFeeBar();
             window.showToast('All items removed', 'info');
         };
@@ -11103,6 +11315,7 @@ async function showStudentRegistration() {
             window.tempItemCustomizations = {};
             window.tempRemovedItems = {};
             window.srComponentGroups = {};
+            window.srItemsFilter = { query: '', groupFilter: 'all' };
             hideFeeBar();
 
             window.showToast('Form has been reset', 'info');
@@ -11209,7 +11422,7 @@ async function showStudentRegistration() {
                 if (response.ok) {
                     const customCount = Object.keys(window.tempItemCustomizations || {}).length;
                     const removedCount = Object.keys(window.tempRemovedItems || {}).length;
-                    const totalItemCount = Object.values(window.srComponentGroups || {}).flat().length;
+                    const totalItemCount = getAllItemIdsInStructure().length;
                     const activeCount = totalItemCount - removedCount;
 
                     let successMsg = `${firstName} ${lastName} registered — admission no. ${result.student.admissionNumber}`;
@@ -11259,7 +11472,8 @@ async function showStudentRegistration() {
 
         // ========== Fee bar (signature live summary) ==========
         // Only tuition + items the bursar has RESTORED count toward the total,
-        // since everything starts removed.
+        // since everything starts removed. Uses the FULL fee structure (not
+        // filtered view) so search/filter never affects the computed total.
         function hideFeeBar() {
             document.getElementById('srFeeBar')?.classList.add('hidden');
         }
@@ -11387,7 +11601,25 @@ async function showStudentRegistration() {
             feeSelect.addEventListener('change', () => window.loadFeeStructureItemsForCustomization());
         }
 
-        console.log('showStudentRegistration rendered successfully (v5.0 - default-removed items)');
+        // ========== Search / status-group filter listeners ==========
+        document.getElementById('srItemsSearchInput')?.addEventListener('input', () => {
+            clearTimeout(srItemsSearchDebounceHandle);
+            srItemsSearchDebounceHandle = setTimeout(applyItemsFilter, 150);
+        });
+        document.getElementById('srItemsSearchInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                applyItemsFilter();
+            }
+        });
+        document.getElementById('srItemsGroupFilter')?.addEventListener('change', applyItemsFilter);
+        document.getElementById('srItemsSearchClear')?.addEventListener('click', () => {
+            const input = document.getElementById('srItemsSearchInput');
+            if (input) input.value = '';
+            applyItemsFilter();
+        });
+
+        console.log('showStudentRegistration rendered successfully (v6.0 - default-removed items + fuzzy search/filter)');
 
     } catch (error) {
         console.error('Error:', error);
