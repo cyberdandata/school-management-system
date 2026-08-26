@@ -3129,7 +3129,7 @@ async function showStudentList() {
             `;
         }
 
-      function renderStatusGroupCell(student, sg) {
+  function renderStatusGroupCell(student, sg) {
     const sgData = student.statusGroupTotals?.[sg.name] || {
         expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
         hasStructure: false, periodTypes: new Set(), isTransportation: false,
@@ -3181,10 +3181,6 @@ async function showStudentList() {
     let directItemsBrought = 0;
     let hasDirectAmount = false;
 
-    // Determine period inclusion flags (similar to main loop)
-    // We need to know if this is the oldest period and if it's the latest term for the year.
-    // For simplicity, we use the student's current period as the only period if no other data.
-    // A more robust approach would compute from payments/termRecords, but this covers the common case.
     const currentYear = student.currentYear || new Date().getFullYear();
     const currentTerm = student.currentTerm || 1;
     const isOldestPeriod = true; // If only one period, it's the oldest.
@@ -3196,7 +3192,6 @@ async function showStudentList() {
             if (compGroupName !== sg.name) continue;
 
             const periodType = comp.periodType || 'termly';
-            // Determine if this component should be included in the current period
             let shouldInclude = false;
             if (periodType === 'termly') shouldInclude = true;
             else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
@@ -3207,7 +3202,6 @@ async function showStudentList() {
                 const itemId = item.id || item.name;
                 if (isItemRemoved(student, itemId)) continue;
 
-                // Get custom values
                 const defaultAmount = item.totalAmount || 0;
                 const defaultQuantity = item.quantity || 1;
                 const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
@@ -3227,21 +3221,16 @@ async function showStudentList() {
                 const effectiveUnitPrice = customValues.unitPrice;
                 const effectivePaymentOption = customValues.paymentOption;
 
-                // Sum expected amount
                 directExpected += effectiveAmount;
                 hasDirectAmount = true;
 
-                // For items that are not cash_only, we also track items required
                 if (effectivePaymentOption !== 'cash_only') {
                     directItemsRequired += effectiveQuantity;
-                    // We don't have payment info here, so we can't compute items brought/paid accurately.
-                    // We'll rely on sgData for paid/itemsBrought.
                 }
             }
         }
     }
 
-    // If direct calculation found an amount but sgData.expected is zero, use the direct amount.
     const effectiveExpected = sgData.expected || directExpected;
     const effectivePaid = sgData.paid || directPaid;
     const effectiveItemsRemaining = sgData.itemsRemaining || directItemsRemaining;
@@ -3250,11 +3239,18 @@ async function showStudentList() {
 
     // If still no amount, show dash
     if (effectiveExpected === 0 && effectivePaid === 0 && effectiveItemsRemaining === 0) {
-        // Double-check if there is any custom amount that wasn't captured
+        // ✅ FIX: Double-check for a custom amount, but SKIP any item that has
+        // been removed for this student — a removed item must never surface
+        // here, custom or not, since it is not being charged at all.
         let customTotal = 0;
         if (student.customItemOverrides) {
             for (const [itemId, custom] of Object.entries(student.customItemOverrides)) {
                 if (custom.isActive === false) continue;
+
+                // ✅ Skip removed items entirely — a removal always wins over
+                // any lingering customization data for that same item.
+                if (isItemRemoved(student, itemId)) continue;
+
                 // Check if this custom belongs to this group
                 let belongs = false;
                 if (feeStructure && feeStructure.activityComponents) {
@@ -3294,7 +3290,6 @@ async function showStudentList() {
     let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false;
     let totalItemsBrought = 0, totalItemsRequired = 0;
 
-    // Use sgData.items if available, otherwise we can't compute these.
     for (const item of (sgData.items || [])) {
         if (item.isFullyPaid) {
             if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
