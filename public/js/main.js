@@ -551,7 +551,7 @@ async function updateAcademicSettingsAndRefresh(year, term) {
         
     } catch (error) {
         console.error('Error:', error);
-        alert('❌ Error updating academic period: ' + error.message);
+        await SystemDialog.alert('❌ Error updating academic period: ' + error.message);
     } finally {
         if (submitBtn) {
             submitBtn.innerHTML = originalText;
@@ -3685,9 +3685,9 @@ async function showStudentList() {
         if (statusFilter) statusFilter.addEventListener('change', applyFilters);
 
         // ========== EXPORT FUNCTIONS ==========
-        window.exportStudentListData = function () {
+        window.exportStudentListData = async function () {
             const studentsData = window.allStudentsData || [];
-            if (studentsData.length === 0) { alert('No students to export'); return; }
+            if (studentsData.length === 0) { await SystemDialog.alert('No students to export'); return; }
 
             const headers = ['Admission', 'First Name', 'Last Name', 'Class', 'Parent Name', 'Parent Phone', 'Status'];
             const statusGroupsList = window.sortedStatusGroups || [];
@@ -3732,7 +3732,7 @@ async function showStudentList() {
             link.download = `students_export_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
-            alert(`✅ ${studentsData.length} students exported! (Cash and Items tracked separately)`);
+            await SystemDialog.alert(`✅ ${studentsData.length} students exported! (Cash and Items tracked separately)`);
         };
 
         window.printStudentListReport = function () { window.print(); };
@@ -3837,7 +3837,7 @@ function injectStatusModalDesignSystem() {
     document.head.appendChild(style);
 }
 
-window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
+window.showStatusGroupItemDetailsModal = async function(studentId, statusGroupName) {
     console.log('=== showStatusGroupItemDetailsModal v14.0 — period‑aware removal ===');
     console.log('Student:', studentId, 'Status Group:', statusGroupName);
 
@@ -3868,7 +3868,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
         if (loadingModal) loadingModal.remove();
 
         if (!student) {
-            alert('Student not found');
+            await SystemDialog.alert('Student not found');
             return;
         }
 
@@ -3893,7 +3893,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
         }
 
         if (!feeStructure) {
-            alert('Fee structure not found for this student');
+            await SystemDialog.alert('Fee structure not found for this student');
             return;
         }
 
@@ -4252,7 +4252,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
         }
 
         if (!targetComponent || targetItems.length === 0) {
-            alert(`No items found for ${statusGroupName}`);
+            await SystemDialog.alert(`No items found for ${statusGroupName}`);
             return;
         }
 
@@ -4966,7 +4966,7 @@ window.showStatusGroupItemDetailsModal = function(studentId, statusGroupName) {
         console.error('Error:', error);
         const loadingModal = document.getElementById('statusGroupLoadingModal');
         if (loadingModal) loadingModal.remove();
-        alert('Error loading student details: ' + error.message);
+        await SystemDialog.alert('Error loading student details: ' + error.message);
     });
 };
 
@@ -5032,13 +5032,13 @@ console.log('   ✅ Payment history shows separate cash and item entries');
 // ==================== GLOBAL TUITION DETAILS MODAL ====================
 // Version: 2.0 - Fully working with all data
 
-window.showTuitionDetailsModal = function(studentId) {
+window.showTuitionDetailsModal = async function(studentId) {
     console.log('showTuitionDetailsModal called - GLOBAL VERSION');
     
     // Find the student in the global data
     const student = window.allStudentsData?.find(s => s.id === studentId);
     if (!student) {
-        alert('Student not found');
+        await SystemDialog.alert('Student not found');
         return;
     }
     
@@ -5150,7 +5150,7 @@ window.showTuitionDetailsModal = function(studentId) {
         })
         .catch(error => {
             console.error('Error loading tuition details:', error);
-            alert('Error loading tuition details: ' + error.message);
+            await SystemDialog.alert('Error loading tuition details: ' + error.message);
         });
 };
 
@@ -5744,7 +5744,7 @@ async function deleteStudentEntryList(studentId) {
     const confirmInput = document.getElementById('deleteConfirmInput');
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     
-    confirmInput.addEventListener('input', function() {
+    confirmInput.addEventListener('input', async function() {
         if (this.value === 'DELETE') {
             confirmBtn.disabled = false;
             confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -5759,15 +5759,15 @@ async function deleteStudentEntryList(studentId) {
             const response = await fetch(`/api/students/${studentId}`, { method: 'DELETE' });
             if (response.ok) {
                 closeModal();
-                alert(`✅ ${studentName} has been deleted successfully`);
+                await SystemDialog.alert(`✅ ${studentName} has been deleted successfully`);
                 showStudentList(); // Refresh the student list
             } else {
                 const error = await response.json();
-                alert('❌ Error deleting student: ' + (error.error || 'Unknown error'));
+                await SystemDialog.alert('❌ Error deleting student: ' + (error.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -8143,7 +8143,7 @@ if (student.customItemOverrides && Object.keys(student.customItemOverrides).leng
             window.print();
         };
 
-        window.makePaymentForStudent = function(studentId) {
+        window.makePaymentForStudent = async function(studentId) {
             closeModal();
             const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
             if (feeLink) feeLink.click();
@@ -8179,7 +8179,7 @@ if (student.customItemOverrides && Object.keys(student.customItemOverrides).leng
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Error loading student details: ' + error.message);
+        await SystemDialog.alert('Error loading student details: ' + error.message);
     }
 }
 // ==================== MAKE FUNCTIONS GLOBAL ====================
@@ -8234,10 +8234,10 @@ function makePaymentForStudentList(studentId) {
 
 
 async function deleteStudentEntryList(studentId) {
-    if (confirm('⚠️ Are you sure you want to delete this student? This cannot be undone.')) {
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this student? This cannot be undone.')) {
         const res = await fetch(`/api/students/${studentId}`, { method: 'DELETE' });
-        if (res.ok) { alert('✅ Student deleted'); showStudentList(); }
-        else alert('❌ Delete failed');
+        if (res.ok) { await SystemDialog.alert('✅ Student deleted'); showStudentList(); }
+        else await SystemDialog.alert('❌ Delete failed');
     }
 }
 
@@ -8492,9 +8492,9 @@ function clearStudentSelection() {
     updateSelectedCount();
 }
 
-function sendBulkPaymentReminders() {
+async function sendBulkPaymentReminders() {
     if (selectedStudentIds.size === 0) {
-        alert('Please select at least one student to send reminders');
+        await SystemDialog.alert('Please select at least one student to send reminders');
         return;
     }
     
@@ -8502,7 +8502,7 @@ function sendBulkPaymentReminders() {
     const overdueStudents = selectedStudents.filter(s => s.totalBalance > 0);
     
     if (overdueStudents.length === 0) {
-        alert('No overdue balances among selected students');
+        await SystemDialog.alert('No overdue balances among selected students');
         return;
     }
     
@@ -8512,15 +8512,15 @@ function sendBulkPaymentReminders() {
     });
     message += `\nTotal Outstanding: UGX ${overdueStudents.reduce((sum, s) => sum + s.totalBalance, 0).toLocaleString()}`;
     
-    alert(message);
+    await SystemDialog.alert(message);
 }
 
 // ==================== EXPORT ALL STUDENTS DATA ====================
 
-function exportAllStudentsData() {
+async function exportAllStudentsData() {
     const students = window.allStudentsEnhanced || [];
     if (students.length === 0) {
-        alert('No students to export');
+        await SystemDialog.alert('No students to export');
         return;
     }
     
@@ -8591,7 +8591,7 @@ function exportAllStudentsData() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    alert(`✅ ${students.length} students exported successfully!`);
+    await SystemDialog.alert(`✅ ${students.length} students exported successfully!`);
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -8845,9 +8845,9 @@ function clearStudentSelection() {
     updateSelectedCount();
 }
 
-function sendBulkPaymentReminders() {
+async function sendBulkPaymentReminders() {
     if (selectedStudentIds.size === 0) {
-        alert('Please select at least one student to send reminders');
+        await SystemDialog.alert('Please select at least one student to send reminders');
         return;
     }
     
@@ -8855,7 +8855,7 @@ function sendBulkPaymentReminders() {
     const overdueStudents = selectedStudents.filter(s => s.totalBalance > 0);
     
     if (overdueStudents.length === 0) {
-        alert('No overdue balances among selected students');
+        await SystemDialog.alert('No overdue balances among selected students');
         return;
     }
     
@@ -8865,15 +8865,15 @@ function sendBulkPaymentReminders() {
     });
     message += `\nTotal Outstanding: UGX ${overdueStudents.reduce((sum, s) => sum + s.totalBalance, 0).toLocaleString()}`;
     
-    alert(message);
+    await SystemDialog.alert(message);
 }
 
 // ==================== EXPORT ALL STUDENTS DATA ====================
 
-function exportAllStudentsData() {
+async function exportAllStudentsData() {
     const students = window.allStudentsEnhanced || [];
     if (students.length === 0) {
-        alert('No students to export');
+        await SystemDialog.alert('No students to export');
         return;
     }
     
@@ -8944,7 +8944,7 @@ function exportAllStudentsData() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    alert(`✅ ${students.length} students exported successfully!`);
+    await SystemDialog.alert(`✅ ${students.length} students exported successfully!`);
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -9117,22 +9117,22 @@ async function deleteStudentEntry(studentId) {
     const student = window.allStudentsData?.find(s => s.id === studentId);
     const studentName = student ? `${student.firstName} ${student.lastName}` : 'this student';
     
-    if (confirm(`⚠️ Are you sure you want to delete ${studentName}?\n\nThis action cannot be undone.`)) {
-        const confirmation = prompt('Type "DELETE" to confirm deletion:');
+    if (await SystemDialog.confirm(`⚠️ Are you sure you want to delete ${studentName}?\n\nThis action cannot be undone.`)) {
+        const confirmation = await SystemDialog.prompt('Type "DELETE" to confirm deletion:');
         if (confirmation === 'DELETE') {
             try {
                 const response = await fetch(`/api/students/${studentId}`, { method: 'DELETE' });
                 if (response.ok) {
-                    alert(`✅ ${studentName} has been deleted successfully`);
+                    await SystemDialog.alert(`✅ ${studentName} has been deleted successfully`);
                     showStudentList();
                 } else {
-                    alert('❌ Error deleting student');
+                    await SystemDialog.alert('❌ Error deleting student');
                 }
             } catch (error) {
-                alert('Network error: ' + error.message);
+                await SystemDialog.alert('Network error: ' + error.message);
             }
         } else {
-            alert('Deletion cancelled');
+            await SystemDialog.alert('Deletion cancelled');
         }
     }
 }
@@ -9404,19 +9404,19 @@ function renderActivityItemsSection(items, title, icon, color) {
 
 // ==================== DELETE STUDENT ====================
 async function deleteStudentEntry(studentId) {
-    if (confirm('⚠️ Are you sure you want to delete this student? This action cannot be undone.')) {
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this student? This action cannot be undone.')) {
         try {
             const response = await fetch(`/api/students/${studentId}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Student deleted successfully');
+                await SystemDialog.alert('✅ Student deleted successfully');
                 showStudentList();
             } else {
                 const error = await response.json();
-                alert('❌ Error deleting student: ' + (error.error || 'Unknown error'));
+                await SystemDialog.alert('❌ Error deleting student: ' + (error.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -9452,10 +9452,10 @@ function makePaymentForStudent(studentId) {
 }
 
 // ==================== EXPORT STUDENTS DATA ====================
-function exportStudentsData() {
+async function exportStudentsData() {
     const students = window.allStudentsData || [];
     if (students.length === 0) {
-        alert('No students to export');
+        await SystemDialog.alert('No students to export');
         return;
     }
     
@@ -9506,7 +9506,7 @@ function exportStudentsData() {
     a.download = `students_export_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    alert('✅ Students data exported successfully');
+    await SystemDialog.alert('✅ Students data exported successfully');
 }
 
 // ==================== CLOSE MODAL ====================
@@ -9713,7 +9713,7 @@ if (setupForm) {
         };
         
         if (!schoolData.schoolName || !schoolData.phone || !schoolData.email || !schoolData.address) {
-            alert('⚠️ Please fill in all required fields');
+            await SystemDialog.alert('⚠️ Please fill in all required fields');
             return;
         }
         
@@ -9733,7 +9733,7 @@ if (setupForm) {
                 await createDefaultClasses();
                 await createDefaultSubjects();
                 
-                alert('✅ School setup completed successfully!');
+                await SystemDialog.alert('✅ School setup completed successfully!');
                 
                 const setupWizard = document.getElementById('setupWizard');
                 if (setupWizard) setupWizard.classList.add('hidden');
@@ -9745,11 +9745,11 @@ if (setupForm) {
                 
                 showDashboard();
             } else {
-                alert('❌ Error saving school information');
+                await SystemDialog.alert('❌ Error saving school information');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('❌ Error connecting to server');
+            await SystemDialog.alert('❌ Error connecting to server');
         } finally {
             submitBtn.innerText = originalText;
             submitBtn.disabled = false;
@@ -12617,14 +12617,14 @@ studentData.customTransportation = customTransportationData;
     if (!feeStructureId) errors.push('Fee Structure');
     
     if (errors.length > 0) {
-        alert(`⚠️ Please fill in the following required fields:\n- ${errors.join('\n- ')}`);
+        await SystemDialog.alert(`⚠️ Please fill in the following required fields:\n- ${errors.join('\n- ')}`);
         return;
     }
     
     // Phone validation
     const phoneRegex = /^[0-9]{10,13}$/;
     if (!phoneRegex.test(parentPhone.replace(/[^0-9]/g, ''))) {
-        alert('⚠️ Please enter a valid phone number (10-13 digits)');
+        await SystemDialog.alert('⚠️ Please enter a valid phone number (10-13 digits)');
         return;
     }
     
@@ -12673,7 +12673,7 @@ studentData.customTransportation = customTransportationData;
             } else if (hasTransportation === false) {
                 successMsg += `\n\n🚌 Transportation Fee: Removed (Student does not use school transport)`;
             }
-            alert(successMsg);
+            await SystemDialog.alert(successMsg);
             
             // Reset form
             document.getElementById('studentRegForm').reset();
@@ -12682,18 +12682,18 @@ studentData.customTransportation = customTransportationData;
             document.getElementById('transportationFeeEditor').classList.add('hidden');
             
             // Ask what to do next
-            const action = confirm('Do you want to view the student list?');
+            const action = await SystemDialog.confirm('Do you want to view the student list?');
             if (action) {
                 showStudentList();
             } else {
                 showStudentRegistration();
             }
         } else {
-            alert('❌ Registration failed: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Registration failed: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Network error:', error);
-        alert('❌ Network error: ' + error.message);
+        await SystemDialog.alert('❌ Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -12896,7 +12896,7 @@ async function submitStudentRegistrationNew() {
         
         // Validate transportation amount if applicable
         if (hasTransportation && transportAmount <= 0) {
-            alert('⚠️ Please enter a valid transportation fee amount or uncheck if student does not use school transport');
+            await SystemDialog.alert('⚠️ Please enter a valid transportation fee amount or uncheck if student does not use school transport');
             return;
         }
     } else {
@@ -12915,14 +12915,14 @@ async function submitStudentRegistrationNew() {
     if (!feeStructureId) errors.push('Fee Structure');
     
     if (errors.length > 0) {
-        alert(`⚠️ Please fill in the following required fields:\n- ${errors.join('\n- ')}`);
+        await SystemDialog.alert(`⚠️ Please fill in the following required fields:\n- ${errors.join('\n- ')}`);
         return;
     }
     
     // ==================== PHONE VALIDATION ====================
     const phoneRegex = /^[0-9]{10,13}$/;
     if (!phoneRegex.test(parentPhone.replace(/[^0-9]/g, ''))) {
-        alert('⚠️ Please enter a valid phone number (10-13 digits)');
+        await SystemDialog.alert('⚠️ Please enter a valid phone number (10-13 digits)');
         return;
     }
     
@@ -12985,7 +12985,7 @@ async function submitStudentRegistrationNew() {
                 }
             }
             
-            alert(successMsg);
+            await SystemDialog.alert(successMsg);
             
             // Reset form
             resetRegistrationFormFields();
@@ -12996,18 +12996,18 @@ async function submitStudentRegistrationNew() {
             }
             
             // Ask what to do next
-            const action = confirm('Do you want to view the student list?');
+            const action = await SystemDialog.confirm('Do you want to view the student list?');
             if (action) {
                 showStudentList();
             } else {
                 showStudentRegistration();
             }
         } else {
-            alert('❌ Registration failed: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Registration failed: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Network error:', error);
-        alert('❌ Network error: ' + error.message);
+        await SystemDialog.alert('❌ Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -13305,14 +13305,14 @@ async function submitStudentRegistration() {
     if (!feeStructureId) errors.push('Fee Structure');
     
     if (errors.length > 0) {
-        alert(`⚠️ Please fill in the following required fields:\n- ${errors.join('\n- ')}`);
+        await SystemDialog.alert(`⚠️ Please fill in the following required fields:\n- ${errors.join('\n- ')}`);
         return;
     }
     
     // Phone validation
     const phoneRegex = /^[0-9]{10,13}$/;
     if (!phoneRegex.test(parentPhone.replace(/[^0-9]/g, ''))) {
-        alert('⚠️ Please enter a valid phone number (10-13 digits)');
+        await SystemDialog.alert('⚠️ Please enter a valid phone number (10-13 digits)');
         return;
     }
     
@@ -13348,25 +13348,25 @@ const studentData = {
         const result = await response.json();
         
         if (response.ok) {
-            alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}`);
+            await SystemDialog.alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}`);
             
             // Reset form
             document.getElementById('studentRegForm').reset();
             document.getElementById('feePreviewContainer').classList.add('hidden');
             
             // Ask what to do next
-            const action = confirm('Do you want to view the student list?');
+            const action = await SystemDialog.confirm('Do you want to view the student list?');
             if (action) {
                 showStudentList();
             } else {
                 showStudentRegistration();
             }
         } else {
-            alert('❌ Registration failed: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Registration failed: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Network error:', error);
-        alert('❌ Network error: ' + error.message);
+        await SystemDialog.alert('❌ Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -13556,14 +13556,14 @@ async function handleStudentRegistration(e) {
     
     // Validation
     if (!firstName || !lastName || !gender || !parentName || !parentPhone || !address || !enrollmentClass || !feeStructureId) {
-        alert('⚠️ Please fill in all required fields marked with *');
+        await SystemDialog.alert('⚠️ Please fill in all required fields marked with *');
         return;
     }
     
     // Phone validation
     const phoneRegex = /^[0-9]{10,13}$/;
     if (!phoneRegex.test(parentPhone.replace(/[^0-9]/g, ''))) {
-        alert('⚠️ Please enter a valid phone number');
+        await SystemDialog.alert('⚠️ Please enter a valid phone number');
         return;
     }
     
@@ -13636,21 +13636,21 @@ async function handleStudentRegistration(e) {
             console.warn('Fee assignment may not have saved properly');
         }
         
-        alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}\nTuition Fee: UGX ${tuitionAmount.toLocaleString()}\nActivity Fee: To be collected separately`);
+        await SystemDialog.alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}\nTuition Fee: UGX ${tuitionAmount.toLocaleString()}\nActivity Fee: To be collected separately`);
         
         // Reset form
         resetRegistrationForm();
         
         // Ask if user wants to view student list
-        if (confirm('Do you want to view the student list?')) {
+        if (await SystemDialog.confirm('Do you want to view the student list?')) {
             showStudentList();
-        } else if (confirm('Do you want to register another student?')) {
+        } else if (await SystemDialog.confirm('Do you want to register another student?')) {
             showStudentRegistration();
         }
         
     } catch (error) {
         console.error('Error:', error);
-        alert('❌ Error registering student: ' + error.message);
+        await SystemDialog.alert('❌ Error registering student: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -13958,14 +13958,14 @@ async function handleStudentRegistration(e) {
     
     // Validation
     if (!firstName || !lastName || !gender || !parentName || !parentPhone || !address || !enrollmentClass || !feeStructureId) {
-        alert('⚠️ Please fill in all required fields marked with *');
+        await SystemDialog.alert('⚠️ Please fill in all required fields marked with *');
         return;
     }
     
     // Phone validation
     const phoneRegex = /^[0-9]{10,13}$/;
     if (!phoneRegex.test(parentPhone.replace(/[^0-9]/g, ''))) {
-        alert('⚠️ Please enter a valid phone number');
+        await SystemDialog.alert('⚠️ Please enter a valid phone number');
         return;
     }
     
@@ -14038,21 +14038,21 @@ async function handleStudentRegistration(e) {
             console.warn('Fee assignment may not have saved properly');
         }
         
-        alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}\nTuition Fee: UGX ${tuitionAmount.toLocaleString()}\nActivity Fee: To be collected separately`);
+        await SystemDialog.alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}\nTuition Fee: UGX ${tuitionAmount.toLocaleString()}\nActivity Fee: To be collected separately`);
         
         // Reset form
         resetRegistrationForm();
         
         // Ask if user wants to view student list
-        if (confirm('Do you want to view the student list?')) {
+        if (await SystemDialog.confirm('Do you want to view the student list?')) {
             showStudentList();
-        } else if (confirm('Do you want to register another student?')) {
+        } else if (await SystemDialog.confirm('Do you want to register another student?')) {
             showStudentRegistration();
         }
         
     } catch (error) {
         console.error('Error:', error);
-        alert('❌ Error registering student: ' + error.message);
+        await SystemDialog.alert('❌ Error registering student: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -14629,14 +14629,14 @@ async function handleStudentRegistration(e) {
     
     // Validation
     if (!firstName || !lastName || !gender || !parentName || !parentPhone || !address || !enrollmentClass || !feeStructureId) {
-        alert('⚠️ Please fill in all required fields marked with *');
+        await SystemDialog.alert('⚠️ Please fill in all required fields marked with *');
         return;
     }
     
     // Phone validation
     const phoneRegex = /^[0-9]{10,13}$/;
     if (!phoneRegex.test(parentPhone.replace(/[^0-9]/g, ''))) {
-        alert('⚠️ Please enter a valid phone number');
+        await SystemDialog.alert('⚠️ Please enter a valid phone number');
         return;
     }
     
@@ -14696,24 +14696,24 @@ async function handleStudentRegistration(e) {
                 })
             });
             
-            alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}`);
+            await SystemDialog.alert(`✅ Student ${firstName} ${lastName} registered successfully!\nAdmission Number: ${result.student.admissionNumber}`);
             
             // Reset form
             resetRegistrationForm();
             
             // Ask if user wants to view student list
-            if (confirm('Do you want to view the student list?')) {
+            if (await SystemDialog.confirm('Do you want to view the student list?')) {
                 showStudentList();
-            } else if (confirm('Do you want to register another student?')) {
+            } else if (await SystemDialog.confirm('Do you want to register another student?')) {
                 showStudentRegistration();
             }
         } else {
             const error = await response.json();
-            alert('❌ Error registering student: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error registering student: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -14786,7 +14786,7 @@ async function submitSimpleFeeCollection(student, feeStructure, currentYear, cur
     const notes = document.getElementById('paymentNotes')?.value || '';
     
     if (tuitionPaid <= 0) {
-        alert('Please enter an amount to pay');
+        await SystemDialog.alert('Please enter an amount to pay');
         return;
     }
     
@@ -14819,18 +14819,18 @@ async function submitSimpleFeeCollection(student, feeStructure, currentYear, cur
             const newBalance = (window.currentExpectedTuition || 0) - (window.currentTotalPaid + tuitionPaid);
             
             if (newBalance <= 0) {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
             } else {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
             }
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -15361,9 +15361,9 @@ function updateSelectedCount() {
     }
 }
 
-function exportSelectedStudents() {
+async function exportSelectedStudents() {
     if (selectedStudents.size === 0) {
-        alert('Please select at least one student to export');
+        await SystemDialog.alert('Please select at least one student to export');
         return;
     }
     
@@ -15380,21 +15380,21 @@ function exportSelectedStudents() {
     
     const csv = convertToCSV(exportData);
     downloadCSV(csv, `students_export_${new Date().toISOString().split('T')[0]}.csv`);
-    alert(`✅ ${selectedStudents.size} students exported successfully`);
+    await SystemDialog.alert(`✅ ${selectedStudents.size} students exported successfully`);
 }
 
-function sendBulkReminders() {
+async function sendBulkReminders() {
     if (selectedStudents.size === 0) {
-        alert('Please select at least one student');
+        await SystemDialog.alert('Please select at least one student');
         return;
     }
     const selectedData = window.allStudentsData.filter(s => selectedStudents.has(s.id));
     const overdueStudents = selectedData.filter(s => s.balance > 0);
     if (overdueStudents.length === 0) {
-        alert('No overdue balances among selected students');
+        await SystemDialog.alert('No overdue balances among selected students');
         return;
     }
-    alert(`📧 Reminders would be sent to ${overdueStudents.length} students with outstanding balances.\n\nTotal outstanding: UGX ${overdueStudents.reduce((sum, s) => sum + s.balance, 0).toLocaleString()}`);
+    await SystemDialog.alert(`📧 Reminders would be sent to ${overdueStudents.length} students with outstanding balances.\n\nTotal outstanding: UGX ${overdueStudents.reduce((sum, s) => sum + s.balance, 0).toLocaleString()}`);
 }
 
 
@@ -15503,12 +15503,12 @@ function showFeeSummaryReport() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function exportFeeReport() {
+async function exportFeeReport() {
     const students = window.allStudentsData || [];
     const exportData = students.map(s => ({ 'Admission Number': s.admissionNumber, 'Student Name': `${s.firstName} ${s.lastName}`, 'Class': s.currentClass, 'Fee Structure': s.feeStructure?.name || 'Not Assigned', 'Bursary': s.feeAssignment?.bursaryName || 'None', 'Expected Per Term': s.expectedPerTerm, 'Term 1 Paid': s.term1Paid, 'Term 2 Paid': s.term2Paid, 'Term 3 Paid': s.term3Paid, 'Total Paid': s.totalPaid, 'Total Expected': s.totalExpected, 'Outstanding Balance': s.balance, 'Status': s.balance <= 0 ? 'Fully Paid' : s.balance > s.expectedPerTerm ? 'Overdue' : 'Partial', 'Registration Fee Status': s.registrationPaid ? 'Paid' : 'Pending' }));
     const csv = convertToCSV(exportData);
     downloadCSV(csv, `fee_summary_report_${new Date().toISOString().split('T')[0]}.csv`);
-    alert('✅ Report exported successfully');
+    await SystemDialog.alert('✅ Report exported successfully');
 }
 
 function convertToCSV(data) {
@@ -15556,8 +15556,8 @@ window.closeModal = closeModal;
 
 
 async function deleteStudent(studentId) {
-    if (confirm('⚠️ Are you sure you want to delete this student? This action cannot be undone.')) {
-        alert('✅ Student deleted successfully');
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this student? This action cannot be undone.')) {
+        await SystemDialog.alert('✅ Student deleted successfully');
         addNotification('A student was deleted from the system');
         showStudentList();
     }
@@ -15589,7 +15589,7 @@ async function showStudentAttendance(studentId) {
         });
     } catch (error) {
         console.error('Error:', error);
-        alert('Error loading attendance data');
+        await SystemDialog.alert('Error loading attendance data');
     }
 }
 
@@ -15822,7 +15822,7 @@ async function assignFeeStructureManually(studentId) {
         // ================================================================
         // TOGGLE CUSTOM BURSARY FIELD
         // ================================================================
-        window.toggleAssignCustomBursary = function() {
+        window.toggleAssignCustomBursary = async function() {
             const bursarySelect = document.getElementById('assignBursaryId');
             const customContainer = document.getElementById('assignCustomBursaryContainer');
             if (bursarySelect && customContainer) {
@@ -15857,14 +15857,14 @@ async function assignFeeStructureManually(studentId) {
                     customAmount = amount;
                     isCustomBursary = true;
                 } else {
-                    alert('Please enter a valid custom bursary amount.');
+                    await SystemDialog.alert('Please enter a valid custom bursary amount.');
                     customBursaryAmount?.focus();
                     return;
                 }
             }
 
             if (!feeStructureId) {
-                alert('Please select a fee structure.');
+                await SystemDialog.alert('Please select a fee structure.');
                 document.getElementById('assignFeeStructureId').focus();
                 return;
             }
@@ -15886,7 +15886,7 @@ async function assignFeeStructureManually(studentId) {
             }
             confirmMsg += `\n\n⚠️ This assignment will apply only to ${currentYear}. Previous years will not be affected.`;
 
-            if (!confirm(confirmMsg)) return;
+            if (!await SystemDialog.confirm(confirmMsg)) return;
 
             // Show loading state
             const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -15995,7 +15995,7 @@ async function assignFeeStructureManually(studentId) {
 
                 successMsg += `\n⚠️ This assignment applies only to ${currentYear}. Previous years remain unchanged.`;
 
-                alert(successMsg);
+                await SystemDialog.alert(successMsg);
 
                 // Close modal
                 document.getElementById('assignFeeModal').remove();
@@ -16015,7 +16015,7 @@ async function assignFeeStructureManually(studentId) {
                         location.reload();
                     }
                 } else if (currentPageTitle.includes('Dashboard')) {
-                    if (typeof showDashboard === 'function') {
+                    if (typeof showDashboard === 'async function') {
                         showDashboard();
                     } else {
                         location.reload();
@@ -16026,7 +16026,7 @@ async function assignFeeStructureManually(studentId) {
 
             } catch (error) {
                 console.error('❌ Error assigning fee structure:', error);
-                alert('❌ Error assigning fee structure: ' + error.message + '\n\nPlease check the console for more details.');
+                await SystemDialog.alert('❌ Error assigning fee structure: ' + error.message + '\n\nPlease check the console for more details.');
             } finally {
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
@@ -16051,7 +16051,7 @@ async function assignFeeStructureManually(studentId) {
         // ================================================================
         const modal = document.getElementById('assignFeeModal');
         if (modal) {
-            modal.addEventListener('click', function(e) {
+            modal.addEventListener('click', async function(e) {
                 if (e.target === this) {
                     this.remove();
                 }
@@ -16064,7 +16064,7 @@ async function assignFeeStructureManually(studentId) {
         if (loadingModal) loadingModal.remove();
 
         // Show error message in a simple alert
-        alert('Failed to load data: ' + error.message + '\n\nPlease check the console for more details.');
+        await SystemDialog.alert('Failed to load data: ' + error.message + '\n\nPlease check the console for more details.');
     }
 }
 
@@ -16645,7 +16645,7 @@ console.log('✅ Archived student functions loaded with financial status view');
 async function restoreArchivedStudent(studentId) {
     console.log('🔄 Restoring archived student:', studentId);
     
-    if (!confirm('Restore this student from archive? They will become active again.')) return;
+    if (!await SystemDialog.confirm('Restore this student from archive? They will become active again.')) return;
 
     try {
         const response = await fetch(`/api/students/restore/${studentId}`, {
@@ -17198,7 +17198,7 @@ async function promoteIndiv() {
     }
     confirmMsg += `\nContinue?`;
 
-    if (!confirm(confirmMsg)) return;
+    if (!await SystemDialog.confirm(confirmMsg)) return;
 
     const btn = document.querySelector('#promotionTabContent button:last-child');
     const originalText = btn?.innerHTML || 'Promote Selected';
@@ -17253,14 +17253,14 @@ async function promoteIndiv() {
                 }
             }
 
-            alert(msg);
+            await SystemDialog.alert(msg);
             showStudentPromotion();
         } else {
-            alert('❌ Promotion failed: ' + (data.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Promotion failed: ' + (data.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('❌ Promotion error:', error);
-        alert('❌ Error promoting students: ' + error.message + '\n\nPlease check the console for more details.');
+        await SystemDialog.alert('❌ Error promoting students: ' + error.message + '\n\nPlease check the console for more details.');
     } finally {
         if (btn) {
             btn.innerHTML = originalText;
@@ -17387,7 +17387,7 @@ async function promoteClassAction(fromClassId) {
     const action = isP7 ? 'archive' : 'promote';
     const actionLabel = isP7 ? 'ARCHIVE' : 'promote';
 
-    if (!confirm(`Do you want to ${actionLabel} ${students.length} students from this class?${isP7 ? '\n\n🎓 P.7 students will be ARCHIVED.' : ''}`)) return;
+    if (!await SystemDialog.confirm(`Do you want to ${actionLabel} ${students.length} students from this class?${isP7 ? '\n\n🎓 P.7 students will be ARCHIVED.' : ''}`)) return;
 
     const btn = document.querySelector(`button[onclick="promoteClassAction('${fromClassId}')"]`);
     const originalText = btn?.innerHTML || 'Promote';
@@ -17414,13 +17414,13 @@ async function promoteClassAction(fromClassId) {
             if (data.summary.archivedCount > 0) {
                 msg += `📦 ${data.summary.archivedCount} P.7 students ARCHIVED.\n`;
             }
-            alert(msg);
+            await SystemDialog.alert(msg);
         } else {
-            alert('❌ Operation failed: ' + (data.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Operation failed: ' + (data.error || 'Unknown error'));
         }
         showStudentPromotion();
     } catch (e) {
-        alert('❌ Error: ' + e.message);
+        await SystemDialog.alert('❌ Error: ' + e.message);
     } finally {
         if (btn) {
             btn.innerHTML = originalText;
@@ -17488,7 +17488,7 @@ async function promoteLevelAction(level) {
     const hasP7 = students.some(s => s.isP7);
     const msg = hasP7 ? `\n\n🎓 ${students.filter(s => s.isP7).length} P.7 student(s) will be ARCHIVED.` : '';
     
-    if (!confirm(`Promote ${students.length} students in ${level}?${msg}`)) return;
+    if (!await SystemDialog.confirm(`Promote ${students.length} students in ${level}?${msg}`)) return;
 
     const btn = document.querySelector(`button[onclick="promoteLevelAction('${level}')"]`);
     const originalText = btn?.innerHTML || 'Promote';
@@ -17509,13 +17509,13 @@ async function promoteLevelAction(level) {
             if (data.summary.archivedCount > 0) {
                 msg2 += `\n📦 ${data.summary.archivedCount} P.7 students ARCHIVED.`;
             }
-            alert(msg2);
+            await SystemDialog.alert(msg2);
         } else {
-            alert('❌ Promotion failed: ' + (data.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Promotion failed: ' + (data.error || 'Unknown error'));
         }
         showStudentPromotion();
     } catch (e) {
-        alert('❌ Error: ' + e.message);
+        await SystemDialog.alert('❌ Error: ' + e.message);
     } finally {
         if (btn) {
             btn.innerHTML = originalText;
@@ -17559,7 +17559,7 @@ async function promoteAllAction() {
     }
     
     const msg = p7Count > 0 ? `\n\n🎓 ${p7Count} P.7 student(s) will be ARCHIVED.` : '';
-    if (!confirm(`⚠️ Promote ALL ${total} students?${msg}`)) return;
+    if (!await SystemDialog.confirm(`⚠️ Promote ALL ${total} students?${msg}`)) return;
 
     const btn = document.querySelector('button[onclick="promoteAllAction()"]');
     const originalText = btn?.innerHTML || 'Promote All';
@@ -17580,13 +17580,13 @@ async function promoteAllAction() {
             if (data.summary.archivedCount > 0) {
                 msg2 += `\n📦 ${data.summary.archivedCount} P.7 students ARCHIVED.`;
             }
-            alert(msg2);
+            await SystemDialog.alert(msg2);
         } else {
-            alert('❌ Promotion failed: ' + (data.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Promotion failed: ' + (data.error || 'Unknown error'));
         }
         showStudentPromotion();
     } catch (e) {
-        alert('❌ Error: ' + e.message);
+        await SystemDialog.alert('❌ Error: ' + e.message);
     } finally {
         if (btn) {
             btn.innerHTML = originalText;
@@ -17670,7 +17670,7 @@ async function showClassManagement() {
 }
 
 window.deleteClass = async (id) => {
-    if (confirm('Delete this class?')) {
+    if (await SystemDialog.confirm('Delete this class?')) {
         await fetch(`/api/school/classes/${id}`, { method: 'DELETE' });
         addNotification('A class was deleted');
         showClassManagement();
@@ -17841,7 +17841,7 @@ async function handleAddSubject(e) {
     };
     
     if (!subjectData.name || !subjectData.code || !subjectData.category) {
-        alert('Please fill in all required fields');
+        await SystemDialog.alert('Please fill in all required fields');
         return;
     }
     
@@ -17858,16 +17858,16 @@ async function handleAddSubject(e) {
         });
         
         if (response.ok) {
-            alert('✅ Subject added successfully!');
+            await SystemDialog.alert('✅ Subject added successfully!');
             addNotification(`New subject "${subjectData.name}" was added to the curriculum`);
             resetSubjectForm();
             showSubjectManagement();
         } else {
-            alert('❌ Error adding subject');
+            await SystemDialog.alert('❌ Error adding subject');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error adding subject');
+        await SystemDialog.alert('Error adding subject');
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -17904,7 +17904,7 @@ async function editSubject(subjectId) {
             classId: document.getElementById('editClass').value,
             description: document.getElementById('editDescription').value
         };
-        alert('✅ Subject updated successfully!');
+        await SystemDialog.alert('✅ Subject updated successfully!');
         addNotification(`Subject "${updatedData.name}" was updated`);
         closeModal();
         showSubjectManagement();
@@ -17922,7 +17922,7 @@ async function assignToClass(subjectId) {
     document.getElementById('assignSubjectForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const newClassId = document.getElementById('assignClass').value;
-        alert(`✅ Subject "${subject.name}" has been assigned to ${newClassId === 'all' ? 'All Classes' : getClassName(newClassId)}`);
+        await SystemDialog.alert(`✅ Subject "${subject.name}" has been assigned to ${newClassId === 'all' ? 'All Classes' : getClassName(newClassId)}`);
         addNotification(`Subject "${subject.name}" was reassigned`);
         closeModal();
         showSubjectManagement();
@@ -17930,25 +17930,25 @@ async function assignToClass(subjectId) {
 }
 
 window.deleteSubject = async (id) => {
-    if (confirm('⚠️ Are you sure you want to delete this subject? This will affect all classes using it.')) {
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this subject? This will affect all classes using it.')) {
         try {
             const response = await fetch(`/api/school/subjects/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Subject deleted successfully!');
+                await SystemDialog.alert('✅ Subject deleted successfully!');
                 addNotification('A subject was removed from the curriculum');
                 showSubjectManagement();
             } else {
-                alert('❌ Error deleting subject');
+                await SystemDialog.alert('❌ Error deleting subject');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Error deleting subject');
+            await SystemDialog.alert('Error deleting subject');
         }
     }
 };
 
-function exportSubjectsData() {
-    if (window.allSubjectsData.length === 0) { alert('No subjects to export'); return; }
+async function exportSubjectsData() {
+    if (window.allSubjectsData.length === 0) { await SystemDialog.alert('No subjects to export'); return; }
     const exportData = window.allSubjectsData.map(subject => ({ 'Subject Name': subject.name, 'Subject Code': subject.code, 'Category': subject.category, 'Assigned Class': subject.classId === 'all' ? 'All Classes' : getClassName(subject.classId), 'Description': subject.description || '', 'Date Created': new Date(subject.createdAt).toLocaleDateString() }));
     const csv = convertToCSV(exportData);
     downloadCSV(csv, `subjects_export_${new Date().toISOString().split('T')[0]}.csv`);
@@ -18159,7 +18159,7 @@ async function handleAddTeacher(e) {
     };
     
     if (!teacherData.firstName || !teacherData.lastName || !teacherData.gender || !teacherData.phone) {
-        alert('Please fill in all required fields');
+        await SystemDialog.alert('Please fill in all required fields');
         return;
     }
     
@@ -18182,17 +18182,17 @@ async function handleAddTeacher(e) {
                 message += `\n\n📧 Credentials sent to ${teacherData.email || 'teacher'}`;
             }
             message += `\n🔑 Password: ${password}`;
-            alert(message);
+            await SystemDialog.alert(message);
             
             addNotification(`New teacher ${teacherData.firstName} ${teacherData.lastName} was added to the staff`);
             resetTeacherForm();
             showTeacherManagement();
         } else {
-            alert('❌ Error adding teacher');
+            await SystemDialog.alert('❌ Error adding teacher');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Error adding teacher');
+        await SystemDialog.alert('Error adding teacher');
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -18311,7 +18311,7 @@ async function viewTeacherDetails(teacherId) {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     } catch (error) {
         console.error('Error:', error);
-        alert('Error loading teacher details. Please make sure the teacher exists.');
+        await SystemDialog.alert('Error loading teacher details. Please make sure the teacher exists.');
     }
 }
 
@@ -18321,7 +18321,7 @@ async function resetTeacherPassword(teacherId) {
     const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Confirm with the user
-    if (!confirm(`Are you sure you want to reset the password for this teacher?\n\nNew password will be: ${newPassword}\n\nThis will be saved in the database.`)) {
+    if (!await SystemDialog.confirm(`Are you sure you want to reset the password for this teacher?\n\nNew password will be: ${newPassword}\n\nThis will be saved in the database.`)) {
         return;
     }
     
@@ -18334,7 +18334,7 @@ async function resetTeacherPassword(teacherId) {
         
         if (response.ok) {
             const updatedTeacher = await response.json();
-            alert(`✅ Password reset successfully!\n\n🔑 New Password: ${newPassword}\n\nPlease provide this to the teacher.`);
+            await SystemDialog.alert(`✅ Password reset successfully!\n\n🔑 New Password: ${newPassword}\n\nPlease provide this to the teacher.`);
             
             // Refresh the teacher management page and re-open the profile
             closeModal();
@@ -18347,11 +18347,11 @@ async function resetTeacherPassword(teacherId) {
             
             addNotification(`Password reset for teacher ${updatedTeacher.firstName} ${updatedTeacher.lastName}`);
         } else {
-            alert('❌ Error resetting password. Please try again.');
+            await SystemDialog.alert('❌ Error resetting password. Please try again.');
         }
     } catch (error) {
         console.error('Error resetting password:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -18391,13 +18391,13 @@ async function editTeacher(teacherId) {
             
             const updateResponse = await fetch(`/api/teachers/${teacherId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData) });
             if (updateResponse.ok) {
-                alert('✅ Teacher information updated successfully');
+                await SystemDialog.alert('✅ Teacher information updated successfully');
                 addNotification(`Teacher ${updatedData.firstName} ${updatedData.lastName} was updated`);
                 closeModal();
                 showTeacherManagement();
-            } else { alert('❌ Error updating teacher'); }
+            } else { await SystemDialog.alert('❌ Error updating teacher'); }
         });
-    } catch (error) { console.error('Error:', error); alert('Error loading teacher data'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error loading teacher data'); }
 }
 
 // ==================== RESET TEACHER FORM ====================
@@ -18483,26 +18483,26 @@ async function showTeacherAttendance(teacherId) {
             document.getElementById('leaveDays').innerText = Math.floor(Math.random() * 3);
             document.getElementById('teacherAttendanceSummary').innerHTML = `<div class="text-center"><p class="text-green-600">✓ Attendance rate: ${Math.floor(Math.random() * 30) + 70}%</p></div>`;
         });
-    } catch (error) { console.error('Error:', error); alert('Error loading attendance data'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error loading attendance data'); }
 }
 
 // ==================== DELETE TEACHER ====================
 async function deleteTeacher(teacherId) {
-    if (confirm('⚠️ Are you sure you want to delete this teacher? This action cannot be undone.')) {
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this teacher? This action cannot be undone.')) {
         try {
             const response = await fetch(`/api/teachers/${teacherId}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Teacher deleted successfully');
+                await SystemDialog.alert('✅ Teacher deleted successfully');
                 addNotification('A teacher was removed from the staff');
                 showTeacherManagement();
-            } else { alert('❌ Error deleting teacher'); }
-        } catch (error) { console.error('Error:', error); alert('Error deleting teacher'); }
+            } else { await SystemDialog.alert('❌ Error deleting teacher'); }
+        } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error deleting teacher'); }
     }
 }
 
 // ==================== EXPORT TEACHERS DATA ====================
-function exportTeachersData() {
-    if (window.allTeachersData.length === 0) { alert('No teachers to export'); return; }
+async function exportTeachersData() {
+    if (window.allTeachersData.length === 0) { await SystemDialog.alert('No teachers to export'); return; }
     const exportData = window.allTeachersData.map(teacher => ({ 
         'Teacher ID': teacher.teacherId, 
         'First Name': teacher.firstName, 
@@ -18593,7 +18593,7 @@ window.loadStudentsForScores = async () => {
     const classId = document.getElementById('scoreClass').value;
     const subjectId = document.getElementById('scoreSubject').value;
     const assessmentType = document.getElementById('assessmentType').value;
-    if (!classId || !subjectId) { alert('Please select class and subject'); return; }
+    if (!classId || !subjectId) { await SystemDialog.alert('Please select class and subject'); return; }
     try {
         const studentsRes = await fetch('/api/students');
         const students = await studentsRes.json();
@@ -18608,11 +18608,11 @@ window.loadStudentsForScores = async () => {
             const assessmentData = await assessmentRes.json();
             const scores = classStudents.map(s => ({ studentId: s.id, score: parseInt(document.getElementById(`score_${s.id}`).value) || 0, remarks: document.getElementById(`remark_${s.id}`).value })).filter(s => s.score > 0);
             await fetch('/api/academics/scores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assessmentId: assessmentData.assessment.id, scores }) });
-            alert('✅ Scores saved successfully!');
+            await SystemDialog.alert('✅ Scores saved successfully!');
             addNotification(`Scores for ${assessmentType} were recorded`);
             showScoreEntry();
         });
-    } catch (error) { console.error('Error:', error); alert('Error loading students'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error loading students'); }
 };
 
 // ==================== VIEW SCORES ====================
@@ -18632,7 +18632,7 @@ async function showViewScores() {
 
 window.loadScoresToView = async () => {
     const assessmentId = document.getElementById('viewAssessment').value;
-    if (!assessmentId) { alert('Please select an assessment'); return; }
+    if (!assessmentId) { await SystemDialog.alert('Please select an assessment'); return; }
     try {
         const scoresRes = await fetch('/api/academics/scores');
         const allScores = await scoresRes.json();
@@ -18643,7 +18643,7 @@ window.loadScoresToView = async () => {
         const scoresWithStudents = assessmentScores.map(score => { const student = students.find(s => s.id === score.studentId); return { ...score, studentName: student ? `${student.firstName} ${student.lastName}` : 'Unknown', admissionNumber: student?.admissionNumber }; });
         const html = `<div class="mt-4 overflow-x-auto"><table class="w-full"><thead class="bg-gray-100"><tr><th class="p-3">Admission</th><th class="p-3">Student</th><th class="p-3">Score</th><th class="p-3">Remarks</th><th class="p-3">Date</th></tr></thead><tbody>${scoresWithStudents.map(s => `<tr class="border-b"><td class="p-3">${s.admissionNumber}</td><td class="p-3">${s.studentName}</td><td class="p-3 text-center font-bold">${s.score}%</td><td class="p-3">${s.remarks || '-'}</td><td class="p-3 text-sm">${new Date(s.recordedAt).toLocaleDateString()}</td></tr>`).join('')}</tbody>}</table></div>`;
         document.getElementById('scoresViewResult').innerHTML = html;
-    } catch (error) { console.error('Error:', error); alert('Error loading scores'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error loading scores'); }
 };
 
 // ==================== PERFORMANCE ANALYSIS ====================
@@ -18661,7 +18661,7 @@ async function showPerformanceAnalysis() {
 
 window.loadPerformanceData = async () => {
     const classId = document.getElementById('performanceClass').value;
-    if (!classId) { alert('Select a class'); return; }
+    if (!classId) { await SystemDialog.alert('Select a class'); return; }
     try {
         const response = await fetch(`/api/academics/performance/${classId}/1/2026`);
         const data = await response.json();
@@ -18669,7 +18669,7 @@ window.loadPerformanceData = async () => {
         const avgScore = (data.performance.reduce((sum, s) => sum + parseFloat(s.percentage), 0) / data.performance.length).toFixed(1);
         const topStudent = data.performance[0];
         document.getElementById('performanceResults').innerHTML = `<div class="mt-4"><div class="grid grid-cols-3 gap-4 mb-6"><div class="bg-green-50 p-4 rounded text-center"><p class="text-sm text-gray-600">Average Score</p><p class="text-2xl font-bold text-green-600">${avgScore}%</p></div><div class="bg-blue-50 p-4 rounded text-center"><p class="text-sm text-gray-600">Top Student</p><p class="text-lg font-bold text-blue-600">${topStudent?.studentName}</p><p class="text-sm">${topStudent?.percentage}%</p></div><div class="bg-purple-50 p-4 rounded text-center"><p class="text-sm text-gray-600">Total Students</p><p class="text-2xl font-bold text-purple-600">${data.performance.length}</p></div></div><h3 class="font-bold mb-3">Top Performers</h3>${data.performance.slice(0, 5).map((s, i) => `<div class="flex justify-between p-3 bg-gray-50 mt-2 rounded"><span>${i+1}. ${s.studentName}</span><span class="font-bold">${s.percentage}% (${s.grade})</span></div>`).join('')}</div>`;
-    } catch (error) { console.error('Error:', error); alert('Error loading performance data'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error loading performance data'); }
 };
 
 // ==================== TRANSCRIPT ====================
@@ -18692,7 +18692,7 @@ window.generateTranscript = async () => {
     const studentId = document.getElementById('transcriptStudent').value;
     const term = document.getElementById('transcriptTerm').value;
     const year = document.getElementById('transcriptYear').value;
-    if (!studentId) { alert('Please select a student'); return; }
+    if (!studentId) { await SystemDialog.alert('Please select a student'); return; }
     await generateTranscriptWithParams(studentId, term, year);
 };
 
@@ -18702,7 +18702,7 @@ async function generateTranscriptWithParams(studentId, term, year) {
         const report = await reportRes.json();
         const html = `<div class="mt-6 p-6 border-2 rounded-lg bg-white"><div class="text-center border-b pb-4 mb-4"><h3 class="font-bold text-xl">ACADEMIC TRANSCRIPT</h3><p class="text-gray-600">${currentSchool?.schoolName || 'School Name'}</p><p class="text-sm">Term ${term}, ${year}</p></div><div class="grid grid-cols-2 gap-4 mb-6"><div><p><strong>Student Name:</strong> ${report.student.name}</p><p><strong>Admission Number:</strong> ${report.student.admissionNumber}</p></div><div><p><strong>Class:</strong> ${report.student.class}</p><p><strong>Gender:</strong> ${report.student.gender}</p></div></div><table class="w-full mb-6 border"><thead class="bg-gray-100"><tr><th class="p-3 border">Subject</th><th class="p-3 border">Score (%)</th><th class="p-3 border">Grade</th><th class="p-3 border">Remark</th></tr></thead><tbody>${report.results.map(r => `<tr><td class="p-3 border">${r.subjectName}</td><td class="p-3 border text-center font-bold">${r.score}%</td><td class="p-3 border text-center">${r.grade}</td><td class="p-3 border">${r.remark}</tr>`).join('')}</tbody></table><div class="bg-yellow-50 p-4 rounded-lg"><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-sm text-gray-600">Average Score</p><p class="text-2xl font-bold text-blue-600">${report.summary.average}%</p></div><div><p class="text-sm text-gray-600">Overall Grade</p><p class="text-2xl font-bold text-green-600">${report.summary.grade}</p></div><div><p class="text-sm text-gray-600">Remark</p><p class="text-md font-semibold">${report.summary.remark}</p></div></div></div><div class="mt-4 flex justify-center gap-4"><button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded"><i class="fas fa-print"></i> Print Transcript</button><button onclick="showTranscript()" class="bg-gray-600 text-white px-4 py-2 rounded">New Transcript</button></div></div>`;
         document.getElementById('transcriptResult').innerHTML = html;
-    } catch (error) { console.error('Error:', error); alert('Error generating transcript'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error generating transcript'); }
 }
 
 // ==================== REPORTS ====================
@@ -19281,7 +19281,7 @@ function initializeFinancialCharts(monthNames, monthlyTotals, tuitionTotal, acti
 }
 
 // ==================== EXPORT FINANCIAL REPORT ====================
-function exportFinancialReport() {
+async function exportFinancialReport() {
     const students = window.allStudentsData || [];
     const payments = window.currentTermPayments || [];
     
@@ -19316,7 +19316,7 @@ function exportFinancialReport() {
     a.download = `financial_report_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    alert('✅ Financial report exported successfully');
+    await SystemDialog.alert('✅ Financial report exported successfully');
 }
 
 // Make functions global
@@ -19324,16 +19324,16 @@ window.showReports = showReports;
 window.exportFinancialReport = exportFinancialReport;
 window.generateReportCard = async () => {
     const admissionNumber = document.getElementById('studentId').value;
-    if (!admissionNumber) { alert('Enter admission number'); return; }
+    if (!admissionNumber) { await SystemDialog.alert('Enter admission number'); return; }
     try {
         const studentsRes = await fetch('/api/students');
         const students = await studentsRes.json();
         const student = students.find(s => s.admissionNumber === admissionNumber);
-        if (!student) { alert('Student not found'); return; }
+        if (!student) { await SystemDialog.alert('Student not found'); return; }
         const reportRes = await fetch(`/api/reports/report-card/${student.id}/1/2026`);
         const report = await reportRes.json();
         document.getElementById('reportCardResult').innerHTML = `<div class="mt-4 p-4 border rounded bg-gray-50"><h4 class="font-bold">Report Card</h4><p><strong>Student:</strong> ${report.student.name}</p><p><strong>Admission:</strong> ${report.student.admissionNumber}</p><p><strong>Average:</strong> ${report.summary.average}%</p><p><strong>Grade:</strong> ${report.summary.grade}</p><p><strong>Remark:</strong> ${report.summary.remark}</p><button onclick="window.print()" class="mt-3 bg-blue-600 text-white px-4 py-1 rounded text-sm">Print</button></div>`;
-    } catch (error) { console.error('Error:', error); alert('Error generating report'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error generating report'); }
 };
 
 window.generateSchoolSummary = async () => {
@@ -19341,7 +19341,7 @@ window.generateSchoolSummary = async () => {
         const summaryRes = await fetch('/api/reports/school-summary/2026');
         const summary = await summaryRes.json();
         document.getElementById('schoolSummaryResult').innerHTML = `<div class="mt-4 p-4 border rounded bg-gray-50"><h4 class="font-bold">School Summary ${summary.year}</h4><p>Total Students: ${summary.totalStudents}</p><p>Active Students: ${summary.activeStudents}</p><p>Total Teachers: ${summary.totalTeachers}</p><p>Total Classes: ${summary.totalClasses}</p><p>Male: ${summary.genderDistribution?.male || 0} | Female: ${summary.genderDistribution?.female || 0}</p></div>`;
-    } catch (error) { console.error('Error:', error); alert('Error generating summary'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error generating summary'); }
 };
 
 // ==================== ADMIN ATTENDANCE DASHBOARD (FULLY FIXED) ====================
@@ -19847,7 +19847,7 @@ async function showTimetable() {
 
 window.loadTimetable = () => {
     const classId = document.getElementById('timetableClass').value;
-    if (!classId) { alert('Please select a class'); return; }
+    if (!classId) { await SystemDialog.alert('Please select a class'); return; }
     const savedTimetable = localStorage.getItem(`timetable_${classId}`);
     const timetable = savedTimetable ? JSON.parse(savedTimetable) : {};
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -19866,7 +19866,7 @@ window.loadTimetable = () => {
 
 window.showEditTimetable = async () => {
     const classId = document.getElementById('timetableClass').value;
-    if (!classId) { alert('Please select a class first'); return; }
+    if (!classId) { await SystemDialog.alert('Please select a class first'); return; }
     const subjectsRes = await fetch('/api/school/subjects');
     const subjects = await subjectsRes.json();
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -19892,7 +19892,7 @@ window.showEditTimetable = async () => {
         const newTimetable = {};
         for (let [key, value] of formData.entries()) { newTimetable[key.replace('slot_', '')] = value; }
         localStorage.setItem(`timetable_${classId}`, JSON.stringify(newTimetable));
-        alert('✅ Timetable saved successfully!');
+        await SystemDialog.alert('✅ Timetable saved successfully!');
         addNotification('Timetable was updated');
         loadTimetable();
     });
@@ -20897,10 +20897,10 @@ function removeSchoolLogo() {
 // FIXED: resetSchoolProfile Function
 // ================================================================
 
-function resetSchoolProfile() {
+async function resetSchoolProfile() {
     console.log('=== RESET SCHOOL PROFILE ===');
     
-    if (!confirm('Reset school profile to default? This will clear all changes.')) {
+    if (!await SystemDialog.confirm('Reset school profile to default? This will clear all changes.')) {
         return;
     }
     
@@ -20928,7 +20928,7 @@ function handleImportFileSelect(event) {
     }
 }
 
-function displayImportFileInfo(file) {
+async function displayImportFileInfo(file) {
     const infoDiv = document.getElementById('importFileInfo');
     const fileName = document.getElementById('importFileName');
     const fileSize = document.getElementById('importFileSize');
@@ -20938,7 +20938,7 @@ function displayImportFileInfo(file) {
         // Validate file type
         const ext = file.name.split('.').pop().toLowerCase();
         if (!['xlsx', 'xls', 'csv'].includes(ext)) {
-            alert('⚠️ Please upload an Excel (.xlsx, .xls) or CSV file');
+            await SystemDialog.alert('⚠️ Please upload an Excel (.xlsx, .xls) or CSV file');
             document.getElementById('importFileInput').value = '';
             infoDiv.classList.add('hidden');
             return;
@@ -20946,7 +20946,7 @@ function displayImportFileInfo(file) {
         
         // Validate file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
-            alert('⚠️ File size exceeds 10MB limit');
+            await SystemDialog.alert('⚠️ File size exceeds 10MB limit');
             document.getElementById('importFileInput').value = '';
             infoDiv.classList.add('hidden');
             return;
@@ -20969,7 +20969,7 @@ async function importStudentData() {
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('⚠️ Please select a file to import');
+        await SystemDialog.alert('⚠️ Please select a file to import');
         return;
     }
     
@@ -21054,7 +21054,7 @@ async function importStudentData() {
             // Ask if user wants to view the updated student list
             if (successCount > 0) {
                 setTimeout(() => {
-                    if (confirm(`${successCount} students imported successfully! Do you want to view the student list?`)) {
+                    if (await SystemDialog.confirm(`${successCount} students imported successfully! Do you want to view the student list?`)) {
                         showStudentList();
                     }
                 }, 1000);
@@ -21226,9 +21226,9 @@ function getDefaultGradingSystem() {
     };
 }
 
-function addGradeLevel() {
+async function addGradeLevel() {
     const container = document.getElementById('gradingTable');
-    const newGradeLetter = prompt('Enter grade letter (e.g., A+, A-, B+):');
+    const newGradeLetter = await SystemDialog.prompt('Enter grade letter (e.g., A+, A-, B+):');
     if (!newGradeLetter) return;
     
     const newGradeHtml = `
@@ -21331,7 +21331,7 @@ function resetSchoolProfileForm() {
 
 
 async function createNewAcademicYear() {
-    const newYear = prompt('Enter new academic year (e.g., 2027):');
+    const newYear = await SystemDialog.prompt('Enter new academic year (e.g., 2027):');
     if (!newYear || isNaN(parseInt(newYear))) return;
     
     try {
@@ -21342,19 +21342,19 @@ async function createNewAcademicYear() {
         });
         
         if (response.ok) {
-            alert(`✅ Academic year ${newYear} created successfully!`);
+            await SystemDialog.alert(`✅ Academic year ${newYear} created successfully!`);
             showSettings();
         } else {
-            alert('❌ Error creating academic year');
+            await SystemDialog.alert('❌ Error creating academic year');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
 async function switchToAcademicYear() {
-    const year = prompt('Enter academic year to switch to (e.g., 2026):');
+    const year = await SystemDialog.prompt('Enter academic year to switch to (e.g., 2026):');
     if (!year || isNaN(parseInt(year))) return;
     
     try {
@@ -21368,17 +21368,17 @@ async function switchToAcademicYear() {
         });
         
         if (response.ok) {
-            alert(`✅ Switched to academic year ${year}`);
+            await SystemDialog.alert(`✅ Switched to academic year ${year}`);
             currentAcademicSettings.currentYear = parseInt(year);
             currentAcademicSettings.currentTerm = 1;
             updateAcademicHeader();
             showDashboard();
         } else {
-            alert('❌ Error switching academic year');
+            await SystemDialog.alert('❌ Error switching academic year');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -21393,7 +21393,7 @@ async function saveTermDateRanges() {
     }
     
     localStorage.setItem('termRanges', JSON.stringify(termRanges));
-    alert('✅ Term dates saved successfully!');
+    await SystemDialog.alert('✅ Term dates saved successfully!');
 }
 
 async function saveGradingSystem() {
@@ -21419,13 +21419,13 @@ async function saveGradingSystem() {
         });
         
         if (response.ok) {
-            alert('✅ Grading system saved successfully!');
+            await SystemDialog.alert('✅ Grading system saved successfully!');
         } else {
-            alert('❌ Error saving grading system');
+            await SystemDialog.alert('❌ Error saving grading system');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -21476,13 +21476,13 @@ async function saveInvoiceSettings() {
         });
         
         if (response.ok) {
-            alert('✅ Invoice settings saved!');
+            await SystemDialog.alert('✅ Invoice settings saved!');
         } else {
-            alert('❌ Error saving invoice settings');
+            await SystemDialog.alert('❌ Error saving invoice settings');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -21508,13 +21508,13 @@ async function saveSystemPreferences() {
         });
         
         if (response.ok) {
-            alert('✅ System preferences saved!');
+            await SystemDialog.alert('✅ System preferences saved!');
         } else {
-            alert('❌ Error saving preferences');
+            await SystemDialog.alert('❌ Error saving preferences');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -21539,23 +21539,23 @@ async function exportFullSystemBackup() {
         URL.revokeObjectURL(url);
         
         localStorage.setItem('lastBackupDate', new Date().toLocaleString());
-        alert('✅ Full backup created successfully!');
+        await SystemDialog.alert('✅ Full backup created successfully!');
     } catch (error) {
         console.error('Error creating backup:', error);
-        alert('❌ Error creating backup: ' + error.message);
+        await SystemDialog.alert('❌ Error creating backup: ' + error.message);
     }
 }
 
 async function restoreFromBackupFile() {
     const fileInput = document.getElementById('restoreFileInput');
     if (!fileInput.files || fileInput.files.length === 0) {
-        alert('Please select a backup file to restore');
+        await SystemDialog.alert('Please select a backup file to restore');
         return;
     }
     
     const file = fileInput.files[0];
     if (!file.name.endsWith('.json')) {
-        alert('Please select a valid JSON backup file');
+        await SystemDialog.alert('Please select a valid JSON backup file');
         return;
     }
     
@@ -21564,9 +21564,9 @@ async function restoreFromBackupFile() {
         try {
             const backupData = JSON.parse(e.target.result);
             
-            const confirmation = prompt('⚠️ WARNING: Restoring will overwrite ALL current data!\n\nType "RESTORE" to confirm:');
+            const confirmation = await SystemDialog.prompt('⚠️ WARNING: Restoring will overwrite ALL current data!\n\nType "RESTORE" to confirm:');
             if (confirmation !== 'RESTORE') {
-                alert('Restore cancelled');
+                await SystemDialog.alert('Restore cancelled');
                 return;
             }
             
@@ -21587,12 +21587,12 @@ async function restoreFromBackupFile() {
                 }).catch(() => {});
             }
             
-            alert('✅ Data restored successfully! The page will now refresh.');
+            await SystemDialog.alert('✅ Data restored successfully! The page will now refresh.');
             setTimeout(() => window.location.reload(), 1500);
             
         } catch (error) {
             console.error('Error restoring data:', error);
-            alert('❌ Invalid backup file or error during restore');
+            await SystemDialog.alert('❌ Invalid backup file or error during restore');
         }
     };
     reader.readAsText(file);
@@ -21603,7 +21603,7 @@ async function exportStudentsData() {
     const students = await response.json();
     const csv = convertToCSV(students);
     downloadCSV(csv, `students_${new Date().toISOString().split('T')[0]}.csv`);
-    alert(`✅ ${students.length} students exported!`);
+    await SystemDialog.alert(`✅ ${students.length} students exported!`);
 }
 
 async function exportTeachersData() {
@@ -21611,7 +21611,7 @@ async function exportTeachersData() {
     const teachers = await response.json();
     const csv = convertToCSV(teachers);
     downloadCSV(csv, `teachers_${new Date().toISOString().split('T')[0]}.csv`);
-    alert(`✅ ${teachers.length} teachers exported!`);
+    await SystemDialog.alert(`✅ ${teachers.length} teachers exported!`);
 }
 
 async function exportPaymentsData() {
@@ -21619,7 +21619,7 @@ async function exportPaymentsData() {
     const payments = await response.json();
     const csv = convertToCSV(payments);
     downloadCSV(csv, `payments_${new Date().toISOString().split('T')[0]}.csv`);
-    alert(`✅ ${payments.length} payments exported!`);
+    await SystemDialog.alert(`✅ ${payments.length} payments exported!`);
 }
 
 async function exportFeeStructuresData() {
@@ -21627,7 +21627,7 @@ async function exportFeeStructuresData() {
     const structures = await response.json();
     const csv = convertToCSV(structures);
     downloadCSV(csv, `fee_structures_${new Date().toISOString().split('T')[0]}.csv`);
-    alert(`✅ ${structures.length} fee structures exported!`);
+    await SystemDialog.alert(`✅ ${structures.length} fee structures exported!`);
 }
 
 function convertToCSV(data) {
@@ -21650,12 +21650,12 @@ function downloadCSV(csv, filename) {
     URL.revokeObjectURL(url);
 }
 
-function confirmSystemReset() {
-    const confirmation = prompt('⚠️ WARNING: This will delete ALL data!\n\nType "RESET ALL DATA" to confirm:');
+async function confirmSystemReset() {
+    const confirmation = await SystemDialog.prompt('⚠️ WARNING: This will delete ALL data!\n\nType "RESET ALL DATA" to confirm:');
     if (confirmation === 'RESET ALL DATA') {
         resetSystem();
     } else {
-        alert('Reset cancelled');
+        await SystemDialog.alert('Reset cancelled');
     }
 }
 
@@ -21664,14 +21664,14 @@ async function resetSystem() {
         const response = await fetch('/api/system/reset', { method: 'DELETE' });
         if (response.ok) {
             localStorage.clear();
-            alert('✅ System reset successfully! Page will reload.');
+            await SystemDialog.alert('✅ System reset successfully! Page will reload.');
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            alert('❌ Error resetting system');
+            await SystemDialog.alert('❌ Error resetting system');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -21768,9 +21768,9 @@ function renderGradingForm(gradingSystem) {
     `).join('');
 }
 
-function addGradeLevel() {
+async function addGradeLevel() {
     const container = document.getElementById('gradingTable');
-    const newGradeLetter = prompt('Enter grade letter (e.g., A+, A-, etc.):');
+    const newGradeLetter = await SystemDialog.prompt('Enter grade letter (e.g., A+, A-, etc.):');
     if (!newGradeLetter) return;
     
     const newGradeHtml = `
@@ -21982,7 +21982,7 @@ async function updateAcademicPeriod() {
     const termSelect = document.getElementById('academicTermSelect');
     
     if (!yearSelect || !termSelect) {
-        alert('Please refresh the page and try again');
+        await SystemDialog.alert('Please refresh the page and try again');
         return;
     }
     
@@ -21990,7 +21990,7 @@ async function updateAcademicPeriod() {
     const selectedTerm = parseInt(termSelect.value);
     
     if (isNaN(selectedYear) || isNaN(selectedTerm)) {
-        alert('Please select valid year and term');
+        await SystemDialog.alert('Please select valid year and term');
         return;
     }
     
@@ -22042,7 +22042,7 @@ async function updateAcademicPeriod() {
         
     } catch (error) {
         console.error('Error:', error);
-        alert('❌ Error updating academic period: ' + error.message);
+        await SystemDialog.alert('❌ Error updating academic period: ' + error.message);
     } finally {
         if (updateBtn) {
             updateBtn.innerHTML = originalText;
@@ -22106,7 +22106,7 @@ function updateAcademicHeader() {
 // ==================== FIXED ACADEMIC SETTINGS INITIALIZATION ====================
 
 async function createNewAcademicYear() {
-    const newYear = prompt('Enter new academic year (e.g., 2027):');
+    const newYear = await SystemDialog.prompt('Enter new academic year (e.g., 2027):');
     if (!newYear || isNaN(parseInt(newYear))) return;
     
     try {
@@ -22117,22 +22117,22 @@ async function createNewAcademicYear() {
         });
         
         if (response.ok) {
-            alert(`✅ Academic year ${newYear} created successfully!`);
+            await SystemDialog.alert(`✅ Academic year ${newYear} created successfully!`);
             showSettings();
         } else {
-            alert('❌ Error creating academic year');
+            await SystemDialog.alert('❌ Error creating academic year');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
 async function copyDataFromPreviousYear() {
     const yearsRes = await fetch('/api/academic/years');
     const years = await yearsRes.json();
-    const fromYear = prompt(`Select year to copy from:\nAvailable years: ${years.join(', ')}`);
-    const toYear = prompt('Enter target year:');
+    const fromYear = await SystemDialog.prompt(`Select year to copy from:\nAvailable years: ${years.join(', ')}`);
+    const toYear = await SystemDialog.prompt('Enter target year:');
     
     if (!fromYear || !toYear) return;
     
@@ -22142,14 +22142,14 @@ async function copyDataFromPreviousYear() {
         });
         
         if (response.ok) {
-            alert(`✅ Data copied from ${fromYear} to ${toYear}`);
+            await SystemDialog.alert(`✅ Data copied from ${fromYear} to ${toYear}`);
             showSettings();
         } else {
-            alert('❌ Error copying data');
+            await SystemDialog.alert('❌ Error copying data');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -22182,13 +22182,13 @@ async function saveTermRanges() {
         });
         
         if (response.ok) {
-            alert('✅ Term dates saved successfully!');
+            await SystemDialog.alert('✅ Term dates saved successfully!');
         } else {
-            alert('❌ Error saving term dates');
+            await SystemDialog.alert('❌ Error saving term dates');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -22215,13 +22215,13 @@ async function saveGradingSystem() {
         });
         
         if (response.ok) {
-            alert('✅ Grading system saved successfully!');
+            await SystemDialog.alert('✅ Grading system saved successfully!');
         } else {
-            alert('❌ Error saving grading system');
+            await SystemDialog.alert('❌ Error saving grading system');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -22249,13 +22249,13 @@ async function saveRegistrationFeeSettings() {
         });
         
         if (response.ok) {
-            alert('✅ Registration fee settings saved!');
+            await SystemDialog.alert('✅ Registration fee settings saved!');
         } else {
-            alert('❌ Error saving registration fee settings');
+            await SystemDialog.alert('❌ Error saving registration fee settings');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -22277,13 +22277,13 @@ async function saveInvoiceSettings() {
         });
         
         if (response.ok) {
-            alert('✅ Invoice settings saved!');
+            await SystemDialog.alert('✅ Invoice settings saved!');
         } else {
-            alert('❌ Error saving invoice settings');
+            await SystemDialog.alert('❌ Error saving invoice settings');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -22307,22 +22307,22 @@ async function saveSystemPreferences() {
         });
         
         if (response.ok) {
-            alert('✅ System preferences saved!');
+            await SystemDialog.alert('✅ System preferences saved!');
         } else {
-            alert('❌ Error saving preferences');
+            await SystemDialog.alert('❌ Error saving preferences');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
-function confirmSystemReset() {
-    const confirmation = prompt('⚠️ WARNING: This will delete ALL data!\n\nType "RESET ALL DATA" to confirm:');
+async function confirmSystemReset() {
+    const confirmation = await SystemDialog.prompt('⚠️ WARNING: This will delete ALL data!\n\nType "RESET ALL DATA" to confirm:');
     if (confirmation === 'RESET ALL DATA') {
         resetSystem();
     } else {
-        alert('Reset cancelled');
+        await SystemDialog.alert('Reset cancelled');
     }
 }
 
@@ -22331,14 +22331,14 @@ async function resetSystem() {
         const response = await fetch('/api/system/reset', { method: 'DELETE' });
         if (response.ok) {
             localStorage.clear();
-            alert('✅ System reset successfully! Page will reload.');
+            await SystemDialog.alert('✅ System reset successfully! Page will reload.');
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            alert('❌ Error resetting system');
+            await SystemDialog.alert('❌ Error resetting system');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     }
 }
 
@@ -22633,10 +22633,10 @@ async function exportFullBackup() {
         localStorage.setItem('lastBackupDate', new Date().toLocaleString());
         localStorage.setItem('backupSize', `${fileSize} KB`);
         
-        alert(`✅ Full backup created successfully!\nFile size: ${fileSize} KB`);
+        await SystemDialog.alert(`✅ Full backup created successfully!\nFile size: ${fileSize} KB`);
     } catch (error) {
         console.error('Error creating backup:', error);
-        alert('❌ Error creating backup: ' + error.message);
+        await SystemDialog.alert('❌ Error creating backup: ' + error.message);
     }
 }
 
@@ -22685,10 +22685,10 @@ async function exportStudentsToExcel() {
         }));
         
         downloadCSV(exportData, `students_export_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ ${students.length} students exported successfully!`);
+        await SystemDialog.alert(`✅ ${students.length} students exported successfully!`);
     } catch (error) {
         console.error('Error exporting students:', error);
-        alert('❌ Error exporting students: ' + error.message);
+        await SystemDialog.alert('❌ Error exporting students: ' + error.message);
     }
 }
 
@@ -22716,10 +22716,10 @@ async function exportTeachersToExcel() {
         }));
         
         downloadCSV(exportData, `teachers_export_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ ${teachers.length} teachers exported successfully!`);
+        await SystemDialog.alert(`✅ ${teachers.length} teachers exported successfully!`);
     } catch (error) {
         console.error('Error exporting teachers:', error);
-        alert('❌ Error exporting teachers: ' + error.message);
+        await SystemDialog.alert('❌ Error exporting teachers: ' + error.message);
     }
 }
 
@@ -22748,10 +22748,10 @@ async function exportPaymentsToExcel() {
         }));
         
         downloadCSV(exportData, `payments_export_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ ${payments.length} payment records exported successfully!`);
+        await SystemDialog.alert(`✅ ${payments.length} payment records exported successfully!`);
     } catch (error) {
         console.error('Error exporting payments:', error);
-        alert('❌ Error exporting payments: ' + error.message);
+        await SystemDialog.alert('❌ Error exporting payments: ' + error.message);
     }
 }
 
@@ -22781,10 +22781,10 @@ async function exportFeeStructuresToExcel() {
         });
         
         downloadCSV(exportData, `fee_structures_export_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ ${structures.length} fee structures exported successfully!`);
+        await SystemDialog.alert(`✅ ${structures.length} fee structures exported successfully!`);
     } catch (error) {
         console.error('Error exporting fee structures:', error);
-        alert('❌ Error exporting fee structures: ' + error.message);
+        await SystemDialog.alert('❌ Error exporting fee structures: ' + error.message);
     }
 }
 
@@ -22841,10 +22841,10 @@ async function exportAllToExcel() {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
         
-        alert(`✅ All data exported successfully!\n\nFiles downloaded:\n- Students (${students.length})\n- Teachers (${teachers.length})\n- Classes (${classes.length})\n- Subjects (${subjects.length})\n- Payments (${payments.length})\n- Fee Structures (${structures.length})`);
+        await SystemDialog.alert(`✅ All data exported successfully!\n\nFiles downloaded:\n- Students (${students.length})\n- Teachers (${teachers.length})\n- Classes (${classes.length})\n- Subjects (${subjects.length})\n- Payments (${payments.length})\n- Fee Structures (${structures.length})`);
     } catch (error) {
         console.error('Error exporting all data:', error);
-        alert('❌ Error exporting all data: ' + error.message);
+        await SystemDialog.alert('❌ Error exporting all data: ' + error.message);
     }
 }
 
@@ -22954,13 +22954,13 @@ function feeStructuresToCSV(structures) {
 async function restoreFromBackup() {
     const fileInput = document.getElementById('restoreFile');
     if (!fileInput.files || fileInput.files.length === 0) {
-        alert('Please select a backup file to restore');
+        await SystemDialog.alert('Please select a backup file to restore');
         return;
     }
     
     const file = fileInput.files[0];
     if (!file.name.endsWith('.json')) {
-        alert('Please select a valid JSON backup file');
+        await SystemDialog.alert('Please select a valid JSON backup file');
         return;
     }
     
@@ -22971,9 +22971,9 @@ async function restoreFromBackup() {
             
             const confirmMsg = `⚠️ WARNING: Restoring will overwrite ALL current data!\n\nThis will replace:\n- ${backupData.students?.length || 0} students\n- ${backupData.teachers?.length || 0} teachers\n- ${backupData.feePayments?.length || 0} payments\n\nType "RESTORE" to confirm.`;
             
-            const confirmation = prompt(confirmMsg);
+            const confirmation = await SystemDialog.prompt(confirmMsg);
             if (confirmation !== 'RESTORE') {
-                alert('Restore cancelled');
+                await SystemDialog.alert('Restore cancelled');
                 return;
             }
             
@@ -23010,12 +23010,12 @@ async function restoreFromBackup() {
                 }).catch(() => {});
             }
             
-            alert('✅ Data restored successfully! The page will now refresh.');
+            await SystemDialog.alert('✅ Data restored successfully! The page will now refresh.');
             setTimeout(() => window.location.reload(), 1500);
             
         } catch (error) {
             console.error('Error restoring data:', error);
-            alert('❌ Invalid backup file or error during restore: ' + error.message);
+            await SystemDialog.alert('❌ Invalid backup file or error during restore: ' + error.message);
         }
     };
     reader.readAsText(file);
@@ -23039,9 +23039,9 @@ async function generateStudentReport() {
         }));
         
         downloadCSV(reportData, `student_report_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ Student report generated with ${students.length} records!`);
+        await SystemDialog.alert(`✅ Student report generated with ${students.length} records!`);
     } catch (error) {
-        alert('Error generating student report: ' + error.message);
+        await SystemDialog.alert('Error generating student report: ' + error.message);
     }
 }
 
@@ -23062,9 +23062,9 @@ async function generateFinancialReport() {
         ];
         
         downloadCSV(reportData, `financial_report_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ Financial report generated! Total collected: UGX ${(totalCollected / 1000000).toFixed(2)}M`);
+        await SystemDialog.alert(`✅ Financial report generated! Total collected: UGX ${(totalCollected / 1000000).toFixed(2)}M`);
     } catch (error) {
-        alert('Error generating financial report: ' + error.message);
+        await SystemDialog.alert('Error generating financial report: ' + error.message);
     }
 }
 
@@ -23094,9 +23094,9 @@ async function generateFeeSummaryReport() {
         }).filter(s => s['Total Payments'] > 0);
         
         downloadCSV(reportData, `fee_summary_report_${new Date().toISOString().split('T')[0]}.csv`);
-        alert(`✅ Fee summary report generated with ${reportData.length} students who have made payments!`);
+        await SystemDialog.alert(`✅ Fee summary report generated with ${reportData.length} students who have made payments!`);
     } catch (error) {
-        alert('Error generating fee summary report: ' + error.message);
+        await SystemDialog.alert('Error generating fee summary report: ' + error.message);
     }
 }
 
@@ -23144,34 +23144,34 @@ function showAutoBackupSettings() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function saveAutoBackupSettings() {
+async function saveAutoBackupSettings() {
     const frequency = document.getElementById('autoBackupFrequency').value;
     const location = document.getElementById('backupLocation').value;
     
     localStorage.setItem('autoBackupFrequency', frequency);
     localStorage.setItem('backupLocation', location);
     
-    alert('✅ Auto backup settings saved!');
+    await SystemDialog.alert('✅ Auto backup settings saved!');
     closeModal();
 }
 
 async function resetSystem() {
-    const confirmation = prompt('⚠️ WARNING: This will delete ALL data!\n\nType "RESET ALL DATA" to confirm:');
+    const confirmation = await SystemDialog.prompt('⚠️ WARNING: This will delete ALL data!\n\nType "RESET ALL DATA" to confirm:');
     if (confirmation === 'RESET ALL DATA') {
         try {
             const response = await fetch('/api/system/reset', { method: 'DELETE' });
             if (response.ok) {
                 localStorage.clear();
-                alert('✅ System reset successfully! The page will now reload.');
+                await SystemDialog.alert('✅ System reset successfully! The page will now reload.');
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert('❌ Error resetting system');
+                await SystemDialog.alert('❌ Error resetting system');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     } else {
-        alert('Reset cancelled');
+        await SystemDialog.alert('Reset cancelled');
     }
 }
 
@@ -23194,35 +23194,35 @@ window.closeModal = closeModal;
 
 window.restoreData = async () => {
     const fileInput = document.getElementById('restoreFile');
-    if (!fileInput.files || fileInput.files.length === 0) { alert('Please select a backup file to restore'); return; }
+    if (!fileInput.files || fileInput.files.length === 0) { await SystemDialog.alert('Please select a backup file to restore'); return; }
     const file = fileInput.files[0];
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
             const backupData = JSON.parse(e.target.result);
-            if (confirm('Restoring will overwrite ALL current data. Are you sure?')) {
+            if (await SystemDialog.confirm('Restoring will overwrite ALL current data. Are you sure?')) {
                 if (backupData.schools) { await fetch('/api/school/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(backupData.schools[0] || {}) }); }
-                alert('✅ Data restored successfully! Please refresh the page.');
+                await SystemDialog.alert('✅ Data restored successfully! Please refresh the page.');
                 setTimeout(() => window.location.reload(), 1500);
             }
-        } catch (error) { console.error('Error restoring data:', error); alert('❌ Invalid backup file or error during restore'); }
+        } catch (error) { console.error('Error restoring data:', error); await SystemDialog.alert('❌ Invalid backup file or error during restore'); }
     };
     reader.readAsText(file);
 };
 
 window.resetSystem = async () => {
-    if (confirm('⚠️ WARNING: This will delete ALL data! Type "RESET" to confirm.')) {
-        const confirmation = prompt('Type "RESET" to confirm data deletion:');
+    if (await SystemDialog.confirm('⚠️ WARNING: This will delete ALL data! Type "RESET" to confirm.')) {
+        const confirmation = await SystemDialog.prompt('Type "RESET" to confirm data deletion:');
         if (confirmation === 'RESET') {
             try {
                 const response = await fetch('/api/system/reset', { method: 'DELETE' });
                 if (response.ok) {
                     localStorage.clear();
-                    alert('✅ System reset successfully! Page will reload.');
+                    await SystemDialog.alert('✅ System reset successfully! Page will reload.');
                     setTimeout(() => window.location.reload(), 1500);
-                } else { alert('❌ Error resetting system'); }
-            } catch (error) { alert('Network error'); }
-        } else { alert('Reset cancelled'); }
+                } else { await SystemDialog.alert('❌ Error resetting system'); }
+            } catch (error) { await SystemDialog.alert('Network error'); }
+        } else { await SystemDialog.alert('Reset cancelled'); }
     }
 };
 
@@ -23238,9 +23238,9 @@ window.exportAllData = async () => {
         a.click();
         URL.revokeObjectURL(url);
         localStorage.setItem('backupInfo', JSON.stringify({ lastBackup: new Date().toLocaleString() }));
-        alert('✅ Data exported successfully!');
+        await SystemDialog.alert('✅ Data exported successfully!');
         addNotification('System backup was created');
-    } catch (error) { console.error('Error:', error); alert('Error exporting data'); }
+    } catch (error) { console.error('Error:', error); await SystemDialog.alert('Error exporting data'); }
 };
 
 // ==================== UTILITIES ====================
@@ -23495,10 +23495,10 @@ function loadStudentForCollection(studentId) {
 }
 
 // Export balances report
-function exportBalancesReport() {
+async function exportBalancesReport() {
     const students = window.enhancedStudentsData || [];
     if (students.length === 0) {
-        alert('No data to export');
+        await SystemDialog.alert('No data to export');
         return;
     }
     
@@ -23559,7 +23559,7 @@ function exportBalancesReport() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    alert(`✅ Balances exported successfully for ${students.length} students`);
+    await SystemDialog.alert(`✅ Balances exported successfully for ${students.length} students`);
 }
 
 // Make all functions global
@@ -24829,7 +24829,7 @@ async function printPaymentReceipt(receiptNumber) {
     console.log('printPaymentReceipt called for receipt:', receiptNumber);
 
     if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
-        alert('Invalid receipt number. Cannot print receipt.');
+        await SystemDialog.alert('Invalid receipt number. Cannot print receipt.');
         return;
     }
 
@@ -24857,7 +24857,7 @@ async function printPaymentReceipt(receiptNumber) {
         if (!payment) payment = allPayments.find(p => p.receiptNumber?.includes(receiptNumber) || receiptNumber.includes(p.receiptNumber));
 
         if (!payment) {
-            alert(`Payment record not found for receipt: ${receiptNumber}`);
+            await SystemDialog.alert(`Payment record not found for receipt: ${receiptNumber}`);
             return;
         }
 
@@ -25532,7 +25532,7 @@ async function printPaymentReceipt(receiptNumber) {
 
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -29451,7 +29451,7 @@ async function submitPeriodPayment(periodKey) {
                           `💰 Amount: UGX ${formatMoney(totalAmount)}\n` +
                           `📦 Items: ${activityItemPayments.length}\n\n` +
                           `This will be recorded as a previous balance payment.`;
-        if (!confirm(confirmMsg)) {
+        if (!await SystemDialog.confirm(confirmMsg)) {
             showToast('Payment cancelled', 'info');
             return;
         }
@@ -29563,7 +29563,7 @@ async function submitPeriodPayment(periodKey) {
 // Find this part in submitCollectionPaymentFixed:
 if (response.ok) {
     // ... build message ...
-    alert(message);  // <-- REPLACE THIS
+    await SystemDialog.alert(message);  // <-- REPLACE THIS
     // ... rest of code ...
 }
 
@@ -29730,7 +29730,7 @@ window.deduplicateHistories = deduplicateHistories;
 console.log('✅ All period functions registered globally!');
 
 // ========== PAY FULL PERIOD ==========
-function payFullPeriod(periodKey, balance) {
+async function payFullPeriod(periodKey, balance) {
     if (!balance || balance <= 0) {
         showToast('No balance to pay for this period', 'warning');
         return;
@@ -29759,7 +29759,7 @@ function payFullPeriod(periodKey, balance) {
     
     const periodLabel = isCurrent ? 'Current Period' : `${period.year} Term ${period.term}`;
     
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Pay full balance for ${periodLabel}?\n\n` +
         `💰 Amount: UGX ${formatMoney(balance)}\n` +
         `📦 Items: ${period.activity?.itemsRemaining || 0} item(s) remaining\n\n` +
@@ -30619,7 +30619,7 @@ async function submitCollectionPaymentFixed() {
 
     const student = window.currentCollectingStudent;
     if (!student) {
-        alert('No student selected');
+        await SystemDialog.alert('No student selected');
         return;
     }
 
@@ -30661,7 +30661,7 @@ async function submitCollectionPaymentFixed() {
 
     // ========== VALIDATE TUITION PAYMENT ==========
     if (tuitionPaid > tuitionBalance && tuitionBalance > 0) {
-        alert(`⚠️ Tuition payment cannot exceed the balance of UGX ${tuitionBalance.toLocaleString()}`);
+        await SystemDialog.alert(`⚠️ Tuition payment cannot exceed the balance of UGX ${tuitionBalance.toLocaleString()}`);
         return;
     }
 
@@ -31041,7 +31041,7 @@ async function submitCollectionPaymentFixed() {
     }
 
     if (totalAmount <= 0 && activityItemPayments.length === 0) {
-        alert('Please enter an amount to pay or select items to bring');
+        await SystemDialog.alert('Please enter an amount to pay or select items to bring');
         return;
     }
 
@@ -31176,7 +31176,7 @@ async function submitCollectionPaymentFixed() {
                 message += `\nRemaining balance for this term: UGX ${newBalance.toLocaleString()}`;
             }
 
-            alert(message);
+            await SystemDialog.alert(message);
 
             // ========== CLEAR CACHES ==========
             window.allStudentsData = null;
@@ -31197,11 +31197,11 @@ async function submitCollectionPaymentFixed() {
                 showFeeManagement();
             }
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -31217,18 +31217,18 @@ async function payFullPreviousBalance(studentId, year, term, balance) {
     console.log('Student:', studentId, 'Year:', year, 'Term:', term, 'Balance:', balance);
     
     if (!balance || balance <= 0) {
-        alert('No balance to pay for this period');
+        await SystemDialog.alert('No balance to pay for this period');
         return;
     }
     
     const student = window.currentCollectingStudent;
     if (!student) {
-        alert('Student data not loaded');
+        await SystemDialog.alert('Student data not loaded');
         return;
     }
     
     // Confirm with user
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Pay full previous balance?\n\n` +
         `📅 Period: ${year} Term ${term}\n` +
         `💰 Amount: UGX ${formatMoney(balance)}\n` +
@@ -31258,12 +31258,12 @@ async function payFullPreviousBalance(studentId, year, term, balance) {
 }
 
 // ==================== SHOW PARTIAL PAYMENT MODAL ====================
-function showPartialPaymentModal(studentId, year, term, maxBalance) {
+async function showPartialPaymentModal(studentId, year, term, maxBalance) {
     console.log('=== SHOW PARTIAL PAYMENT MODAL ===');
     
     const student = window.currentCollectingStudent;
     if (!student) {
-        alert('Student data not loaded');
+        await SystemDialog.alert('Student data not loaded');
         return;
     }
     
@@ -31379,13 +31379,13 @@ async function submitPartialPayment(studentId, year, term, maxBalance) {
     
     // Validate
     if (amount <= 0) {
-        alert('⚠️ Please enter a valid amount');
+        await SystemDialog.alert('⚠️ Please enter a valid amount');
         amountInput.focus();
         return;
     }
     
     if (amount > maxBalance) {
-        alert(`⚠️ Amount cannot exceed UGX ${formatMoney(maxBalance)}`);
+        await SystemDialog.alert(`⚠️ Amount cannot exceed UGX ${formatMoney(maxBalance)}`);
         amountInput.focus();
         return;
     }
@@ -31394,7 +31394,7 @@ async function submitPartialPayment(studentId, year, term, maxBalance) {
     const student = window.currentCollectingStudent;
     const itemsRemaining = student?.totalUnpaidItems || 0;
     
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Pay partial previous balance?\n\n` +
         `📅 Period: ${year} Term ${term}\n` +
         `💰 Amount: UGX ${formatMoney(amount)}\n` +
@@ -31433,13 +31433,13 @@ async function payAllPreviousBalances() {
     
     const student = window.currentCollectingStudent;
     if (!student) {
-        alert('Student data not loaded');
+        await SystemDialog.alert('Student data not loaded');
         return;
     }
     
     const previousBalances = student.previousBalances || [];
     if (previousBalances.length === 0) {
-        alert('No previous balances to pay');
+        await SystemDialog.alert('No previous balances to pay');
         return;
     }
     
@@ -31447,7 +31447,7 @@ async function payAllPreviousBalances() {
     const totalItems = previousBalances.reduce((sum, p) => sum + (p.totalUnpaidItems || 0), 0);
     
     if (totalBalance <= 0) {
-        alert('No outstanding previous balances');
+        await SystemDialog.alert('No outstanding previous balances');
         return;
     }
     
@@ -31463,7 +31463,7 @@ async function payAllPreviousBalances() {
     breakdownMsg += `💰 TOTAL: UGX ${formatMoney(totalBalance)}\n`;
     breakdownMsg += `📦 TOTAL ITEMS: ${totalItems} item(s)`;
     
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Pay ALL previous balances?\n\n` +
         `This will pay ${previousBalances.length} period(s) totaling UGX ${formatMoney(totalBalance)}.\n\n` +
         breakdownMsg
@@ -31555,7 +31555,7 @@ async function payAllPreviousBalances() {
     
     // Show result
     const displayDate = new Date().toLocaleString();
-    alert(
+    await SystemDialog.alert(
         `✅ Bulk previous balance payment completed!\n\n` +
         `📊 ${successCount} period(s) paid successfully\n` +
         `${failCount > 0 ? `⚠️ ${failCount} period(s) failed\n` : ''}` +
@@ -31842,19 +31842,19 @@ async function submitPartialPayment(studentId, year, term, maxBalance) {
     
     // Validate
     if (amount <= 0) {
-        alert('⚠️ Please enter a valid amount');
+        await SystemDialog.alert('⚠️ Please enter a valid amount');
         amountInput.focus();
         return;
     }
     
     if (amount > maxBalance) {
-        alert(`⚠️ Amount cannot exceed UGX ${formatMoney(maxBalance)}`);
+        await SystemDialog.alert(`⚠️ Amount cannot exceed UGX ${formatMoney(maxBalance)}`);
         amountInput.focus();
         return;
     }
     
     // Confirm
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Pay partial previous balance?\n\n` +
         `📅 Period: ${year} Term ${term}\n` +
         `💰 Amount: UGX ${formatMoney(amount)}\n` +
@@ -31892,14 +31892,14 @@ async function payAllPreviousBalances() {
     
     const previousBalances = window.previousBalancesData || [];
     if (previousBalances.length === 0) {
-        alert('No previous balances to pay');
+        await SystemDialog.alert('No previous balances to pay');
         return;
     }
     
     const totalBalance = previousBalances.reduce((sum, p) => sum + p.balance, 0);
     
     if (totalBalance <= 0) {
-        alert('No outstanding previous balances');
+        await SystemDialog.alert('No outstanding previous balances');
         return;
     }
     
@@ -31911,7 +31911,7 @@ async function payAllPreviousBalances() {
     breakdownMsg += `\n${'='.repeat(40)}\n`;
     breakdownMsg += `💰 TOTAL: UGX ${formatMoney(totalBalance)}`;
     
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Pay ALL previous balances?\n\n` +
         `This will pay ${previousBalances.length} period(s) totaling UGX ${formatMoney(totalBalance)}.\n\n` +
         breakdownMsg
@@ -32012,7 +32012,7 @@ async function payAllPreviousBalances() {
     
     // Show result
     const displayDate = new Date().toLocaleString();
-    alert(
+    await SystemDialog.alert(
         `✅ Bulk previous balance payment completed!\n\n` +
         `📊 ${successCount} period(s) paid successfully\n` +
         `${failCount > 0 ? `⚠️ ${failCount} period(s) failed\n` : ''}` +
@@ -33775,7 +33775,7 @@ console.log('   - ✅ Works with all period types (One-Time, Termly, Yearly)');
 console.log('   - ✅ Professional color palette (slate/teal/amber) — no default blue accents');
 // ==================== FIX 2: TUITION VALIDATION - PREVENT EXCEEDING MAX ====================
 // ==================== FIXED: TUITION VALIDATION (Allows any amount up to max) ====================
-function validateAndCalculateTuition() {
+async function validateAndCalculateTuition() {
     const tuitionInput = document.getElementById('tuitionAmount');
     if (!tuitionInput) return;
     
@@ -33787,10 +33787,10 @@ function validateAndCalculateTuition() {
         // Auto-fill to max and show alert
         tuitionInput.value = maxValue;
         value = maxValue;
-        if (typeof showToast === 'function') {
+        if (typeof showToast === 'async function') {
             showToast(`⚠️ Amount cannot exceed the required balance of UGX ${maxValue.toLocaleString()}`, 'warning');
         } else {
-            alert(`⚠️ Amount cannot exceed the required balance of UGX ${maxValue.toLocaleString()}`);
+            await SystemDialog.alert(`⚠️ Amount cannot exceed the required balance of UGX ${maxValue.toLocaleString()}`);
         }
     }
     
@@ -33819,7 +33819,7 @@ window.validateAndCalculateTuition = validateAndCalculateTuition;
 
 //     const student = window.currentCollectingStudent;
 //     if (!student) {
-//         alert('No student selected');
+//         await SystemDialog.alert('No student selected');
 //         return;
 //     }
 
@@ -33835,7 +33835,7 @@ window.validateAndCalculateTuition = validateAndCalculateTuition;
 
 //     const tuitionBalance = student.tuitionBalance || 0;
 //     if (tuitionPaid > tuitionBalance && tuitionBalance > 0) {
-//         alert(`⚠️ Tuition payment cannot exceed the balance of UGX ${tuitionBalance.toLocaleString()}`);
+//         await SystemDialog.alert(`⚠️ Tuition payment cannot exceed the balance of UGX ${tuitionBalance.toLocaleString()}`);
 //         return;
 //     }
 
@@ -34113,7 +34113,7 @@ window.validateAndCalculateTuition = validateAndCalculateTuition;
 //     console.log(`📦 Activity Items Count: ${activityItemPayments.length}`);
 
 //     if (totalAmount <= 0 && activityItemPayments.length === 0) {
-//         alert('Please enter an amount to pay or select items to bring');
+//         await SystemDialog.alert('Please enter an amount to pay or select items to bring');
 //         return;
 //     }
 
@@ -34221,7 +34221,7 @@ window.validateAndCalculateTuition = validateAndCalculateTuition;
 //                 message += `\nRemaining balance: UGX ${newBalance.toLocaleString()}`;
 //             }
 
-//             alert(message);
+//             await SystemDialog.alert(message);
 
 //             window.allStudentsData = null;
 //             window.enhancedStudentsData = null;
@@ -34229,11 +34229,11 @@ window.validateAndCalculateTuition = validateAndCalculateTuition;
 
 //             showFeeManagement();
 //         } else {
-//             alert('❌ Error: ' + (result.error || 'Unknown error'));
+//             await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
 //         }
 //     } catch (error) {
 //         console.error('Payment error:', error);
-//         alert('Network error: ' + error.message);
+//         await SystemDialog.alert('Network error: ' + error.message);
 //     } finally {
 //         submitBtn.innerHTML = originalText;
 //         submitBtn.disabled = false;
@@ -35186,7 +35186,7 @@ async function submitAllFeeCollection() {
     const feeStructure = window.currentFeeStructure;
     
     if (!student) {
-        alert('No student selected');
+        await SystemDialog.alert('No student selected');
         return;
     }
     
@@ -35267,7 +35267,7 @@ async function submitAllFeeCollection() {
     const totalAmount = tuitionPaid + activityTotal;
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select items to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select items to pay');
         return;
     }
     
@@ -35332,14 +35332,14 @@ async function submitAllFeeCollection() {
                 message += `\nRemaining balance: UGX ${Math.round(newBalance).toLocaleString()}`;
             }
             
-            alert(message);
+            await SystemDialog.alert(message);
             showFeeManagement();
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -35827,7 +35827,7 @@ async function submitAllFeeCollection() {
     const feeStructure = window.currentFeeStructure;
     
     if (!student) {
-        alert('No student selected');
+        await SystemDialog.alert('No student selected');
         return;
     }
     
@@ -35889,7 +35889,7 @@ async function submitAllFeeCollection() {
     const totalAmount = tuitionPaid + activityTotal;
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select items to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select items to pay');
         return;
     }
     
@@ -35954,14 +35954,14 @@ async function submitAllFeeCollection() {
                 message += `\nRemaining balance: UGX ${Math.round(newBalance).toLocaleString()}`;
             }
             
-            alert(message);
+            await SystemDialog.alert(message);
             showFeeManagement();
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -36309,7 +36309,7 @@ async function submitFeeCollection() {
     const feeStructure = window.currentFeeStructure;
     
     if (!student) {
-        alert('No student selected');
+        await SystemDialog.alert('No student selected');
         return;
     }
     
@@ -36365,7 +36365,7 @@ async function submitFeeCollection() {
     const totalAmount = tuitionPaid + activityTotal;
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select items to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select items to pay');
         return;
     }
     
@@ -36417,14 +36417,14 @@ async function submitFeeCollection() {
                 message += `\nRemaining balance: UGX ${Math.round(newBalance).toLocaleString()}`;
             }
             
-            alert(message);
+            await SystemDialog.alert(message);
             showFeeManagement();
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -36887,7 +36887,7 @@ async function submitFullPayment(student, feeStructure, currentYear, currentTerm
     const totalAmount = tuitionPaid + activityTotal;
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select items to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select items to pay');
         return;
     }
     
@@ -36922,15 +36922,15 @@ async function submitFullPayment(student, feeStructure, currentYear, currentTerm
         
         if (response.ok) {
             const result = await response.json();
-            alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}`);
+            await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}`);
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -36987,7 +36987,7 @@ async function submitPaymentFixed(student, feeStructure, currentYear, currentTer
     const notes = document.getElementById('paymentNotes')?.value || '';
     
     if (tuitionPaid <= 0) {
-        alert('Please enter an amount to pay');
+        await SystemDialog.alert('Please enter an amount to pay');
         return;
     }
     
@@ -37021,18 +37021,18 @@ async function submitPaymentFixed(student, feeStructure, currentYear, currentTer
             const newBalance = (student.expectedTuition || 0) - tuitionPaid;
             
             if (newBalance <= 0) {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
             } else {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
             }
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -37113,7 +37113,7 @@ async function submitPaymentWorking(student, feeStructure, currentYear, currentT
     const notes = document.getElementById('paymentNotes')?.value || '';
     
     if (tuitionPaid <= 0) {
-        alert('Please enter an amount to pay');
+        await SystemDialog.alert('Please enter an amount to pay');
         return;
     }
     
@@ -37147,18 +37147,18 @@ async function submitPaymentWorking(student, feeStructure, currentYear, currentT
             const newBalance = (student.expectedTuition || 0) - tuitionPaid;
             
             if (newBalance <= 0) {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
             } else {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
             }
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -37765,7 +37765,7 @@ async function printReceipt(receiptNumber) {
         const payment = payments.find(p => p.receiptNumber === receiptNumber);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -37832,7 +37832,7 @@ async function printReceipt(receiptNumber) {
         `);
         win.document.close();
     } catch (error) {
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -37874,7 +37874,7 @@ async function printReceipt(receiptNumber) {
         const payment = payments.find(p => p.receiptNumber === receiptNumber);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -37941,7 +37941,7 @@ async function printReceipt(receiptNumber) {
         `);
         win.document.close();
     } catch (error) {
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -37980,7 +37980,7 @@ async function printPaymentReceipt(paymentId) {
         const payment = payments.find(p => p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -38120,7 +38120,7 @@ async function printPaymentReceipt(paymentId) {
         printWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -38280,7 +38280,7 @@ async function printPaymentReceipt(paymentId) {
         const payment = payments.find(p => p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -38345,7 +38345,7 @@ async function printPaymentReceipt(paymentId) {
         printWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -38413,10 +38413,10 @@ async function exportPaymentHistoryToCSV() {
         link.click();
         URL.revokeObjectURL(link.href);
         
-        alert(`✅ ${exportData.length} payment records exported successfully!`);
+        await SystemDialog.alert(`✅ ${exportData.length} payment records exported successfully!`);
     } catch (error) {
         console.error('Error exporting payments:', error);
-        alert('Error exporting payment history');
+        await SystemDialog.alert('Error exporting payment history');
     }
 }
 
@@ -38538,7 +38538,7 @@ async function printPaymentReceipt(paymentId) {
         const payment = payments.find(p => p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -38673,7 +38673,7 @@ async function printPaymentReceipt(paymentId) {
         printWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -38740,10 +38740,10 @@ async function exportPaymentHistoryToCSV() {
         link.click();
         URL.revokeObjectURL(link.href);
         
-        alert(`✅ ${exportData.length} payment records exported successfully!`);
+        await SystemDialog.alert(`✅ ${exportData.length} payment records exported successfully!`);
     } catch (error) {
         console.error('Error exporting payments:', error);
-        alert('Error exporting payment history');
+        await SystemDialog.alert('Error exporting payment history');
     }
 }
 
@@ -38909,7 +38909,7 @@ async function printPaymentReceipt(paymentId) {
         const payment = payments.find(p => p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -39044,7 +39044,7 @@ async function printPaymentReceipt(paymentId) {
         printWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -39111,10 +39111,10 @@ async function exportPaymentHistoryToCSV() {
         link.click();
         URL.revokeObjectURL(link.href);
         
-        alert(`✅ ${exportData.length} payment records exported successfully!`);
+        await SystemDialog.alert(`✅ ${exportData.length} payment records exported successfully!`);
     } catch (error) {
         console.error('Error exporting payments:', error);
-        alert('Error exporting payment history');
+        await SystemDialog.alert('Error exporting payment history');
     }
 }
 
@@ -39501,11 +39501,11 @@ function resetBalancesFilters() {
 async function exportBalancesToCSV() {
     const students = window.allStudentsData || [];
     if (students.length === 0) {
-        alert('No data to export');
+        await SystemDialog.alert('No data to export');
         return;
     }
     
-    function formatMoney(amount) {
+    async function formatMoney(amount) {
         const num = Math.round(amount || 0);
         return num.toLocaleString('en-US');
     }
@@ -39564,7 +39564,7 @@ async function exportBalancesToCSV() {
     link.click();
     URL.revokeObjectURL(link.href);
     
-    alert(`✅ ${exportData.length} student records exported successfully!`);
+    await SystemDialog.alert(`✅ ${exportData.length} student records exported successfully!`);
 }
 
 function escapeHtml(text) {
@@ -39713,7 +39713,7 @@ function resetBalancesFilters() {
 async function exportBalancesToCSV() {
     const students = window.allStudentsData || [];
     if (students.length === 0) {
-        alert('No data to export');
+        await SystemDialog.alert('No data to export');
         return;
     }
     
@@ -39771,7 +39771,7 @@ async function exportBalancesToCSV() {
     link.click();
     URL.revokeObjectURL(link.href);
     
-    alert(`✅ ${exportData.length} student records exported successfully!`);
+    await SystemDialog.alert(`✅ ${exportData.length} student records exported successfully!`);
 }
 
 function escapeHtml(text) {
@@ -39798,7 +39798,7 @@ async function submitSimpleFeeCollection(student, feeStructure, currentYear, cur
     const notes = document.getElementById('paymentNotes')?.value || '';
     
     if (tuitionPaid <= 0) {
-        alert('Please enter an amount to pay');
+        await SystemDialog.alert('Please enter an amount to pay');
         return;
     }
     
@@ -39832,18 +39832,18 @@ async function submitSimpleFeeCollection(student, feeStructure, currentYear, cur
             const newBalance = expectedTuition - tuitionPaid;
             
             if (newBalance <= 0) {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\n\n🎉 Student is now FULLY PAID!`);
             } else {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${tuitionPaid.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
             }
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -40343,10 +40343,10 @@ function loadStudentForCollection(studentId) {
     document.querySelector('.fee-tab[data-tab="collect"]')?.click();
 }
 
-function exportBalancesReport() {
+async function exportBalancesReport() {
     const students = window.enhancedStudentsData || [];
     if (students.length === 0) {
-        alert('No data to export');
+        await SystemDialog.alert('No data to export');
         return;
     }
     
@@ -40397,7 +40397,7 @@ function exportBalancesReport() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    alert(`✅ Balances exported successfully for ${students.length} students`);
+    await SystemDialog.alert(`✅ Balances exported successfully for ${students.length} students`);
 }
 
 // Make all functions global
@@ -42017,7 +42017,7 @@ function refreshBalanceFilters() {
 //     };
     
 //     if (!teacherData.firstName || !teacherData.lastName || !teacherData.gender || !teacherData.phone) {
-//         alert('Please fill in all required fields');
+//         await SystemDialog.alert('Please fill in all required fields');
 //         return;
 //     }
     
@@ -42034,16 +42034,16 @@ function refreshBalanceFilters() {
 //         });
         
 //         if (response.ok) {
-//             alert(`✅ Teacher ${teacherData.firstName} ${teacherData.lastName} added successfully!`);
+//             await SystemDialog.alert(`✅ Teacher ${teacherData.firstName} ${teacherData.lastName} added successfully!`);
 //             resetTeacherForm();
 //             showTeacherManagement();
 //         } else {
 //             const error = await response.json();
-//             alert('❌ Error adding teacher: ' + (error.error || 'Unknown error'));
+//             await SystemDialog.alert('❌ Error adding teacher: ' + (error.error || 'Unknown error'));
 //         }
 //     } catch (error) {
 //         console.error('Error:', error);
-//         alert('Network error: ' + error.message);
+//         await SystemDialog.alert('Network error: ' + error.message);
 //     } finally {
 //         submitBtn.innerText = originalText;
 //         submitBtn.disabled = false;
@@ -42186,7 +42186,7 @@ function refreshBalanceFilters() {
 //         document.body.insertAdjacentHTML('beforeend', modalHtml);
 //     } catch (error) {
 //         console.error('Error:', error);
-//         alert('Error loading teacher details');
+//         await SystemDialog.alert('Error loading teacher details');
 //     }
 // }
 
@@ -42313,16 +42313,16 @@ function refreshBalanceFilters() {
 //             });
             
 //             if (updateResponse.ok) {
-//                 alert('✅ Teacher information updated successfully');
+//                 await SystemDialog.alert('✅ Teacher information updated successfully');
 //                 closeModal();
 //                 showTeacherManagement();
 //             } else {
-//                 alert('❌ Error updating teacher');
+//                 await SystemDialog.alert('❌ Error updating teacher');
 //             }
 //         });
 //     } catch (error) {
 //         console.error('Error:', error);
-//         alert('Error loading teacher data');
+//         await SystemDialog.alert('Error loading teacher data');
 //     }
 // }
 
@@ -42386,7 +42386,7 @@ function refreshBalanceFilters() {
 //         });
 //     } catch (error) {
 //         console.error('Error:', error);
-//         alert('Error loading attendance data');
+//         await SystemDialog.alert('Error loading attendance data');
 //     }
 // }
 
@@ -42395,31 +42395,31 @@ function refreshBalanceFilters() {
 //     const teacher = window.allTeachersData?.find(t => t.id === teacherId);
 //     const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'this teacher';
     
-//     if (confirm(`⚠️ Are you sure you want to delete ${teacherName}?\n\nThis action cannot be undone.`)) {
-//         const confirmation = prompt('Type "DELETE" to confirm deletion:');
+//     if (await SystemDialog.confirm(`⚠️ Are you sure you want to delete ${teacherName}?\n\nThis action cannot be undone.`)) {
+//         const confirmation = await SystemDialog.prompt('Type "DELETE" to confirm deletion:');
 //         if (confirmation === 'DELETE') {
 //             try {
 //                 const response = await fetch(`/api/teachers/${teacherId}`, { method: 'DELETE' });
 //                 if (response.ok) {
-//                     alert(`✅ ${teacherName} has been deleted successfully`);
+//                     await SystemDialog.alert(`✅ ${teacherName} has been deleted successfully`);
 //                     showTeacherManagement();
 //                 } else {
-//                     alert('❌ Error deleting teacher');
+//                     await SystemDialog.alert('❌ Error deleting teacher');
 //                 }
 //             } catch (error) {
-//                 alert('Network error: ' + error.message);
+//                 await SystemDialog.alert('Network error: ' + error.message);
 //             }
 //         } else {
-//             alert('Deletion cancelled');
+//             await SystemDialog.alert('Deletion cancelled');
 //         }
 //     }
 // }
 
 // // ==================== EXPORT TEACHERS DATA ====================
-// function exportTeachersData() {
+// async function exportTeachersData() {
 //     const teachers = window.allTeachersData || [];
 //     if (teachers.length === 0) {
-//         alert('No teachers to export');
+//         await SystemDialog.alert('No teachers to export');
 //         return;
 //     }
     
@@ -42467,7 +42467,7 @@ function refreshBalanceFilters() {
 //     a.download = `teachers_export_${new Date().toISOString().split('T')[0]}.csv`;
 //     a.click();
 //     URL.revokeObjectURL(url);
-//     alert('✅ Teachers data exported successfully');
+//     await SystemDialog.alert('✅ Teachers data exported successfully');
 // }
 
 // // ==================== CLOSE MODAL ====================
@@ -42550,7 +42550,7 @@ async function submitFeeCollectionSeparate(student, feeStructure, currentYear, c
         selectedDevelopmentComponents.reduce((s,c)=>s+c.amount,0);
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select components to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select components to pay');
         return;
     }
     
@@ -42590,19 +42590,19 @@ async function submitFeeCollectionSeparate(student, feeStructure, currentYear, c
             const newBalance = student.totalExpected - newTotalPaid;
             
             if (newBalance < 0) {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\n⚠️ Credit created: UGX ${Math.abs(newBalance).toLocaleString()} will apply to next term.`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\n⚠️ Credit created: UGX ${Math.abs(newBalance).toLocaleString()} will apply to next term.`);
             } else if (newBalance === 0) {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\n🎉 Student is now FULLY PAID for ${getTermName(currentTerm)}!`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\n🎉 Student is now FULLY PAID for ${getTermName(currentTerm)}!`);
             } else {
-                alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
             }
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -43783,7 +43783,7 @@ window.initModalEventListeners = initModalEventListeners;
 
 // ==================== BURSARY MODAL FUNCTIONS ====================
 
-function showAddBursaryModalDialog() {
+async function showAddBursaryModalDialog() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -43817,16 +43817,16 @@ function showAddBursaryModalDialog() {
             body: JSON.stringify(data)
         });
         if (response.ok) {
-            alert('✅ Bursary added successfully!');
+            await SystemDialog.alert('✅ Bursary added successfully!');
             closeModal();
             showFeeManagement();
         } else {
-            alert('❌ Error adding bursary');
+            await SystemDialog.alert('❌ Error adding bursary');
         }
     };
 }
 
-function editBursaryItem(id) {
+async function editBursaryItem(id) {
     // Find bursary from global data
     const bursary = window.feeBursariesData?.find(b => b.id === id);
     if (!bursary) return;
@@ -43863,23 +43863,23 @@ function editBursaryItem(id) {
             body: JSON.stringify(updatedData)
         });
         if (updateResponse.ok) {
-            alert('✅ Bursary updated successfully!');
+            await SystemDialog.alert('✅ Bursary updated successfully!');
             closeModal();
             showFeeManagement();
         } else {
-            alert('❌ Error updating bursary');
+            await SystemDialog.alert('❌ Error updating bursary');
         }
     };
 }
 
-function deleteBursaryItem(id) {
-    if (confirm('Are you sure you want to delete this bursary?')) {
+async function deleteBursaryItem(id) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this bursary?')) {
         fetch(`/api/fee/bursaries/${id}`, { method: 'DELETE' }).then(async response => {
             if (response.ok) {
-                alert('✅ Bursary deleted successfully!');
+                await SystemDialog.alert('✅ Bursary deleted successfully!');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting bursary');
+                await SystemDialog.alert('❌ Error deleting bursary');
             }
         });
     }
@@ -43902,7 +43902,7 @@ async function editFeeStructureItem(id) {
         const structure = structures.find(s => s.id === id);
         
         if (!structure) {
-            alert('Fee structure not found');
+            await SystemDialog.alert('Fee structure not found');
             return;
         }
         
@@ -44117,13 +44117,13 @@ async function editFeeStructureItem(id) {
         
     } catch (error) {
         console.error('Error loading fee structure for edit:', error);
-        alert('Error loading fee structure: ' + error.message);
+        await SystemDialog.alert('Error loading fee structure: ' + error.message);
     }
 }
 
 // ==================== LOAD EXISTING FEE STRUCTURE FOR EDIT ====================
 
-function loadExistingFeeStructureForEdit() {
+async function loadExistingFeeStructureForEdit() {
     console.log('loadExistingFeeStructureForEdit called');
     
     const select = document.getElementById('loadEditFeeStructureSelect');
@@ -44131,13 +44131,13 @@ function loadExistingFeeStructureForEdit() {
     const statusMsg = document.getElementById('editLoadStatusMsg');
     
     if (!selectedId) {
-        alert('Please select a fee structure to load');
+        await SystemDialog.alert('Please select a fee structure to load');
         return;
     }
     
     const feeStructure = window.existingFeeStructures.find(f => f.id === selectedId);
     if (!feeStructure) {
-        alert('Fee structure not found');
+        await SystemDialog.alert('Fee structure not found');
         return;
     }
     
@@ -44145,7 +44145,7 @@ function loadExistingFeeStructureForEdit() {
     console.log('Activity components:', feeStructure.activityComponents);
     
     // Confirm loading
-    if (!confirm(`⚠️ Are you sure you want to load "${feeStructure.name}"?\n\nThis will REPLACE all current activity groups.\n\nAny unsaved changes will be lost.`)) {
+    if (!await SystemDialog.confirm(`⚠️ Are you sure you want to load "${feeStructure.name}"?\n\nThis will REPLACE all current activity groups.\n\nAny unsaved changes will be lost.`)) {
         return;
     }
     
@@ -44230,13 +44230,13 @@ function loadExistingFeeStructureForEdit() {
 
 // ==================== CLEAR ALL EDIT ACTIVITY GROUPS ====================
 
-function clearAllEditActivityGroups() {
+async function clearAllEditActivityGroups() {
     if (!window.activityGroupsData || window.activityGroupsData.length === 0) {
-        alert('No activity groups to clear');
+        await SystemDialog.alert('No activity groups to clear');
         return;
     }
     
-    if (!confirm('⚠️ Are you sure you want to remove ALL activity groups?\n\nThis cannot be undone.')) {
+    if (!await SystemDialog.confirm('⚠️ Are you sure you want to remove ALL activity groups?\n\nThis cannot be undone.')) {
         return;
     }
     
@@ -44293,14 +44293,14 @@ function calculateEditTotals() {
     document.getElementById('editDevelopmentTotal').innerHTML = `UGX ${developmentTotal.toLocaleString()}`;
 }
 
-function deleteFeeStructureItem(id) {
-    if (confirm('⚠️ Are you sure you want to delete this fee structure?')) {
+async function deleteFeeStructureItem(id) {
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this fee structure?')) {
         fetch(`/api/fee/structures/${id}`, { method: 'DELETE' }).then(async response => {
             if (response.ok) {
-                alert('✅ Fee structure deleted successfully!');
+                await SystemDialog.alert('✅ Fee structure deleted successfully!');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting fee structure');
+                await SystemDialog.alert('❌ Error deleting fee structure');
             }
         });
     }
@@ -44821,7 +44821,7 @@ async function submitActivityBasedPayment(student, feeStructure, currentYear, cu
     const totalAmount = tuitionPaid + activityTotal;
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select items to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select items to pay');
         return;
     }
     
@@ -44856,15 +44856,15 @@ async function submitActivityBasedPayment(student, feeStructure, currentYear, cu
         
         if (response.ok) {
             const result = await response.json();
-            alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}`);
+            await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}`);
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -45065,7 +45065,7 @@ function resetCollectionFormWithOverpayment() {
 async function submitFeeCollectionWithOverpayment(student, feeStructure, currentYear, currentTerm) {
     // Prevent submission if student has overpaid
     if (student.isOverpaid) {
-        alert('This student has a credit balance. No additional payment is required for this term.');
+        await SystemDialog.alert('This student has a credit balance. No additional payment is required for this term.');
         return;
     }
     
@@ -45087,7 +45087,7 @@ async function submitFeeCollectionWithOverpayment(student, feeStructure, current
     const totalAmount = tuitionPaid + selectedActivityComponents.reduce((s,c)=>s+c.amount,0) + selectedDevelopmentComponents.reduce((s,c)=>s+c.amount,0);
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay');
+        await SystemDialog.alert('Please enter an amount to pay');
         return;
     }
     
@@ -45126,19 +45126,19 @@ async function submitFeeCollectionWithOverpayment(student, feeStructure, current
             const newBalance = student.expectedPerTerm - newTotalPaid;
             
             if (newBalance < 0) {
-                alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\n⚠️ Note: This payment creates a credit of UGX ${Math.abs(newBalance).toLocaleString()} which will be applied to next term.`);
+                await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\n⚠️ Note: This payment creates a credit of UGX ${Math.abs(newBalance).toLocaleString()} which will be applied to next term.`);
             } else if (newBalance === 0) {
-                alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\nStudent is now fully paid for this term.`);
+                await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\n\nStudent is now fully paid for this term.`);
             } else {
-                alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt: ${result.receiptNumber}\nAmount: UGX ${totalAmount.toLocaleString()}\nRemaining balance: UGX ${newBalance.toLocaleString()}`);
             }
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -45179,7 +45179,7 @@ function closeModal() {
     if (modal) modal.remove();
 }
 
-function exportBalancesReport() {
+async function exportBalancesReport() {
     const students = window.enhancedStudentsData || [];
     const data = students.map(s => ({
         'Admission': s.admissionNumber,
@@ -45199,7 +45199,7 @@ function exportBalancesReport() {
     a.download = `fee_balances_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    alert('✅ Balances exported successfully');
+    await SystemDialog.alert('✅ Balances exported successfully');
 }
 
 // Make all functions global
@@ -45429,7 +45429,7 @@ async function submitFeeCollection(student, feeStructure, currentYear, currentTe
     });
     
     if (totalAmount <= 0) {
-        alert('Please enter an amount to pay or select items to pay');
+        await SystemDialog.alert('Please enter an amount to pay or select items to pay');
         return;
     }
     
@@ -45490,14 +45490,14 @@ async function submitFeeCollection(student, feeStructure, currentYear, currentTe
                 summaryMsg += `\nRemaining balance: UGX ${Math.round(newBalance).toLocaleString()}`;
             }
             
-            alert(summaryMsg);
+            await SystemDialog.alert(summaryMsg);
             showFeeManagement();
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Payment error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -45570,7 +45570,7 @@ async function saveFeeStructureFromModal() {
     const name = document.getElementById('modalFsName').value;
     const level = document.getElementById('modalFsLevel').value;
     const tuition = parseInt(document.getElementById('modalFsTuition').value) || 0;
-    if (!name) { alert('Please enter a structure name'); return; }
+    if (!name) { await SystemDialog.alert('Please enter a structure name'); return; }
     
     const activityComponents = [];
     document.querySelectorAll('#modalActivityList .actName').forEach((input, idx) => {
@@ -45599,11 +45599,11 @@ async function saveFeeStructureFromModal() {
     });
     
     if (response.ok) {
-        alert('✅ Fee structure saved!');
+        await SystemDialog.alert('✅ Fee structure saved!');
         closeModal();
         showFeeManagement();
     } else {
-        alert('❌ Error saving fee structure');
+        await SystemDialog.alert('❌ Error saving fee structure');
     }
 }
 
@@ -45620,7 +45620,7 @@ function loadStudentForCollection(studentId) {
     document.querySelector('.fee-tab[data-tab="collect"]')?.click();
 }
 
-function exportBalancesReport() {
+async function exportBalancesReport() {
     const students = window.enhancedStudentsData || [];
     const data = students.map(s => ({
         'Admission': s.admissionNumber, 'Student': `${s.firstName} ${s.lastName}`, 'Class': s.currentClass,
@@ -45634,12 +45634,12 @@ function exportBalancesReport() {
     a.download = `fee_balances_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    alert('✅ Balances exported successfully');
+    await SystemDialog.alert('✅ Balances exported successfully');
 }
 
 // ==================== BURSARY MODAL FUNCTIONS ====================
 
-function showAddBursaryModalDialog() {
+async function showAddBursaryModalDialog() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -45673,11 +45673,11 @@ function showAddBursaryModalDialog() {
             body: JSON.stringify(data)
         });
         if (response.ok) {
-            alert('✅ Bursary added successfully!');
+            await SystemDialog.alert('✅ Bursary added successfully!');
             closeModal();
             showFeeManagement();
         } else {
-            alert('❌ Error adding bursary');
+            await SystemDialog.alert('❌ Error adding bursary');
         }
     };
 }
@@ -45720,23 +45720,23 @@ async function editBursaryItem(id) {
             body: JSON.stringify(updatedData)
         });
         if (updateResponse.ok) {
-            alert('✅ Bursary updated successfully!');
+            await SystemDialog.alert('✅ Bursary updated successfully!');
             closeModal();
             showFeeManagement();
         } else {
-            alert('❌ Error updating bursary');
+            await SystemDialog.alert('❌ Error updating bursary');
         }
     };
 }
 
 async function deleteBursaryItem(id) {
-    if (confirm('Are you sure you want to delete this bursary?')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this bursary?')) {
         const response = await fetch(`/api/fee/bursaries/${id}`, { method: 'DELETE' });
         if (response.ok) {
-            alert('✅ Bursary deleted successfully!');
+            await SystemDialog.alert('✅ Bursary deleted successfully!');
             showFeeManagement();
         } else {
-            alert('❌ Error deleting bursary');
+            await SystemDialog.alert('❌ Error deleting bursary');
         }
     }
 }
@@ -46156,7 +46156,7 @@ function showEditAddItemModal() {
     const form = document.getElementById('editAddItemForm');
     const confirmBtn = document.getElementById('confirmEditAddItem');
     
-    function handleAddItem(e) {
+    async function handleAddItem(e) {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -46169,7 +46169,7 @@ function showEditAddItemModal() {
         const paymentOption = document.querySelector('input[name="editPaymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -46182,12 +46182,12 @@ function showEditAddItemModal() {
             // field genuinely has no usable number (blank/invalid input).
             const rawValue = document.getElementById('editItemCashAmount')?.value;
             if (rawValue === '' || rawValue === null || isNaN(parseFloat(rawValue))) {
-                alert('Please enter a cash amount (0 is allowed)');
+                await SystemDialog.alert('Please enter a cash amount (0 is allowed)');
                 return;
             }
             cashAmount = parseFloat(rawValue);
             if (cashAmount < 0) {
-                alert('Cash amount cannot be negative');
+                await SystemDialog.alert('Cash amount cannot be negative');
                 return;
             }
             quantity = 1;
@@ -46195,7 +46195,7 @@ function showEditAddItemModal() {
         else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('editItemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -46204,7 +46204,7 @@ function showEditAddItemModal() {
             cashAmount = parseFloat(document.getElementById('editItemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('editItemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -46396,7 +46396,7 @@ function renderEditCurrentGroupItems() {
         console.log('Current DOM structure:', document.body.innerHTML.substring(0, 500) + '...');
         
         // Show a fallback message
-        alert('Error: Could not update the items list. Please close and re-open the edit modal.');
+        await SystemDialog.alert('Error: Could not update the items list. Please close and re-open the edit modal.');
     }
 }
 
@@ -46419,7 +46419,7 @@ function removeEditTempItem(index) {
 }
 
 // ==================== UPDATE ACTIVITY GROUP ====================
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     console.log('updateActivityGroupInTemp called');
     
     const groupName = document.getElementById('editGroupName')?.value?.trim() || '';
@@ -46427,12 +46427,12 @@ function updateActivityGroupInTemp() {
     const statusGroupId = document.getElementById('editGroupStatusGroupId')?.value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -46469,7 +46469,7 @@ function updateActivityGroupInTemp() {
         console.log('Group updated successfully:', window.activityGroupsData[groupIndex].name);
     } else {
         console.error('Group not found for update:', window.editGroupId);
-        alert('Error: Group not found');
+        await SystemDialog.alert('Error: Group not found');
         return;
     }
     
@@ -46483,7 +46483,7 @@ function updateActivityGroupInTemp() {
     renderActivityGroupsList();
     updateSummaryTotals();
     
-    alert(`✅ Activity group "${groupName}" updated successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" updated successfully!`);
 }
 
 // ==================== MAKE FUNCTIONS GLOBAL ====================
@@ -46605,7 +46605,7 @@ function renderEditCurrentGroupItems() {
         console.log('Current DOM structure:', document.body.innerHTML.substring(0, 500) + '...');
         
         // Show a fallback message
-        alert('Error: Could not update the items list. Please close and re-open the edit modal.');
+        await SystemDialog.alert('Error: Could not update the items list. Please close and re-open the edit modal.');
     }
 }
 
@@ -46628,7 +46628,7 @@ function removeEditTempItem(index) {
 }
 
 // ==================== UPDATE ACTIVITY GROUP ====================
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     console.log('updateActivityGroupInTemp called');
     
     const groupName = document.getElementById('editGroupName')?.value?.trim() || '';
@@ -46636,12 +46636,12 @@ function updateActivityGroupInTemp() {
     const statusGroupId = document.getElementById('editGroupStatusGroupId')?.value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -46678,7 +46678,7 @@ function updateActivityGroupInTemp() {
         console.log('Group updated successfully:', window.activityGroupsData[groupIndex].name);
     } else {
         console.error('Group not found for update:', window.editGroupId);
-        alert('Error: Group not found');
+        await SystemDialog.alert('Error: Group not found');
         return;
     }
     
@@ -46692,7 +46692,7 @@ function updateActivityGroupInTemp() {
     renderActivityGroupsList();
     updateSummaryTotals();
     
-    alert(`✅ Activity group "${groupName}" updated successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" updated successfully!`);
 }
 
 // ==================== MAKE FUNCTIONS GLOBAL ====================
@@ -46709,18 +46709,18 @@ console.log('   - Container is created if it doesn\'t exist');
 console.log('   - Added delay for modal closing');
 console.log('   - All amounts support any value (2500, 3500, 5700, 45500, etc.)');
 
-function saveEditActivityGroup() {
+async function saveEditActivityGroup() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -46888,14 +46888,14 @@ function editTempGroupItemValues(index) {
 
     updateDynamicFields(item.paymentOption || 'either');
 
-    function handleSaveEdit(e) {
+    async function handleSaveEdit(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
 
         const newName = document.getElementById('editTempItemName')?.value?.trim() || '';
         const paymentOption = document.querySelector('input[name="editTempPaymentOption"]:checked')?.value || 'either';
 
         if (!newName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
 
@@ -46905,21 +46905,21 @@ function editTempGroupItemValues(index) {
         if (paymentOption === 'cash_only') {
             const rawValue = document.getElementById('editTempItemCashAmount')?.value;
             if (rawValue === '' || rawValue === null || isNaN(parseFloat(rawValue))) {
-                alert('Please enter a cash amount (0 is allowed)');
+                await SystemDialog.alert('Please enter a cash amount (0 is allowed)');
                 return;
             }
             cashAmount = parseFloat(rawValue);
-            if (cashAmount < 0) { alert('Cash amount cannot be negative'); return; }
+            if (cashAmount < 0) { await SystemDialog.alert('Cash amount cannot be negative'); return; }
             quantity = 1;
         } else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('editTempItemQuantity')?.value) || 0;
-            if (quantity <= 0) { alert('Please enter a valid quantity'); return; }
+            if (quantity <= 0) { await SystemDialog.alert('Please enter a valid quantity'); return; }
             cashAmount = 0;
         } else {
             cashAmount = parseFloat(document.getElementById('editTempItemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('editTempItemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -47036,13 +47036,13 @@ function removeEditExistingItem(index) {
     document.getElementById('editExistingGroupItemsContainer').innerHTML = renderEditExistingGroupItems();
 }
 
-function updateExistingActivityGroup() {
+async function updateExistingActivityGroup() {
     const groupName = document.getElementById('editExistingGroupName').value.trim();
     const periodType = document.getElementById('editExistingGroupPeriodType').value;
     const statusGroupId = document.getElementById('editExistingGroupStatusGroupId').value || null;
     
-    if (!groupName) { alert('Enter group name'); return; }
-    if (window.tempGroupItems.length === 0) { alert('Add at least one item'); return; }
+    if (!groupName) { await SystemDialog.alert('Enter group name'); return; }
+    if (window.tempGroupItems.length === 0) { await SystemDialog.alert('Add at least one item'); return; }
     
     let statusGroupInfo = null;
     if (statusGroupId && window.existingStatusGroups) statusGroupInfo = window.existingStatusGroups.find(g => g.id === statusGroupId);
@@ -47063,7 +47063,7 @@ function updateExistingActivityGroup() {
     const container = document.getElementById('editActivityGroupsContainer');
     if (container) container.innerHTML = renderEditActivityGroupsList();
     updateEditSummaryTotals();
-    alert('✅ Activity group updated!');
+    await SystemDialog.alert('✅ Activity group updated!');
 }
 
 
@@ -47103,7 +47103,7 @@ async function deleteExistingActivityGroup(groupId) {
     const group = window.activityGroupsData.find(g => g.id === groupId);
     if (!group) return;
 
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Delete activity group "${group.name}"?\n\n` +
         `This will PERMANENTLY delete ALL payments recorded for EVERY item in this group, ` +
         `for students on THIS fee structure only, and reverse any related inventory stock.\n\n` +
@@ -47119,12 +47119,12 @@ async function deleteExistingActivityGroup(groupId) {
         });
         const result = await response.json();
         if (response.ok) {
-            alert(`✅ "${group.name}" deleted. Purged ${result.deletedPaymentRecords + result.modifiedPaymentRecords} payment record(s), reversed ${result.inventoryUnitsReversed} inventory unit(s).`);
+            await SystemDialog.alert(`✅ "${group.name}" deleted. Purged ${result.deletedPaymentRecords + result.modifiedPaymentRecords} payment record(s), reversed ${result.inventoryUnitsReversed} inventory unit(s).`);
         } else {
-            alert('⚠️ Group removed locally, but purging payments failed: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('⚠️ Group removed locally, but purging payments failed: ' + (result.error || 'Unknown error'));
         }
     } catch (e) {
-        alert('⚠️ Group removed locally, but purging payments failed (network error): ' + e.message);
+        await SystemDialog.alert('⚠️ Group removed locally, but purging payments failed (network error): ' + e.message);
     }
 
     const groupIndex = window.activityGroupsData.findIndex(g => g.id === groupId);
@@ -47176,7 +47176,7 @@ async function updateFeeStructureInServer(id) {
     const tuition = parseInt(document.getElementById('editFsTuition').value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -47218,19 +47218,19 @@ async function updateFeeStructureInServer(id) {
         });
         
         if (response.ok) {
-            alert(`✅ Fee structure "${name}" updated successfully!`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" updated successfully!`);
             closeModal();
-            if (typeof showFeeManagement === 'function') {
+            if (typeof showFeeManagement === 'async function') {
                 showFeeManagement();
             } else {
                 window.location.reload();
             }
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -47239,7 +47239,7 @@ async function updateFeeStructureInServer(id) {
 
 // ==================== QUICK ADD STATUS GROUP FOR EDIT ====================
 
-function showQuickAddStatusGroupForEdit() {
+async function showQuickAddStatusGroupForEdit() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -47256,7 +47256,7 @@ function showQuickAddStatusGroupForEdit() {
     
     document.getElementById('quickCreateBtnEdit').addEventListener('click', async () => {
         const name = document.getElementById('quickStatusNameEdit').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('quickStatusDescEdit').value;
         const response = await fetch('/api/fee/status-groups', {
             method: 'POST',
@@ -47275,8 +47275,8 @@ function showQuickAddStatusGroupForEdit() {
                 select.value = result.group.id;
             }
             closeSubModal();
-            alert('✅ Status group created and selected!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created and selected!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
@@ -47484,7 +47484,7 @@ async function saveEditedFeeStructure(id) {
     const tuition = parseInt(document.getElementById('editFsTuition')?.value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -47637,16 +47637,16 @@ async function saveEditedFeeStructure(id) {
         });
         
         if (response.ok) {
-            alert('✅ Fee structure updated successfully!');
+            await SystemDialog.alert('✅ Fee structure updated successfully!');
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error updating fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error updating fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -47691,13 +47691,13 @@ function calculateEditTotals() {
 }
 
 async function deleteFeeStructureItem(id) {
-    if (confirm('⚠️ Are you sure you want to delete this fee structure? This will affect all students assigned to it.')) {
+    if (await SystemDialog.confirm('⚠️ Are you sure you want to delete this fee structure? This will affect all students assigned to it.')) {
         const response = await fetch(`/api/fee/structures/${id}`, { method: 'DELETE' });
         if (response.ok) {
-            alert('✅ Fee structure deleted successfully!');
+            await SystemDialog.alert('✅ Fee structure deleted successfully!');
             showFeeManagement();
         } else {
-            alert('❌ Error deleting fee structure');
+            await SystemDialog.alert('❌ Error deleting fee structure');
         }
     }
 }
@@ -47745,7 +47745,7 @@ console.log('Fee Management System fully loaded!');
 
 // ==================== CONFIRM + PURGE ITEM PAYMENTS ====================
 async function confirmDeleteItemWithPayments(itemName, componentName, feeStructureId, onConfirmedLocalRemove) {
-    const confirmed = confirm(
+    const confirmed = await SystemDialog.confirm(
         `⚠️ Delete "${itemName}"?\n\n` +
         `This will PERMANENTLY delete ALL payments recorded for this item by students on THIS fee structure only, ` +
         `and reverse any related inventory stock that was added from those payments.\n\n` +
@@ -47761,12 +47761,12 @@ async function confirmDeleteItemWithPayments(itemName, componentName, feeStructu
         });
         const result = await response.json();
         if (response.ok) {
-            alert(`✅ "${itemName}" removed. Purged ${result.deletedPaymentRecords + result.modifiedPaymentRecords} payment record(s), reversed ${result.inventoryUnitsReversed} inventory unit(s).`);
+            await SystemDialog.alert(`✅ "${itemName}" removed. Purged ${result.deletedPaymentRecords + result.modifiedPaymentRecords} payment record(s), reversed ${result.inventoryUnitsReversed} inventory unit(s).`);
         } else {
-            alert('⚠️ Removed locally, but purging payments failed: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('⚠️ Removed locally, but purging payments failed: ' + (result.error || 'Unknown error'));
         }
     } catch (e) {
-        alert('⚠️ Removed locally, but purging payments failed (network error): ' + e.message);
+        await SystemDialog.alert('⚠️ Removed locally, but purging payments failed (network error): ' + e.message);
     }
 
     onConfirmedLocalRemove();
@@ -47825,7 +47825,7 @@ function renderSimpleBursariesList(bursaries) {
 }
 
 // Simple modal functions
-function showAddFeeStructureForm() {
+async function showAddFeeStructureForm() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -47865,16 +47865,16 @@ function showAddFeeStructureForm() {
         });
         
         if (response.ok) {
-            alert('✅ Fee structure added!');
+            await SystemDialog.alert('✅ Fee structure added!');
             closeModal();
             showFeeManagement();
         } else {
-            alert('❌ Error adding fee structure');
+            await SystemDialog.alert('❌ Error adding fee structure');
         }
     };
 }
 
-function showAddBursaryForm() {
+async function showAddBursaryForm() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -47913,11 +47913,11 @@ function showAddBursaryForm() {
         });
         
         if (response.ok) {
-            alert('✅ Bursary added!');
+            await SystemDialog.alert('✅ Bursary added!');
             closeModal();
             showFeeManagement();
         } else {
-            alert('❌ Error adding bursary');
+            await SystemDialog.alert('❌ Error adding bursary');
         }
     };
 }
@@ -48206,7 +48206,7 @@ function loadStudentForPayment(studentId) {
     if (collectTab) collectTab.click();
 }
 
-function exportBalancesReport() {
+async function exportBalancesReport() {
     const students = window.enhancedStudentsData || [];
     const exportData = students.map(s => ({
         'Admission Number': s.admissionNumber,
@@ -48222,7 +48222,7 @@ function exportBalancesReport() {
     
     const csv = convertToCSV(exportData);
     downloadCSV(csv, `fee_balances_${new Date().toISOString().split('T')[0]}.csv`);
-    alert('✅ Balances exported successfully');
+    await SystemDialog.alert('✅ Balances exported successfully');
 }
 
 function initializeBalanceFilters() {
@@ -48274,7 +48274,7 @@ document.addEventListener('submit', async function(e) {
         const notes = document.getElementById('paymentNotes')?.value || '';
         
         if (!studentId) {
-            alert('Please select a student');
+            await SystemDialog.alert('Please select a student');
             return;
         }
         
@@ -48315,7 +48315,7 @@ document.addEventListener('submit', async function(e) {
                            selectedDevelopmentComponents.reduce((s, c) => s + c.amount, 0);
         
         if (totalAmount <= 0) {
-            alert('Please enter an amount to pay');
+            await SystemDialog.alert('Please enter an amount to pay');
             return;
         }
         
@@ -48351,16 +48351,16 @@ document.addEventListener('submit', async function(e) {
             
             if (response.ok) {
                 const result = await response.json();
-                alert(`✅ Payment recorded successfully!\nReceipt Number: ${result.receiptNumber}\nTotal Amount: UGX ${totalAmount.toLocaleString()}`);
+                await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt Number: ${result.receiptNumber}\nTotal Amount: UGX ${totalAmount.toLocaleString()}`);
                 resetCollectionForm();
                 showFeeManagement();
             } else {
                 const error = await response.json();
-                alert('❌ Error recording payment: ' + (error.error || 'Unknown error'));
+                await SystemDialog.alert('❌ Error recording payment: ' + (error.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Payment error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         } finally {
             submitBtn.innerText = originalText;
             submitBtn.disabled = false;
@@ -48967,7 +48967,7 @@ function setupFeeCollectionForm() {
     
     // Bursary change - recalculate
     if (bursarySelect) {
-        bursarySelect.addEventListener('change', function() {
+        bursarySelect.addEventListener('change', async function() {
             calculateFeeWithBursary();
         });
     }
@@ -48985,7 +48985,7 @@ function setupFeeCollectionForm() {
         const notes = document.getElementById('paymentNotes')?.value || '';
         
         if (!studentId || !feeStructureId || !amount || amount <= 0) {
-            alert('Please select a student and fee structure, and enter a valid amount');
+            await SystemDialog.alert('Please select a student and fee structure, and enter a valid amount');
             return;
         }
         
@@ -49016,7 +49016,7 @@ function setupFeeCollectionForm() {
             
             if (response.ok) {
                 const result = await response.json();
-                alert(`✅ Payment recorded successfully!\nReceipt Number: ${result.receiptNumber}`);
+                await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt Number: ${result.receiptNumber}`);
                 
                 // Reset form
                 if (amountInput) amountInput.value = '';
@@ -49028,11 +49028,11 @@ function setupFeeCollectionForm() {
                 showFeeManagement();
             } else {
                 const error = await response.text();
-                alert('❌ Error recording payment: ' + error);
+                await SystemDialog.alert('❌ Error recording payment: ' + error);
             }
         } catch (error) {
             console.error('Payment error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         } finally {
             submitBtn.innerText = originalText;
             submitBtn.disabled = false;
@@ -49042,7 +49042,7 @@ function setupFeeCollectionForm() {
 
 // ==================== CRUD FUNCTIONS ====================
 
-function showAddBursaryModal() {
+async function showAddBursaryModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -49083,14 +49083,14 @@ function showAddBursaryModal() {
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                alert('✅ Bursary added successfully!');
+                await SystemDialog.alert('✅ Bursary added successfully!');
                 closeModal();
                 showFeeManagement();
             } else {
-                alert('❌ Error adding bursary');
+                await SystemDialog.alert('❌ Error adding bursary');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -49098,17 +49098,17 @@ function showAddBursaryModal() {
 
 
 async function deleteFeeStructure(id) {
-    if (confirm('Are you sure you want to delete this fee structure?')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this fee structure?')) {
         try {
             const response = await fetch(`/api/fee/structures/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Fee structure deleted successfully!');
+                await SystemDialog.alert('✅ Fee structure deleted successfully!');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting fee structure');
+                await SystemDialog.alert('❌ Error deleting fee structure');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -49157,30 +49157,30 @@ async function editBursary(id) {
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                alert('✅ Bursary updated successfully!');
+                await SystemDialog.alert('✅ Bursary updated successfully!');
                 closeModal();
                 showFeeManagement();
             } else {
-                alert('❌ Error updating bursary');
+                await SystemDialog.alert('❌ Error updating bursary');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
 async function deleteBursary(id) {
-    if (confirm('Are you sure you want to delete this bursary?')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this bursary?')) {
         try {
             const response = await fetch(`/api/fee/bursaries/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Bursary deleted successfully!');
+                await SystemDialog.alert('✅ Bursary deleted successfully!');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting bursary');
+                await SystemDialog.alert('❌ Error deleting bursary');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -49245,7 +49245,7 @@ function initializeFeeTabs() {
 }
 
 // ==================== PAYMENT FORM SETUP ====================
-function setupFeeFormListener() {
+async function setupFeeFormListener() {
     const form = document.getElementById('feeCollectionForm');
     if (form) {
         form.addEventListener('submit', async (e) => {
@@ -49259,7 +49259,7 @@ function setupFeeFormListener() {
             const reference = document.getElementById('paymentReference').value;
             
             if (!studentId || !feeStructureId || !amount || amount <= 0) {
-                alert('Please fill all required fields');
+                await SystemDialog.alert('Please fill all required fields');
                 return;
             }
             
@@ -49290,17 +49290,17 @@ function setupFeeFormListener() {
                 
                 if (response.ok) {
                     const result = await response.json();
-                    alert(`✅ Payment recorded successfully!\nReceipt Number: ${result.receiptNumber}`);
+                    await SystemDialog.alert(`✅ Payment recorded successfully!\nReceipt Number: ${result.receiptNumber}`);
                     document.getElementById('amountPaid').value = '';
                     document.getElementById('paymentReference').value = '';
                     showFeeManagement(); // Refresh the page
                 } else {
                     const error = await response.text();
-                    alert('❌ Error recording payment: ' + error);
+                    await SystemDialog.alert('❌ Error recording payment: ' + error);
                 }
             } catch (error) {
                 console.error('Payment error:', error);
-                alert('Network error: ' + error.message);
+                await SystemDialog.alert('Network error: ' + error.message);
             } finally {
                 submitBtn.innerText = originalText;
                 submitBtn.disabled = false;
@@ -49324,7 +49324,7 @@ function setupFeeFormListener() {
 // ==================== CRUD FUNCTIONS ====================
 
 
-function showAddBursaryModal() {
+async function showAddBursaryModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -49365,14 +49365,14 @@ function showAddBursaryModal() {
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                alert('✅ Bursary added successfully!');
+                await SystemDialog.alert('✅ Bursary added successfully!');
                 closeModal();
                 showFeeManagement();
             } else {
-                alert('❌ Error adding bursary');
+                await SystemDialog.alert('❌ Error adding bursary');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -49380,17 +49380,17 @@ function showAddBursaryModal() {
 
 
 async function deleteFeeStructure(id) {
-    if (confirm('Are you sure you want to delete this fee structure?')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this fee structure?')) {
         try {
             const response = await fetch(`/api/fee/structures/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Fee structure deleted successfully!');
+                await SystemDialog.alert('✅ Fee structure deleted successfully!');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting fee structure');
+                await SystemDialog.alert('❌ Error deleting fee structure');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -49438,35 +49438,35 @@ async function editBursary(id) {
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                alert('✅ Bursary updated successfully!');
+                await SystemDialog.alert('✅ Bursary updated successfully!');
                 closeModal();
                 showFeeManagement();
             } else {
-                alert('❌ Error updating bursary');
+                await SystemDialog.alert('❌ Error updating bursary');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
 async function deleteBursary(id) {
-    if (confirm('Are you sure you want to delete this bursary?')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this bursary?')) {
         try {
             const response = await fetch(`/api/fee/bursaries/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Bursary deleted successfully!');
+                await SystemDialog.alert('✅ Bursary deleted successfully!');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting bursary');
+                await SystemDialog.alert('❌ Error deleting bursary');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
 
-function showAddAdditionalFeeModal(structureId) {
+async function showAddAdditionalFeeModal(structureId) {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -49502,14 +49502,14 @@ function showAddAdditionalFeeModal(structureId) {
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                alert('✅ Additional fee added successfully!');
+                await SystemDialog.alert('✅ Additional fee added successfully!');
                 closeModal();
                 showFeeManagement();
             } else {
-                alert('❌ Error adding additional fee');
+                await SystemDialog.alert('❌ Error adding additional fee');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -49605,42 +49605,42 @@ function loadBursaryImpactSystemFromData(payments) {
 function editFeeStructureSystem(id) { const fs = feeStructuresData.find(f => f.id === id); if (!fs) return; const modalHtml = `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4"><h3 class="text-xl font-bold mb-4">Edit Fee Structure</h3><form id="editFeeStructureFormSystem"><div class="space-y-3"><div><label class="block text-sm font-medium mb-1">Structure Name</label><input type="text" id="editFsName" value="${fs.name}" class="w-full border rounded-lg px-3 py-2"></div><div><label class="block text-sm font-medium mb-1">Education Level</label><select id="editFsLevel" class="w-full border rounded-lg px-3 py-2"><option value="Nursery" ${fs.level === 'Nursery' ? 'selected' : ''}>Nursery Level</option><option value="LowerPrimary" ${fs.level === 'LowerPrimary' ? 'selected' : ''}>Lower Primary</option><option value="UpperPrimary" ${fs.level === 'UpperPrimary' ? 'selected' : ''}>Upper Primary</option></select></div><div><label class="block text-sm font-medium mb-1">Tuition Fee</label><input type="number" id="editFsTuition" value="${fs.tuition}" class="w-full border rounded-lg px-3 py-2"></div><div><label class="block text-sm font-medium mb-1">Activity Fee</label><input type="number" id="editFsActivity" value="${fs.activity}" class="w-full border rounded-lg px-3 py-2"></div><div><label class="block text-sm font-medium mb-1">Development Fee</label><input type="number" id="editFsDevelopment" value="${fs.development}" class="w-full border rounded-lg px-3 py-2"></div><div class="bg-blue-50 p-3 rounded-lg"><div class="flex justify-between"><span class="font-semibold">Total Per Term:</span><span id="editFsTotal" class="font-bold text-blue-600">UGX ${fs.total.toLocaleString()}</span></div></div></div><div class="flex gap-3 mt-6"><button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save Changes</button><button type="button" onclick="closeModalSystem()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg">Cancel</button></div></form></div></div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     ['editFsTuition', 'editFsActivity', 'editFsDevelopment'].forEach(id => { document.getElementById(id).addEventListener('input', () => { const tuition = parseInt(document.getElementById('editFsTuition').value) || 0; const activity = parseInt(document.getElementById('editFsActivity').value) || 0; const development = parseInt(document.getElementById('editFsDevelopment').value) || 0; document.getElementById('editFsTotal').innerHTML = `UGX ${(tuition + activity + development).toLocaleString()}`; }); });
-    document.getElementById('editFeeStructureFormSystem').addEventListener('submit', async (e) => { e.preventDefault(); fs.name = document.getElementById('editFsName').value; fs.level = document.getElementById('editFsLevel').value; fs.tuition = parseInt(document.getElementById('editFsTuition').value) || 0; fs.activity = parseInt(document.getElementById('editFsActivity').value) || 0; fs.development = parseInt(document.getElementById('editFsDevelopment').value) || 0; fs.total = fs.tuition + fs.activity + fs.development; fs.updatedAt = new Date().toISOString(); const response = await fetch(`/api/fee/structures/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fs) }); if (response.ok) { alert('✅ Fee structure updated successfully!'); closeModalSystem(); showFeeManagement(); } else { alert('❌ Error updating fee structure'); } });
+    document.getElementById('editFeeStructureFormSystem').addEventListener('submit', async (e) => { e.preventDefault(); fs.name = document.getElementById('editFsName').value; fs.level = document.getElementById('editFsLevel').value; fs.tuition = parseInt(document.getElementById('editFsTuition').value) || 0; fs.activity = parseInt(document.getElementById('editFsActivity').value) || 0; fs.development = parseInt(document.getElementById('editFsDevelopment').value) || 0; fs.total = fs.tuition + fs.activity + fs.development; fs.updatedAt = new Date().toISOString(); const response = await fetch(`/api/fee/structures/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fs) }); if (response.ok) { await SystemDialog.alert('✅ Fee structure updated successfully!'); closeModalSystem(); showFeeManagement(); } else { await SystemDialog.alert('❌ Error updating fee structure'); } });
 }
 
-function deleteFeeStructureSystem(id) { if (confirm('Are you sure you want to delete this fee structure?')) { fetch(`/api/fee/structures/${id}`, { method: 'DELETE' }).then(async response => { if (response.ok) { alert('✅ Fee structure deleted successfully!'); showFeeManagement(); } else { alert('❌ Error deleting fee structure'); } }).catch(error => { console.error('Error:', error); alert('Error deleting fee structure'); }); } }
+function deleteFeeStructureSystem(id) { if (await SystemDialog.confirm('Are you sure you want to delete this fee structure?')) { fetch(`/api/fee/structures/${id}`, { method: 'DELETE' }).then(async response => { if (response.ok) { await SystemDialog.alert('✅ Fee structure deleted successfully!'); showFeeManagement(); } else { await SystemDialog.alert('❌ Error deleting fee structure'); } }).catch(error => { console.error('Error:', error); await SystemDialog.alert('Error deleting fee structure'); }); } }
 
-function showAddBursaryModalSystem() { const modalHtml = `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4"><h3 class="text-xl font-bold mb-4">Add Bursary/Scholarship</h3><form id="addBursaryFormSystem"><div class="space-y-3"><div><label class="block text-sm font-medium mb-1">Bursary Name *</label><input type="text" id="newBursaryName" required class="w-full border rounded-lg px-3 py-2" placeholder="e.g., Merit Scholarship"></div><div><label class="block text-sm font-medium mb-1">Description</label><textarea id="newBursaryDesc" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Brief description"></textarea></div><div><label class="block text-sm font-medium mb-1">Bursary Type *</label><select id="newBursaryType" required class="w-full border rounded-lg px-3 py-2"><option value="percentage">Percentage Discount (%)</option><option value="fixed">Fixed Amount (UGX)</option></select></div><div><label class="block text-sm font-medium mb-1">Value *</label><input type="number" id="newBursaryValue" required class="w-full border rounded-lg px-3 py-2" placeholder="e.g., 25 for 25% or 50000 for UGX 50,000"></div><div><label class="block text-sm font-medium mb-1">Category</label><select id="newBursaryCategory" class="w-full border rounded-lg px-3 py-2"><option value="Academic">Academic</option><option value="Sports">Sports</option><option value="Financial Need">Financial Need</option><option value="Special Talent">Special Talent</option><option value="Staff">Staff Child</option><option value="Other">Other</option></select></div></div><div class="flex gap-3 mt-6"><button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg">Add Bursary</button><button type="button" onclick="closeModalSystem()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg">Cancel</button></div></form></div></div>`;
+async function showAddBursaryModalSystem() { const modalHtml = `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4"><h3 class="text-xl font-bold mb-4">Add Bursary/Scholarship</h3><form id="addBursaryFormSystem"><div class="space-y-3"><div><label class="block text-sm font-medium mb-1">Bursary Name *</label><input type="text" id="newBursaryName" required class="w-full border rounded-lg px-3 py-2" placeholder="e.g., Merit Scholarship"></div><div><label class="block text-sm font-medium mb-1">Description</label><textarea id="newBursaryDesc" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Brief description"></textarea></div><div><label class="block text-sm font-medium mb-1">Bursary Type *</label><select id="newBursaryType" required class="w-full border rounded-lg px-3 py-2"><option value="percentage">Percentage Discount (%)</option><option value="fixed">Fixed Amount (UGX)</option></select></div><div><label class="block text-sm font-medium mb-1">Value *</label><input type="number" id="newBursaryValue" required class="w-full border rounded-lg px-3 py-2" placeholder="e.g., 25 for 25% or 50000 for UGX 50,000"></div><div><label class="block text-sm font-medium mb-1">Category</label><select id="newBursaryCategory" class="w-full border rounded-lg px-3 py-2"><option value="Academic">Academic</option><option value="Sports">Sports</option><option value="Financial Need">Financial Need</option><option value="Special Talent">Special Talent</option><option value="Staff">Staff Child</option><option value="Other">Other</option></select></div></div><div class="flex gap-3 mt-6"><button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg">Add Bursary</button><button type="button" onclick="closeModalSystem()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg">Cancel</button></div></form></div></div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('addBursaryFormSystem').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('newBursaryName').value; const description = document.getElementById('newBursaryDesc').value; const type = document.getElementById('newBursaryType').value; const value = parseInt(document.getElementById('newBursaryValue').value); const category = document.getElementById('newBursaryCategory').value; if (!name || !value) { alert('Please fill in all required fields'); return; } const newBursary = { id: `bursary_${Date.now()}`, name, description, type, value, category, isActive: true, createdAt: new Date().toISOString() }; const response = await fetch('/api/fee/bursaries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newBursary) }); if (response.ok) { alert('✅ Bursary added successfully!'); closeModalSystem(); showFeeManagement(); } else { alert('❌ Error adding bursary'); } });
+    document.getElementById('addBursaryFormSystem').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('newBursaryName').value; const description = document.getElementById('newBursaryDesc').value; const type = document.getElementById('newBursaryType').value; const value = parseInt(document.getElementById('newBursaryValue').value); const category = document.getElementById('newBursaryCategory').value; if (!name || !value) { await SystemDialog.alert('Please fill in all required fields'); return; } const newBursary = { id: `bursary_${Date.now()}`, name, description, type, value, category, isActive: true, createdAt: new Date().toISOString() }; const response = await fetch('/api/fee/bursaries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newBursary) }); if (response.ok) { await SystemDialog.alert('✅ Bursary added successfully!'); closeModalSystem(); showFeeManagement(); } else { await SystemDialog.alert('❌ Error adding bursary'); } });
 }
 
 function editBursarySystem(id) { const b = feeBursariesData.find(b => b.id === id); if (!b) return; const modalHtml = `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4"><h3 class="text-xl font-bold mb-4">Edit Bursary</h3><form id="editBursaryFormSystem"><div class="space-y-3"><div><label class="block text-sm font-medium mb-1">Bursary Name</label><input type="text" id="editBursaryName" value="${b.name}" class="w-full border rounded-lg px-3 py-2"></div><div><label class="block text-sm font-medium mb-1">Description</label><textarea id="editBursaryDesc" rows="2" class="w-full border rounded-lg px-3 py-2">${b.description || ''}</textarea></div><div><label class="block text-sm font-medium mb-1">Bursary Type</label><select id="editBursaryType" class="w-full border rounded-lg px-3 py-2"><option value="percentage" ${b.type === 'percentage' ? 'selected' : ''}>Percentage Discount (%)</option><option value="fixed" ${b.type === 'fixed' ? 'selected' : ''}>Fixed Amount (UGX)</option></select></div><div><label class="block text-sm font-medium mb-1">Value</label><input type="number" id="editBursaryValue" value="${b.value}" class="w-full border rounded-lg px-3 py-2"></div><div><label class="block text-sm font-medium mb-1">Category</label><select id="editBursaryCategory" class="w-full border rounded-lg px-3 py-2"><option value="Academic" ${b.category === 'Academic' ? 'selected' : ''}>Academic</option><option value="Sports" ${b.category === 'Sports' ? 'selected' : ''}>Sports</option><option value="Financial Need" ${b.category === 'Financial Need' ? 'selected' : ''}>Financial Need</option><option value="Special Talent" ${b.category === 'Special Talent' ? 'selected' : ''}>Special Talent</option><option value="Staff" ${b.category === 'Staff' ? 'selected' : ''}>Staff Child</option><option value="Other" ${b.category === 'Other' ? 'selected' : ''}>Other</option></select></div><div><label class="block text-sm font-medium mb-1">Status</label><select id="editBursaryStatus" class="w-full border rounded-lg px-3 py-2"><option value="true" ${b.isActive ? 'selected' : ''}>Active</option><option value="false" ${!b.isActive ? 'selected' : ''}>Inactive</option></select></div></div><div class="flex gap-3 mt-6"><button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save Changes</button><button type="button" onclick="closeModalSystem()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg">Cancel</button></div></form></div></div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('editBursaryFormSystem').addEventListener('submit', async (e) => { e.preventDefault(); b.name = document.getElementById('editBursaryName').value; b.description = document.getElementById('editBursaryDesc').value; b.type = document.getElementById('editBursaryType').value; b.value = parseInt(document.getElementById('editBursaryValue').value); b.category = document.getElementById('editBursaryCategory').value; b.isActive = document.getElementById('editBursaryStatus').value === 'true'; b.updatedAt = new Date().toISOString(); const response = await fetch(`/api/fee/bursaries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); if (response.ok) { alert('✅ Bursary updated successfully!'); closeModalSystem(); showFeeManagement(); } else { alert('❌ Error updating bursary'); } });
+    document.getElementById('editBursaryFormSystem').addEventListener('submit', async (e) => { e.preventDefault(); b.name = document.getElementById('editBursaryName').value; b.description = document.getElementById('editBursaryDesc').value; b.type = document.getElementById('editBursaryType').value; b.value = parseInt(document.getElementById('editBursaryValue').value); b.category = document.getElementById('editBursaryCategory').value; b.isActive = document.getElementById('editBursaryStatus').value === 'true'; b.updatedAt = new Date().toISOString(); const response = await fetch(`/api/fee/bursaries/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); if (response.ok) { await SystemDialog.alert('✅ Bursary updated successfully!'); closeModalSystem(); showFeeManagement(); } else { await SystemDialog.alert('❌ Error updating bursary'); } });
 }
 
-function deleteBursarySystem(id) { if (confirm('Are you sure you want to delete this bursary?')) { fetch(`/api/fee/bursaries/${id}`, { method: 'DELETE' }).then(async response => { if (response.ok) { alert('✅ Bursary deleted successfully!'); showFeeManagement(); } else { alert('❌ Error deleting bursary'); } }).catch(error => { console.error('Error:', error); alert('Error deleting bursary'); }); } }
+function deleteBursarySystem(id) { if (await SystemDialog.confirm('Are you sure you want to delete this bursary?')) { fetch(`/api/fee/bursaries/${id}`, { method: 'DELETE' }).then(async response => { if (response.ok) { await SystemDialog.alert('✅ Bursary deleted successfully!'); showFeeManagement(); } else { await SystemDialog.alert('❌ Error deleting bursary'); } }).catch(error => { console.error('Error:', error); await SystemDialog.alert('Error deleting bursary'); }); } }
 
-function saveRegistrationFeeSetting() { const amount = parseInt(document.getElementById('regFeeAmountSetting').value); if (amount && amount > 0) { localStorage.setItem('registrationFeeSystem', JSON.stringify({ amount: amount, isActive: true, updatedAt: new Date().toISOString() })); alert('✅ Registration fee saved successfully!'); } else { alert('Please enter a valid amount'); } }
+async function saveRegistrationFeeSetting() { const amount = parseInt(document.getElementById('regFeeAmountSetting').value); if (amount && amount > 0) { localStorage.setItem('registrationFeeSystem', JSON.stringify({ amount: amount, isActive: true, updatedAt: new Date().toISOString() })); await SystemDialog.alert('✅ Registration fee saved successfully!'); } else { await SystemDialog.alert('Please enter a valid amount'); } }
 
 function resetCollectionFormSystem() { document.getElementById('feeStudentSystem').value = ''; document.getElementById('feeStructureSelectSystem').innerHTML = '<option value="">Select Fee Structure</option>'; document.getElementById('bursarySelectSystem').value = ''; document.getElementById('amountPaidSystem').value = ''; document.getElementById('paymentReferenceSystem').value = ''; document.getElementById('paymentNotesSystem').value = ''; document.getElementById('additionalFeesContainer').innerHTML = ''; document.getElementById('feeSummarySystem').classList.add('hidden'); selectedAdditionalFeesArray = []; updateSelectedFeesList(); }
 
 function closeModalSystem() { const modal = document.querySelector('.fixed.inset-0'); if (modal) modal.remove(); }
 
-function viewPaymentReceipt(paymentId) { fetch('/api/fee/payments').then(res => res.json()).then(payments => { const payment = payments.find(p => p.id === paymentId); if (payment) printReceiptSystem(payment); else alert('Payment record not found'); }).catch(error => { console.error('Error fetching payment:', error); alert('Error loading payment receipt'); }); }
+function viewPaymentReceipt(paymentId) { fetch('/api/fee/payments').then(res => res.json()).then(payments => { const payment = payments.find(p => p.id === paymentId); if (payment) printReceiptSystem(payment); else await SystemDialog.alert('Payment record not found'); }).catch(error => { console.error('Error fetching payment:', error); await SystemDialog.alert('Error loading payment receipt'); }); }
 
 function printReceiptSystem(payment) { const receiptWindow = window.open('', '_blank'); receiptWindow.document.write(`<!DOCTYPE html><html><head><title>Payment Receipt</title><style>body{font-family:Arial;padding:40px;background:#f0f0f0}.receipt{max-width:400px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.1)}.header{background:linear-gradient(135deg,#1e3c72,#2a5298);color:white;text-align:center;padding:25px}.title{font-size:24px;font-weight:bold;margin-bottom:5px}.receipt-no{font-size:12px;margin-top:10px;opacity:0.8}.content{padding:25px}.row{display:flex;justify-content:space-between;margin:12px 0;padding:5px 0;border-bottom:1px dashed #eee}.total{font-size:18px;font-weight:bold;border-top:2px solid #333;padding-top:15px;margin-top:10px;border-bottom:none}.footer{background:#f8f9fa;text-align:center;padding:15px;font-size:11px;color:#666}.school-name{font-size:16px;font-weight:bold;margin-top:5px}.highlight{color:#2a5298;font-weight:bold}@media print{body{padding:0;background:white}.no-print{display:none}}</style></head><body><div class="receipt"><div class="header"><div class="title">FEE PAYMENT RECEIPT</div><div class="school-name">${currentSchool?.schoolName || 'School Name'}</div><div class="receipt-no">Receipt No: ${payment.receiptNumber}</div></div><div class="content"><div class="row"><strong>Date:</strong> <span>${new Date(payment.date).toLocaleDateString()}</span></div><div class="row"><strong>Student Name:</strong> <span>${payment.studentName}</span></div><div class="row"><strong>Admission No:</strong> <span>${payment.admissionNumber}</span></div><div class="row"><strong>Term:</strong> <span>Term ${payment.term}</span></div><div class="row"><strong>Fee Structure:</strong> <span>${payment.feeStructureName || 'Fee Payment'}</span></div>${payment.additionalFeeName ? `<div class="row"><strong>Additional Fee:</strong> <span>${payment.additionalFeeName}</span></div>` : ''}<div class="row"><strong>Payment Method:</strong> <span>${payment.method?.toUpperCase() || 'CASH'}</span></div>${payment.reference ? `<div class="row"><strong>Reference:</strong> <span>${payment.reference}</span></div>` : ''}<div class="row total"><strong>Amount Paid:</strong> <span class="highlight">UGX ${(payment.amount || 0).toLocaleString()}</span></div>${payment.notes ? `<div class="row"><strong>Notes:</strong> <span>${payment.notes}</span></div>` : ''}</div><div class="footer">Thank you for your payment!<br>This is a computer-generated receipt.</div></div><div class="no-print" style="text-align:center;margin-top:20px;"><button onclick="window.print()" style="padding:10px 20px;background:#2a5298;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Print Receipt</button><button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;">Close</button></div></body></html>`); receiptWindow.document.close(); }
 
-function generateFeeCollectionReport() { let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const totalCollected = payments.reduce((s, p) => s + p.amount, 0); alert(`📊 Fee Collection Report\n\nTotal Collected: UGX ${totalCollected.toLocaleString()}\nTotal Transactions: ${payments.length}\n\nThis report can be exported from the Payment History tab.`); }
+async function generateFeeCollectionReport() { let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const totalCollected = payments.reduce((s, p) => s + p.amount, 0); await SystemDialog.alert(`📊 Fee Collection Report\n\nTotal Collected: UGX ${totalCollected.toLocaleString()}\nTotal Transactions: ${payments.length}\n\nThis report can be exported from the Payment History tab.`); }
 
-function generateOutstandingReport() { let assignments = JSON.parse(localStorage.getItem('studentFeeAssignmentsSystem') || '{}'); let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); let totalOutstanding = 0; let overdueCount = 0; Object.entries(assignments).forEach(([studentId, assignment]) => { const feeStructure = feeStructuresData.find(f => f.id === assignment.feeStructureId); const expectedPerTerm = feeStructure ? feeStructure.total : 0; const studentPayments = payments.filter(p => p.studentId === studentId); const totalPaid = studentPayments.reduce((s, p) => s + p.amount, 0); const balance = (expectedPerTerm * 3) - totalPaid; if (balance > expectedPerTerm) { totalOutstanding += balance; overdueCount++; } }); alert(`📊 Outstanding Report\n\nTotal Outstanding: UGX ${totalOutstanding.toLocaleString()}\nOverdue Students: ${overdueCount}\n\nPlease check the Student Balances tab for details.`); }
+function generateOutstandingReport() { let assignments = JSON.parse(localStorage.getItem('studentFeeAssignmentsSystem') || '{}'); let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); let totalOutstanding = 0; let overdueCount = 0; Object.entries(assignments).forEach(([studentId, assignment]) => { const feeStructure = feeStructuresData.find(f => f.id === assignment.feeStructureId); const expectedPerTerm = feeStructure ? feeStructure.total : 0; const studentPayments = payments.filter(p => p.studentId === studentId); const totalPaid = studentPayments.reduce((s, p) => s + p.amount, 0); const balance = (expectedPerTerm * 3) - totalPaid; if (balance > expectedPerTerm) { totalOutstanding += balance; overdueCount++; } }); await SystemDialog.alert(`📊 Outstanding Report\n\nTotal Outstanding: UGX ${totalOutstanding.toLocaleString()}\nOverdue Students: ${overdueCount}\n\nPlease check the Student Balances tab for details.`); }
 
-function generateBursaryReport() { let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const bursaryPayments = payments.filter(p => p.bursaryName); const totalBursaryDiscount = bursaryPayments.reduce((s, p) => s + (p.expectedAmount ? p.amount : 0), 0); alert(`📊 Bursary Report\n\nTotal Bursary Discount Given: UGX ${totalBursaryDiscount.toLocaleString()}\nStudents with Bursary: ${bursaryPayments.length}\n\nCheck the Bursaries tab for available bursaries.`); }
+async function generateBursaryReport() { let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const bursaryPayments = payments.filter(p => p.bursaryName); const totalBursaryDiscount = bursaryPayments.reduce((s, p) => s + (p.expectedAmount ? p.amount : 0), 0); await SystemDialog.alert(`📊 Bursary Report\n\nTotal Bursary Discount Given: UGX ${totalBursaryDiscount.toLocaleString()}\nStudents with Bursary: ${bursaryPayments.length}\n\nCheck the Bursaries tab for available bursaries.`); }
 
-function exportPaymentsSystem() { let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const exportData = payments.map(p => ({ 'Date': new Date(p.date).toLocaleDateString(), 'Receipt Number': p.receiptNumber, 'Student Name': p.studentName, 'Admission Number': p.admissionNumber, 'Academic Year': p.academicYear || '2026', 'Term': p.term, 'Fee Structure': p.feeStructureName, 'Bursary Applied': p.bursaryName || 'None', 'Amount (UGX)': p.amount, 'Payment Method': p.method, 'Reference': p.reference || '', 'Notes': p.notes || '' })); const csv = convertToCSV(exportData); downloadCSV(csv, `fee_payments_${new Date().toISOString().split('T')[0]}.csv`); alert('✅ Payments exported successfully'); }
+async function exportPaymentsSystem() { let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const exportData = payments.map(p => ({ 'Date': new Date(p.date).toLocaleDateString(), 'Receipt Number': p.receiptNumber, 'Student Name': p.studentName, 'Admission Number': p.admissionNumber, 'Academic Year': p.academicYear || '2026', 'Term': p.term, 'Fee Structure': p.feeStructureName, 'Bursary Applied': p.bursaryName || 'None', 'Amount (UGX)': p.amount, 'Payment Method': p.method, 'Reference': p.reference || '', 'Notes': p.notes || '' })); const csv = convertToCSV(exportData); downloadCSV(csv, `fee_payments_${new Date().toISOString().split('T')[0]}.csv`); await SystemDialog.alert('✅ Payments exported successfully'); }
 
-function exportBalancesSystem() { let assignments = JSON.parse(localStorage.getItem('studentFeeAssignmentsSystem') || '{}'); let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const exportData = Object.entries(assignments).map(([studentId, assignment]) => { const feeStructure = feeStructuresData.find(f => f.id === assignment.feeStructureId); const studentPayments = payments.filter(p => p.studentId === studentId); const totalPaid = studentPayments.reduce((s, p) => s + p.amount, 0); const expectedPerTerm = feeStructure ? feeStructure.total : 0; const balance = (expectedPerTerm * 3) - totalPaid; return { 'Student ID': studentId, 'Fee Structure': assignment.feeStructureName, 'Bursary': assignment.bursaryName || 'None', 'Expected Per Term': expectedPerTerm, 'Total Paid': totalPaid, 'Total Expected': expectedPerTerm * 3, 'Balance': balance }; }); const csv = convertToCSV(exportData); downloadCSV(csv, `student_balances_${new Date().toISOString().split('T')[0]}.csv`); alert('✅ Balances exported successfully'); }
+function exportBalancesSystem() { let assignments = JSON.parse(localStorage.getItem('studentFeeAssignmentsSystem') || '{}'); let payments = JSON.parse(localStorage.getItem('feePaymentsSystem') || '[]'); const exportData = Object.entries(assignments).map(([studentId, assignment]) => { const feeStructure = feeStructuresData.find(f => f.id === assignment.feeStructureId); const studentPayments = payments.filter(p => p.studentId === studentId); const totalPaid = studentPayments.reduce((s, p) => s + p.amount, 0); const expectedPerTerm = feeStructure ? feeStructure.total : 0; const balance = (expectedPerTerm * 3) - totalPaid; return { 'Student ID': studentId, 'Fee Structure': assignment.feeStructureName, 'Bursary': assignment.bursaryName || 'None', 'Expected Per Term': expectedPerTerm, 'Total Paid': totalPaid, 'Total Expected': expectedPerTerm * 3, 'Balance': balance }; }); const csv = convertToCSV(exportData); downloadCSV(csv, `student_balances_${new Date().toISOString().split('T')[0]}.csv`); await SystemDialog.alert('✅ Balances exported successfully'); }
 
 
 async function assignFeeStructureToStudent(studentId, feeStructureId, bursaryId = null) {
@@ -50088,7 +50088,7 @@ async function handleEnhancedFeeStructureSubmit(e) {
     const tuition = parseInt(document.getElementById('efsTuition')?.value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -50117,17 +50117,17 @@ async function handleEnhancedFeeStructureSubmit(e) {
         });
         
         if (response.ok) {
-            alert('✅ Enhanced fee structure saved successfully!');
+            await SystemDialog.alert('✅ Enhanced fee structure saved successfully!');
             resetEnhancedFeeForm();
             // Refresh the fee management view to show new structure
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -50256,7 +50256,7 @@ async function editEnhancedFeeStructure(id) {
         const structure = structures.find(s => s.id === id);
         
         if (!structure) {
-            alert('Fee structure not found');
+            await SystemDialog.alert('Fee structure not found');
             return;
         }
         
@@ -50364,24 +50364,24 @@ async function editEnhancedFeeStructure(id) {
         
     } catch (error) {
         console.error('Error loading fee structure for edit:', error);
-        alert('Error loading fee structure details');
+        await SystemDialog.alert('Error loading fee structure details');
     }
 }
 
 // Delete enhanced fee structure
 async function deleteEnhancedFeeStructure(id) {
-    if (confirm('Are you sure you want to delete this fee structure? This will affect all students assigned to it.')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this fee structure? This will affect all students assigned to it.')) {
         try {
             const response = await fetch(`/api/fee/structures/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                alert('✅ Fee structure deleted successfully');
+                await SystemDialog.alert('✅ Fee structure deleted successfully');
                 showFeeManagement();
             } else {
-                alert('❌ Error deleting fee structure');
+                await SystemDialog.alert('❌ Error deleting fee structure');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error');
+            await SystemDialog.alert('Network error');
         }
     }
 }
@@ -50613,7 +50613,7 @@ async function saveFeeStructureFromModal() {
     const tuition = parseInt(document.getElementById('modalFsTuition').value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -50648,16 +50648,16 @@ async function saveFeeStructureFromModal() {
         });
         
         if (response.ok) {
-            alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}\n- Activity (${activityComponents.length} items): UGX ${activityTotal.toLocaleString()}\n- Development (${developmentComponents.length} items): UGX ${developmentTotal.toLocaleString()}\n- TOTAL PER TERM: UGX ${total.toLocaleString()}`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}\n- Activity (${activityComponents.length} items): UGX ${activityTotal.toLocaleString()}\n- Development (${developmentComponents.length} items): UGX ${developmentTotal.toLocaleString()}\n- TOTAL PER TERM: UGX ${total.toLocaleString()}`);
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -50925,7 +50925,7 @@ async function showAddFeeStructureModal() {
 }
 
 // ==================== LOAD EXISTING FEE STRUCTURE ====================
-function loadExistingFeeStructure() {
+async function loadExistingFeeStructure() {
     console.log('loadExistingFeeStructure called');
     
     const select = document.getElementById('loadFeeStructureSelect');
@@ -50933,13 +50933,13 @@ function loadExistingFeeStructure() {
     const statusMsg = document.getElementById('loadStatusMsg');
     
     if (!selectedId) {
-        alert('Please select a fee structure to load');
+        await SystemDialog.alert('Please select a fee structure to load');
         return;
     }
     
     const feeStructure = window.existingFeeStructures.find(f => f.id === selectedId);
     if (!feeStructure) {
-        alert('Fee structure not found');
+        await SystemDialog.alert('Fee structure not found');
         return;
     }
     
@@ -50947,13 +50947,13 @@ function loadExistingFeeStructure() {
     console.log('Activity components:', feeStructure.activityComponents);
     
     // Confirm loading
-    if (!confirm(`Are you sure you want to load "${feeStructure.name}"?\n\nThis will replace all current activity groups.\n\nYou can still edit them after loading.`)) {
+    if (!await SystemDialog.confirm(`Are you sure you want to load "${feeStructure.name}"?\n\nThis will replace all current activity groups.\n\nYou can still edit them after loading.`)) {
         return;
     }
     
     // Check if there are existing groups and confirm
     if (window.activityGroupsData && window.activityGroupsData.length > 0) {
-        if (!confirm('You already have activity groups. Loading will replace them. Continue?')) {
+        if (!await SystemDialog.confirm('You already have activity groups. Loading will replace them. Continue?')) {
             return;
         }
     }
@@ -51044,13 +51044,13 @@ function loadExistingFeeStructure() {
 }
 
 // ==================== CLEAR ALL ACTIVITY GROUPS ====================
-function clearAllActivityGroups() {
+async function clearAllActivityGroups() {
     if (!window.activityGroupsData || window.activityGroupsData.length === 0) {
-        alert('No activity groups to clear');
+        await SystemDialog.alert('No activity groups to clear');
         return;
     }
     
-    if (!confirm('⚠️ Are you sure you want to remove ALL activity groups?\n\nThis cannot be undone.')) {
+    if (!await SystemDialog.confirm('⚠️ Are you sure you want to remove ALL activity groups?\n\nThis cannot be undone.')) {
         return;
     }
     
@@ -51505,7 +51505,7 @@ function showAddActivityGroupModal() {
 
 // ==================== SHOW ADD ITEM MODAL ====================
 
-function showAddItemModal() {
+async function showAddItemModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -51589,7 +51589,7 @@ function showAddItemModal() {
         const paymentOption = document.querySelector('input[name="paymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -51599,14 +51599,14 @@ function showAddItemModal() {
         if (paymentOption === 'cash_only') {
             cashAmount = parseInt(document.getElementById('itemCashAmount')?.value) || 0;
             if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+                await SystemDialog.alert('Please enter a valid cash amount');
                 return;
             }
             quantity = 1;
         } else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -51614,7 +51614,7 @@ function showAddItemModal() {
             cashAmount = parseInt(document.getElementById('itemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -51679,18 +51679,18 @@ function removeTempItem(index) {
 
 // ==================== SAVE ACTIVITY GROUP ====================
 
-function saveActivityGroup() {
+async function saveActivityGroup() {
     const groupName = document.getElementById('groupName').value.trim();
     const periodType = document.getElementById('groupPeriodType').value;
     const statusGroupId = document.getElementById('groupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -51811,12 +51811,12 @@ function renderActivityGroupsList() {
 
 
 
-function updateActivityGroup() {
+async function updateActivityGroup() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
-    if (!groupName) { alert('Enter group name'); return; }
-    if (window.tempGroupItems.length === 0) { alert('Add at least one item'); return; }
+    if (!groupName) { await SystemDialog.alert('Enter group name'); return; }
+    if (window.tempGroupItems.length === 0) { await SystemDialog.alert('Add at least one item'); return; }
     
     let statusGroupInfo = null;
     if (statusGroupId && window.existingStatusGroups) statusGroupInfo = window.existingStatusGroups.find(g => g.id === statusGroupId);
@@ -51836,20 +51836,20 @@ function updateActivityGroup() {
     closeSubModal();
     renderActivityGroupsList();
     updateSummaryTotals();
-    alert('✅ Activity group updated!');
+    await SystemDialog.alert('✅ Activity group updated!');
 }
 
 // ==================== DELETE ACTIVITY GROUP ====================
 
-function deleteActivityGroup(groupId) {
-    if (!confirm('Are you sure you want to delete this activity group?')) return;
+async function deleteActivityGroup(groupId) {
+    if (!await SystemDialog.confirm('Are you sure you want to delete this activity group?')) return;
     const groupIndex = window.activityGroupsData.findIndex(g => g.id === groupId);
     if (groupIndex !== -1) {
         const groupName = window.activityGroupsData[groupIndex].name;
         window.activityGroupsData.splice(groupIndex, 1);
         renderActivityGroupsList();
         updateSummaryTotals();
-        alert(`✅ "${groupName}" deleted!`);
+        await SystemDialog.alert(`✅ "${groupName}" deleted!`);
     }
 }
 
@@ -51869,7 +51869,7 @@ function showStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showCreateStatusGroupModal() {
+async function showCreateStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -51885,7 +51885,7 @@ function showCreateStatusGroupModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('createStatusGroupBtn').addEventListener('click', async () => {
         const name = document.getElementById('newStatusGroupName').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('newStatusGroupDesc').value;
         const response = await fetch('/api/fee/status-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description, color: '#6b7280', isActive: true }) });
         if (response.ok) {
@@ -51893,12 +51893,12 @@ function showCreateStatusGroupModal() {
             window.existingStatusGroups.push(result.group);
             closeSubModal();
             showStatusGroupsModal();
-            alert('✅ Status group created!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
-function showQuickAddStatusGroup() {
+async function showQuickAddStatusGroup() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -51914,7 +51914,7 @@ function showQuickAddStatusGroup() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('quickCreateBtn').addEventListener('click', async () => {
         const name = document.getElementById('quickStatusName').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('quickStatusDesc').value;
         const response = await fetch('/api/fee/status-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description, color: '#6b7280', isActive: true }) });
         if (response.ok) {
@@ -51923,20 +51923,20 @@ function showQuickAddStatusGroup() {
             const select = document.getElementById('groupStatusGroupId');
             if (select) { const opt = document.createElement('option'); opt.value = result.group.id; opt.textContent = name; select.appendChild(opt); select.value = result.group.id; }
             closeSubModal();
-            alert('✅ Status group created and selected!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created and selected!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (!confirm('Delete this status group?')) return;
+    if (!await SystemDialog.confirm('Delete this status group?')) return;
     const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
     if (response.ok) {
         window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
         closeSubModal();
         showStatusGroupsModal();
-        alert('✅ Status group deleted');
-    } else alert('❌ Error deleting');
+        await SystemDialog.alert('✅ Status group deleted');
+    } else await SystemDialog.alert('❌ Error deleting');
 }
 
 // ==================== SAVE FEE STRUCTURE TO SERVER ====================
@@ -51955,7 +51955,7 @@ async function saveFeeStructureToServer() {
     console.log('Activity Groups Data:', window.activityGroupsData);
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -52017,19 +52017,19 @@ async function saveFeeStructureToServer() {
         console.log('Server response:', result);
         
         if (response.ok) {
-            alert(`✅ Fee structure "${name}" saved successfully!\n\n💰 Tuition: UGX ${tuition.toLocaleString()}\n📊 Activity Groups: ${activityComponents.length}`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" saved successfully!\n\n💰 Tuition: UGX ${tuition.toLocaleString()}\n📊 Activity Groups: ${activityComponents.length}`);
             closeModal();
-            if (typeof showFeeManagement === 'function') {
+            if (typeof showFeeManagement === 'async function') {
                 showFeeManagement();
             } else {
                 window.location.reload();
             }
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -52175,7 +52175,7 @@ function showAddActivityGroupModal() {
 
 // ==================== SHOW ADD ITEM MODAL ====================
 
-function showAddItemModal() {
+async function showAddItemModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -52259,7 +52259,7 @@ function showAddItemModal() {
         const paymentOption = document.querySelector('input[name="paymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -52269,14 +52269,14 @@ function showAddItemModal() {
         if (paymentOption === 'cash_only') {
             cashAmount = parseInt(document.getElementById('itemCashAmount')?.value) || 0;
             if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+                await SystemDialog.alert('Please enter a valid cash amount');
                 return;
             }
             quantity = 1;
         } else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -52284,7 +52284,7 @@ function showAddItemModal() {
             cashAmount = parseInt(document.getElementById('itemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -52349,18 +52349,18 @@ function removeTempItem(index) {
 
 // ==================== SAVE ACTIVITY GROUP ====================
 
-function saveActivityGroup() {
+async function saveActivityGroup() {
     const groupName = document.getElementById('groupName').value.trim();
     const periodType = document.getElementById('groupPeriodType').value;
     const statusGroupId = document.getElementById('groupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -52484,13 +52484,13 @@ function renderActivityGroupsList() {
 
 // ==================== EDIT ACTIVITY GROUP (UPDATED) ====================
 
-function editActivityGroup(groupId) {
+async function editActivityGroup(groupId) {
     console.log('editActivityGroup called for groupId:', groupId);
     
     const group = window.activityGroupsData.find(g => g.id === groupId);
     if (!group) {
         console.error('Group not found:', groupId);
-        alert('Group not found');
+        await SystemDialog.alert('Group not found');
         return;
     }
     
@@ -52598,7 +52598,7 @@ function closeEditGroupModal() {
 
 
 // ==================== UPDATE ACTIVITY GROUP IN TEMP ====================
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     console.log('updateActivityGroupInTemp called');
     
     const groupName = document.getElementById('editGroupName').value.trim();
@@ -52606,12 +52606,12 @@ function updateActivityGroupInTemp() {
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -52648,7 +52648,7 @@ function updateActivityGroupInTemp() {
         console.log('Group updated successfully:', window.activityGroupsData[groupIndex].name);
     } else {
         console.error('Group not found for update:', window.editGroupId);
-        alert('Error: Group not found');
+        await SystemDialog.alert('Error: Group not found');
         return;
     }
     
@@ -52662,7 +52662,7 @@ function updateActivityGroupInTemp() {
     renderActivityGroupsList();
     updateSummaryTotals();
     
-    alert(`✅ Activity group "${groupName}" updated successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" updated successfully!`);
 }
 
 // ==================== MAKE FUNCTIONS GLOBAL ====================
@@ -52677,12 +52677,12 @@ console.log('✅ Edit Activity Group - COMPLETE FIXED VERSION LOADED!');
 
 
 
-function updateActivityGroup() {
+async function updateActivityGroup() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
-    if (!groupName) { alert('Enter group name'); return; }
-    if (window.tempGroupItems.length === 0) { alert('Add at least one item'); return; }
+    if (!groupName) { await SystemDialog.alert('Enter group name'); return; }
+    if (window.tempGroupItems.length === 0) { await SystemDialog.alert('Add at least one item'); return; }
     
     let statusGroupInfo = null;
     if (statusGroupId && window.existingStatusGroups) statusGroupInfo = window.existingStatusGroups.find(g => g.id === statusGroupId);
@@ -52702,20 +52702,20 @@ function updateActivityGroup() {
     closeSubModal();
     renderActivityGroupsList();
     updateSummaryTotals();
-    alert('✅ Activity group updated!');
+    await SystemDialog.alert('✅ Activity group updated!');
 }
 
 // ==================== DELETE ACTIVITY GROUP ====================
 
-function deleteActivityGroup(groupId) {
-    if (!confirm('Are you sure you want to delete this activity group?')) return;
+async function deleteActivityGroup(groupId) {
+    if (!await SystemDialog.confirm('Are you sure you want to delete this activity group?')) return;
     const groupIndex = window.activityGroupsData.findIndex(g => g.id === groupId);
     if (groupIndex !== -1) {
         const groupName = window.activityGroupsData[groupIndex].name;
         window.activityGroupsData.splice(groupIndex, 1);
         renderActivityGroupsList();
         updateSummaryTotals(); // IMPORTANT: Update summary after deleting group
-        alert(`✅ "${groupName}" deleted!`);
+        await SystemDialog.alert(`✅ "${groupName}" deleted!`);
     }
 }
 
@@ -52735,7 +52735,7 @@ function showStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showCreateStatusGroupModal() {
+async function showCreateStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -52751,7 +52751,7 @@ function showCreateStatusGroupModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('createStatusGroupBtn').addEventListener('click', async () => {
         const name = document.getElementById('newStatusGroupName').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('newStatusGroupDesc').value;
         const response = await fetch('/api/fee/status-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description, color: '#6b7280', isActive: true }) });
         if (response.ok) {
@@ -52759,12 +52759,12 @@ function showCreateStatusGroupModal() {
             window.existingStatusGroups.push(result.group);
             closeSubModal();
             showStatusGroupsModal();
-            alert('✅ Status group created!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
-function showQuickAddStatusGroup() {
+async function showQuickAddStatusGroup() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -52780,7 +52780,7 @@ function showQuickAddStatusGroup() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('quickCreateBtn').addEventListener('click', async () => {
         const name = document.getElementById('quickStatusName').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('quickStatusDesc').value;
         const response = await fetch('/api/fee/status-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description, color: '#6b7280', isActive: true }) });
         if (response.ok) {
@@ -52789,20 +52789,20 @@ function showQuickAddStatusGroup() {
             const select = document.getElementById('groupStatusGroupId');
             if (select) { const opt = document.createElement('option'); opt.value = result.group.id; opt.textContent = name; select.appendChild(opt); select.value = result.group.id; }
             closeSubModal();
-            alert('✅ Status group created and selected!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created and selected!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (!confirm('Delete this status group?')) return;
+    if (!await SystemDialog.confirm('Delete this status group?')) return;
     const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
     if (response.ok) {
         window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
         closeSubModal();
         showStatusGroupsModal();
-        alert('✅ Status group deleted');
-    } else alert('❌ Error deleting');
+        await SystemDialog.alert('✅ Status group deleted');
+    } else await SystemDialog.alert('❌ Error deleting');
 }
 
 // ==================== SAVE FEE STRUCTURE TO SERVER ====================
@@ -52939,7 +52939,7 @@ function showAddActivityGroupModal() {
 
 // ==================== SHOW ADD ITEM MODAL ====================
 
-function showAddItemModal() {
+async function showAddItemModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -53023,7 +53023,7 @@ function showAddItemModal() {
         const paymentOption = document.querySelector('input[name="paymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -53033,14 +53033,14 @@ function showAddItemModal() {
         if (paymentOption === 'cash_only') {
             cashAmount = parseInt(document.getElementById('itemCashAmount')?.value) || 0;
             if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+                await SystemDialog.alert('Please enter a valid cash amount');
                 return;
             }
             quantity = 1;
         } else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -53048,7 +53048,7 @@ function showAddItemModal() {
             cashAmount = parseInt(document.getElementById('itemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -53113,18 +53113,18 @@ function removeTempItem(index) {
 
 // ==================== SAVE ACTIVITY GROUP ====================
 
-function saveActivityGroup() {
+async function saveActivityGroup() {
     const groupName = document.getElementById('groupName').value.trim();
     const periodType = document.getElementById('groupPeriodType').value;
     const statusGroupId = document.getElementById('groupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -53239,7 +53239,7 @@ function renderActivityGroupsList() {
 
 
 // ==================== UPDATE ACTIVITY GROUP IN TEMP ====================
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     console.log('updateActivityGroupInTemp called');
     
     const groupName = document.getElementById('editGroupName').value.trim();
@@ -53247,12 +53247,12 @@ function updateActivityGroupInTemp() {
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -53289,7 +53289,7 @@ function updateActivityGroupInTemp() {
         console.log('Group updated successfully:', window.activityGroupsData[groupIndex].name);
     } else {
         console.error('Group not found for update:', window.editGroupId);
-        alert('Error: Group not found');
+        await SystemDialog.alert('Error: Group not found');
         return;
     }
     
@@ -53303,7 +53303,7 @@ function updateActivityGroupInTemp() {
     renderActivityGroupsList();
     updateSummaryTotals();
     
-    alert(`✅ Activity group "${groupName}" updated successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" updated successfully!`);
 }
 
 // ==================== MAKE FUNCTIONS GLOBAL ====================
@@ -53364,12 +53364,12 @@ function renderEditGroupItems() {
 
 // ==================== EDIT TEMP ITEM ====================
 
-function editEditTempItem(index) {
+async function editEditTempItem(index) {
     console.log('editEditTempItem called for index:', index);
     
     const item = window.tempGroupItems[index];
     if (!item) {
-        alert('Item not found');
+        await SystemDialog.alert('Item not found');
         return;
     }
     
@@ -53481,7 +53481,7 @@ function editEditTempItem(index) {
         const paymentOption = document.querySelector('input[name="editPaymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -53491,14 +53491,14 @@ function editEditTempItem(index) {
         if (paymentOption === 'cash_only') {
             cashAmount = parseFloat(document.getElementById('editItemCashAmount')?.value) || 0;
             if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+                await SystemDialog.alert('Please enter a valid cash amount');
                 return;
             }
             quantity = 1;
         } else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('editItemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -53506,7 +53506,7 @@ function editEditTempItem(index) {
             cashAmount = parseFloat(document.getElementById('editItemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('editItemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -53593,12 +53593,12 @@ function showToast(message, type = 'success') {
 
 
 
-function updateActivityGroup() {
+async function updateActivityGroup() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
-    if (!groupName) { alert('Enter group name'); return; }
-    if (window.tempGroupItems.length === 0) { alert('Add at least one item'); return; }
+    if (!groupName) { await SystemDialog.alert('Enter group name'); return; }
+    if (window.tempGroupItems.length === 0) { await SystemDialog.alert('Add at least one item'); return; }
     
     let statusGroupInfo = null;
     if (statusGroupId && window.existingStatusGroups) statusGroupInfo = window.existingStatusGroups.find(g => g.id === statusGroupId);
@@ -53618,20 +53618,20 @@ function updateActivityGroup() {
     closeSubModal();
     renderActivityGroupsList();
     updateSummaryTotals();
-    alert('✅ Activity group updated!');
+    await SystemDialog.alert('✅ Activity group updated!');
 }
 
 // ==================== DELETE ACTIVITY GROUP ====================
 
-function deleteActivityGroup(groupId) {
-    if (!confirm('Are you sure you want to delete this activity group?')) return;
+async function deleteActivityGroup(groupId) {
+    if (!await SystemDialog.confirm('Are you sure you want to delete this activity group?')) return;
     const groupIndex = window.activityGroupsData.findIndex(g => g.id === groupId);
     if (groupIndex !== -1) {
         const groupName = window.activityGroupsData[groupIndex].name;
         window.activityGroupsData.splice(groupIndex, 1);
         renderActivityGroupsList();
         updateSummaryTotals();
-        alert(`✅ "${groupName}" deleted!`);
+        await SystemDialog.alert(`✅ "${groupName}" deleted!`);
     }
 }
 
@@ -53651,7 +53651,7 @@ function showStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showCreateStatusGroupModal() {
+async function showCreateStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -53667,7 +53667,7 @@ function showCreateStatusGroupModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('createStatusGroupBtn').addEventListener('click', async () => {
         const name = document.getElementById('newStatusGroupName').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('newStatusGroupDesc').value;
         const response = await fetch('/api/fee/status-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description, color: '#6b7280', isActive: true }) });
         if (response.ok) {
@@ -53675,12 +53675,12 @@ function showCreateStatusGroupModal() {
             window.existingStatusGroups.push(result.group);
             closeSubModal();
             showStatusGroupsModal();
-            alert('✅ Status group created!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
-function showQuickAddStatusGroup() {
+async function showQuickAddStatusGroup() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -53696,7 +53696,7 @@ function showQuickAddStatusGroup() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('quickCreateBtn').addEventListener('click', async () => {
         const name = document.getElementById('quickStatusName').value.trim();
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         const description = document.getElementById('quickStatusDesc').value;
         const response = await fetch('/api/fee/status-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description, color: '#6b7280', isActive: true }) });
         if (response.ok) {
@@ -53705,20 +53705,20 @@ function showQuickAddStatusGroup() {
             const select = document.getElementById('groupStatusGroupId');
             if (select) { const opt = document.createElement('option'); opt.value = result.group.id; opt.textContent = name; select.appendChild(opt); select.value = result.group.id; }
             closeSubModal();
-            alert('✅ Status group created and selected!');
-        } else alert('❌ Error creating status group');
+            await SystemDialog.alert('✅ Status group created and selected!');
+        } else await SystemDialog.alert('❌ Error creating status group');
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (!confirm('Delete this status group?')) return;
+    if (!await SystemDialog.confirm('Delete this status group?')) return;
     const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
     if (response.ok) {
         window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
         closeSubModal();
         showStatusGroupsModal();
-        alert('✅ Status group deleted');
-    } else alert('❌ Error deleting');
+        await SystemDialog.alert('✅ Status group deleted');
+    } else await SystemDialog.alert('❌ Error deleting');
 }
 
 // ==================== SAVE FEE STRUCTURE TO SERVER ====================
@@ -53890,7 +53890,7 @@ function removeTempItem(index) {
 
 // ==================== FIXED SAVE ACTIVITY GROUP TO TEMP ====================
 
-function saveActivityGroupToTemp() {
+async function saveActivityGroupToTemp() {
     const groupName = document.getElementById('groupName').value.trim();
     const periodType = document.getElementById('groupPeriodType').value;
     const statusGroupId = document.getElementById('groupStatusGroupId').value || null;
@@ -53902,12 +53902,12 @@ function saveActivityGroupToTemp() {
     console.log('Temp Items count:', window.tempGroupItems ? window.tempGroupItems.length : 0);
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (!window.tempGroupItems || window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -53973,18 +53973,18 @@ function saveActivityGroupToTemp() {
 
 
 
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Enter group name');
+        await SystemDialog.alert('Enter group name');
         return;
     }
     
     if (window.tempGroupItems.length === 0) {
-        alert('Add at least one item');
+        await SystemDialog.alert('Add at least one item');
         return;
     }
     
@@ -54051,7 +54051,7 @@ function showManageStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showAddStatusGroupModal() {
+async function showAddStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -54074,7 +54074,7 @@ function showAddStatusGroupModal() {
         const name = document.getElementById('statusGroupName').value.trim();
         const description = document.getElementById('statusGroupDesc').value;
         const color = document.getElementById('statusGroupColor').value;
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         try {
             const response = await fetch('/api/fee/status-groups', {
                 method: 'POST',
@@ -54086,13 +54086,13 @@ function showAddStatusGroupModal() {
                 window.existingStatusGroups.push(result.group);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('Status group created!');
-            } else { alert('Error creating status group'); }
-        } catch (error) { alert('Network error'); }
+                await SystemDialog.alert('Status group created!');
+            } else { await SystemDialog.alert('Error creating status group'); }
+        } catch (error) { await SystemDialog.alert('Network error'); }
     });
 }
 
-function showAddStatusGroupQuickModal(formId) {
+async function showAddStatusGroupQuickModal(formId) {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -54113,7 +54113,7 @@ function showAddStatusGroupQuickModal(formId) {
     document.getElementById('quickAddStatusGroupForm').addEventListener('submit', async () => {
         const name = document.getElementById('quickStatusGroupName').value.trim();
         const description = document.getElementById('quickStatusGroupDesc').value;
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         try {
             const response = await fetch('/api/fee/status-groups', {
                 method: 'POST',
@@ -54127,9 +54127,9 @@ function showAddStatusGroupQuickModal(formId) {
                 const targetSelect = document.getElementById('groupStatusGroupId') || document.getElementById('editGroupStatusGroupId');
                 if (targetSelect) targetSelect.value = result.group.id;
                 closeSubModal();
-                alert('Status group created and selected!');
-            } else { alert('Error creating status group'); }
-        } catch (error) { alert('Network error'); }
+                await SystemDialog.alert('Status group created and selected!');
+            } else { await SystemDialog.alert('Error creating status group'); }
+        } catch (error) { await SystemDialog.alert('Network error'); }
     });
 }
 
@@ -54145,7 +54145,7 @@ function updateStatusGroupDropdowns() {
     });
 }
 
-function editStatusGroup(groupId) {
+async function editStatusGroup(groupId) {
     const group = window.existingStatusGroups.find(g => g.id === groupId);
     if (!group) return;
     const modalHtml = `
@@ -54166,7 +54166,7 @@ function editStatusGroup(groupId) {
         const name = document.getElementById('editStatusGroupName').value.trim();
         const description = document.getElementById('editStatusGroupDesc').value;
         const color = document.getElementById('editStatusGroupColor').value;
-        if (!name) { alert('Enter group name'); return; }
+        if (!name) { await SystemDialog.alert('Enter group name'); return; }
         try {
             const response = await fetch(`/api/fee/status-groups/${groupId}`, {
                 method: 'PUT',
@@ -54179,25 +54179,25 @@ function editStatusGroup(groupId) {
                 if (index !== -1) window.existingStatusGroups[index] = result.group;
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('Status group updated!');
+                await SystemDialog.alert('Status group updated!');
                 showManageStatusGroupsModal();
-            } else { alert('Error updating'); }
-        } catch (error) { alert('Network error'); }
+            } else { await SystemDialog.alert('Error updating'); }
+        } catch (error) { await SystemDialog.alert('Network error'); }
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (confirm('Delete this status group?')) {
+    if (await SystemDialog.confirm('Delete this status group?')) {
         try {
             const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
             if (response.ok) {
                 window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('Status group deleted!');
+                await SystemDialog.alert('Status group deleted!');
                 showManageStatusGroupsModal();
-            } else { alert('Error deleting'); }
-        } catch (error) { alert('Network error'); }
+            } else { await SystemDialog.alert('Error deleting'); }
+        } catch (error) { await SystemDialog.alert('Network error'); }
     }
 }
 
@@ -54219,7 +54219,7 @@ async function saveFeeStructureWithStatusGroups() {
         return;
     }
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -54322,25 +54322,25 @@ async function saveFeeStructureWithStatusGroups() {
                 }
             }
             
-            alert(summaryMessage);
+            await SystemDialog.alert(summaryMessage);
             
             // Reset global data
             window.activityGroupsData = [];
             
             closeModal();
             // Refresh the fee management page
-            if (typeof showFeeManagement === 'function') {
+            if (typeof showFeeManagement === 'async function') {
                 showFeeManagement();
             } else {
                 window.location.reload();
             }
         } else {
-            alert('❌ Error saving fee structure: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (result.error || 'Unknown error'));
             console.error('Server error:', result);
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -54643,7 +54643,7 @@ function removeEditTempItem(index) {
     }
 }
 
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
@@ -54655,12 +54655,12 @@ function updateActivityGroupInTemp() {
     console.log('Temp Items count:', window.tempGroupItems.length);
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -54697,7 +54697,7 @@ function updateActivityGroupInTemp() {
         console.log('Group updated successfully:', window.activityGroupsData[groupIndex].name);
     } else {
         console.error('Group not found for update:', window.editGroupId);
-        alert('Error: Group not found');
+        await SystemDialog.alert('Error: Group not found');
         return;
     }
     
@@ -54711,7 +54711,7 @@ function updateActivityGroupInTemp() {
     renderActivityGroupsList();
     updateSummaryTotals();
     
-    alert(`✅ Activity group "${groupName}" updated successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" updated successfully!`);
 }
 
 
@@ -54766,7 +54766,7 @@ function showManageStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showAddStatusGroupModal() {
+async function showAddStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -54805,7 +54805,7 @@ function showAddStatusGroupModal() {
         const color = document.getElementById('statusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -54822,18 +54822,18 @@ function showAddStatusGroupModal() {
                 window.existingStatusGroups.push(result.group);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group created successfully!');
+                await SystemDialog.alert('✅ Status group created successfully!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
-function showAddStatusGroupQuickModal(formId) {
+async function showAddStatusGroupQuickModal(formId) {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -54867,7 +54867,7 @@ function showAddStatusGroupQuickModal(formId) {
         const description = document.getElementById('quickStatusGroupDesc').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -54888,13 +54888,13 @@ function showAddStatusGroupQuickModal(formId) {
                 if (targetSelect) targetSelect.value = result.group.id;
                 
                 closeSubModal();
-                alert('✅ Status group created and selected!');
+                await SystemDialog.alert('✅ Status group created and selected!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -54916,7 +54916,7 @@ function updateStatusGroupDropdowns() {
     });
 }
 
-function editStatusGroup(groupId) {
+async function editStatusGroup(groupId) {
     const group = window.existingStatusGroups.find(g => g.id === groupId);
     if (!group) return;
     
@@ -54958,7 +54958,7 @@ function editStatusGroup(groupId) {
         const color = document.getElementById('editStatusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -54975,34 +54975,34 @@ function editStatusGroup(groupId) {
                 if (index !== -1) window.existingStatusGroups[index] = result.group;
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group updated successfully!');
+                await SystemDialog.alert('✅ Status group updated successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error updating status group');
+                await SystemDialog.alert('❌ Error updating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
         try {
             const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
             if (response.ok) {
                 window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group deleted successfully!');
+                await SystemDialog.alert('✅ Status group deleted successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error deleting status group');
+                await SystemDialog.alert('❌ Error deleting status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -55266,11 +55266,11 @@ function removeTempItem(index) {
 
 // ==================== DELETE ACTIVITY GROUP ====================
 
-function deleteActivityGroup(groupId) {
+async function deleteActivityGroup(groupId) {
     console.log('deleteActivityGroup called for groupId:', groupId);
     
     // Show confirmation dialog
-    if (!confirm('Are you sure you want to delete this activity group? This action cannot be undone.')) {
+    if (!await SystemDialog.confirm('Are you sure you want to delete this activity group? This action cannot be undone.')) {
         return;
     }
     
@@ -55279,7 +55279,7 @@ function deleteActivityGroup(groupId) {
     
     if (groupIndex === -1) {
         console.error('Group not found:', groupId);
-        alert('Group not found');
+        await SystemDialog.alert('Group not found');
         return;
     }
     
@@ -55298,7 +55298,7 @@ function deleteActivityGroup(groupId) {
     updateSummaryTotals();
     
     // Show success message
-    alert(`✅ Activity group "${groupName}" deleted successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" deleted successfully!`);
 }
 
 // ==================== EDIT ACTIVITY GROUP ====================
@@ -55307,18 +55307,18 @@ function deleteActivityGroup(groupId) {
 
 
 
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -55406,7 +55406,7 @@ function showManageStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showAddStatusGroupModal() {
+async function showAddStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -55445,7 +55445,7 @@ function showAddStatusGroupModal() {
         const color = document.getElementById('statusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -55462,18 +55462,18 @@ function showAddStatusGroupModal() {
                 window.existingStatusGroups.push(result.group);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group created successfully!');
+                await SystemDialog.alert('✅ Status group created successfully!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
-function showAddStatusGroupQuickModal(formId) {
+async function showAddStatusGroupQuickModal(formId) {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -55507,7 +55507,7 @@ function showAddStatusGroupQuickModal(formId) {
         const description = document.getElementById('quickStatusGroupDesc').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -55528,13 +55528,13 @@ function showAddStatusGroupQuickModal(formId) {
                 if (targetSelect) targetSelect.value = result.group.id;
                 
                 closeSubModal();
-                alert('✅ Status group created and selected!');
+                await SystemDialog.alert('✅ Status group created and selected!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -55556,7 +55556,7 @@ function updateStatusGroupDropdowns() {
     });
 }
 
-function editStatusGroup(groupId) {
+async function editStatusGroup(groupId) {
     const group = window.existingStatusGroups.find(g => g.id === groupId);
     if (!group) return;
     
@@ -55598,7 +55598,7 @@ function editStatusGroup(groupId) {
         const color = document.getElementById('editStatusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -55615,34 +55615,34 @@ function editStatusGroup(groupId) {
                 if (index !== -1) window.existingStatusGroups[index] = result.group;
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group updated successfully!');
+                await SystemDialog.alert('✅ Status group updated successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error updating status group');
+                await SystemDialog.alert('❌ Error updating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
         try {
             const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
             if (response.ok) {
                 window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group deleted successfully!');
+                await SystemDialog.alert('✅ Status group deleted successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error deleting status group');
+                await SystemDialog.alert('❌ Error deleting status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -55891,7 +55891,7 @@ function addItemToCurrentGroup() {
     
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     
-    function updateDynamicFields(selectedOption) {
+    async function updateDynamicFields(selectedOption) {
         const container = document.getElementById('dynamicFieldsContainer');
         if (!container) return;
         
@@ -55944,7 +55944,7 @@ function addItemToCurrentGroup() {
         const paymentOption = document.querySelector('input[name="paymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -55954,7 +55954,7 @@ function addItemToCurrentGroup() {
         if (paymentOption === 'cash_only') {
             cashAmount = parseFloat(document.getElementById('itemCashAmount')?.value) || 0;
             if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+                await SystemDialog.alert('Please enter a valid cash amount');
                 return;
             }
             quantity = 1;
@@ -55962,7 +55962,7 @@ function addItemToCurrentGroup() {
         else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -55971,7 +55971,7 @@ function addItemToCurrentGroup() {
             cashAmount = parseFloat(document.getElementById('itemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('itemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -56049,7 +56049,7 @@ function addItemToCurrentGroup() {
 
 // ==================== HANDLER FUNCTIONS FOR EDIT AND DELETE ====================
 
-function editActivityGroupHandler(groupId) {
+async function editActivityGroupHandler(groupId) {
     console.log('=== EDIT BUTTON CLICKED ===');
     console.log('Group ID:', groupId);
     console.log('All groups:', window.activityGroupsData);
@@ -56063,7 +56063,7 @@ function editActivityGroupHandler(groupId) {
     
     if (!group) {
         console.error('Group not found:', groupId);
-        alert('Group not found. Please refresh and try again.');
+        await SystemDialog.alert('Group not found. Please refresh and try again.');
         return;
     }
     
@@ -56073,7 +56073,7 @@ function editActivityGroupHandler(groupId) {
     openEditActivityGroupModal(group);
 }
 
-function deleteActivityGroupHandler(groupId) {
+async function deleteActivityGroupHandler(groupId) {
     console.log('=== DELETE BUTTON CLICKED ===');
     console.log('Group ID:', groupId);
     
@@ -56088,7 +56088,7 @@ function deleteActivityGroupHandler(groupId) {
     
     if (!group) {
         console.error('Group not found:', groupId);
-        alert('Group not found. Please refresh and try again.');
+        await SystemDialog.alert('Group not found. Please refresh and try again.');
         return;
     }
     
@@ -56096,7 +56096,7 @@ function deleteActivityGroupHandler(groupId) {
     console.log('Deleting group:', groupName);
     
     // Confirm deletion
-    if (!confirm(`⚠️ Are you sure you want to delete "${groupName}"?\n\nThis action cannot be undone.`)) {
+    if (!await SystemDialog.confirm(`⚠️ Are you sure you want to delete "${groupName}"?\n\nThis action cannot be undone.`)) {
         return;
     }
     
@@ -56110,9 +56110,9 @@ function deleteActivityGroupHandler(groupId) {
         renderActivityGroupsList();
         updateSummaryTotals();
         
-        alert(`✅ "${groupName}" has been deleted successfully!`);
+        await SystemDialog.alert(`✅ "${groupName}" has been deleted successfully!`);
     } else {
-        alert('Error: Group not found');
+        await SystemDialog.alert('Error: Group not found');
     }
 }
 
@@ -56290,7 +56290,7 @@ function addItemToCurrentGroupWithCallback(callback) {
     
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     
-    function updateEditDynamicFields(selectedOption) {
+    async function updateEditDynamicFields(selectedOption) {
         const container = document.getElementById('editDynamicFields');
         if (!container) return;
         
@@ -56341,7 +56341,7 @@ function addItemToCurrentGroupWithCallback(callback) {
         const paymentOption = document.querySelector('input[name="editPaymentOption"]:checked')?.value || 'either';
         
         if (!itemName) {
-            alert('Please enter an item name');
+            await SystemDialog.alert('Please enter an item name');
             return;
         }
         
@@ -56351,7 +56351,7 @@ function addItemToCurrentGroupWithCallback(callback) {
         if (paymentOption === 'cash_only') {
             cashAmount = parseInt(document.getElementById('editItemCashAmount')?.value) || 0;
             if (cashAmount <= 0) {
-                alert('Please enter a valid cash amount');
+                await SystemDialog.alert('Please enter a valid cash amount');
                 return;
             }
             quantity = 1;
@@ -56359,7 +56359,7 @@ function addItemToCurrentGroupWithCallback(callback) {
         else if (paymentOption === 'item_only') {
             quantity = parseInt(document.getElementById('editItemQuantity')?.value) || 0;
             if (quantity <= 0) {
-                alert('Please enter a valid quantity');
+                await SystemDialog.alert('Please enter a valid quantity');
                 return;
             }
             cashAmount = 0;
@@ -56368,7 +56368,7 @@ function addItemToCurrentGroupWithCallback(callback) {
             cashAmount = parseInt(document.getElementById('editItemCashAmount')?.value) || 0;
             quantity = parseInt(document.getElementById('editItemQuantity')?.value) || 0;
             if (cashAmount <= 0 && quantity <= 0) {
-                alert('Please enter either cash amount, quantity, or both');
+                await SystemDialog.alert('Please enter either cash amount, quantity, or both');
                 return;
             }
         }
@@ -56399,18 +56399,18 @@ function removeEditItem(index) {
     }
 }
 
-function saveEditedActivityGroup() {
+async function saveEditedActivityGroup() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -56451,7 +56451,7 @@ function saveEditedActivityGroup() {
     renderActivityGroupsList();
     updateSummaryTotals();
     
-    alert(`✅ Activity group "${groupName}" updated successfully!`);
+    await SystemDialog.alert(`✅ Activity group "${groupName}" updated successfully!`);
 }
 
 function closeEditModal() {
@@ -56459,7 +56459,7 @@ function closeEditModal() {
     if (modal) modal.remove();
 }
 
-function showAddStatusGroupQuickModalForEdit() {
+async function showAddStatusGroupQuickModalForEdit() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[202]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -56492,7 +56492,7 @@ function showAddStatusGroupQuickModalForEdit() {
         const description = document.getElementById('quickStatusGroupDescEdit').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -56519,12 +56519,12 @@ function showAddStatusGroupQuickModalForEdit() {
                 }
                 
                 closeStatusModal();
-                alert('✅ Status group created and selected!');
+                await SystemDialog.alert('✅ Status group created and selected!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -56545,18 +56545,18 @@ function closeStatusModal() {
 
 
 
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -56640,7 +56640,7 @@ function showManageStatusGroupsModal() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function showAddStatusGroupModal() {
+async function showAddStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -56679,7 +56679,7 @@ function showAddStatusGroupModal() {
         const color = document.getElementById('statusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -56696,18 +56696,18 @@ function showAddStatusGroupModal() {
                 window.existingStatusGroups.push(result.group);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group created successfully!');
+                await SystemDialog.alert('✅ Status group created successfully!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
-function showAddStatusGroupQuickModal(formId) {
+async function showAddStatusGroupQuickModal(formId) {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -56741,7 +56741,7 @@ function showAddStatusGroupQuickModal(formId) {
         const description = document.getElementById('quickStatusGroupDesc').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -56762,13 +56762,13 @@ function showAddStatusGroupQuickModal(formId) {
                 if (targetSelect) targetSelect.value = result.group.id;
                 
                 closeSubModal();
-                alert('✅ Status group created and selected!');
+                await SystemDialog.alert('✅ Status group created and selected!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -56790,7 +56790,7 @@ function updateStatusGroupDropdowns() {
     });
 }
 
-function editStatusGroup(groupId) {
+async function editStatusGroup(groupId) {
     const group = window.existingStatusGroups.find(g => g.id === groupId);
     if (!group) return;
     
@@ -56832,7 +56832,7 @@ function editStatusGroup(groupId) {
         const color = document.getElementById('editStatusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -56849,34 +56849,34 @@ function editStatusGroup(groupId) {
                 if (index !== -1) window.existingStatusGroups[index] = result.group;
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group updated successfully!');
+                await SystemDialog.alert('✅ Status group updated successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error updating status group');
+                await SystemDialog.alert('❌ Error updating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
 async function deleteStatusGroup(groupId) {
-    if (confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
         try {
             const response = await fetch(`/api/fee/status-groups/${groupId}`, { method: 'DELETE' });
             if (response.ok) {
                 window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group deleted successfully!');
+                await SystemDialog.alert('✅ Status group deleted successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error deleting status group');
+                await SystemDialog.alert('❌ Error deleting status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -57157,18 +57157,18 @@ function removeTempItem(index) {
 
 
 
-function updateActivityGroupInTemp() {
+async function updateActivityGroupInTemp() {
     const groupName = document.getElementById('editGroupName').value.trim();
     const periodType = document.getElementById('editGroupPeriodType').value;
     const statusGroupId = document.getElementById('editGroupStatusGroupId').value || null;
     
     if (!groupName) {
-        alert('Please enter a group name');
+        await SystemDialog.alert('Please enter a group name');
         return;
     }
     
     if (window.tempGroupItems.length === 0) {
-        alert('Please add at least one item to the group');
+        await SystemDialog.alert('Please add at least one item to the group');
         return;
     }
     
@@ -57254,7 +57254,7 @@ function showManageStatusGroupsModal() {
 
 // ==================== SHOW ADD STATUS GROUP MODAL ====================
 
-function showAddStatusGroupModal() {
+async function showAddStatusGroupModal() {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -57293,7 +57293,7 @@ function showAddStatusGroupModal() {
         const color = document.getElementById('statusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -57313,20 +57313,20 @@ function showAddStatusGroupModal() {
                 updateStatusGroupDropdowns();
                 
                 closeSubModal();
-                alert('✅ Status group created successfully!');
+                await SystemDialog.alert('✅ Status group created successfully!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
 
 // ==================== SHOW ADD STATUS GROUP QUICK MODAL ====================
 
-function showAddStatusGroupQuickModal(formId) {
+async function showAddStatusGroupQuickModal(formId) {
     const modalHtml = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
             <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
@@ -57360,7 +57360,7 @@ function showAddStatusGroupQuickModal(formId) {
         const description = document.getElementById('quickStatusGroupDesc').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -57385,13 +57385,13 @@ function showAddStatusGroupQuickModal(formId) {
                 }
                 
                 closeSubModal();
-                alert('✅ Status group created and selected!');
+                await SystemDialog.alert('✅ Status group created and selected!');
             } else {
-                alert('❌ Error creating status group');
+                await SystemDialog.alert('❌ Error creating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -57417,7 +57417,7 @@ function updateStatusGroupDropdowns() {
 
 // ==================== EDIT STATUS GROUP ====================
 
-function editStatusGroup(groupId) {
+async function editStatusGroup(groupId) {
     const group = window.existingStatusGroups.find(g => g.id === groupId);
     if (!group) return;
     
@@ -57459,7 +57459,7 @@ function editStatusGroup(groupId) {
         const color = document.getElementById('editStatusGroupColor').value;
         
         if (!name) {
-            alert('Please enter a group name');
+            await SystemDialog.alert('Please enter a group name');
             return;
         }
         
@@ -57478,14 +57478,14 @@ function editStatusGroup(groupId) {
                 }
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group updated successfully!');
+                await SystemDialog.alert('✅ Status group updated successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error updating status group');
+                await SystemDialog.alert('❌ Error updating status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     });
 }
@@ -57493,7 +57493,7 @@ function editStatusGroup(groupId) {
 // ==================== DELETE STATUS GROUP ====================
 
 async function deleteStatusGroup(groupId) {
-    if (confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
+    if (await SystemDialog.confirm('Are you sure you want to delete this status group? This will not delete the activity groups using it, but they will become independent.')) {
         try {
             const response = await fetch(`/api/fee/status-groups/${groupId}`, {
                 method: 'DELETE'
@@ -57503,14 +57503,14 @@ async function deleteStatusGroup(groupId) {
                 window.existingStatusGroups = window.existingStatusGroups.filter(g => g.id !== groupId);
                 updateStatusGroupDropdowns();
                 closeSubModal();
-                alert('✅ Status group deleted successfully!');
+                await SystemDialog.alert('✅ Status group deleted successfully!');
                 showManageStatusGroupsModal();
             } else {
-                alert('❌ Error deleting status group');
+                await SystemDialog.alert('❌ Error deleting status group');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Network error: ' + error.message);
+            await SystemDialog.alert('Network error: ' + error.message);
         }
     }
 }
@@ -57831,7 +57831,7 @@ async function saveSimpleFeeStructure() {
     console.log('Saving:', JSON.stringify(feeData, null, 2));
     
     if (!feeData.name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -57841,7 +57841,7 @@ async function saveSimpleFeeStructure() {
                     feeData.yearlyActivities.length > 0;
     
     if (!hasData) {
-        alert('Please add at least tuition fee or some activities before saving');
+        await SystemDialog.alert('Please add at least tuition fee or some activities before saving');
         return;
     }
     
@@ -57866,16 +57866,16 @@ async function saveSimpleFeeStructure() {
             const yearlyTotal = feeData.yearlyActivities.reduce((sum, act) => 
                 sum + act.items.reduce((s, i) => s + i.totalAmount, 0), 0);
             
-            alert(`✅ Fee structure "${feeData.name}" saved!\n\nTuition: UGX ${feeData.tuition.toLocaleString()}\nOne-Time: UGX ${oneTimeTotal.toLocaleString()}\nTermly: UGX ${termlyTotal.toLocaleString()}\nYearly: UGX ${yearlyTotal.toLocaleString()}`);
+            await SystemDialog.alert(`✅ Fee structure "${feeData.name}" saved!\n\nTuition: UGX ${feeData.tuition.toLocaleString()}\nOne-Time: UGX ${oneTimeTotal.toLocaleString()}\nTermly: UGX ${termlyTotal.toLocaleString()}\nYearly: UGX ${yearlyTotal.toLocaleString()}`);
             
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -60396,7 +60396,7 @@ async function saveEnhancedFeeStructure() {
     const tuition = parseInt(document.getElementById('modalFsTuition')?.value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -60538,16 +60538,16 @@ async function saveEnhancedFeeStructure() {
             const yearlyTotal = yearlyActivities.reduce((sum, act) => 
                 sum + act.items.reduce((s, i) => s + i.totalAmount, 0), 0);
             
-            alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}/term\n- One-Time: UGX ${oneTimeTotal.toLocaleString()}\n- Termly: UGX ${termlyTotal.toLocaleString()}/term\n- Yearly: UGX ${yearlyTotal.toLocaleString()}`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}/term\n- One-Time: UGX ${oneTimeTotal.toLocaleString()}\n- Termly: UGX ${termlyTotal.toLocaleString()}/term\n- Yearly: UGX ${yearlyTotal.toLocaleString()}`);
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -60661,7 +60661,7 @@ async function saveEnhancedFeeStructure() {
     const tuition = parseInt(document.getElementById('modalFsTuition')?.value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -60815,16 +60815,16 @@ async function saveEnhancedFeeStructure() {
             const termlyTotal = termlyActivities.reduce((sum, act) => sum + act.totalAmount, 0);
             const yearlyTotal = yearlyActivities.reduce((sum, act) => sum + act.totalAmount, 0);
             
-            alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}/term\n- One-Time Activities: UGX ${oneTimeTotal.toLocaleString()} (once per year)\n- Termly Activities: UGX ${termlyTotal.toLocaleString()}/term\n- Yearly Activities: UGX ${yearlyTotal.toLocaleString()} (once per year)`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}/term\n- One-Time Activities: UGX ${oneTimeTotal.toLocaleString()} (once per year)\n- Termly Activities: UGX ${termlyTotal.toLocaleString()}/term\n- Yearly Activities: UGX ${yearlyTotal.toLocaleString()} (once per year)`);
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -61314,7 +61314,7 @@ async function saveEnhancedFeeStructure() {
     const tuition = parseInt(document.getElementById('modalFsTuition').value) || 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -61473,16 +61473,16 @@ async function saveEnhancedFeeStructure() {
                 sum + act.items.reduce((s, i) => s + i.totalAmount, 0), 0);
             const developmentTotal = developmentComponents.reduce((sum, c) => sum + c.amount, 0);
             
-            alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}\n- One-Time Activities: UGX ${oneTimeTotal.toLocaleString()}\n- Termly Activities: UGX ${termlyTotal.toLocaleString()} (per term)\n- Yearly Activities: UGX ${yearlyTotal.toLocaleString()}\n- Development Fees: UGX ${developmentTotal.toLocaleString()}`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Summary:\n- Tuition: UGX ${tuition.toLocaleString()}\n- One-Time Activities: UGX ${oneTimeTotal.toLocaleString()}\n- Termly Activities: UGX ${termlyTotal.toLocaleString()} (per term)\n- Yearly Activities: UGX ${yearlyTotal.toLocaleString()}\n- Development Fees: UGX ${developmentTotal.toLocaleString()}`);
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -61881,7 +61881,7 @@ async function saveFeeStructureFromModal() {
     const tuition = tuitionInput ? parseInt(tuitionInput.value) || 0 : 0;
     
     if (!name) {
-        alert('Please enter a fee structure name');
+        await SystemDialog.alert('Please enter a fee structure name');
         return;
     }
     
@@ -61917,16 +61917,16 @@ async function saveFeeStructureFromModal() {
             const activityTotal = activityComponents.reduce((s, c) => s + c.amount, 0);
             const developmentTotal = developmentComponents.reduce((s, c) => s + c.amount, 0);
             
-            alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Fee Breakdown (All Separate):\n- Tuition Fee: UGX ${tuition.toLocaleString()}\n- Activity Fee (${activityComponents.length} components): UGX ${activityTotal.toLocaleString()}\n- Development Fee (${developmentComponents.length} components): UGX ${developmentTotal.toLocaleString()}\n\nNote: All fee types are separate and tracked independently.`);
+            await SystemDialog.alert(`✅ Fee structure "${name}" saved successfully!\n\n📊 Fee Breakdown (All Separate):\n- Tuition Fee: UGX ${tuition.toLocaleString()}\n- Activity Fee (${activityComponents.length} components): UGX ${activityTotal.toLocaleString()}\n- Development Fee (${developmentComponents.length} components): UGX ${developmentTotal.toLocaleString()}\n\nNote: All fee types are separate and tracked independently.`);
             closeModal();
             showFeeManagement();
         } else {
             const error = await response.json();
-            alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error saving fee structure: ' + (error.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Network error: ' + error.message);
+        await SystemDialog.alert('Network error: ' + error.message);
     } finally {
         submitBtn.innerText = originalText;
         submitBtn.disabled = false;
@@ -61950,7 +61950,7 @@ async function viewPaymentReceipt(paymentId) {
         const payment = payments.find(p => p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -62006,7 +62006,7 @@ async function viewPaymentReceipt(paymentId) {
         receiptWindow.document.close();
     } catch (error) {
         console.error('Error viewing receipt:', error);
-        alert('Error loading receipt');
+        await SystemDialog.alert('Error loading receipt');
     }
 }
 
@@ -62369,7 +62369,7 @@ async function showTranscript() {
     </div>`;
     window.generateTranscript = async () => {
         const studentId = document.getElementById('transcriptStudent').value;
-        if (!studentId) return alert('Select a student');
+        if (!studentId) return await SystemDialog.alert('Select a student');
         const payments = await (await fetch('/api/fee/payments/student/' + studentId)).json();
         const byYearTerm = {};
         payments.forEach(p => {
@@ -65234,11 +65234,11 @@ async function generateReportV3() {
             reportData = result.data;
             renderReportResultsV3(result.data);
         } else {
-            alert('Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('Error: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error generating report:', error);
-        alert('Error generating report: ' + error.message);
+        await SystemDialog.alert('Error generating report: ' + error.message);
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -70345,7 +70345,7 @@ function navigateToStatusGroupReport(statusGroupName) {
 // ---------------------------------------------------------------------------
 async function printReceipt(receiptNumber) {
     if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
-        alert('Invalid receipt number. Cannot print receipt.');
+        await SystemDialog.alert('Invalid receipt number. Cannot print receipt.');
         return;
     }
 
@@ -70359,7 +70359,7 @@ async function printReceipt(receiptNumber) {
         if (!payment) payment = payments.find(p => p.receiptNumber?.includes(receiptNumber) || receiptNumber.includes(p.receiptNumber));
         if (!payment) payment = payments.find(p => p.id === receiptNumber);
 
-        if (!payment) { alert('Payment record not found for receipt: ' + receiptNumber); return; }
+        if (!payment) { await SystemDialog.alert('Payment record not found for receipt: ' + receiptNumber); return; }
 
         const schoolRes = await fetch('/api/school');
         const schoolData = await schoolRes.json();
@@ -70379,7 +70379,7 @@ async function printReceipt(receiptNumber) {
         const totalPaid = (payment.tuitionPaid || 0) + oneTimeTotal + termlyTotal + yearlyTotal;
 
         const printWindow = window.open('', '_blank');
-        if (!printWindow) { alert('Please allow popups to print receipts'); return; }
+        if (!printWindow) { await SystemDialog.alert('Please allow popups to print receipts'); return; }
 
         printWindow.document.write(`
             <!DOCTYPE html><html><head><title>Payment Receipt - ${payment.receiptNumber}</title>
@@ -70444,7 +70444,7 @@ async function printReceipt(receiptNumber) {
 
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -70485,7 +70485,7 @@ async function printDashboardReport() {
     const feeStructures = await feeStructuresRes.json();
 
     const printWindow = window.open('', '_blank');
-    if (!printWindow) { alert('Please allow popups to print the report'); return; }
+    if (!printWindow) { await SystemDialog.alert('Please allow popups to print the report'); return; }
 
     printWindow.document.write(`
         <!DOCTYPE html><html><head><title>Dashboard Report - ${school.schoolName || 'School'}</title>
@@ -71817,7 +71817,7 @@ function filterStudentTableInStats(fsId, searchTerm) {
 async function printFeeStructureReportComplete(fsId) {
     const fs = window.feeStructureStatsData?.find(f => f.id === fsId);
     if (!fs) {
-        alert('Fee structure not found');
+        await SystemDialog.alert('Fee structure not found');
         return;
     }
     
@@ -72415,7 +72415,7 @@ function filterStudentTable(fsId, searchTerm) {
 async function printFeeStructureReport(fsId) {
     const fs = window.feeStructureStatsData?.find(f => f.id === fsId);
     if (!fs) {
-        alert('Fee structure not found');
+        await SystemDialog.alert('Fee structure not found');
         return;
     }
     
@@ -73023,7 +73023,7 @@ async function printReceiptForStudent(studentId) {
         const studentPayments = payments.filter(p => p.studentId === studentId);
         
         if (studentPayments.length === 0) {
-            alert('No payment records found for this student');
+            await SystemDialog.alert('No payment records found for this student');
             return;
         }
         
@@ -73032,7 +73032,7 @@ async function printReceiptForStudent(studentId) {
         await printPaymentReceipt(latestPayment.id);
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
+        await SystemDialog.alert('Error printing receipt');
     }
 }
 
@@ -73762,7 +73762,7 @@ async function printPaymentReceiptStats(paymentId) {
         const payment = payments.find(p => p && p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -73848,7 +73848,7 @@ async function printPaymentReceiptStats(paymentId) {
         printWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
+        await SystemDialog.alert('Error printing receipt');
     }
 }
 
@@ -73913,7 +73913,7 @@ async function printPaymentReceiptStats(paymentId) {
         const payment = payments.find(p => p && p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -73988,7 +73988,7 @@ async function printPaymentReceiptStats(paymentId) {
         printWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
+        await SystemDialog.alert('Error printing receipt');
     }
 }
 
@@ -74123,7 +74123,7 @@ async function printPaymentReceiptStats(paymentId) {
         const payment = payments.find(p => p.id === paymentId);
         
         if (!payment) {
-            alert('Payment record not found');
+            await SystemDialog.alert('Payment record not found');
             return;
         }
         
@@ -74239,7 +74239,7 @@ async function printPaymentReceiptStats(paymentId) {
         receiptWindow.document.close();
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
+        await SystemDialog.alert('Error printing receipt: ' + error.message);
     }
 }
 
@@ -74253,7 +74253,7 @@ async function printReceiptForStudentStats(studentId) {
         const studentPayments = payments.filter(p => p.studentId === studentId);
         
         if (studentPayments.length === 0) {
-            alert('No payment records found for this student');
+            await SystemDialog.alert('No payment records found for this student');
             return;
         }
         
@@ -74261,7 +74261,7 @@ async function printReceiptForStudentStats(studentId) {
         await printPaymentReceiptStats(latestPayment.id);
     } catch (error) {
         console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
+        await SystemDialog.alert('Error printing receipt');
     }
 }
 
@@ -74363,12 +74363,12 @@ function renderActivityCollectionSection(items, periodType, title, color, note) 
 window.viewStudentFeeDetailsEnhanced = viewStudentFeeDetailsEnhanced;
 
 // ==================== FIX MISSING FUNCTION ====================
-window.showAddFeeStructureModalSystem = window.showAddFeeStructureModal || function() {
-    if (typeof showAddFeeStructureModal === 'function') {
+window.showAddFeeStructureModalSystem = window.showAddFeeStructureModal || async function() {
+    if (typeof showAddFeeStructureModal === 'async function') {
         showAddFeeStructureModal();
     } else {
         console.warn('showAddFeeStructureModal not defined, using fallback');
-        alert('Please use the "Add Fee Structure" button in the Fee Management page');
+        await SystemDialog.alert('Please use the "Add Fee Structure" button in the Fee Management page');
     }
 };
 
@@ -74546,7 +74546,7 @@ async function debugReceipts() {
     payments.forEach(p => {
         console.log('- Receipt:', p.receiptNumber, 'Student:', p.studentName);
     });
-    alert(`Found ${payments.length} receipts. Check the console for details.`);
+    await SystemDialog.alert(`Found ${payments.length} receipts. Check the console for details.`);
 }
 
 // Call this from browser console if needed:
@@ -75888,16 +75888,16 @@ async function handleInventoryIssueV7(e) {
     var recipient = document.getElementById('issueRecipient')?.value.trim();
     var comment = document.getElementById('issueComment')?.value.trim();
 
-    if (!itemName) { alert('Please select an item'); return; }
-    if (!periodKey) { alert('Please select a period to issue from'); return; }
-    if (quantity <= 0) { alert('Please enter a valid quantity'); return; }
-    if (!destination) { alert('Please select a destination'); return; }
-    if (!recipient) { alert('Please enter a recipient name'); return; }
+    if (!itemName) { await SystemDialog.alert('Please select an item'); return; }
+    if (!periodKey) { await SystemDialog.alert('Please select a period to issue from'); return; }
+    if (quantity <= 0) { await SystemDialog.alert('Please enter a valid quantity'); return; }
+    if (!destination) { await SystemDialog.alert('Please select a destination'); return; }
+    if (!recipient) { await SystemDialog.alert('Please enter a recipient name'); return; }
 
     var stockData = getStockForItemAndPeriod(itemName, periodKey);
     var maxQty = stockData ? stockData.available || 0 : 0;
 
-    if (quantity > maxQty) { alert('Not enough stock. Available: ' + maxQty); return; }
+    if (quantity > maxQty) { await SystemDialog.alert('Not enough stock. Available: ' + maxQty); return; }
 
     var pk = periodKey.split('_').map(Number);
     var year = pk[0], term = pk[1];
@@ -75914,7 +75914,7 @@ async function handleInventoryIssueV7(e) {
         'Stock after: ' + (maxQty - quantity) + '\n\n' +
         'Confirm issuing this scholastic item from this period?';
 
-    if (!confirm(confirmMsg)) return;
+    if (!await SystemDialog.confirm(confirmMsg)) return;
 
     var submitBtn = e.target.querySelector('button[type="submit"]');
     var originalText = submitBtn.innerHTML;
@@ -75968,13 +75968,13 @@ async function refreshInventoryV7() {
 }
 
 // ========== EXPORT INVENTORY REPORT V7 ==========
-function exportInventoryReportV7() {
-    if (!inventoryDataGlobal) { alert('No data to export'); return; }
+async function exportInventoryReportV7() {
+    if (!inventoryDataGlobal) { await SystemDialog.alert('No data to export'); return; }
 
     var scholasticItems = getScholasticItemsOnly();
     var itemEntries = Object.entries(scholasticItems);
 
-    if (itemEntries.length === 0) { alert('No scholastic inventory data to export'); return; }
+    if (itemEntries.length === 0) { await SystemDialog.alert('No scholastic inventory data to export'); return; }
 
     var headers = ['Item Name', 'Status Group', 'Total Required', 'Brought (Items)', 'Cash Covered (Items)', 'Total Collected', 'Remaining', 'Collection Rate', 'Students'];
 
@@ -76020,8 +76020,8 @@ function exportInventoryReportV7() {
 // ========== EDIT TRANSACTION ==========
 function editTransaction(transactionId) {
     var transaction = inventoryTransactionsGlobal.find(function (t) { return t.id === transactionId; });
-    if (!transaction) { alert('Transaction not found'); return; }
-    if (transaction.reversed) { alert('Cannot edit a reversed transaction'); return; }
+    if (!transaction) { await SystemDialog.alert('Transaction not found'); return; }
+    if (transaction.reversed) { await SystemDialog.alert('Cannot edit a reversed transaction'); return; }
 
     var modalHtml = `
         <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4">
@@ -76072,8 +76072,8 @@ async function saveTransactionEditV7(transactionId) {
     var recipient = document.getElementById('editRecipient').value.trim();
     var comment = document.getElementById('editComment').value.trim();
 
-    if (quantity <= 0) { alert('Please enter a valid quantity'); return; }
-    if (!recipient) { alert('Please enter a recipient name'); return; }
+    if (quantity <= 0) { await SystemDialog.alert('Please enter a valid quantity'); return; }
+    if (!recipient) { await SystemDialog.alert('Please enter a recipient name'); return; }
 
     var submitBtn = document.querySelector('#editTransactionForm button[type="submit"]');
     var originalText = submitBtn.innerHTML;
@@ -76108,8 +76108,8 @@ async function saveTransactionEditV7(transactionId) {
 // ========== REVERSE TRANSACTION ==========
 function reverseTransaction(transactionId) {
     var transaction = inventoryTransactionsGlobal.find(function (t) { return t.id === transactionId; });
-    if (!transaction) { alert('Transaction not found'); return; }
-    if (transaction.reversed) { alert('Transaction already reversed'); return; }
+    if (!transaction) { await SystemDialog.alert('Transaction not found'); return; }
+    if (transaction.reversed) { await SystemDialog.alert('Transaction already reversed'); return; }
 
     var confirmMsg = '↩️ Reverse Transaction\n\n' +
         'Item: ' + transaction.itemName + '\n' +
@@ -76119,9 +76119,9 @@ function reverseTransaction(transactionId) {
         'This will return ' + transaction.quantity + ' ' + transaction.itemName + '(s) to stock.\n\n' +
         'Are you sure you want to reverse this transaction?';
 
-    if (!confirm(confirmMsg)) return;
+    if (!await SystemDialog.confirm(confirmMsg)) return;
 
-    var reason = prompt('Reason for reversal (optional):');
+    var reason = await SystemDialog.prompt('Reason for reversal (optional):');
 
     fetch('/api/inventory/reverse/' + transactionId, {
         method: 'POST',
@@ -76139,7 +76139,7 @@ function reverseTransaction(transactionId) {
 // ========== VIEW TRANSACTION DETAILS ==========
 function viewTransactionDetails(transactionId) {
     var transaction = inventoryTransactionsGlobal.find(function (t) { return t.id === transactionId; });
-    if (!transaction) { alert('Transaction not found'); return; }
+    if (!transaction) { await SystemDialog.alert('Transaction not found'); return; }
 
     function row(label, value) {
         return `<div class="flex justify-between border-b border-slate-100 pb-2.5"><span class="text-slate-400 text-sm">${label}</span><span class="font-semibold text-slate-700 text-sm">${value}</span></div>`;
@@ -78167,9 +78167,9 @@ async function viewUniformStudentHistory(studentId) {
             return;
         }
 
-        txs.sort(function(a, b) { return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date); });
+        txs.sort(async function(a, b) { return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date); });
 
-        var rows = txs.map(function(t) {
+        var rows = txs.map(async function(t) {
             var typeColor = t.transactionType === 'issue' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold';
             var typeLbl = t.transactionType === 'issue' ? '📤 Issued' : '📦 Restock';
             var dateStr = '';
@@ -78225,7 +78225,7 @@ async function viewUniformStudentHistory(studentId) {
 
     } catch (err) {
         console.error('Error loading student history:', err);
-        alert('Error loading history: ' + err.message);
+        await SystemDialog.alert('Error loading history: ' + err.message);
     }
 }
 
@@ -78333,7 +78333,7 @@ async function issueUniformToStudentWithQuantity(studentId, itemName, maxQuantit
         return;
     }
 
-    var quantity = prompt(
+    var quantity = await SystemDialog.prompt(
         'Issue "' + itemName + '" to ' + studentName + '\n\n' +
         'Paid for: ' + maxQuantity + ' items\n' +
         'Stock available: ' + stockAvail + '\n' +
@@ -78345,18 +78345,18 @@ async function issueUniformToStudentWithQuantity(studentId, itemName, maxQuantit
     if (!quantity) return;
     var qty = parseInt(quantity);
     if (isNaN(qty) || qty <= 0) {
-        alert('Please enter a valid quantity (1 or more).');
+        await SystemDialog.alert('Please enter a valid quantity (1 or more).');
         return;
     }
     if (qty > canIssue) {
-        alert('❌ Cannot issue ' + qty + '. Only ' + canIssue + ' can be issued (paid for items).');
+        await SystemDialog.alert('❌ Cannot issue ' + qty + '. Only ' + canIssue + ' can be issued (paid for items).');
         return;
     }
 
-    var comment = prompt('Comment (optional):', 'Uniform issued to student');
+    var comment = await SystemDialog.prompt('Comment (optional):', 'Uniform issued to student');
     if (comment === null) return;
 
-    if (!confirm('Issue ' + qty + ' × "' + itemName + '" to ' + studentName + '?')) return;
+    if (!await SystemDialog.confirm('Issue ' + qty + ' × "' + itemName + '" to ' + studentName + '?')) return;
 
     try {
         var res = await fetch('/api/uniform/issue', {
@@ -78376,11 +78376,11 @@ async function issueUniformToStudentWithQuantity(studentId, itemName, maxQuantit
             showStudentUniformDetail(studentId);
             renderUniformPageV6();
         } else {
-            alert('❌ Error: ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ Error: ' + (result.error || 'Unknown error'));
         }
     } catch (err) {
         console.error('Issue uniform error:', err);
-        alert('Network error: ' + err.message);
+        await SystemDialog.alert('Network error: ' + err.message);
     }
 }
 
@@ -78395,17 +78395,17 @@ async function handleUniformStockUpdate(e) {
     var comment = (document.getElementById('uniformStockComment')?.value || '').trim();
 
     if (!itemName) {
-        alert('Please select or enter an item name.');
+        await SystemDialog.alert('Please select or enter an item name.');
         return;
     }
     if (!quantity || quantity <= 0) {
-        alert('Please enter a valid quantity (1 or more).');
+        await SystemDialog.alert('Please enter a valid quantity (1 or more).');
         return;
     }
 
     var opLabel = operation === 'add' ? 'Add ' + quantity + ' × "' + itemName + '" to stock?'
                                       : 'Remove ' + quantity + ' × "' + itemName + '" from stock?';
-    if (!confirm(opLabel)) return;
+    if (!await SystemDialog.confirm(opLabel)) return;
 
     var btn = e.target.querySelector('button[type="submit"]');
     var origHtml = btn ? btn.innerHTML : '';
@@ -78431,11 +78431,11 @@ async function handleUniformStockUpdate(e) {
             await refreshUniformData();
             renderUniformPageV6();
         } else {
-            alert('❌ ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ ' + (result.error || 'Unknown error'));
         }
     } catch (err) {
         console.error('Stock update error:', err);
-        alert('Network error: ' + err.message);
+        await SystemDialog.alert('Network error: ' + err.message);
     } finally {
         if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
     }
@@ -78443,8 +78443,8 @@ async function handleUniformStockUpdate(e) {
 
 // ==================== ADD NEW UNIFORM ITEM ====================
 
-function addNewUniformItem() {
-    var newItem = prompt('Enter the name of the new uniform item:');
+async function addNewUniformItem() {
+    var newItem = await SystemDialog.prompt('Enter the name of the new uniform item:');
     if (!newItem || !newItem.trim()) return;
     newItem = newItem.trim();
 
@@ -78565,7 +78565,7 @@ function exportUniformReport() {
                 lines.push(s.firstName + ' ' + s.lastName + ' (' + (s.admissionNumber || '') + ') - ' + statusLabel);
                 var itemEntries = Object.entries(s.items || {});
                 if (itemEntries.length > 0) {
-                    itemEntries.forEach(function(ie) {
+                    itemEntries.forEach(async function(ie) {
                         var iN = ie[0];
                         var iD = ie[1];
                         lines.push('  ' + iN + ': Required=' + (iD.quantityRequired || 0) + ' Collected=' + (iD.collected || 0) + ' Issued=' + (iD.issued || 0));
@@ -78584,7 +78584,7 @@ function exportUniformReport() {
         URL.revokeObjectURL(url);
         showUniformToast('✅ Report exported', 'success');
     } catch (err) {
-        alert('Export error: ' + err.message);
+        await SystemDialog.alert('Export error: ' + err.message);
     }
 }
 
@@ -78879,7 +78879,7 @@ async function saveItemCustomization(studentId, itemId, componentId, periodType)
 
 // Remove customization (revert to default)
 async function removeItemCustomization(studentId, itemId) {
-    if (!confirm('⚠️ Remove customization for this item?\n\nThis will revert to the default fee structure amount for this student.')) {
+    if (!await SystemDialog.confirm('⚠️ Remove customization for this item?\n\nThis will revert to the default fee structure amount for this student.')) {
         return;
     }
     
@@ -80088,10 +80088,10 @@ async function generateComprehensiveReportWithCustomizations() {
 }
 
 // ========== EXPORT REPORT WITH CUSTOMIZATIONS ==========
-function exportReportWithCustomizations() {
+async function exportReportWithCustomizations() {
     const data = window.reportDataWithCustomizations;
     if (!data || !data.students || data.students.length === 0) {
-        alert('No data to export. Please generate the report first.');
+        await SystemDialog.alert('No data to export. Please generate the report first.');
         return;
     }
     
@@ -80189,7 +80189,7 @@ function exportReportWithCustomizations() {
     link.click();
     URL.revokeObjectURL(link.href);
     
-    alert('✅ Report exported successfully!');
+    await SystemDialog.alert('✅ Report exported successfully!');
 }
 
 // ========== PRINT REPORT WITH CUSTOMIZATIONS ==========
@@ -80938,17 +80938,17 @@ async function handleSchoolStockUpdate(e) {
     var comment = document.getElementById('schoolStockComment').value.trim();
     
     if (!itemName) {
-        alert('Please enter or select an item name');
+        await SystemDialog.alert('Please enter or select an item name');
         return;
     }
     
     if (!quantity || quantity <= 0) {
-        alert('Please enter a valid quantity (1 or more)');
+        await SystemDialog.alert('Please enter a valid quantity (1 or more)');
         return;
     }
     
     if (!category) {
-        alert('Please select a category for this item');
+        await SystemDialog.alert('Please select a category for this item');
         return;
     }
     
@@ -80956,7 +80956,7 @@ async function handleSchoolStockUpdate(e) {
         ? 'Add ' + quantity + ' × "' + itemName + '" to stock?' 
         : 'Remove ' + quantity + ' × "' + itemName + '" from stock?';
     
-    if (!confirm(opLabel)) return;
+    if (!await SystemDialog.confirm(opLabel)) return;
     
     var btn = e.target.querySelector('button[type="submit"]');
     var origHtml = btn ? btn.innerHTML : '';
@@ -80991,11 +80991,11 @@ async function handleSchoolStockUpdate(e) {
             
             await refreshSchoolStock();
         } else {
-            alert('❌ ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ ' + (result.error || 'Unknown error'));
         }
     } catch (err) {
         console.error('School stock update error:', err);
-        alert('Network error: ' + err.message);
+        await SystemDialog.alert('Network error: ' + err.message);
     } finally {
         if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
     }
@@ -81012,22 +81012,22 @@ async function handleSchoolStockIssue(e) {
     var comment = document.getElementById('schoolStockIssueComment').value.trim();
     
     if (!itemName) {
-        alert('Please select an item');
+        await SystemDialog.alert('Please select an item');
         return;
     }
     
     if (!quantity || quantity <= 0) {
-        alert('Please enter a valid quantity (1 or more)');
+        await SystemDialog.alert('Please enter a valid quantity (1 or more)');
         return;
     }
     
     if (!destination) {
-        alert('Please select a destination');
+        await SystemDialog.alert('Please select a destination');
         return;
     }
     
     if (!recipient) {
-        alert('Please enter a recipient name');
+        await SystemDialog.alert('Please enter a recipient name');
         return;
     }
     
@@ -81038,7 +81038,7 @@ async function handleSchoolStockIssue(e) {
     var maxQty = parseInt(selectedOption.dataset.available || 0);
     
     if (quantity > maxQty) {
-        alert('Not enough stock. Available: ' + maxQty);
+        await SystemDialog.alert('Not enough stock. Available: ' + maxQty);
         return;
     }
     
@@ -81051,7 +81051,7 @@ async function handleSchoolStockIssue(e) {
                      'Stock after: ' + (maxQty - quantity) + '\n\n' +
                      'Confirm issuing this item?';
     
-    if (!confirm(confirmMsg)) return;
+    if (!await SystemDialog.confirm(confirmMsg)) return;
     
     var btn = e.target.querySelector('button[type="submit"]');
     var origHtml = btn ? btn.innerHTML : '';
@@ -81081,11 +81081,11 @@ async function handleSchoolStockIssue(e) {
             
             await refreshSchoolStock();
         } else {
-            alert('❌ ' + (result.error || 'Unknown error'));
+            await SystemDialog.alert('❌ ' + (result.error || 'Unknown error'));
         }
     } catch (err) {
         console.error('Issue error:', err);
-        alert('Network error: ' + err.message);
+        await SystemDialog.alert('Network error: ' + err.message);
     } finally {
         if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
     }
@@ -81280,7 +81280,7 @@ function showAddSchoolStockCategoryModal() {
         var icon = document.getElementById('newCategoryIcon').value;
         
         if (!name) {
-            alert('Please enter a category name');
+            await SystemDialog.alert('Please enter a category name');
             return;
         }
         
@@ -81298,11 +81298,11 @@ function showAddSchoolStockCategoryModal() {
                 closeModal();
                 await refreshSchoolStock();
             } else {
-                alert('❌ ' + (result.error || 'Error creating category'));
+                await SystemDialog.alert('❌ ' + (result.error || 'Error creating category'));
             }
         } catch (err) {
             console.error('Error creating category:', err);
-            alert('Network error: ' + err.message);
+            await SystemDialog.alert('Network error: ' + err.message);
         }
     });
 }
@@ -81310,7 +81310,7 @@ function showAddSchoolStockCategoryModal() {
 function editSchoolStockCategory(categoryId) {
     var category = schoolStockCategories.find(function(c) { return c.id === categoryId; });
     if (!category) {
-        alert('Category not found');
+        await SystemDialog.alert('Category not found');
         return;
     }
     
@@ -81377,7 +81377,7 @@ function editSchoolStockCategory(categoryId) {
         var icon = document.getElementById('editCategoryIcon').value;
         
         if (!name) {
-            alert('Please enter a category name');
+            await SystemDialog.alert('Please enter a category name');
             return;
         }
         
@@ -81396,17 +81396,17 @@ function editSchoolStockCategory(categoryId) {
                 closeModal();
                 await refreshSchoolStock();
             } else {
-                alert('❌ ' + (result.error || 'Error updating category'));
+                await SystemDialog.alert('❌ ' + (result.error || 'Error updating category'));
             }
         } catch (err) {
             console.error('Error updating category:', err);
-            alert('Network error: ' + err.message);
+            await SystemDialog.alert('Network error: ' + err.message);
         }
     });
 }
 
 async function deleteSchoolStockCategory(categoryId) {
-    if (!confirm('Are you sure you want to delete this category? This cannot be undone.')) return;
+    if (!await SystemDialog.confirm('Are you sure you want to delete this category? This cannot be undone.')) return;
     
     try {
         var response = await fetch('/api/school-stock/categories/' + categoryId, {
@@ -81419,11 +81419,11 @@ async function deleteSchoolStockCategory(categoryId) {
             showToast('✅ Category deleted successfully!', 'success');
             await refreshSchoolStock();
         } else {
-            alert('❌ ' + (result.error || 'Error deleting category'));
+            await SystemDialog.alert('❌ ' + (result.error || 'Error deleting category'));
         }
     } catch (err) {
         console.error('Error deleting category:', err);
-        alert('Network error: ' + err.message);
+        await SystemDialog.alert('Network error: ' + err.message);
     }
 }
 
@@ -81431,7 +81431,7 @@ async function deleteSchoolStockCategory(categoryId) {
 function viewSchoolStockTransactionDetails(transactionId) {
     var transaction = schoolStockTransactions.find(function(t) { return t.id === transactionId; });
     if (!transaction) {
-        alert('Transaction not found');
+        await SystemDialog.alert('Transaction not found');
         return;
     }
     
@@ -81467,15 +81467,15 @@ function viewSchoolStockTransactionDetails(transactionId) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function editSchoolStockTransaction(transactionId) {
+async function editSchoolStockTransaction(transactionId) {
     var transaction = schoolStockTransactions.find(function(t) { return t.id === transactionId; });
     if (!transaction) {
-        alert('Transaction not found');
+        await SystemDialog.alert('Transaction not found');
         return;
     }
     
     if (transaction.reversed) {
-        alert('Cannot edit a reversed transaction');
+        await SystemDialog.alert('Cannot edit a reversed transaction');
         return;
     }
     
@@ -81516,8 +81516,8 @@ function editSchoolStockTransaction(transactionId) {
         var recipient = document.getElementById('editTxRecipient').value.trim();
         var comment = document.getElementById('editTxComment').value.trim();
         
-        if (quantity <= 0) { alert('Please enter a valid quantity'); return; }
-        if (!recipient) { alert('Please enter a recipient name'); return; }
+        if (quantity <= 0) { await SystemDialog.alert('Please enter a valid quantity'); return; }
+        if (!recipient) { await SystemDialog.alert('Please enter a recipient name'); return; }
         
         try {
             var response = await fetch('/api/school-stock/transaction/' + transactionId, {
@@ -81533,19 +81533,19 @@ function editSchoolStockTransaction(transactionId) {
                 closeModal();
                 await refreshSchoolStock();
             } else {
-                alert('❌ ' + (result.error || 'Error updating transaction'));
+                await SystemDialog.alert('❌ ' + (result.error || 'Error updating transaction'));
             }
         } catch (err) {
             console.error('Error updating transaction:', err);
-            alert('Network error: ' + err.message);
+            await SystemDialog.alert('Network error: ' + err.message);
         }
     });
 }
 
 async function reverseSchoolStockTransaction(transactionId) {
-    if (!confirm('↩️ Reverse this transaction?\n\nThis will return the items to stock.')) return;
+    if (!await SystemDialog.confirm('↩️ Reverse this transaction?\n\nThis will return the items to stock.')) return;
     
-    var reason = prompt('Reason for reversal (optional):');
+    var reason = await SystemDialog.prompt('Reason for reversal (optional):');
     
     try {
         var response = await fetch('/api/school-stock/reverse/' + transactionId, {
@@ -81560,11 +81560,11 @@ async function reverseSchoolStockTransaction(transactionId) {
             showToast('✅ Transaction reversed successfully', 'success');
             await refreshSchoolStock();
         } else {
-            alert('❌ ' + (result.error || 'Error reversing transaction'));
+            await SystemDialog.alert('❌ ' + (result.error || 'Error reversing transaction'));
         }
     } catch (err) {
         console.error('Error reversing transaction:', err);
-        alert('Network error: ' + err.message);
+        await SystemDialog.alert('Network error: ' + err.message);
     }
 }
 
@@ -81575,12 +81575,12 @@ async function refreshSchoolStock() {
 }
 
 // ========== EXPORT SCHOOL STOCK REPORT ==========
-function exportSchoolStockReport() {
+async function exportSchoolStockReport() {
     var items = schoolStockData || {};
     var itemNames = Object.keys(items);
     
     if (itemNames.length === 0) {
-        alert('No stock data to export');
+        await SystemDialog.alert('No stock data to export');
         return;
     }
     
@@ -82487,7 +82487,7 @@ async function savePaymentHistoryEdit(paymentId, periodKey) {
                        `Date: ${new Date(updateData.date).toLocaleString()}\n\n` +
                        `This will update the payment record.`;
 
-    if (!confirm(confirmMsg)) return;
+    if (!await SystemDialog.confirm(confirmMsg)) return;
 
     // Disable buttons
     const saveBtn = document.querySelector('#paymentHistoryEditorModal .bg-green-600');
@@ -82596,7 +82596,7 @@ async function deletePaymentRecord(paymentId, periodKey) {
 window.deletePaymentRecord = deletePaymentRecord;
 window.deletePaymentRecord = deletePaymentRecord;
 
-function confirmDeletePayment(paymentId, periodKey) {
+async function confirmDeletePayment(paymentId, periodKey) {
     const btn = event.target.closest('button');
     const entryEl = btn ? btn.closest('.history-entry, [id^="tuition_he_"]') : null;
     if (!entryEl) return;
@@ -82612,7 +82612,7 @@ function confirmDeletePayment(paymentId, periodKey) {
         ? `Delete this tuition payment of UGX ${formatMoney(amount)}?\n\nOnly this entry is removed — other items in the same receipt are untouched.`
         : `Delete this payment for "${itemName}"?\n\nOnly this entry is removed — other items in the same receipt are untouched.`;
 
-    if (!confirm(confirmMsg)) return;
+    if (!await SystemDialog.confirm(confirmMsg)) return;
 
     if (isTuitionRow) {
         deleteTuitionEntry(paymentId, periodKey);
@@ -82769,11 +82769,11 @@ async function confirmResetItemPayments(itemId, itemName, componentName, periodK
 
     console.log('✅ Student found:', student.firstName, student.lastName, student.id);
 
-    if (!confirm(`⚠️ Reset all payments for "${itemName}"?\n\nThis will permanently delete ALL payment records for this item for ${student.firstName} ${student.lastName}.\n\nThis action cannot be undone!\n\nAre you sure?`)) {
+    if (!await SystemDialog.confirm(`⚠️ Reset all payments for "${itemName}"?\n\nThis will permanently delete ALL payment records for this item for ${student.firstName} ${student.lastName}.\n\nThis action cannot be undone!\n\nAre you sure?`)) {
         return;
     }
 
-    if (!confirm(`Are you absolutely sure? This will remove all payments for "${itemName}" and the item will become unpaid.`)) {
+    if (!await SystemDialog.confirm(`Are you absolutely sure? This will remove all payments for "${itemName}" and the item will become unpaid.`)) {
         return;
     }
 
@@ -83214,11 +83214,11 @@ async function saveAnnouncement(event, editData) {
     const isActive = document.getElementById('annActive').checked;
 
     if (!title || !content) {
-        alert('Title and content are required.');
+        await SystemDialog.alert('Title and content are required.');
         return;
     }
     if (targetAudience.length === 0) {
-        alert('Please select at least one target audience.');
+        await SystemDialog.alert('Please select at least one target audience.');
         return;
     }
 
@@ -83246,11 +83246,11 @@ async function saveAnnouncement(event, editData) {
             showToast('Announcement saved successfully!', 'success');
         } else {
             const err = await res.json();
-            alert('Error: ' + (err.error || 'Failed to save'));
+            await SystemDialog.alert('Error: ' + (err.error || 'Failed to save'));
         }
     } catch (error) {
         console.error('Error saving announcement:', error);
-        alert('Network error. Please try again.');
+        await SystemDialog.alert('Network error. Please try again.');
     }
 }
 
@@ -83262,19 +83262,19 @@ async function editAnnouncement(id) {
             if (data.success) {
                 openAnnouncementModal(data.announcement);
             } else {
-                alert('Announcement not found');
+                await SystemDialog.alert('Announcement not found');
             }
         } else {
-            alert('Failed to load announcement');
+            await SystemDialog.alert('Failed to load announcement');
         }
     } catch (error) {
         console.error('Error loading announcement for edit:', error);
-        alert('Network error.');
+        await SystemDialog.alert('Network error.');
     }
 }
 
 async function deleteAnnouncement(id) {
-    if (!confirm('Are you sure you want to delete this announcement?')) return;
+    if (!await SystemDialog.confirm('Are you sure you want to delete this announcement?')) return;
     try {
         const res = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -83282,11 +83282,11 @@ async function deleteAnnouncement(id) {
             renderAnnouncementsPage();
             showToast('Announcement deleted.', 'info');
         } else {
-            alert('Failed to delete');
+            await SystemDialog.alert('Failed to delete');
         }
     } catch (error) {
         console.error('Error deleting:', error);
-        alert('Network error.');
+        await SystemDialog.alert('Network error.');
     }
 }
 
@@ -83294,9 +83294,9 @@ async function toggleAnnouncementActive(id) {
     try {
         // Fetch current to toggle
         const res = await fetch(`/api/announcements/${id}`);
-        if (!res.ok) return alert('Failed to load');
+        if (!res.ok) return await SystemDialog.alert('Failed to load');
         const data = await res.json();
-        if (!data.success) return alert('Not found');
+        if (!data.success) return await SystemDialog.alert('Not found');
         const current = data.announcement;
         const updated = { ...current, isActive: !current.isActive };
         const putRes = await fetch(`/api/announcements/${id}`, {
@@ -83309,11 +83309,11 @@ async function toggleAnnouncementActive(id) {
             renderAnnouncementsPage();
             showToast(`Announcement ${updated.isActive ? 'activated' : 'deactivated'}.`, 'info');
         } else {
-            alert('Failed to toggle status');
+            await SystemDialog.alert('Failed to toggle status');
         }
     } catch (error) {
         console.error('Error toggling:', error);
-        alert('Network error.');
+        await SystemDialog.alert('Network error.');
     }
 }
 
@@ -83866,10 +83866,10 @@ async function saveEvent(e) {
     const allDay = document.getElementById('eventAllDay').checked;
 
     if (!title || !startDate) {
-        if (typeof showToast === 'function') {
+        if (typeof showToast === 'async function') {
             showToast('Title and start date are required', 'warning');
         } else {
-            alert('Title and start date are required');
+            await SystemDialog.alert('Title and start date are required');
         }
         return;
     }
@@ -83905,18 +83905,18 @@ async function saveEvent(e) {
             window._editingEvent = null;
         } else {
             const err = await res.json();
-            if (typeof showToast === 'function') {
+            if (typeof showToast === 'async function') {
                 showToast('Error: ' + (err.error || 'Unknown error'), 'error');
             } else {
-                alert('Error: ' + (err.error || 'Unknown error'));
+                await SystemDialog.alert('Error: ' + (err.error || 'Unknown error'));
             }
         }
     } catch (err) {
         console.error('Save error:', err);
-        if (typeof showToast === 'function') {
+        if (typeof showToast === 'async function') {
             showToast('Network error. Please try again.', 'error');
         } else {
-            alert('Network error. Please try again.');
+            await SystemDialog.alert('Network error. Please try again.');
         }
     }
 }
@@ -83924,7 +83924,7 @@ window.saveEvent = saveEvent;
 
 // ==================== DELETE EVENT ====================
 async function deleteEvent(id) {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+    if (!await SystemDialog.confirm('Are you sure you want to delete this event?')) return;
     try {
         const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -84608,9 +84608,9 @@ function refreshChat() {
 }
 
 // ========== CLEAR CHAT ==========
-function clearChat() {
+async function clearChat() {
     if (!window.currentChatContact) return;
-    if (!confirm(`Clear all messages with ${window.currentChatContact.name}?`)) return;
+    if (!await SystemDialog.confirm(`Clear all messages with ${window.currentChatContact.name}?`)) return;
     showToast('Chat cleared (demo)', 'info');
 }
 
