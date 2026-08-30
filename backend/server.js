@@ -19,7 +19,8 @@ if (!fs.existsSync(TEMP_DIR)) {
     fs.mkdirSync(TEMP_DIR, { recursive: true });
 } else {
     // Remove any stale temporary files (from previous incomplete transactions)
-    const files = fs.readdirSync(TEMP_DIR);
+global.files = fs.readdirSync(TEMP_DIR);
+
     for (const file of files) {
         try {
             fs.unlinkSync(path.join(TEMP_DIR, file));
@@ -44,10 +45,7 @@ function commitTransaction(store) {
         } catch (err) {
             // If any rename fails, attempt to rollback already renamed files?
             // Since we want atomicity, we must try to revert all.
-            // But rollback is complex; we'll log and throw to trigger rollback.
             console.error('❌ Atomic commit failed for', realPath, err);
-            // Attempt to delete any temp files that were already renamed? 
-            // Better to delete all temp files and rethrow.
             rollbackTransaction(store);
             throw new Error('Transaction commit failed: ' + err.message);
         }
@@ -105,7 +103,17 @@ app.use((req, res, next) => {
             }
             originalEnd.apply(this, args);
         };
-        next();
+
+        // Catch synchronous errors and rollback
+        try {
+            next();
+        } catch (err) {
+            const currentStore = transactionStorage.getStore();
+            if (currentStore) {
+                rollbackTransaction(currentStore);
+            }
+            next(err);
+        }
     });
 });
 
@@ -192,34 +200,83 @@ const upload = multer({
 const dataDir = configuredDataDir || path.join(__dirname, 'data');
 
 // Ensure data directory exists
-// Ensure data directory exists with proper permissions
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
     console.log(`Created data directory: ${dataDir}`);
 }
 
-// Also ensure each file's parent directory exists before writing
+// ==================== BACKUP SYSTEM ====================
+const backupDir = path.join(__dirname, 'backups');
 
+function copyFolderSync(src, dest) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (let entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyFolderSync(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
 
-// Define all file paths - FIXED: Use consistent naming
-const files = {
-    schools: path.join(dataDir, 'schools.json'),
-    settings: path.join(dataDir, 'settings.json'),
-    feeStructures: path.join(dataDir, 'feeStructures.json'),
-    feeBursaries: path.join(dataDir, 'feeBursaries.json'),
-    classes: path.join(dataDir, 'classes.json'),
-    subjects: path.join(dataDir, 'subjects.json'),
-    teachers: path.join(dataDir, 'teachers.json'),
-    students: path.join(dataDir, 'students.json'),
-    enrollments: path.join(dataDir, 'enrollments.json'),
-    assessments: path.join(dataDir, 'assessments.json'),
-    scores: path.join(dataDir, 'scores.json'),
-    attendance: path.join(dataDir, 'attendance.json'),
-    feePayments: path.join(dataDir, 'feePayments.json'),
-    studentFeeAssignments: path.join(dataDir, 'studentFeeAssignments.json'),
-    studentTermRecords: path.join(dataDir, 'studentTermRecords.json'),
-     statusGroups: path.join(dataDir, 'statusGroups.json')
-};
+function cleanupOldBackups() {
+    if (!fs.existsSync(backupDir)) return;
+    const folders = fs.readdirSync(backupDir)
+        .filter(name => name.startsWith('backup_'))
+        .map(name => ({
+            name: name,
+            path: path.join(backupDir, name),
+            dateStr: name.replace('backup_', '').slice(0, 10) // YYYY-MM-DD
+        }))
+        .sort((a, b) => b.dateStr.localeCompare(a.dateStr)); // descending
+
+    // group by date
+    const dateGroups = {};
+    for (const f of folders) {
+        if (!dateGroups[f.dateStr]) dateGroups[f.dateStr] = [];
+        dateGroups[f.dateStr].push(f);
+    }
+
+    const dates = Object.keys(dateGroups).sort((a,b) => b.localeCompare(a));
+    if (dates.length > 5) {
+        const toDelete = dates.slice(5); // keep latest 5 days
+        for (const date of toDelete) {
+            for (const f of dateGroups[date]) {
+                try {
+                    fs.rmSync(f.path, { recursive: true, force: true });
+                    console.log(`🗑️ Deleted old backup: ${f.path}`);
+                } catch (e) {
+                    console.error(`Failed to delete backup ${f.path}:`, e);
+                }
+            }
+        }
+    }
+}
+
+function performBackup() {
+    try {
+        if (!fs.existsSync(backupDir)) {
+            fs.mkdirSync(backupDir, { recursive: true });
+        }
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const backupFolder = path.join(backupDir, `backup_${timestamp}`);
+        // copy dataDir to backupFolder recursively
+        if (fs.cpSync) {
+            fs.cpSync(dataDir, backupFolder, { recursive: true });
+        } else {
+            copyFolderSync(dataDir, backupFolder);
+        }
+        console.log(`✅ Backup created: ${backupFolder}`);
+        cleanupOldBackups();
+    } catch (error) {
+        console.error('❌ Backup failed:', error);
+    }
+}
+
+performBackup();
 
 // ==================== HELPER: AUTO-REMOVE ALL ITEMS FOR A NEW STUDENT ====================
 // Used at registration/import time so a brand-new student (no payment history yet)
