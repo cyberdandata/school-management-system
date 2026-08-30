@@ -20,7 +20,7 @@ if (!fs.existsSync(TEMP_DIR)) {
 } else {
     // Remove any stale temporary files (from previous incomplete transactions)
    
-    for (const file of files) {
+  for (const file of tempFileNames) {
         try {
             fs.unlinkSync(path.join(TEMP_DIR, file));
         } catch (e) { /* ignore */ }
