@@ -197,7 +197,24 @@ const upload = multer({
 
 // ==================== FILE PATHS ====================
 const dataDir = configuredDataDir || path.join(__dirname, 'data');
-
+const files = {
+    schools: path.join(dataDir, 'schools.json'),
+    settings: path.join(dataDir, 'settings.json'),
+    feeStructures: path.join(dataDir, 'feeStructures.json'),
+    feeBursaries: path.join(dataDir, 'feeBursaries.json'),
+    classes: path.join(dataDir, 'classes.json'),
+    subjects: path.join(dataDir, 'subjects.json'),
+    teachers: path.join(dataDir, 'teachers.json'),
+    students: path.join(dataDir, 'students.json'),
+    enrollments: path.join(dataDir, 'enrollments.json'),
+    assessments: path.join(dataDir, 'assessments.json'),
+    scores: path.join(dataDir, 'scores.json'),
+    attendance: path.join(dataDir, 'attendance.json'),
+    feePayments: path.join(dataDir, 'feePayments.json'),
+    studentFeeAssignments: path.join(dataDir, 'studentFeeAssignments.json'),
+    studentTermRecords: path.join(dataDir, 'studentTermRecords.json'),
+    statusGroups: path.join(dataDir, 'statusGroups.json')
+};
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
