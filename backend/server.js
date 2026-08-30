@@ -13,14 +13,14 @@ const configuredDataDir = process.env.SCHOOL_DATA_DIR;
 // ==================== ATOMIC TRANSACTION SYSTEM ====================
 const transactionStorage = new AsyncLocalStorage();
 const TEMP_DIR = path.join(configuredDataDir || path.join(__dirname, 'data'), '.tmp');
+ const files = fs.readdirSync(TEMP_DIR);
 
 // Ensure temp directory exists and clean up any leftover temp files on startup
 if (!fs.existsSync(TEMP_DIR)) {
     fs.mkdirSync(TEMP_DIR, { recursive: true });
 } else {
     // Remove any stale temporary files (from previous incomplete transactions)
-global.files = fs.readdirSync(TEMP_DIR);
-
+   
     for (const file of files) {
         try {
             fs.unlinkSync(path.join(TEMP_DIR, file));
