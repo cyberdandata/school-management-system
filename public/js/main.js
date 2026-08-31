@@ -32992,7 +32992,7 @@ function injectEditStudentStyles() {
 
 /* ============================== MAIN FUNCTION ============================== */
 async function editStudentInfoList(studentId) {
-    console.log('=== editStudentInfoList v3.0 — modern UI + group restore + item search/filter + bursary calculator ===');
+    console.log('=== editStudentInfoList v3.0 — modern UI + group restore + item search/filter ===');
     ensureSharedUiHelpers();
     injectEditStudentStyles();
 
@@ -33105,7 +33105,7 @@ async function editStudentInfoList(studentId) {
             }
         }
 
-        async function persistRemovedAndCustomizations() {
+                async function persistRemovedAndCustomizations() {
             const updateData = {
                 removedItems: student.removedItems || {},
                 updatedAt: new Date().toISOString()
@@ -33279,8 +33279,7 @@ async function editStudentInfoList(studentId) {
             const form = document.getElementById(`editCustomForm_${itemId}`);
             if (!form) return;
             const opening = form.classList.contains('hidden');
-            document.querySelectorAll('.es-custom-form').forEach(f => { if (f !== form) { f.classList.add('hidden');
-                    f.classList.remove('es-open'); } });
+            document.querySelectorAll('.es-custom-form').forEach(f => { if (f !== form) { f.classList.add('hidden'); f.classList.remove('es-open'); } });
 
             form.classList.toggle('hidden', !opening);
             if (opening) {
@@ -33290,9 +33289,7 @@ async function editStudentInfoList(studentId) {
                 form.dataset.defaultAmount = defaultAmount || 0;
                 form.dataset.defaultQuantity = defaultQuantity || 1;
                 form.dataset.paymentOption = paymentOption || 'either';
-                form.classList.remove('es-open');
-                void form.offsetWidth;
-                form.classList.add('es-open');
+                form.classList.remove('es-open'); void form.offsetWidth; form.classList.add('es-open');
                 document.getElementById(`editCustomAmount_${itemId}`)?.focus();
             }
         }
@@ -33327,9 +33324,7 @@ async function editStudentInfoList(studentId) {
 
             try {
                 const res = await fetch(`/api/students/${studentId}/customizations/${itemId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
                 if (!res.ok) throw new Error(`status ${res.status}`);
 
@@ -33373,9 +33368,9 @@ async function editStudentInfoList(studentId) {
             const customCount = Object.keys(existingCustomizations || {}).length;
             const removedCount = Object.keys(student.removedItems || {}).length;
             const total = customCount;
-            badge.innerHTML = removedCount > 0 ?
-                `${total} customized <span style="color:#fca5a5; margin-left:4px;">(${removedCount} removed)</span>` :
-                `${total} customized`;
+            badge.innerHTML = removedCount > 0
+                ? `${total} customized <span style="color:#fca5a5; margin-left:4px;">(${removedCount} removed)</span>`
+                : `${total} customized`;
         }
 
         /* -------------------- search / status-group filter -------------------- */
@@ -33391,9 +33386,9 @@ async function editStudentInfoList(studentId) {
         function updateFilterCountDisplay(shown, total) {
             const el = document.getElementById('itemsFilterCount');
             if (!el) return;
-            el.textContent = (itemsSearchQuery || itemsGroupFilter !== 'all') ?
-                `Showing ${shown} of ${total} item(s)` :
-                `${total} item(s)`;
+            el.textContent = (itemsSearchQuery || itemsGroupFilter !== 'all')
+                ? `Showing ${shown} of ${total} item(s)`
+                : `${total} item(s)`;
         }
 
         function applyItemsFilter() {
@@ -33424,11 +33419,11 @@ async function editStudentInfoList(studentId) {
 
         function renderGroupActions(groupKey) {
             const { removedCount, total, allRemoved, noneRemoved } = groupStatus(groupKey);
-            let statusTag = noneRemoved ?
-                `<span class="es-tag es-tag-green"><i class="fas fa-check"></i> All ${total} active</span>` :
-                allRemoved ?
-                `<span class="es-tag es-tag-rose"><i class="fas fa-ban"></i> All ${total} removed</span>` :
-                `<span class="es-tag es-tag-amber"><i class="fas fa-triangle-exclamation"></i> ${removedCount}/${total} removed</span>`;
+            let statusTag = noneRemoved
+                ? `<span class="es-tag es-tag-green"><i class="fas fa-check"></i> All ${total} active</span>`
+                : allRemoved
+                    ? `<span class="es-tag es-tag-rose"><i class="fas fa-ban"></i> All ${total} removed</span>`
+                    : `<span class="es-tag es-tag-amber"><i class="fas fa-triangle-exclamation"></i> ${removedCount}/${total} removed</span>`;
 
             return `
                 <div class="es-group-status">${statusTag}</div>
@@ -33480,14 +33475,17 @@ async function editStudentInfoList(studentId) {
                 const removedInComponent = itemIds.filter(id => removedItems[id] && removedItems[id].isActive !== false).length;
                 if (removedInComponent > 0) totalRemovedCount += removedInComponent;
 
+                // status-group filter: skip this whole component if it doesn't match the selected group
                 if (groupFilter !== 'all' && component.name !== groupFilter) return;
 
-                const itemsToRender = query ?
-                    component.items.filter(item => (item.name || '').toLowerCase().includes(query)) :
-                    component.items;
+                // live search filter: only render items whose name matches the query
+                const itemsToRender = query
+                    ? component.items.filter(item => (item.name || '').toLowerCase().includes(query))
+                    : component.items;
 
                 if (itemsToRender.length === 0) return;
 
+                // register the FULL group (not just the filtered items) so whole-group actions still work correctly
                 window.esComponentGroups[groupKey] = { name: component.name, itemIds, itemMeta };
                 renderedItemCount += itemsToRender.length;
 
@@ -33557,9 +33555,9 @@ async function editStudentInfoList(studentId) {
                                                     ${isTransportItem ? '<span class="es-tag es-tag-orange">🚌 Transport</span>' : ''}
                                                 </div>
                                                 <p class="es-item-meta ${isRemoved ? 'es-strike' : ''}">
-                                                    ${isRemoved ?
-                                                        `Removed: ${new Date(removedItems[itemId].removedAt).toLocaleDateString()}` :
-                                                        `Default: UGX ${esFormatMoney(defaultAmount)} · Qty ${defaultQuantity}`}
+                                                    ${isRemoved
+                                                        ? `Removed: ${new Date(removedItems[itemId].removedAt).toLocaleDateString()}`
+                                                        : `Default: UGX ${esFormatMoney(defaultAmount)} · Qty ${defaultQuantity}`}
                                                 </p>
                                                 ${hasCustomization ? `<p class="es-item-custom-meta">Custom: UGX ${esFormatMoney(displayAmount)}${displayQuantity !== defaultQuantity ? ` · Qty ${displayQuantity}` : ''}${custom.reason ? ` — ${esEscapeHtml(custom.reason)}` : ''}</p>` : ''}
                                                 ${isRemoved ? `<p class="es-item-removed-meta">⚠️ Not charged to this student${removedItems[itemId]?.reason ? ` — ${esEscapeHtml(removedItems[itemId].reason)}` : ''}</p>` : ''}
@@ -33651,274 +33649,6 @@ async function editStudentInfoList(studentId) {
                 if (t.dataset.groupRemove) return removeGroupItemsInEdit(t.dataset.groupRemove);
                 if (t.dataset.clearFilters !== undefined) return clearItemsFilters();
             });
-        }
-
-        /* ============================== BURSARY CALCULATOR ============================== */
-        let calculatorOpen = false;
-
-        function buildCalculatorHTML() {
-            return `
-                <div class="es-calc-overlay" id="esBursaryCalculatorOverlay" style="display:none; z-index:100000;">
-                    <div class="es-calc-modal" onclick="event.stopPropagation();">
-                        <div class="es-calc-header">
-                            <span class="es-calc-title"><i class="fas fa-calculator"></i> Bursary Calculator</span>
-                            <button type="button" class="es-calc-close" id="esCalcCloseBtn"><i class="fas fa-xmark"></i></button>
-                        </div>
-                        <div class="es-calc-display">
-                            <div class="es-calc-expression" id="esCalcExpression"></div>
-                            <div class="es-calc-result" id="esCalcResult">0</div>
-                        </div>
-                        <div class="es-calc-buttons">
-                            <button type="button" class="es-calc-btn es-calc-btn-clear" data-calc="C">C</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-op" data-calc="⌫">⌫</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-op" data-calc="%">%</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-op" data-calc="÷">÷</button>
-
-                            <button type="button" class="es-calc-btn" data-calc="7">7</button>
-                            <button type="button" class="es-calc-btn" data-calc="8">8</button>
-                            <button type="button" class="es-calc-btn" data-calc="9">9</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-op" data-calc="×">×</button>
-
-                            <button type="button" class="es-calc-btn" data-calc="4">4</button>
-                            <button type="button" class="es-calc-btn" data-calc="5">5</button>
-                            <button type="button" class="es-calc-btn" data-calc="6">6</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-op" data-calc="−">−</button>
-
-                            <button type="button" class="es-calc-btn" data-calc="1">1</button>
-                            <button type="button" class="es-calc-btn" data-calc="2">2</button>
-                            <button type="button" class="es-calc-btn" data-calc="3">3</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-op" data-calc="+">+</button>
-
-                            <button type="button" class="es-calc-btn es-calc-btn-zero" data-calc="0">0</button>
-                            <button type="button" class="es-calc-btn" data-calc=".">.</button>
-                            <button type="button" class="es-calc-btn es-calc-btn-equals" data-calc="=">=</button>
-                        </div>
-                        <div class="es-calc-footer">
-                            <button type="button" class="es-calc-apply-btn" id="esCalcApplyBtn"><i class="fas fa-check"></i> Apply Result</button>
-                            <span class="es-calc-hint">Press Enter or click = to calculate</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function initCalculator() {
-            const overlay = document.getElementById('esBursaryCalculatorOverlay');
-            if (!overlay) return;
-
-            const expressionEl = document.getElementById('esCalcExpression');
-            const resultEl = document.getElementById('esCalcResult');
-            let currentInput = '';
-            let previousInput = '';
-            let operation = null;
-            let shouldResetInput = false;
-            let lastResult = null;
-
-            function updateDisplay() {
-                if (expressionEl) {
-                    expressionEl.textContent = currentInput || '0';
-                }
-                if (resultEl) {
-                    if (currentInput) {
-                        resultEl.textContent = currentInput;
-                    } else {
-                        resultEl.textContent = '0';
-                    }
-                }
-            }
-
-            function evaluateExpression(expr) {
-                try {
-                    let sanitized = expr
-                        .replace(/×/g, '*')
-                        .replace(/÷/g, '/')
-                        .replace(/−/g, '-')
-                        .replace(/%/g, '/100');
-                    // Handle percentage: if a number is followed by %, convert it
-                    // e.g., 200% -> 2, 200%+100 -> 2+100
-                    // We'll handle it more carefully
-                    const result = Function('"use strict"; return (' + sanitized + ')')();
-                    if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
-                        return parseFloat(result.toFixed(10));
-                    }
-                    return null;
-                } catch (_) {
-                    return null;
-                }
-            }
-
-            function handleCalcClick(value) {
-                if (value === 'C') {
-                    currentInput = '';
-                    previousInput = '';
-                    operation = null;
-                    shouldResetInput = false;
-                    lastResult = null;
-                    updateDisplay();
-                    return;
-                }
-
-                if (value === '⌫') {
-                    currentInput = currentInput.slice(0, -1);
-                    updateDisplay();
-                    return;
-                }
-
-                if (value === '=') {
-                    if (currentInput) {
-                        const result = evaluateExpression(currentInput);
-                        if (result !== null) {
-                            currentInput = String(result);
-                            lastResult = result;
-                            updateDisplay();
-                            // Auto-apply to bursary input
-                            applyCalculatorResult(result);
-                        } else {
-                            // Try evaluating with the whole expression
-                            const fullExpr = currentInput;
-                            const res = evaluateExpression(fullExpr);
-                            if (res !== null) {
-                                currentInput = String(res);
-                                lastResult = res;
-                                updateDisplay();
-                                applyCalculatorResult(res);
-                            } else {
-                                window.showToast('Invalid calculation', 'warning');
-                            }
-                        }
-                    }
-                    return;
-                }
-
-                // Handle operations: +, −, ×, ÷, %
-                if (['+', '−', '×', '÷', '%'].includes(value)) {
-                    // If there's a current input, add the operator
-                    if (currentInput) {
-                        const lastChar = currentInput.slice(-1);
-                        // If last char is already an operator, replace it
-                        if (['+', '−', '×', '÷', '%'].includes(lastChar)) {
-                            currentInput = currentInput.slice(0, -1) + value;
-                        } else {
-                            currentInput += value;
-                        }
-                        updateDisplay();
-                    } else if (lastResult !== null) {
-                        currentInput = String(lastResult) + value;
-                        updateDisplay();
-                    }
-                    return;
-                }
-
-                // Number or decimal
-                if (value === '.' && currentInput.includes('.')) return;
-                if (value === '0' && currentInput === '0') return;
-
-                if (shouldResetInput) {
-                    currentInput = '';
-                    shouldResetInput = false;
-                }
-
-                currentInput += value;
-                updateDisplay();
-            }
-
-            // --- attach calculator button events ---
-            const buttons = overlay.querySelectorAll('[data-calc]');
-            buttons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const val = btn.dataset.calc;
-                    handleCalcClick(val);
-                });
-            });
-
-            // Close button
-            document.getElementById('esCalcCloseBtn')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                closeCalculator();
-            });
-
-            // Apply button
-            document.getElementById('esCalcApplyBtn')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const val = currentInput || '0';
-                const num = parseFloat(val);
-                if (!isNaN(num) && isFinite(num)) {
-                    applyCalculatorResult(num);
-                    closeCalculator();
-                } else {
-                    window.showToast('Invalid number', 'warning');
-                }
-            });
-
-            // Click outside to close
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    closeCalculator();
-                }
-            });
-
-            // Keyboard support
-            document.addEventListener('keydown', (e) => {
-                if (!calculatorOpen) return;
-                if (e.key === 'Escape') {
-                    closeCalculator();
-                    return;
-                }
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const val = currentInput || '0';
-                    const num = parseFloat(val);
-                    if (!isNaN(num) && isFinite(num)) {
-                        applyCalculatorResult(num);
-                        closeCalculator();
-                    } else {
-                        window.showToast('Invalid number', 'warning');
-                    }
-                    return;
-                }
-                const keyMap = {
-                    '0': '0', '1': '1', '2': '2', '3': '3', '4': '4',
-                    '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
-                    '.': '.', '+': '+', '-': '−', '*': '×', '/': '÷',
-                    '%': '%', 'Backspace': '⌫', 'c': 'C', 'C': 'C'
-                };
-                if (e.key in keyMap) {
-                    e.preventDefault();
-                    handleCalcClick(keyMap[e.key]);
-                }
-            });
-
-            function applyCalculatorResult(value) {
-                const input = document.getElementById('editCustomBursaryAmount');
-                if (input) {
-                    const rounded = Math.round(value);
-                    input.value = rounded;
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    window.showToast(`Bursary set to UGX ${esFormatMoney(rounded)}`, 'success');
-                }
-            }
-
-            function closeCalculator() {
-                calculatorOpen = false;
-                overlay.style.display = 'none';
-                // Don't reset currentInput so user can resume
-            }
-
-            window.__esCalcClose = closeCalculator;
-            window.__esCalcHandle = handleCalcClick;
-
-            return { closeCalculator, handleCalcClick, applyCalculatorResult };
-        }
-
-        function openCalculator() {
-            const overlay = document.getElementById('esBursaryCalculatorOverlay');
-            if (!overlay) return;
-            calculatorOpen = true;
-            overlay.style.display = 'flex';
-            // Focus the first number button or the overlay for keyboard
-            const firstBtn = overlay.querySelector('[data-calc]');
-            if (firstBtn) firstBtn.focus();
         }
 
         /* ============================== MODAL MARKUP ============================== */
@@ -34035,11 +33765,8 @@ async function editStudentInfoList(studentId) {
                                             ${feeBursaries.filter(b => b.isActive !== false).map(b => `<option value="${b.id}" ${currentBursaryId === b.id ? 'selected' : ''}>${esEscapeHtml(b.name)} (${b.type === 'percentage' ? b.value + '% off' : 'UGX ' + esFormatMoney(b.value) + ' off'})</option>`).join('')}
                                             <option value="custom" ${hasCustomBursary ? 'selected' : ''}>✏️ Custom Bursary</option>
                                         </select>
-                                        <div id="customBursaryContainer" class="${hasCustomBursary ? '' : 'hidden'}" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                        <div id="customBursaryContainer" class="${hasCustomBursary ? '' : 'hidden'}">
                                             <input type="number" id="editCustomBursaryAmount" class="es-input" style="width:130px" value="${customBursaryAmount}" placeholder="Amount (UGX)" min="0" step="1000">
-                                            <button type="button" class="es-calc-trigger-btn" id="esBursaryCalcTrigger" title="Open calculator" style="background:#f1f5f9; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; cursor:pointer; color:#334155; font-size:15px; transition:all 0.15s;">
-                                                <i class="fas fa-calculator"></i>
-                                            </button>
                                         </div>
                                     </div>
                                     ${hasCustomBursary ? `<p style="font-size:11.5px;color:#15803d;margin-top:4px;">🎖️ Current: UGX ${esFormatMoney(customBursaryAmount)} off tuition</p>` : ''}
@@ -34087,35 +33814,10 @@ async function editStudentInfoList(studentId) {
             </div>
         `;
 
-        // --- inject calculator HTML ---
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-        document.body.insertAdjacentHTML('beforeend', buildCalculatorHTML());
-
-        // --- init calculator ---
-        const calc = initCalculator();
-
-        // --- attach calculator trigger ---
-        const calcTrigger = document.getElementById('esBursaryCalcTrigger');
-        if (calcTrigger) {
-            calcTrigger.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openCalculator();
-            });
-            // Hover effect
-            calcTrigger.addEventListener('mouseenter', () => {
-                calcTrigger.style.background = '#e2e8f0';
-                calcTrigger.style.borderColor = '#94a3b8';
-            });
-            calcTrigger.addEventListener('mouseleave', () => {
-                calcTrigger.style.background = '#f1f5f9';
-                calcTrigger.style.borderColor = '#d1d5db';
-            });
-        }
-
         attachItemsPanelDelegation();
         populateGroupFilterOptions(selectedFeeStructure);
-        updateFilterCountDisplay(0, 0);
+        updateFilterCountDisplay(0, 0); // will be corrected by the initial buildItemsSection() render above via updateFilterCountDisplay calls
 
         /* -------------------- search / group-filter listeners -------------------- */
         document.getElementById('itemsSearchInput')?.addEventListener('input', () => {
@@ -34142,6 +33844,7 @@ async function editStudentInfoList(studentId) {
             try { fs = JSON.parse(opt.dataset.structure); } catch (_) { fs = { activityComponents: [] }; }
             selectedFeeStructure = fs;
 
+            // reset filters for the newly selected structure
             itemsSearchQuery = '';
             itemsGroupFilter = 'all';
             const searchInput = document.getElementById('itemsSearchInput');
@@ -34160,10 +33863,10 @@ async function editStudentInfoList(studentId) {
             const customContainer = document.getElementById('customBursaryContainer');
             if (!bursarySelect || !customContainer) return;
             if (bursarySelect.value === 'custom') {
-                customContainer.style.display = 'flex';
+                customContainer.classList.remove('hidden');
                 document.getElementById('editCustomBursaryAmount')?.focus();
             } else {
-                customContainer.style.display = 'none';
+                customContainer.classList.add('hidden');
             }
         }
         document.getElementById('editBursary')?.addEventListener('change', toggleEditCustomBursary);
@@ -34173,9 +33876,6 @@ async function editStudentInfoList(studentId) {
         function closeEditStudentModal() {
             const modal = document.getElementById('editStudentModal');
             modal?.remove();
-            const calcOverlay = document.getElementById('esBursaryCalculatorOverlay');
-            if (calcOverlay) calcOverlay.style.display = 'none';
-            calculatorOpen = false;
             window.currentEditStudent = null;
         }
         window.closeEditStudentModal = closeEditStudentModal;
@@ -34246,9 +33946,8 @@ async function editStudentInfoList(studentId) {
             let isCustomBursary = false;
             if (bursarySelect.value === 'custom') {
                 const customAmount = parseInt(customBursaryAmountInput?.value) || 0;
-                if (customAmount > 0) { newCustomBursaryAmount = customAmount;
-                    isCustomBursary = true;
-                    newBursaryId = null; } else newBursaryId = null;
+                if (customAmount > 0) { newCustomBursaryAmount = customAmount; isCustomBursary = true; newBursaryId = null; }
+                else newBursaryId = null;
             }
             const originalHasCustomBursary = originalStudent.customBursary && originalStudent.customBursary.amount > 0;
             const originalCustomAmount = originalHasCustomBursary ? originalStudent.customBursary.amount : 0;
@@ -34265,6 +33964,8 @@ async function editStudentInfoList(studentId) {
                 }
             }
 
+            // customizations + removed items (already in `student` / `existingCustomizations` due to in-place edits)
+            // updatedData.customItemOverrides = student.customItemOverrides || existingCustomizations || {};
             updatedData.removedItems = student.removedItems || {};
 
             const feeStructureId = document.getElementById('editFeeStructure').value;
@@ -34285,17 +33986,14 @@ async function editStudentInfoList(studentId) {
 
             try {
                 const studentResponse = await fetch(`/api/students/${studentId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedData)
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData)
                 });
                 if (!studentResponse.ok) throw new Error(`Failed to update student (${studentResponse.status})`);
 
                 if (feeStructureId || newBursaryId || isCustomBursary) {
                     const bursaryIdToSend = isCustomBursary ? null : (newBursaryId || currentBursaryId);
                     const assignmentResponse = await fetch('/api/student-fee-assignments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ studentId, feeStructureId: feeStructureId || null, bursaryId: bursaryIdToSend, academicYear: currentYear })
                     });
                     if (!assignmentResponse.ok) throw new Error(`Fee assignment failed (${assignmentResponse.status})`);
@@ -34307,14 +34005,12 @@ async function editStudentInfoList(studentId) {
                     const currentEnrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent === true);
                     if (currentEnrollment) {
                         await fetch(`/api/enrollments/${currentEnrollment.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ isCurrent: false, completedAt: new Date().toISOString() })
                         });
                     }
                     await fetch('/api/enrollments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ studentId, classId: newClassId, academicYear: currentYear, isCurrent: true })
                     });
                 }
