@@ -2274,7 +2274,7 @@ function renderStatusGroupCellWithAllPeriods(student, sg, allStatusGroups, forma
 // ============================================================================
 
 async function showStudentList() {
-    console.log('showStudentList called - v13.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED + FUZZY SEARCH');
+    console.log('showStudentList called - v14.0 CURRENT PERIOD SCHOLASTIC ITEMS FIXED + FUZZY SEARCH + REVERSED-NAME SEARCH');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -2475,6 +2475,60 @@ async function showStudentList() {
             // part of a multi-word name/field, e.g. only the first name)
             const words = t.split(/\s+/).filter(Boolean);
             return words.some(word => fuzzyWordScore(q, word) >= threshold);
+        }
+
+        // Strengthened, order-independent name matcher. Handles:
+        //   1. Names typed in the CORRECT order ("Gabriella Sserunjogi")
+        //   2. Names typed in REVERSED order ("Sserunjogi Gabriella") —
+        //      e.g. searching surname-first even though the record stores
+        //      firstName + lastName.
+        //   3. Typos / missing letters in either word (via fuzzyWordScore).
+        //   4. Partial names — searching by just one of the two names.
+        // Every word the user typed must fuzzy-match a DIFFERENT word in the
+        // student's full name (order doesn't matter), so a query only
+        // "counts" once each of its words is actually accounted for
+        // somewhere in the name — this is what lets reversed order, typos,
+        // and partial names all be found while still ruling out unrelated
+        // students.
+        function fuzzyNameMatch(query, text, threshold = 0.6) {
+            const q = (query || '').toLowerCase().trim();
+            const t = (text || '').toLowerCase().trim();
+            if (!q) return true;
+            if (!t) return false;
+
+            // Fast path: exact substring (covers correctly-ordered, even
+            // partial, queries typed with no typos).
+            if (t.includes(q)) return true;
+
+            const queryWords = q.split(/\s+/).filter(Boolean);
+            const textWords = t.split(/\s+/).filter(Boolean);
+
+            // Single-word query: fall back to the existing whole-field fuzzy
+            // logic (already tolerant of typos and partial words).
+            if (queryWords.length <= 1) {
+                return fuzzyTextMatch(q, t, threshold);
+            }
+
+            // Multi-word query: match each query word against a distinct,
+            // not-yet-used word in the name — regardless of which order
+            // either side is in. This is what makes reversed full names
+            // ("Sserunjogi Gabriella" vs stored "Gabriella Sserunjogi")
+            // resolve correctly, while still tolerating a typo in any word.
+            const usedIndices = new Set();
+            for (const qWord of queryWords) {
+                let matched = false;
+                for (let i = 0; i < textWords.length; i++) {
+                    if (usedIndices.has(i)) continue;
+                    const tWord = textWords[i];
+                    if (tWord.startsWith(qWord) || tWord.includes(qWord) || fuzzyWordScore(qWord, tWord) >= threshold) {
+                        usedIndices.add(i);
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) return false;
+            }
+            return true;
         }
 
         // ========== GET CUSTOMIZED ITEM VALUE ==========
@@ -3502,7 +3556,7 @@ async function showStudentList() {
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                         <div class="relative">
                             <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                            <input type="text" id="studentSearchInput" placeholder="Search by name, admission... (typo-tolerant)" class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">
+                            <input type="text" id="studentSearchInput" placeholder="Search by name, admission... (typo &amp; order tolerant)" class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">
                         </div>
                         <select id="classFilterInput" class="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-teal-500/40 outline-none">
                             <option value="">All Classes</option>
@@ -3657,13 +3711,17 @@ async function showStudentList() {
                 const studentLevel = row.getAttribute('data-level') || '';
                 const studentStatus = row.getAttribute('data-status') || '';
 
-                // ========== FUZZY SEARCH MATCH ==========
-                // Matches on plain substring first (fast path, always exact),
-                // then falls back to typo-tolerant fuzzy matching against the
-                // full name and admission number, so a slightly misspelled or
-                // incomplete search term still surfaces the intended student.
+                // ========== STRENGTHENED NAME SEARCH MATCH ==========
+                // Name matching now uses fuzzyNameMatch, which on top of the
+                // existing typo-tolerance also ignores word ORDER — so typing
+                // the surname first, then the first name (reversed from how
+                // the record stores firstName + lastName), still finds the
+                // right student. Every possibility — exact, partial, typo'd,
+                // or reversed — is checked before ruling a student out.
+                // Admission numbers stay on the original single-field fuzzy
+                // match since there's no "order" to reverse there.
                 const matchSearch = searchTerm === '' ||
-                    fuzzyTextMatch(searchTerm, name, 0.62) ||
+                    fuzzyNameMatch(searchTerm, name, 0.62) ||
                     fuzzyTextMatch(searchTerm, admission, 0.7);
 
                 const matchClass = classValue === '' || studentClass === classValue;
