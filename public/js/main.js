@@ -33846,7 +33846,7 @@ async function editStudentInfoList(studentId) {
                         </section>
 
                         <!-- Fee assignment -->
-                        <section class="es-card" style="--es-accent:#B45309; --es-delay:180ms">
+                        <section class="es-card" style="--es-accent:#B45309; --es-delay:180ms" style="z-index:-1000;">
                             <div class="es-card-head">
                                 <span class="es-card-icon"><i class="fas fa-money-bill-wave"></i></span>
                                 <div><div class="es-card-title">Fee Assignment for ${currentYear}</div><div class="es-card-sub">Applies only to this academic year</div></div>
