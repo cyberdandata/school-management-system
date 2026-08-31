@@ -32992,7 +32992,7 @@ function injectEditStudentStyles() {
 
 /* ============================== MAIN FUNCTION ============================== */
 async function editStudentInfoList(studentId) {
-    console.log('=== editStudentInfoList v3.1 — modern UI + group restore + item search/filter + bursary calculator ===');
+    console.log('=== editStudentInfoList v3.2 — modern UI + group restore + item search/filter + bursary calculator (fixed z-index + fee-reassign reset) ===');
     ensureSharedUiHelpers();
     injectEditStudentStyles();
 
@@ -33108,10 +33108,73 @@ async function editStudentInfoList(studentId) {
             }
         }
 
+        /* -------------------- NEW: build reset removedItems when fee structure changes -------------------- */
+        // Called whenever the fee structure is (re)assigned in this modal. Every item in every
+        // status group is marked "removed" (not billed) EXCEPT items belonging to a component
+        // whose periodType is 'termly' — those stay active/billed as normal.
+        function buildRemovedItemsForFeeStructureChange(fs) {
+            const removed = {};
+            if (!fs || !fs.activityComponents) return removed;
+            for (const comp of fs.activityComponents) {
+                if (!comp || !comp.items) continue;
+                const periodType = comp.periodType || 'termly';
+                // ✅ Termly items are billed every term automatically — never mark as removed.
+                if (periodType === 'termly') continue;
+
+                for (const item of comp.items) {
+                    if (!item) continue;
+                    const itemId = item.id || item.name;
+                    removed[itemId] = {
+                        itemId,
+                        itemName: item.name,
+                        componentId: comp.id || null,
+                        componentName: comp.name,
+                        defaultAmount: item.totalAmount || 0,
+                        defaultQuantity: item.quantity || 1,
+                        paymentOption: item.paymentOption || 'either',
+                        removedAt: new Date().toISOString(),
+                        reason: 'Fee structure changed — not yet activated',
+                        isActive: true
+                    };
+                }
+            }
+            return removed;
+        }
+
         /* -------------------- bursary calculator -------------------- */
         function updateBursaryCalcDisplay() {
             const display = document.getElementById('esBursaryCalcDisplay');
             if (display) display.value = bursaryCalcExpr || '0';
+        }
+
+        function positionBursaryCalcPopup() {
+            const popup = document.getElementById('esBursaryCalcPopup');
+            const btn = document.getElementById('esBursaryCalcBtn');
+            if (!popup || !btn) return;
+
+            // ---- FIX: move the popup to <body> so no ancestor's overflow/stacking context
+            // (rounded cards, scrollable panels, etc.) can clip it or bury it behind other content ----
+            if (popup.parentElement !== document.body) {
+                document.body.appendChild(popup);
+            }
+
+            const rect = btn.getBoundingClientRect();
+            const popupWidth = 224;
+            let left = rect.right - popupWidth;
+            if (left < 8) left = 8;
+            if (left + popupWidth > window.innerWidth - 8) left = window.innerWidth - popupWidth - 8;
+            let top = rect.bottom + 6;
+            // If it would overflow the bottom of the viewport, show it above the button instead
+            const estimatedPopupHeight = 300;
+            if (top + estimatedPopupHeight > window.innerHeight - 8) {
+                top = Math.max(8, rect.top - estimatedPopupHeight - 6);
+            }
+
+            popup.style.position = 'fixed';
+            popup.style.top = top + 'px';
+            popup.style.left = left + 'px';
+            popup.style.right = 'auto';
+            popup.style.zIndex = '99999';
         }
 
         function openBursaryCalculator() {
@@ -33119,6 +33182,7 @@ async function editStudentInfoList(studentId) {
             if (!popup) return;
             bursaryCalcExpr = '';
             updateBursaryCalcDisplay();
+            positionBursaryCalcPopup();
             popup.classList.remove('hidden');
         }
 
@@ -33726,8 +33790,11 @@ async function editStudentInfoList(studentId) {
         /* -------------------- bursary calculator markup pieces -------------------- */
         const esCalcBtnStyle = 'padding:10px 0; border:1px solid #e2e5ea; border-radius:6px; background:#f4f5f7; cursor:pointer; font-size:14px; font-weight:600; color:#334155;';
         const esCalcEqStyle = 'padding:10px 0; border:1px solid #0E9C8E; border-radius:6px; background:#0E9C8E; cursor:pointer; font-size:14px; font-weight:700; color:#fff;';
+        // ---- FIX: base style now uses position:fixed (matches JS repositioning) and a very
+        // high z-index; the popup gets moved to <body> and repositioned on open, so it can
+        // never be clipped or buried behind other cards/panels again. ----
         const esCalcPopupHtml = `
-            <div id="esBursaryCalcPopup" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:50; width:224px; background:#fff; border:1px solid #e2e5ea; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.18); padding:10px;">
+            <div id="esBursaryCalcPopup" class="hidden" style="position:fixed; z-index:99999; width:224px; background:#fff; border:1px solid #e2e5ea; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.25); padding:10px;">
                 <input type="text" id="esBursaryCalcDisplay" readonly value="0" style="width:100%; box-sizing:border-box; text-align:right; font-size:18px; padding:8px; border:1px solid #e2e5ea; border-radius:6px; margin-bottom:8px; background:#f8f9fb; color:#1f2430;">
                 <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
                     <button type="button" data-calc="C" style="${esCalcBtnStyle} grid-column:span 2;">C</button>
@@ -33947,7 +34014,11 @@ async function editStudentInfoList(studentId) {
         });
 
         /* -------------------- fee-structure change -> reload items + refresh filters -------------------- */
-        document.getElementById('editFeeStructure')?.addEventListener('change', (e) => {
+        // ---- FIX: whenever the fee structure is (re)assigned, all items across every status
+        // group are reset to "removed" (not billed) EXCEPT items in a 'termly' component,
+        // which stay active/billed as normal. This mirrors what happens for a brand-new
+        // student and is persisted immediately.
+        document.getElementById('editFeeStructure')?.addEventListener('change', async (e) => {
             const opt = e.target.options[e.target.selectedIndex];
             let fs = null;
             try { fs = JSON.parse(opt.dataset.structure); } catch (_) { fs = { activityComponents: [] }; }
@@ -33960,6 +34031,24 @@ async function editStudentInfoList(studentId) {
             if (searchInput) searchInput.value = '';
             document.getElementById('itemsSearchClear')?.classList.add('hidden');
             populateGroupFilterOptions(fs);
+
+            // ---- Reset removed items to match the newly assigned fee structure ----
+            student.removedItems = buildRemovedItemsForFeeStructureChange(fs);
+            if (student.customItemOverrides) {
+                // Drop customizations for items that no longer exist in the new structure
+                const validIds = new Set();
+                (fs.activityComponents || []).forEach(c => (c.items || []).forEach(i => validIds.add(i.id || i.name)));
+                for (const id of Object.keys(student.customItemOverrides)) {
+                    if (!validIds.has(id)) delete student.customItemOverrides[id];
+                }
+            }
+
+            try {
+                await persistRemovedAndCustomizations();
+                window.showToast('Fee structure updated — non-termly items reset to not-activated', 'info');
+            } catch (err) {
+                window.showToast(`Failed to save item reset: ${err.message}`, 'error');
+            }
 
             const container = document.getElementById('editItemsCustomizationContainer');
             if (container) container.innerHTML = buildItemsCustomizationHTML(fs);
@@ -33995,6 +34084,12 @@ async function editStudentInfoList(studentId) {
             handleBursaryCalcButtonClick(btn.dataset.calc);
         });
 
+        // Keep the popup correctly positioned if the window is resized while it's open
+        window.addEventListener('resize', () => {
+            const popup = document.getElementById('esBursaryCalcPopup');
+            if (popup && !popup.classList.contains('hidden')) positionBursaryCalcPopup();
+        });
+
         // Enter key (or the on-screen "=" button, handled above) applies the result to the bursary input
         document.addEventListener('keydown', function bursaryCalcKeyHandler(e) {
             const popup = document.getElementById('esBursaryCalcPopup');
@@ -34020,6 +34115,8 @@ async function editStudentInfoList(studentId) {
         /* -------------------- close / escape / backdrop -------------------- */
         function closeEditStudentModal() {
             const modal = document.getElementById('editStudentModal');
+            // Clean up the calculator popup if it was moved to <body>
+            document.getElementById('esBursaryCalcPopup')?.remove();
             modal?.remove();
             window.currentEditStudent = null;
         }
