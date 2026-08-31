@@ -11786,11 +11786,13 @@ async function showStudentRegistration() {
     popup.style.display = 'block';
 }
 
-        function closeBursaryCalculator() {
-            if (srBursaryCalcPopupEl) srBursaryCalcPopupEl.classList.remove('sr-calc-open');
-            document.removeEventListener('click', handleOutsideBursaryCalcClick, { capture: true });
-            document.removeEventListener('keydown', handleBursaryCalcKeydown);
-        }
+       function closeBursaryCalculator() {
+    const popup = document.getElementById('esBursaryCalcPopup');
+    if (popup) {
+        popup.classList.add('hidden');
+        popup.style.display = 'none';
+    }
+}
 
         function handleOutsideBursaryCalcClick(e) {
             const popup = srBursaryCalcPopupEl;
