@@ -11767,32 +11767,24 @@ async function showStudentRegistration() {
         }
 
         function openBursaryCalculator() {
-    const popup = document.getElementById('esBursaryCalcPopup');
-    const btn = document.getElementById('esBursaryCalcBtn');
-    if (!popup || !btn) return;
+            const popup = buildBursaryCalculatorPopup();
+            const existingValue = document.getElementById('customBursaryAmount')?.value;
+            srBursaryCalcExpression = existingValue ? String(existingValue) : '';
+            updateBursaryCalcDisplay();
+            positionBursaryCalcPopup();
+            popup.classList.add('sr-calc-open');
 
-    bursaryCalcExpr = '';
-    updateBursaryCalcDisplay();
+            setTimeout(() => {
+                document.addEventListener('click', handleOutsideBursaryCalcClick, { capture: true });
+                document.addEventListener('keydown', handleBursaryCalcKeydown);
+            }, 0);
+        }
 
-    // Position popup relative to the button
-    const rect = btn.getBoundingClientRect();
-    // Place it below the button, aligned to the right
-    const top = rect.bottom + 6; // 6px gap
-    const left = rect.right - 224; // 224px is popup width
-    popup.style.top = top + 'px';
-    popup.style.left = left + 'px';
-
-    popup.classList.remove('hidden');
-    popup.style.display = 'block';
-}
-
-       function closeBursaryCalculator() {
-    const popup = document.getElementById('esBursaryCalcPopup');
-    if (popup) {
-        popup.classList.add('hidden');
-        popup.style.display = 'none';
-    }
-}
+        function closeBursaryCalculator() {
+            if (srBursaryCalcPopupEl) srBursaryCalcPopupEl.classList.remove('sr-calc-open');
+            document.removeEventListener('click', handleOutsideBursaryCalcClick, { capture: true });
+            document.removeEventListener('keydown', handleBursaryCalcKeydown);
+        }
 
         function handleOutsideBursaryCalcClick(e) {
             const popup = srBursaryCalcPopupEl;
