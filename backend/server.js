@@ -4,676 +4,116 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const multer = require('multer');
-const xlsx = require('xlsx');
+const { AsyncLocalStorage } = require('async_hooks'); // ✅ For atomic transactions
 
-// ==================== SQL.JS DATABASE LAYER ====================
-const initSqlJs = require('sql.js');
-
-// ==================== GLOBALS ====================
 const app = express();
 const PORT = process.env.PORT || 3000;
 const configuredDataDir = process.env.SCHOOL_DATA_DIR;
-const dataDir = configuredDataDir || path.join(__dirname, 'data');
 
-// Ensure data directory exists
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
-// Database file path
-const DB_PATH = path.join(__dirname, 'school.db');
-
-// SQL.js database instance
-let db = null;
-
-// Collection name mapping (JSON filename -> SQLite table name)
-const collectionMap = {
-    'schools': 'schools',
-    'settings': 'settings',
-    'feeStructures': 'feeStructures',
-    'feeBursaries': 'feeBursaries',
-    'classes': 'classes',
-    'subjects': 'subjects',
-    'teachers': 'teachers',
-    'students': 'students',
-    'enrollments': 'enrollments',
-    'assessments': 'assessments',
-    'scores': 'scores',
-    'attendance': 'attendance',
-    'feePayments': 'feePayments',
-    'studentFeeAssignments': 'studentFeeAssignments',
-    'studentTermRecords': 'studentTermRecords',
-    'statusGroups': 'statusGroups',
-    'inventoryStock': 'inventoryStock',
-    'inventoryTransactions': 'inventoryTransactions',
-    'inventoryItems': 'inventoryItems',
-    'uniformStock': 'uniformStock',
-    'uniformTransactions': 'uniformTransactions',
-    'uniformAssignments': 'uniformAssignments',
-    'schoolStock': 'schoolStock',
-    'schoolStockTransactions': 'schoolStockTransactions',
-    'schoolStockCategories': 'schoolStockCategories',
-    'sweepingRosters': 'sweepingRosters',
-    'reportCardTemplate': 'reportCardTemplate',
-    'reportCardMarks': 'reportCardMarks',
-    'reportCardInitials': 'reportCardInitials',
-    'generatedReportCards': 'generatedReportCards',
-    'parents': 'parents',
-    'events': 'events',
-    'chatMessages': 'chatMessages',
-    'chatContacts': 'chatContacts',
-    'announcements': 'announcements',
-    'archivedStudents': 'archivedStudents'
-};
-
-// File paths object (kept for compatibility)
-const files = {};
-for (const [key, tableName] of Object.entries(collectionMap)) {
-    files[key] = path.join(dataDir, key + '.json');
-}
-
-// ==================== SQL.JS HELPERS ====================
-
-// Promisified database functions
-function dbExec(sql, params = []) {
-    return new Promise((resolve, reject) => {
+// ==================== ATOMIC TRANSACTION SYSTEM ====================
+const transactionStorage = new AsyncLocalStorage();
+const TEMP_DIR = path.join(configuredDataDir || path.join(__dirname, 'data'), '.tmp');
+const tempFileNames = fs.readdirSync(TEMP_DIR);
+// Ensure temp directory exists and clean up any leftover temp files on startup
+if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+} else {
+    // Remove any stale temporary files (from previous incomplete transactions)
+   
+  for (const file of tempFileNames) {
         try {
-            if (params && params.length > 0) {
-                const stmt = db.prepare(sql);
-                stmt.run(params);
-                stmt.free();
-            } else {
-                db.exec(sql);
-            }
-            resolve();
-        } catch (err) {
-            reject(err);
-        }
-    });
+            fs.unlinkSync(path.join(TEMP_DIR, file));
+        } catch (e) { /* ignore */ }
+    }
 }
 
-function dbRun(sql, params = []) {
-    return new Promise((resolve, reject) => {
+// Start a new transaction (called per request)
+function startTransaction() {
+    const store = { tempFiles: {} };
+    return store;
+}
+
+// Commit: atomically rename all temporary files to their real paths
+function commitTransaction(store) {
+    if (!store) return;
+    const entries = Object.entries(store.tempFiles);
+    for (const [realPath, tempPath] of entries) {
         try {
-            const stmt = db.prepare(sql);
-            const result = stmt.run(params);
-            stmt.free();
-            resolve({ lastID: result.lastInsertRowid, changes: result.changes });
+            // rename is atomic on POSIX systems
+            fs.renameSync(tempPath, realPath);
         } catch (err) {
-            reject(err);
+            // If any rename fails, attempt to rollback already renamed files?
+            // Since we want atomicity, we must try to revert all.
+            console.error('❌ Atomic commit failed for', realPath, err);
+            rollbackTransaction(store);
+            throw new Error('Transaction commit failed: ' + err.message);
         }
-    });
+    }
+    // Success: clear the store
+    store.tempFiles = {};
 }
 
-function dbGet(sql, params = []) {
-    return new Promise((resolve, reject) => {
+// Rollback: delete all temporary files
+function rollbackTransaction(store) {
+    if (!store) return;
+    for (const tempPath of Object.values(store.tempFiles)) {
         try {
-            const stmt = db.prepare(sql);
-            const result = stmt.getAsObject(params);
-            stmt.free();
-            resolve(result);
-        } catch (err) {
-            reject(err);
-        }
-    });
-}
-
-function dbAll(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        try {
-            const stmt = db.prepare(sql);
-            const results = [];
-            while (stmt.step()) {
-                results.push(stmt.getAsObject());
+            if (fs.existsSync(tempPath)) {
+                fs.unlinkSync(tempPath);
             }
-            stmt.free();
-            resolve(results);
-        } catch (err) {
-            reject(err);
-        }
-    });
-}
-
-function saveDatabase() {
-    try {
-        const data = db.export();
-        const buffer = Buffer.from(data);
-        fs.writeFileSync(DB_PATH, buffer);
-    } catch (err) {
-        console.error('❌ Failed to save database:', err.message);
+        } catch (e) { /* ignore */ }
     }
+    store.tempFiles = {};
 }
 
-// ==================== INITIALIZE DATABASE ====================
+// ==================== MIDDLEWARE ====================
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-async function initializeDatabase() {
-    try {
-        const SQL = await initSqlJs();
-        
-        // Check if database file exists
-        if (fs.existsSync(DB_PATH)) {
-            const fileBuffer = fs.readFileSync(DB_PATH);
-            db = new SQL.Database(fileBuffer);
-            console.log('✅ Loaded existing database from school.db');
-        } else {
-            db = new SQL.Database();
-            console.log('✅ Created new database in memory');
-        }
-        
-        // Enable WAL mode and other PRAGMAs
-        db.exec('PRAGMA journal_mode = WAL');
-        db.exec('PRAGMA synchronous = FULL');
-        db.exec('PRAGMA foreign_keys = ON');
-        
-        // Create tables if they don't exist
-        await createTables();
-        
-        // Check if migration is needed
-        const migrationNeeded = await checkMigrationNeeded();
-        if (migrationNeeded) {
-            await migrateJsonToSqlite();
-        }
-        
-        // Save the database to disk
-        saveDatabase();
-        console.log('✅ Database initialized successfully');
-        
-    } catch (error) {
-        console.error('❌ Failed to initialize database:', error);
-        process.exit(1);
-    }
-}
-
-async function createTables() {
-    const tables = [
-        // Core tables
-        `CREATE TABLE IF NOT EXISTS schools (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS settings (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS feeStructures (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS feeBursaries (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS classes (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS subjects (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS teachers (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS students (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS enrollments (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS assessments (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS scores (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS attendance (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS feePayments (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS studentFeeAssignments (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS studentTermRecords (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS statusGroups (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Inventory tables
-        `CREATE TABLE IF NOT EXISTS inventoryStock (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS inventoryTransactions (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS inventoryItems (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Uniform tables
-        `CREATE TABLE IF NOT EXISTS uniformStock (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS uniformTransactions (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS uniformAssignments (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // School stock tables
-        `CREATE TABLE IF NOT EXISTS schoolStock (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS schoolStockTransactions (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS schoolStockCategories (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Sweeping rosters
-        `CREATE TABLE IF NOT EXISTS sweepingRosters (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Report card tables
-        `CREATE TABLE IF NOT EXISTS reportCardTemplate (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS reportCardMarks (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS reportCardInitials (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS generatedReportCards (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Parent portal
-        `CREATE TABLE IF NOT EXISTS parents (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Events
-        `CREATE TABLE IF NOT EXISTS events (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Chat
-        `CREATE TABLE IF NOT EXISTS chatMessages (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS chatContacts (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Announcements
-        `CREATE TABLE IF NOT EXISTS announcements (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`,
-        // Archived students
-        `CREATE TABLE IF NOT EXISTS archivedStudents (
-            id TEXT PRIMARY KEY,
-            data TEXT
-        )`
-    ];
-    
-    for (const sql of tables) {
-        try {
-            db.exec(sql);
-        } catch (err) {
-            console.error(`❌ Failed to create table:`, err.message);
-        }
-    }
-    
-    console.log('✅ All tables created/verified');
-}
-
-async function checkMigrationNeeded() {
-    try {
-        // Check if schools table has data
-        const result = db.exec('SELECT COUNT(*) as count FROM schools');
-        if (result.length > 0 && result[0].values && result[0].values.length > 0) {
-            const count = result[0].values[0][0];
-            if (count > 0) {
-                return false; // Already migrated
-            }
-        }
-        return true; // Migration needed
-    } catch (err) {
-        // Table might not exist yet
-        return true;
-    }
-}
-
-async function migrateJsonToSqlite() {
-    console.log('🔄 Starting JSON to SQLite migration...');
-    
-    const collections = Object.keys(collectionMap);
-    let totalMigrated = 0;
-    
-    for (const collection of collections) {
-        const filePath = path.join(dataDir, collection + '.json');
-        const tableName = collectionMap[collection];
-        
-        if (!fs.existsSync(filePath)) {
-            console.log(`📄 ${collection}.json not found, skipping`);
-            continue;
-        }
-        
-        try {
-            const content = fs.readFileSync(filePath, 'utf8');
-            if (!content || content.trim() === '') {
-                console.log(`📄 ${collection}.json is empty, skipping`);
-                continue;
-            }
-            
-            let data = JSON.parse(content);
-            
-            // Handle different data structures
-            let items = [];
-            if (Array.isArray(data)) {
-                items = data;
-            } else if (typeof data === 'object' && data !== null) {
-                // For objects like studentTermRecords, convert to array of {id, data}
-                if (collection === 'studentTermRecords') {
-                    for (const [key, value] of Object.entries(data)) {
-                        items.push({ id: key, data: JSON.stringify(value) });
-                    }
-                } else {
-                    // For other objects, just store the whole thing
-                    items = [{ id: 'default', data: JSON.stringify(data) }];
-                }
-            }
-            
-            if (items.length === 0) {
-                console.log(`📄 ${collection}.json has no data, skipping`);
-                continue;
-            }
-            
-            // Insert each item
-            for (const item of items) {
-                try {
-                    const itemId = item.id || uuidv4();
-                    const itemData = typeof item.data === 'string' ? item.data : JSON.stringify(item);
-                    
-                    db.exec(
-                        `INSERT OR REPLACE INTO ${tableName} (id, data) VALUES (?, ?)`,
-                        [itemId, itemData]
-                    );
-                    totalMigrated++;
-                } catch (err) {
-                    console.error(`❌ Failed to migrate item in ${collection}:`, err.message);
-                }
-            }
-            
-            console.log(`✅ Migrated ${items.length} items from ${collection}.json`);
-            
-        } catch (err) {
-            console.error(`❌ Failed to migrate ${collection}.json:`, err.message);
-        }
-    }
-    
-    // Special handling for archivedStudents.json (not in collectionMap)
-    const archivePath = path.join(dataDir, 'archivedStudents.json');
-    if (fs.existsSync(archivePath)) {
-        try {
-            const content = fs.readFileSync(archivePath, 'utf8');
-            if (content && content.trim() !== '') {
-                const data = JSON.parse(content);
-                if (Array.isArray(data)) {
-                    for (const item of data) {
-                        const itemId = item.id || item.student?.id || uuidv4();
-                        db.exec(
-                            `INSERT OR REPLACE INTO archivedStudents (id, data) VALUES (?, ?)`,
-                            [itemId, JSON.stringify(item)]
-                        );
-                        totalMigrated++;
-                    }
-                    console.log(`✅ Migrated ${data.length} items from archivedStudents.json`);
-                }
-            }
-        } catch (err) {
-            console.error('❌ Failed to migrate archivedStudents.json:', err.message);
-        }
-    }
-    
-    console.log(`✅ Migration complete! ${totalMigrated} items migrated.`);
-    saveDatabase();
-}
-
-// ==================== FILE OPERATIONS (SQLITE BACKEND) ====================
-
-// Helper to get table name from file path
-function getTableNameFromPath(filePath) {
-    const fileName = path.basename(filePath, '.json');
-    return collectionMap[fileName] || fileName;
-}
-
-// Helper to get collection data as array
-function getCollectionData(tableName) {
-    try {
-        const result = db.exec(`SELECT data FROM ${tableName}`);
-        if (result.length > 0 && result[0].values) {
-            return result[0].values.map(row => JSON.parse(row[0]));
-        }
-        return [];
-    } catch (err) {
-        // Table might not exist, return empty array
-        return [];
-    }
-}
-
-// Helper to get collection data as object (for settings, studentTermRecords, etc.)
-function getCollectionDataAsObject(tableName) {
-    try {
-        const result = db.exec(`SELECT data FROM ${tableName}`);
-        if (result.length > 0 && result[0].values && result[0].values.length > 0) {
-            // If there are multiple rows, merge them
-            const data = {};
-            for (const row of result[0].values) {
-                try {
-                    const parsed = JSON.parse(row[0]);
-                    if (parsed && typeof parsed === 'object') {
-                        Object.assign(data, parsed);
-                    }
-                } catch (e) {
-                    // Skip invalid JSON
-                }
-            }
-            return data;
-        }
-        return {};
-    } catch (err) {
-        return {};
-    }
-}
-
-// Helper to save collection data (array)
-function saveCollectionData(tableName, data) {
-    try {
-        // Clear existing data
-        db.exec(`DELETE FROM ${tableName}`);
-        
-        if (!Array.isArray(data)) {
-            data = [data];
-        }
-        
-        for (const item of data) {
-            if (!item || typeof item !== 'object') continue;
-            const id = item.id || uuidv4();
-            const dataStr = JSON.stringify(item);
-            db.exec(
-                `INSERT INTO ${tableName} (id, data) VALUES (?, ?)`,
-                [id, dataStr]
-            );
-        }
-        return true;
-    } catch (err) {
-        console.error(`❌ Failed to save collection ${tableName}:`, err.message);
-        return false;
-    }
-}
-
-// Helper to save collection data as object (for settings, etc.)
-function saveCollectionDataAsObject(tableName, data) {
-    try {
-        // Clear existing data
-        db.exec(`DELETE FROM ${tableName}`);
-        
-        // Store as a single record with id 'default'
-        const dataStr = JSON.stringify(data);
-        db.exec(
-            `INSERT INTO ${tableName} (id, data) VALUES (?, ?)`,
-            ['default', dataStr]
-        );
-        return true;
-    } catch (err) {
-        console.error(`❌ Failed to save collection ${tableName}:`, err.message);
-        return false;
-    }
-}
-
-// ==================== READ FILE FUNCTION (SQLITE BACKEND) ====================
-
-function readFile(filePath) {
-    try {
-        const tableName = getTableNameFromPath(filePath);
-        const fileName = path.basename(filePath, '.json');
-        
-        // Special handling for settings and studentTermRecords (objects)
-        if (fileName === 'settings' || fileName === 'studentTermRecords') {
-            return getCollectionDataAsObject(tableName);
-        }
-        
-        // Default: return array
-        return getCollectionData(tableName);
-    } catch (error) {
-        console.error(`❌ Error reading ${filePath}:`, error.message);
-        // Return appropriate default
-        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
-            return {};
-        }
-        return [];
-    }
-}
-
-// ==================== SAVE FILE FUNCTION (SQLITE BACKEND) ====================
-
-function saveFile(filePath, data) {
-    try {
-        const tableName = getTableNameFromPath(filePath);
-        const fileName = path.basename(filePath, '.json');
-        
-        // Special handling for settings and studentTermRecords (objects)
-        if (fileName === 'settings' || fileName === 'studentTermRecords') {
-            const result = saveCollectionDataAsObject(tableName, data);
-            if (result) {
-                saveDatabase();
-                console.log(`✅ File saved: ${filePath}`);
-                return true;
-            }
-            return false;
-        }
-        
-        // Default: save as array
-        const result = saveCollectionData(tableName, data);
-        if (result) {
-            saveDatabase();
-            console.log(`✅ File saved: ${filePath}`);
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error(`❌ Error writing ${filePath}:`, error.message);
-        return false;
-    }
-}
-
-// ==================== ATOMIC TRANSACTION MIDDLEWARE ====================
-
-// SQLite handles transactions natively - we use db.exec for BEGIN/COMMIT/ROLLBACK
-// This middleware wraps each request in a transaction
-
+// ==================== TRANSACTION MIDDLEWARE ====================
+// This middleware wraps each request in an atomic transaction.
+// All saveFile calls within the request will write to temporary files.
+// On successful response, changes are committed (renamed).
+// On error, changes are rolled back (temp files deleted).
 app.use((req, res, next) => {
-    // Start transaction
-    try {
-        db.exec('BEGIN TRANSACTION');
-    } catch (err) {
-        console.error('❌ Failed to begin transaction:', err.message);
-        return next(err);
-    }
-    
-    // Override res.end to commit transaction before sending response
-    const originalEnd = res.end;
-    let committed = false;
-    
-    res.end = function (...args) {
-        if (!committed) {
-            committed = true;
-            try {
-                db.exec('COMMIT');
-                saveDatabase();
-            } catch (commitErr) {
-                console.error('❌ Commit failed during res.end:', commitErr);
-                try {
-                    db.exec('ROLLBACK');
-                } catch (rollbackErr) {
-                    console.error('❌ Rollback failed:', rollbackErr);
+    const store = startTransaction();
+    transactionStorage.run(store, () => {
+        // Override res.end to commit transaction before sending response
+        const originalEnd = res.end;
+        let committed = false;
+        res.end = function (...args) {
+            if (!committed) {
+                committed = true;
+                const currentStore = transactionStorage.getStore();
+                if (currentStore && Object.keys(currentStore.tempFiles).length > 0) {
+                    try {
+                        commitTransaction(currentStore);
+                    } catch (commitErr) {
+                        // If commit fails, we still need to end the response, but with an error status
+                        console.error('❌ Commit failed during res.end:', commitErr);
+                        // Rollback already done inside commitTransaction on failure
+                        // Set status to 500 if not already set
+                        if (res.statusCode < 400) res.status(500);
+                        // We cannot change the response body easily here, but we can log.
+                    }
                 }
-                if (res.statusCode < 400) res.status(500);
             }
-        }
-        originalEnd.apply(this, args);
-    };
-    
-    // Catch errors and rollback
-    try {
-        next();
-    } catch (err) {
-        try {
-            db.exec('ROLLBACK');
-        } catch (rollbackErr) {
-            console.error('❌ Rollback failed:', rollbackErr);
-        }
-        next(err);
-    }
-});
+            originalEnd.apply(this, args);
+        };
 
-// Also handle promise rejections
-app.use((err, req, res, next) => {
-    try {
-        db.exec('ROLLBACK');
-    } catch (rollbackErr) {
-        console.error('❌ Rollback failed:', rollbackErr);
-    }
-    next(err);
+        // Catch synchronous errors and rollback
+        try {
+            next();
+        } catch (err) {
+            const currentStore = transactionStorage.getStore();
+            if (currentStore) {
+                rollbackTransaction(currentStore);
+            }
+            next(err);
+        }
+    });
 });
 
 // ==================== SYNC MANAGER INTEGRATION ====================
@@ -697,7 +137,9 @@ app.get('/api/sync/status', (req, res) => {
 });
 
 // Trigger manual sync
+// In server.js - Sync routes
 app.post('/api/sync/trigger', async (req, res) => {
+    // Check token (optional but recommended)
     const token = req.headers.authorization?.replace('Bearer ', '');
     const expectedToken = process.env.SYNC_TOKEN;
     
@@ -735,6 +177,9 @@ app.get('/api/sync/check-updates', async (req, res) => {
     }
 });
 
+const multer = require('multer');
+const xlsx = require('xlsx');
+
 // Configure multer for file upload
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -750,8 +195,48 @@ const upload = multer({
     }
 });
 
+// ==================== FILE PATHS ====================
+const dataDir = configuredDataDir || path.join(__dirname, 'data');
+const files = {
+    schools: path.join(dataDir, 'schools.json'),
+    settings: path.join(dataDir, 'settings.json'),
+    feeStructures: path.join(dataDir, 'feeStructures.json'),
+    feeBursaries: path.join(dataDir, 'feeBursaries.json'),
+    classes: path.join(dataDir, 'classes.json'),
+    subjects: path.join(dataDir, 'subjects.json'),
+    teachers: path.join(dataDir, 'teachers.json'),
+    students: path.join(dataDir, 'students.json'),
+    enrollments: path.join(dataDir, 'enrollments.json'),
+    assessments: path.join(dataDir, 'assessments.json'),
+    scores: path.join(dataDir, 'scores.json'),
+    attendance: path.join(dataDir, 'attendance.json'),
+    feePayments: path.join(dataDir, 'feePayments.json'),
+    studentFeeAssignments: path.join(dataDir, 'studentFeeAssignments.json'),
+    studentTermRecords: path.join(dataDir, 'studentTermRecords.json'),
+    statusGroups: path.join(dataDir, 'statusGroups.json')
+};
+// Ensure data directory exists
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`Created data directory: ${dataDir}`);
+}
+
 // ==================== BACKUP SYSTEM ====================
 const backupDir = path.join(__dirname, 'backups');
+
+function copyFolderSync(src, dest) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (let entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyFolderSync(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
 
 function cleanupOldBackups() {
     if (!fs.existsSync(backupDir)) return;
@@ -760,10 +245,11 @@ function cleanupOldBackups() {
         .map(name => ({
             name: name,
             path: path.join(backupDir, name),
-            dateStr: name.replace('backup_', '').slice(0, 10)
+            dateStr: name.replace('backup_', '').slice(0, 10) // YYYY-MM-DD
         }))
-        .sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+        .sort((a, b) => b.dateStr.localeCompare(a.dateStr)); // descending
 
+    // group by date
     const dateGroups = {};
     for (const f of folders) {
         if (!dateGroups[f.dateStr]) dateGroups[f.dateStr] = [];
@@ -772,7 +258,7 @@ function cleanupOldBackups() {
 
     const dates = Object.keys(dateGroups).sort((a,b) => b.localeCompare(a));
     if (dates.length > 5) {
-        const toDelete = dates.slice(5);
+        const toDelete = dates.slice(5); // keep latest 5 days
         for (const date of toDelete) {
             for (const f of dateGroups[date]) {
                 try {
@@ -793,15 +279,13 @@ function performBackup() {
         }
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const backupFolder = path.join(backupDir, `backup_${timestamp}`);
-        fs.mkdirSync(backupFolder, { recursive: true });
-        
-        // Copy the database file
-        if (fs.existsSync(DB_PATH)) {
-            const dbBackupPath = path.join(backupFolder, 'school.db');
-            fs.copyFileSync(DB_PATH, dbBackupPath);
-            console.log(`✅ Backup created: ${dbBackupPath}`);
+        // copy dataDir to backupFolder recursively
+        if (fs.cpSync) {
+            fs.cpSync(dataDir, backupFolder, { recursive: true });
+        } else {
+            copyFolderSync(dataDir, backupFolder);
         }
-        
+        console.log(`✅ Backup created: ${backupFolder}`);
         cleanupOldBackups();
     } catch (error) {
         console.error('❌ Backup failed:', error);
@@ -811,6 +295,13 @@ function performBackup() {
 performBackup();
 
 // ==================== HELPER: AUTO-REMOVE ALL ITEMS FOR A NEW STUDENT ====================
+// Used at registration/import time so a brand-new student (no payment history yet)
+// isn't billed for anything until the bursar explicitly restores specific items
+// via Edit Student -> Restore.
+// Component names matching these keywords are "optional" items that must
+// stay removed-by-default even though they're termly — e.g. Transportation
+// isn't used by every student, unlike scholastic requirements which apply
+// to everyone. These require the bursar to manually restore per student.
 const OPT_IN_COMPONENT_KEYWORDS = ['transport', 'van'];
 
 function isOptInComponent(componentName) {
@@ -829,6 +320,10 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
         const periodType = comp.periodType || 'termly';
         const isOptIn = isOptInComponent(comp.statusGroupName || comp.name);
 
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        // EXCEPTION: opt-in components (e.g. Transportation/Van) stay removed
+        // by default even though they're termly, since not every student
+        // uses them — the bursar must manually restore per student.
         if (periodType === 'termly' && !isOptIn) continue;
 
         for (const item of comp.items) {
@@ -852,7 +347,9 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
     }
     return removedItems;
 }
-
+// ==================== HELPER FUNCTIONS ====================
+// ==================== FIXED READ FILE FUNCTION ====================
+// ==================== CORRECTED READ FILE FUNCTION ====================
 // ==================== HELPER: DEDUPLICATE PAYMENT ITEMS ====================
 function deduplicatePaymentItems(items) {
     if (!items || !Array.isArray(items) || items.length === 0) return items;
@@ -870,6 +367,100 @@ function deduplicatePaymentItems(items) {
     
     return unique;
 }
+// ================================================================
+// FILE OPERATIONS - MUST BE DEFINED BEFORE ROUTES
+// ================================================================
+
+function readFile(filePath) {
+    try {
+        if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, 'utf8');
+            // Check if file is empty
+            if (!content || content.trim() === '') {
+                console.warn(`⚠️ File ${filePath} is empty, returning default`);
+                // Return appropriate default based on file type
+                if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
+                    return {};
+                }
+                return [];
+            }
+            const parsed = JSON.parse(content);
+            return parsed;
+        }
+        console.log(`📄 File ${filePath} does not exist, returning default`);
+        // Return appropriate default based on file type
+        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
+            return {};
+        }
+        return [];
+    } catch (error) {
+        console.error(`❌ Error reading ${filePath}:`, error.message);
+        // Return appropriate default based on file type
+        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
+            return {};
+        }
+        return [];
+    }
+}
+
+// ==================== ATOMIC SAVE FILE FUNCTION ====================
+// This function now supports transaction atomicity via AsyncLocalStorage.
+// If a transaction is active, writes go to temporary files.
+// Otherwise, writes directly (original behavior).
+function saveFile(filePath, data) {
+    try {
+        // Check if we are inside a transaction
+        const store = transactionStorage.getStore();
+        if (store) {
+            // Write to a temporary file
+            if (!fs.existsSync(TEMP_DIR)) {
+                fs.mkdirSync(TEMP_DIR, { recursive: true });
+            }
+            // Ensure the target directory exists (for temp file we just use TEMP_DIR)
+            const tempFileName = path.basename(filePath) + '.' + Date.now() + '.' + Math.random().toString(36).substr(2, 6);
+            const tempPath = path.join(TEMP_DIR, tempFileName);
+            
+            // Write data to temp file
+            const jsonData = JSON.stringify(data, null, 2);
+            fs.writeFileSync(tempPath, jsonData, 'utf8');
+            
+            // Verify the temp file was written
+            if (fs.existsSync(tempPath)) {
+                // Store mapping in transaction store
+                store.tempFiles[filePath] = tempPath;
+                console.log(`📝 Staged write to temp: ${tempPath} (for ${filePath})`);
+                return true;
+            } else {
+                console.error(`❌ Failed to write temp file: ${tempPath}`);
+                return false;
+            }
+        } else {
+            // Original behavior: write directly
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+                console.log(`📁 Created directory: ${dir}`);
+            }
+            
+            const jsonData = JSON.stringify(data, null, 2);
+            fs.writeFileSync(filePath, jsonData, 'utf8');
+            
+            if (fs.existsSync(filePath)) {
+                const written = fs.readFileSync(filePath, 'utf8');
+                console.log(`✅ File saved: ${filePath}`);
+                console.log(`📄 Content length: ${written.length} bytes`);
+                return true;
+            }
+            return false;
+        }
+    } catch (error) {
+        console.error(`❌ Error writing ${filePath}:`, error.message);
+        return false;
+    }
+}
+
+// ==================== FIXED SAVE FILE FUNCTION ====================
+// (previous duplicate definitions removed)
 
 function getGradingSystem() {
     const settings = readFile(files.settings);
@@ -906,6 +497,7 @@ function transformFeeStructureWithPeriods(feeStructure) {
 }
 
 // ==================== INITIALIZE DEFAULT DATA ====================
+// ==================== INITIALIZE DEFAULT DATA ====================
 
 function initializeDefaultData() {
     // Initialize settings - OBJECT
@@ -923,6 +515,7 @@ function initializeDefaultData() {
             }
         });
     }
+    
     
     // Initialize schools - ARRAY
     if (!fs.existsSync(files.schools)) {
@@ -985,29 +578,40 @@ function initializeDefaultData() {
 initializeDefaultData();
 
 // ==================== GLOBAL ACADEMIC SETTINGS ====================
+// This MUST be defined at the top level before any routes use it
 
+// Define the global variable
 let currentAcademicSettings = {
     currentYear: new Date().getFullYear(),
     currentTerm: 1
 };
 
+// Function to load settings from file
 function loadAcademicSettings() {
     try {
-        const settings = readFile(files.settings);
-        if (settings.currentAcademicYear) {
-            currentAcademicSettings.currentYear = settings.currentAcademicYear;
+        const settingsPath = path.join(__dirname, 'data', 'settings.json');
+        if (fs.existsSync(settingsPath)) {
+            const settingsData = fs.readFileSync(settingsPath, 'utf8');
+            const settings = JSON.parse(settingsData);
+            if (settings.currentAcademicYear) {
+                currentAcademicSettings.currentYear = settings.currentAcademicYear;
+            }
+            if (settings.currentTerm) {
+                currentAcademicSettings.currentTerm = settings.currentTerm;
+            }
+            console.log(`📅 Academic settings loaded: Year ${currentAcademicSettings.currentYear}, Term ${currentAcademicSettings.currentTerm}`);
+        } else {
+            console.log(`📅 Using default academic settings: Year ${currentAcademicSettings.currentYear}, Term ${currentAcademicSettings.currentTerm}`);
         }
-        if (settings.currentTerm) {
-            currentAcademicSettings.currentTerm = settings.currentTerm;
-        }
-        console.log(`📅 Academic settings loaded: Year ${currentAcademicSettings.currentYear}, Term ${currentAcademicSettings.currentTerm}`);
     } catch (error) {
         console.warn('Could not load academic settings, using defaults:', error.message);
     }
 }
 
+// Load settings immediately
 loadAcademicSettings();
 
+// Export for use in other routes if needed
 function getAcademicSettings() {
     return currentAcademicSettings;
 }
@@ -1015,19 +619,32 @@ function getAcademicSettings() {
 function updateAcademicSettings(year, term) {
     currentAcademicSettings.currentYear = year;
     currentAcademicSettings.currentTerm = term;
+    // Save to file
     try {
-        let settings = readFile(files.settings);
+        const settingsPath = path.join(__dirname, 'data', 'settings.json');
+        let settings = {};
+        if (fs.existsSync(settingsPath)) {
+            settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        }
         settings.currentAcademicYear = year;
         settings.currentTerm = term;
         settings.lastUpdated = new Date().toISOString();
-        saveFile(files.settings, settings);
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         console.log(`📅 Academic settings saved: Year ${year}, Term ${term}`);
     } catch (error) {
         console.warn('Could not save academic settings:', error.message);
     }
 }
 
+
+// Reset all payments for a specific item for a student
+
+
 // ==================== SCHOOL ROUTES ====================
+
+// ==================== FIXED SCHOOL ROUTES WITH DEBUG ====================
+
+// ==================== SCHOOL ROUTES (FIXED) ====================
 
 app.get('/api/school', (req, res) => {
     try {
@@ -1056,8 +673,16 @@ app.post('/api/school/setup', (req, res) => {
     try {
         const { schoolName, address, phone, email, motto, logo } = req.body;
         
-        let schools = readFile(files.schools);
+        // ✅ Make sure readFile is available
+        let schools = [];
+        try {
+            schools = readFile(files.schools);
+        } catch (e) {
+            console.warn('Could not read schools file, starting fresh:', e.message);
+            schools = [];
+        }
         
+        // Ensure schools is an array
         if (!Array.isArray(schools)) {
             console.warn('⚠️ Schools is not an array, resetting to empty array');
             schools = [];
@@ -1081,6 +706,7 @@ app.post('/api/school/setup', (req, res) => {
             schools[0] = schoolData;
         }
         
+        // ✅ Save the file
         const saved = saveFile(files.schools, schools);
         
         if (!saved) {
@@ -1091,6 +717,7 @@ app.post('/api/school/setup', (req, res) => {
             });
         }
         
+        // ✅ Verify the save by reading back
         const verifyData = readFile(files.schools);
         console.log('✅ Verified saved data:', verifyData);
         
@@ -1107,6 +734,61 @@ app.post('/api/school/setup', (req, res) => {
         });
     }
 });
+
+app.post('/api/school/setup', (req, res) => {
+    console.log('🔍 POST /api/school/setup called');
+    console.log('📥 Request body:', req.body);
+    
+    try {
+        const { schoolName, address, phone, email, motto, logo } = req.body;
+        let schools = readFile(files.schools);
+        
+        // Ensure schools is an array
+        if (!Array.isArray(schools)) {
+            console.warn('⚠️ Schools is not an array, resetting to empty array');
+            schools = [];
+        }
+        
+        const schoolData = {
+            id: schools[0]?.id || uuidv4(),
+            schoolName: schoolName || 'My School',
+            address: address || '',
+            phone: phone || '',
+            email: email || '',
+            motto: motto || 'Quality Education for All',
+            logo: logo || '',
+            createdAt: schools[0] ? schools[0].createdAt : new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        if (schools.length === 0) {
+            schools.push(schoolData);
+        } else {
+            schools[0] = schoolData;
+        }
+        
+        // ✅ Force save with verification
+        const saved = saveFile(files.schools, schools);
+        
+        if (!saved) {
+            throw new Error('Failed to save school data');
+        }
+        
+        // ✅ Verify the save
+        const verifyData = readFile(files.schools);
+        console.log('✅ Verified saved data:', verifyData);
+        
+        res.json({ 
+            success: true, 
+            school: schoolData,
+            verified: verifyData
+        });
+    } catch (error) {
+        console.error('Error saving school:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // Add to server.js - Recovery endpoint to fix settings file
 app.post('/api/academic/fix-settings', (req, res) => {
@@ -1137,7 +819,6 @@ app.post('/api/academic/fix-settings', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 // ==================== CLASSES ROUTES ====================
 
 app.get('/api/school/classes', (req, res) => {
@@ -1246,8 +927,10 @@ app.delete('/api/school/subjects/:id', (req, res) => {
     res.json({ success: true });
 });
 
-// ==================== TEACHER ROUTES ====================
+// ==================== TEACHER ROUTES (COMPLETE) ====================
+// Version: 2.0 - With Password Management
 
+// ==================== GET ALL TEACHERS ====================
 app.get('/api/teachers', (req, res) => {
     try {
         const teachers = readFile(files.teachers);
@@ -1258,6 +941,7 @@ app.get('/api/teachers', (req, res) => {
     }
 });
 
+// ==================== GET TEACHER BY ID ====================
 app.get('/api/teachers/:id', (req, res) => {
     try {
         const teachers = readFile(files.teachers);
@@ -1272,6 +956,7 @@ app.get('/api/teachers/:id', (req, res) => {
     }
 });
 
+// ==================== CREATE TEACHER (WITH PASSWORD) ====================
 app.post('/api/teachers', (req, res) => {
     try {
         const { 
@@ -1291,6 +976,7 @@ app.post('/api/teachers', (req, res) => {
             status
         } = req.body;
 
+        // Validate required fields
         if (!firstName || !lastName || !gender || !phone) {
             return res.status(400).json({ 
                 error: 'Missing required fields: firstName, lastName, gender, and phone are required' 
@@ -1299,10 +985,12 @@ app.post('/api/teachers', (req, res) => {
 
         const teachers = readFile(files.teachers);
         
+        // Generate teacher ID
         const year = new Date().getFullYear();
         const nextNumber = String(teachers.length + 1).padStart(4, '0');
         const teacherId = `TCH${year}${nextNumber}`;
 
+        // Generate password if not provided
         let finalPassword = password;
         if (!finalPassword || finalPassword.trim() === '') {
             finalPassword = Math.floor(100000 + Math.random() * 900000).toString();
@@ -1324,7 +1012,7 @@ app.post('/api/teachers', (req, res) => {
             address: address || '',
             joinedAt: joinedAt || new Date().toISOString().split('T')[0],
             status: status || 'Active',
-            password: finalPassword,
+            password: finalPassword, // Store the password
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -1332,13 +1020,14 @@ app.post('/api/teachers', (req, res) => {
         teachers.push(newTeacher);
         saveFile(files.teachers, teachers);
 
+        // Log the creation
         console.log(`✅ New teacher created: ${firstName} ${lastName} (${teacherId})`);
 
         res.json({ 
             success: true, 
             teacher: newTeacher,
             message: `Teacher ${firstName} ${lastName} added successfully`,
-            password: finalPassword
+            password: finalPassword // Return password so frontend can show it
         });
 
     } catch (error) {
@@ -1347,6 +1036,7 @@ app.post('/api/teachers', (req, res) => {
     }
 });
 
+// ==================== UPDATE TEACHER ====================
 app.put('/api/teachers/:id', (req, res) => {
     try {
         const teacherId = req.params.id;
@@ -1359,11 +1049,12 @@ app.put('/api/teachers/:id', (req, res) => {
             return res.status(404).json({ error: 'Teacher not found' });
         }
 
+        // Prevent overwriting critical fields
         const allowedUpdates = [
             'firstName', 'lastName', 'gender', 'phone', 'email', 
             'dateOfBirth', 'qualification', 'specialization', 
             'subjects', 'classes', 'address', 'joinedAt', 'status',
-            'password'
+            'password' // Allow password update for reset functionality
         ];
 
         const updatedTeacher = { ...teachers[index] };
@@ -1393,6 +1084,7 @@ app.put('/api/teachers/:id', (req, res) => {
     }
 });
 
+// ==================== DELETE TEACHER ====================
 app.delete('/api/teachers/:id', (req, res) => {
     try {
         const teacherId = req.params.id;
@@ -1419,6 +1111,7 @@ app.delete('/api/teachers/:id', (req, res) => {
     }
 });
 
+// ==================== RESET TEACHER PASSWORD ====================
 app.post('/api/teachers/:id/reset-password', (req, res) => {
     try {
         const teacherId = req.params.id;
@@ -1429,6 +1122,7 @@ app.post('/api/teachers/:id/reset-password', (req, res) => {
             return res.status(404).json({ error: 'Teacher not found' });
         }
 
+        // Generate a new 6-digit numeric password
         const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
         teachers[index].password = newPassword;
@@ -1456,6 +1150,9 @@ app.post('/api/teachers/:id/reset-password', (req, res) => {
     }
 });
 
+// ==================== BULK TEACHER OPERATIONS ====================
+
+// Bulk delete teachers
 app.post('/api/teachers/bulk-delete', (req, res) => {
     try {
         const { teacherIds } = req.body;
@@ -1468,6 +1165,7 @@ app.post('/api/teachers/bulk-delete', (req, res) => {
         const deletedCount = teacherIds.length;
         const deletedNames = [];
 
+        // Filter out the teachers to delete
         teachers = teachers.filter(t => {
             if (teacherIds.includes(t.id)) {
                 deletedNames.push(`${t.firstName} ${t.lastName}`);
@@ -1492,6 +1190,7 @@ app.post('/api/teachers/bulk-delete', (req, res) => {
     }
 });
 
+// Bulk update teacher status
 app.post('/api/teachers/bulk-status', (req, res) => {
     try {
         const { teacherIds, status } = req.body;
@@ -1531,6 +1230,7 @@ app.post('/api/teachers/bulk-status', (req, res) => {
     }
 });
 
+// ==================== TEACHER STATISTICS ====================
 app.get('/api/teachers/stats', (req, res) => {
     try {
         const teachers = readFile(files.teachers);
@@ -1548,6 +1248,7 @@ app.get('/api/teachers/stats', (req, res) => {
             classDistribution: {}
         };
 
+        // Subject distribution
         const allSubjects = new Set();
         teachers.forEach(t => {
             if (t.subjects) {
@@ -1557,6 +1258,7 @@ app.get('/api/teachers/stats', (req, res) => {
             }
         });
 
+        // Class distribution
         const allClasses = new Set();
         teachers.forEach(t => {
             if (t.classes) {
@@ -1577,6 +1279,7 @@ app.get('/api/teachers/stats', (req, res) => {
     }
 });
 
+// ==================== SEARCH TEACHERS ====================
 app.get('/api/teachers/search', (req, res) => {
     try {
         const { q, subject, classId, status, gender } = req.query;
@@ -1621,16 +1324,40 @@ console.log('✅ Teacher routes loaded with password management');
 
 const archivePath = path.join(dataDir, 'archivedStudents.json');
 
+// Helper: Read archive file
 function readArchive() {
-    return readFile(archivePath) || [];
+    if (!fs.existsSync(archivePath)) {
+        return [];
+    }
+    try {
+        const content = fs.readFileSync(archivePath, 'utf8');
+        if (!content || content.trim() === '') return [];
+        return JSON.parse(content);
+    } catch (e) {
+        console.error('❌ Error reading archive:', e.message);
+        return [];
+    }
 }
 
+// Helper: Save archive file
 function saveArchive(data) {
-    return saveFile(archivePath, data);
+    try {
+        const dir = path.dirname(archivePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(archivePath, JSON.stringify(data, null, 2), 'utf8');
+        console.log(`✅ Archived students saved (${data.length} records)`);
+        return true;
+    } catch (e) {
+        console.error('❌ Error saving archive:', e.message);
+        return false;
+    }
 }
 
-// ==================== ARCHIVE API ENDPOINTS ====================
-
+// ================================================================
+// 1. GET ALL ARCHIVED STUDENTS
+// ================================================================
 app.get('/api/students/archive', (req, res) => {
     console.log('📦 Fetching archived students...');
     
@@ -1653,6 +1380,9 @@ app.get('/api/students/archive', (req, res) => {
     }
 });
 
+// ================================================================
+// 2. GET A SINGLE ARCHIVED STUDENT BY ID
+// ================================================================
 app.get('/api/students/archive/:studentId', (req, res) => {
     console.log(`📦 Fetching archived student: ${req.params.studentId}`);
     
@@ -1684,6 +1414,9 @@ app.get('/api/students/archive/:studentId', (req, res) => {
     }
 });
 
+// ================================================================
+// 3. RESTORE AN ARCHIVED STUDENT (Move back to active)
+// ================================================================
 app.post('/api/students/restore/:studentId', (req, res) => {
     console.log(`🔄 Restoring archived student: ${req.params.studentId}`);
     
@@ -1691,8 +1424,10 @@ app.post('/api/students/restore/:studentId', (req, res) => {
         const studentsPath = path.join(dataDir, 'students.json');
         const enrollmentsPath = path.join(dataDir, 'enrollments.json');
         
+        // Read archive
         let archivedStudents = readArchive();
         
+        // Find the archived student
         const index = archivedStudents.findIndex(s => 
             s.student?.id === req.params.studentId || 
             s.id === req.params.studentId
@@ -1708,30 +1443,42 @@ app.post('/api/students/restore/:studentId', (req, res) => {
         const record = archivedStudents[index];
         const student = record.student || record;
         
+        // ============================================================
+        // CRITICAL FIX: Set status to ACTIVE when restoring
+        // ============================================================
         student.status = 'Active';
         student.restoredAt = new Date().toISOString();
         student.restoredFromArchive = true;
         delete student.graduatedAt;
         delete student.graduationReason;
         
+        // Remove from archive
         archivedStudents.splice(index, 1);
         saveArchive(archivedStudents);
         
-        let students = readFile(files.students);
-        if (!Array.isArray(students)) students = [];
+        // Add back to students
+        let students = [];
+        if (fs.existsSync(studentsPath)) {
+            students = JSON.parse(fs.readFileSync(studentsPath, 'utf8'));
+        }
         
+        // Check if student already exists (by ID)
         const existingIndex = students.findIndex(s => s.id === student.id);
         if (existingIndex !== -1) {
             students[existingIndex] = student;
         } else {
             students.push(student);
         }
-        saveFile(files.students, students);
+        fs.writeFileSync(studentsPath, JSON.stringify(students, null, 2));
         
+        // Also restore the enrollment
         if (record.enrollments && record.enrollments.length > 0) {
-            let enrollments = readFile(files.enrollments);
-            if (!Array.isArray(enrollments)) enrollments = [];
+            let enrollments = [];
+            if (fs.existsSync(enrollmentsPath)) {
+                enrollments = JSON.parse(fs.readFileSync(enrollmentsPath, 'utf8'));
+            }
             
+            // Find the last enrollment and make it current
             const lastEnrollment = record.enrollments[record.enrollments.length - 1];
             if (lastEnrollment) {
                 const existingEnrollment = enrollments.find(e => e.id === lastEnrollment.id);
@@ -1745,7 +1492,7 @@ app.post('/api/students/restore/:studentId', (req, res) => {
                     lastEnrollment.completionReason = null;
                     enrollments.push(lastEnrollment);
                 }
-                saveFile(files.enrollments, enrollments);
+                fs.writeFileSync(enrollmentsPath, JSON.stringify(enrollments, null, 2));
             }
         }
         
@@ -1765,6 +1512,9 @@ app.post('/api/students/restore/:studentId', (req, res) => {
     }
 });
 
+// ================================================================
+// 4. PERMANENTLY DELETE AN ARCHIVED STUDENT
+// ================================================================
 app.delete('/api/students/archive/:studentId', (req, res) => {
     console.log(`🗑️ Permanently deleting archived student: ${req.params.studentId}`);
     
@@ -1802,6 +1552,9 @@ app.delete('/api/students/archive/:studentId', (req, res) => {
     }
 });
 
+// ================================================================
+// 5. GET ARCHIVE STATISTICS
+// ================================================================
 app.get('/api/students/archive/stats', (req, res) => {
     console.log('📊 Fetching archive statistics...');
     
@@ -1823,6 +1576,7 @@ app.get('/api/students/archive/stats', (req, res) => {
             stats.byTerm[term] = (stats.byTerm[term] || 0) + 1;
         });
         
+        // Get 5 most recent
         stats.recent = archivedStudents
             .sort((a, b) => new Date(b.archivedAt) - new Date(a.archivedAt))
             .slice(0, 5)
@@ -1845,6 +1599,9 @@ app.get('/api/students/archive/stats', (req, res) => {
     }
 });
 
+// ================================================================
+// 6. EXPORT ARCHIVE DATA (CSV/JSON)
+// ================================================================
 app.get('/api/students/archive/export/:format', (req, res) => {
     const { format } = req.params;
     console.log(`📤 Exporting archive data in ${format} format`);
@@ -1859,8 +1616,10 @@ app.get('/api/students/archive/export/:format', (req, res) => {
         }
         
         if (format === 'csv') {
+            // Build CSV headers
             const headers = ['Admission', 'Name', 'Gender', 'Last Class', 'Parent', 'Phone', 'Archived At', 'Reason', 'Academic Year', 'Term'];
             
+            // Build CSV rows
             const rows = archivedStudents.map(record => {
                 const student = record.student || record;
                 return [
@@ -1877,6 +1636,7 @@ app.get('/api/students/archive/export/:format', (req, res) => {
                 ];
             });
             
+            // Build CSV string
             let csv = headers.join(',') + '\n';
             rows.forEach(row => {
                 csv += row.map(cell => `"${cell}"`).join(',') + '\n';
@@ -1900,6 +1660,9 @@ app.get('/api/students/archive/export/:format', (req, res) => {
     }
 });
 
+// ================================================================
+// 7. BULK RESTORE ARCHIVED STUDENTS
+// ================================================================
 app.post('/api/students/archive/bulk-restore', (req, res) => {
     console.log('🔄 Bulk restoring archived students...');
     const { studentIds } = req.body;
@@ -1931,16 +1694,21 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
             const record = archivedStudents[index];
             const student = record.student || record;
             
+            // Set status to ACTIVE
             student.status = 'Active';
             student.restoredAt = new Date().toISOString();
             student.restoredFromArchive = true;
             delete student.graduatedAt;
             delete student.graduationReason;
             
+            // Remove from archive
             archivedStudents.splice(index, 1);
             
-            let students = readFile(files.students);
-            if (!Array.isArray(students)) students = [];
+            // Add to students
+            let students = [];
+            if (fs.existsSync(studentsPath)) {
+                students = JSON.parse(fs.readFileSync(studentsPath, 'utf8'));
+            }
             
             const existingIndex = students.findIndex(s => s.id === student.id);
             if (existingIndex !== -1) {
@@ -1948,11 +1716,12 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
             } else {
                 students.push(student);
             }
-            saveFile(files.students, students);
+            fs.writeFileSync(studentsPath, JSON.stringify(students, null, 2));
             
             restored.push(student.id);
         }
         
+        // Save archive
         saveArchive(archivedStudents);
         
         console.log(`✅ Bulk restore: ${restored.length} restored, ${notFound.length} not found`);
@@ -1972,9 +1741,20 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
     }
 });
 
-console.log('✅ Archive API endpoints registered');
+console.log('✅ Archive API endpoints registered:');
+console.log('   GET    /api/students/archive');
+console.log('   GET    /api/students/archive/:studentId');
+console.log('   POST   /api/students/restore/:studentId');
+console.log('   DELETE /api/students/archive/:studentId');
+console.log('   GET    /api/students/archive/stats');
+console.log('   GET    /api/students/archive/export/:format');
+console.log('   POST   /api/students/archive/bulk-restore');
 
 // ==================== STUDENT ROUTES ====================
+
+// ==================== FIXED GET STUDENTS ENDPOINT ====================
+
+// ==================== FIXED GET STUDENTS ENDPOINT - PRESERVES CUSTOM FIELDS ====================
 
 app.get('/api/students', (req, res) => {
     try {
@@ -1982,21 +1762,26 @@ app.get('/api/students', (req, res) => {
         const enrollments = readFile(files.enrollments);
         const classes = readFile(files.classes);
 
+        // Build class map
         const classMap = {};
         classes.forEach(c => {
             classMap[c.id] = c;
         });
 
+        // Process each student – preserve their own currentClassId
         const studentsWithClass = students.map(student => {
+            // Find current enrollment (if any)
             const currentEnrollment = enrollments.find(e => e.studentId === student.id && e.isCurrent);
 
+            // Use the student's own currentClassId if available, otherwise fallback to enrollment
             const studentClassId = student.currentClassId || currentEnrollment?.classId || null;
             const currentClass = studentClassId ? classMap[studentClassId] : null;
 
+            // Return the student with ALL original fields preserved, but add the class info
             return {
                 ...student,
                 currentClass: currentClass?.name || null,
-                currentClassId: studentClassId
+                currentClassId: studentClassId  // <-- keep student's own class ID
             };
         });
 
@@ -2009,6 +1794,9 @@ app.get('/api/students', (req, res) => {
     }
 });
 
+// ==================== FIXED GET STUDENT BY ID ENDPOINT ====================
+
+// ==================== FIXED GET STUDENT BY ID ENDPOINT ====================
 app.get('/api/students/:id', (req, res) => {
     try {
         const students = readFile(files.students);
@@ -2023,14 +1811,16 @@ app.get('/api/students/:id', (req, res) => {
         const scores = readFile(files.scores);
         const assessments = readFile(files.assessments);
 
+        // Use the student's own currentClassId, fallback to enrollment
         const currentEnrollment = enrollments.find(e => e.studentId === student.id && e.isCurrent);
         const studentClassId = student.currentClassId || currentEnrollment?.classId || null;
         const currentClass = studentClassId ? classes.find(c => c.id === studentClassId) : null;
 
+        // Return student with ALL original fields preserved
         const result = {
             ...student,
             currentClass: currentClass?.name || null,
-            currentClassId: studentClassId,
+            currentClassId: studentClassId,      // <-- keep student's own class ID
             enrollments: enrollments.filter(e => e.studentId === student.id),
             scores: scores.filter(s => s.studentId === student.id).map(s => ({
                 ...s,
@@ -2047,8 +1837,8 @@ app.get('/api/students/:id', (req, res) => {
     }
 });
 
-// ==================== IMPORT STUDENTS FROM EXCEL ====================
 
+// ==================== IMPORT STUDENTS FROM EXCEL ====================
 app.post('/api/students/import', upload.single('file'), async (req, res) => {
     console.log('=== STUDENT IMPORT v5.0 - DAY vs BOARDING + DEFAULT-REMOVED ITEMS ===');
     
@@ -2059,6 +1849,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         
         const { currentYear, currentTerm } = currentAcademicSettings;
         
+        // Parse the file
         let workbook;
         let data;
         const fileExt = req.file.originalname.split('.').pop().toLowerCase();
@@ -2078,6 +1869,9 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'File is empty or missing data rows' });
         }
         
+        // ================================================================
+        // STEP 1: PARSE HEADERS
+        // ================================================================
         const headers = data[0].map(h => String(h).trim());
         console.log('📋 Headers found:', headers);
         
@@ -2108,9 +1902,13 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         
         console.log('📊 Column mapping:', colIndex);
         
+        // ================================================================
+        // STEP 2: LOAD FEE STRUCTURES AND CLASSES
+        // ================================================================
         const feeStructures = readFile(files.feeStructures) || [];
         const classes = readFile(files.classes) || [];
         
+        // Build fee structure map with separate day/boarding tracking
         const feeStructureMap = {};
         const dayFeeStructures = {};
         const boardingFeeStructures = {};
@@ -2120,12 +1918,14 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 const nameKey = fs.name.toLowerCase().trim();
                 feeStructureMap[nameKey] = fs;
                 
+                // Track day vs boarding
                 if (nameKey.includes('boarding')) {
                     boardingFeeStructures[nameKey.replace('boarding', '').trim()] = fs;
                 } else if (nameKey.includes('day')) {
                     dayFeeStructures[nameKey.replace('day', '').trim()] = fs;
                 }
                 
+                // Also without the suffix
                 const parts = fs.name.split(' ');
                 if (parts.length >= 2) {
                     const last = parts[parts.length - 1];
@@ -2142,6 +1942,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     }
                 }
                 
+                // P.1, P.2, etc.
                 const numMatch = fs.name.match(/(\d+)/);
                 if (numMatch) {
                     const num = numMatch[1];
@@ -2163,6 +1964,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
             }
         }
         
+        // Build class map
         const classMap = {};
         for (const cls of classes) {
             if (cls && cls.name) {
@@ -2175,13 +1977,19 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         console.log(`📦 Day fee structures: ${Object.keys(dayFeeStructures).length}`);
         console.log(`📦 Boarding fee structures: ${Object.keys(boardingFeeStructures).length}`);
         
+        // ================================================================
+        // STEP 3: HELPER FUNCTIONS (FIXED)
+        // ================================================================
+        
         function findClassId(className) {
             if (!className) return null;
             const clean = className.toLowerCase().trim();
             
+            // Try exact
             if (classMap[clean]) return classMap[clean].id;
             if (classMap[clean.replace(/\s/g, '')]) return classMap[clean.replace(/\s/g, '')].id;
             
+            // Try level + number
             const match = clean.match(/(p\.?|primary)\s*(\d+)/i);
             if (match) {
                 const num = match[2];
@@ -2197,6 +2005,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 }
             }
             
+            // Baby/Middle/Top
             const levelMatch = clean.match(/(baby|middle|top|nursery)/i);
             if (levelMatch) {
                 const levelMap = {
@@ -2218,21 +2027,31 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
             if (!className) return null;
             const clean = className.toLowerCase().trim();
             
+            // ================================================================
+            // CRITICAL: Detect Boarding/Day
+            // ================================================================
             const isBoarding = clean.includes('boarding');
             const isDay = clean.includes('day');
             
+            // Remove suffix for base matching
             let base = clean;
             if (isBoarding) base = base.replace('boarding', '').trim();
             if (isDay) base = base.replace('day', '').trim();
             
+            // ================================================================
+            // CASE 1: "Boarding" is explicitly specified
+            // ================================================================
             if (isBoarding) {
+                // Try exact match with "Boarding"
                 const boardingKey = `${base} boarding`.toLowerCase().trim();
                 if (feeStructureMap[boardingKey]) return feeStructureMap[boardingKey].id;
                 if (feeStructureMap[boardingKey.replace(/\s/g, '')]) return feeStructureMap[boardingKey.replace(/\s/g, '')].id;
                 
+                // Try base key in boarding map
                 if (boardingFeeStructures[base]) return boardingFeeStructures[base].id;
                 if (boardingFeeStructures[base.replace(/\s/g, '')]) return boardingFeeStructures[base.replace(/\s/g, '')].id;
                 
+                // Try number extraction
                 const match = base.match(/(p\.?|primary)\s*(\d+)/i);
                 if (match) {
                     const num = match[2];
@@ -2242,14 +2061,20 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 }
             }
             
+            // ================================================================
+            // CASE 2: "Day" is explicitly specified OR no suffix specified
+            // ================================================================
             if (isDay || (!isBoarding && !isDay)) {
+                // Try exact match with "Day"
                 const dayKey = `${base} day`.toLowerCase().trim();
                 if (feeStructureMap[dayKey]) return feeStructureMap[dayKey].id;
                 if (feeStructureMap[dayKey.replace(/\s/g, '')]) return feeStructureMap[dayKey.replace(/\s/g, '')].id;
                 
+                // Try base key in day map
                 if (dayFeeStructures[base]) return dayFeeStructures[base].id;
                 if (dayFeeStructures[base.replace(/\s/g, '')]) return dayFeeStructures[base.replace(/\s/g, '')].id;
                 
+                // Try number extraction
                 const match = base.match(/(p\.?|primary)\s*(\d+)/i);
                 if (match) {
                     const num = match[2];
@@ -2259,12 +2084,18 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 }
             }
             
+            // ================================================================
+            // CASE 3: FALLBACK - Try any match, but DAY preferred over BOARDING
+            // ================================================================
+            // First try exact match on the original name
             if (feeStructureMap[clean]) return feeStructureMap[clean].id;
             if (feeStructureMap[clean.replace(/\s/g, '')]) return feeStructureMap[clean.replace(/\s/g, '')].id;
             
+            // Try base key in feeStructureMap
             if (feeStructureMap[base]) return feeStructureMap[base].id;
             if (feeStructureMap[base.replace(/\s/g, '')]) return feeStructureMap[base.replace(/\s/g, '')].id;
             
+            // Try number extraction
             const match = base.match(/(p\.?|primary)\s*(\d+)/i);
             if (match) {
                 const num = match[2];
@@ -2283,6 +2114,9 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 }
             }
             
+            // ================================================================
+            // CASE 4: LAST RESORT - Try by level only
+            // ================================================================
             const levelMatch = clean.match(/(baby|middle|top|nursery)/i);
             if (levelMatch) {
                 const levelMap = {
@@ -2293,6 +2127,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 };
                 const levelName = levelMap[levelMatch[1].toLowerCase()];
                 if (levelName) {
+                    // Prefer Day if no suffix specified
                     if (!isBoarding) {
                         const dayKey = `${levelName} Day`.toLowerCase().trim();
                         if (feeStructureMap[dayKey]) return feeStructureMap[dayKey].id;
@@ -2308,6 +2143,47 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
             return null;
         }
         
+        // ================================================================
+        // STEP 3b: HELPER — AUTO-REMOVE ALL ITEMS FOR A BRAND-NEW STUDENT
+        // ================================================================
+        // Mirrors the same behavior used at manual registration: a newly
+        // imported student (no payment history yet) starts with every
+        // scholastic item in their assigned fee structure marked "removed"
+        // (not billed). The bursar restores whichever items should actually
+        // be charged, via Edit Student -> Restore. Tuition is unaffected.
+      function buildAllItemsRemovedForFeeStructure(feeStructure) {
+    const removedItems = {};
+    if (!feeStructure || !feeStructure.activityComponents) return removedItems;
+
+    for (const comp of feeStructure.activityComponents) {
+        if (!comp || !comp.items) continue;
+
+        // ✅ Termly items are billed every term by default — never auto-remove.
+        const periodType = comp.periodType || 'termly';
+        if (periodType === 'termly') continue;
+
+        for (const item of comp.items) {
+            if (!item) continue;
+            const itemId = item.id || item.name;
+            removedItems[itemId] = {
+                itemId: itemId,
+                itemName: item.name,
+                componentId: comp.id || null,
+                componentName: comp.name,
+                defaultAmount: item.totalAmount || 0,
+                defaultQuantity: item.quantity || 1,
+                paymentOption: item.paymentOption || 'either',
+                removedAt: new Date().toISOString(),
+                reason: 'New student — not yet activated',
+                isActive: true
+            };
+        }
+    }
+    return removedItems;
+}
+        // ================================================================
+        // STEP 4: PROCESS ROWS
+        // ================================================================
         const results = {
             success: 0,
             failed: 0,
@@ -2347,6 +2223,9 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     continue;
                 }
                 
+                // ============================================================
+                // FIND CLASS AND FEE STRUCTURE
+                // ============================================================
                 let classId = null;
                 let feeStructureId = null;
                 let matchedClassName = '';
@@ -2354,6 +2233,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 let isBoardingDetected = false;
                 
                 if (className) {
+                    // Check if boarding is mentioned
                     isBoardingDetected = className.toLowerCase().includes('boarding');
                     
                     classId = findClassId(className);
@@ -2371,10 +2251,12 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     console.log(`📊 Row ${i+1}: "${className}" ${isBoardingDetected ? '🚌 BOARDING' : '📚 DAY'} -> Class: ${matchedClassName || 'Not found'}, Fee: ${matchedFeeStructureName || 'Not found'}`);
                 }
                 
+                // Fallback: if no fee structure, try to derive from class
                 if (!feeStructureId && classId) {
                     const cls = classes.find(c => c.id === classId);
                     if (cls) {
                         const clsName = cls.name.toLowerCase().trim();
+                        // Look for day or boarding version based on detection
                         if (isBoardingDetected) {
                             for (const [key, fs] of Object.entries(boardingFeeStructures)) {
                                 if (key.includes(clsName) || clsName.includes(key)) {
@@ -2396,6 +2278,10 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     }
                 }
                 
+                // ============================================================
+                // CREATE OR UPDATE STUDENT
+                // ============================================================
+                const { v4: uuidv4 } = require('uuid');
                 const admissionNumber = `STU${currentYear}${String(students.length + 1).padStart(4, '0')}`;
                 
                 let existingStudent = students.find(s => 
@@ -2408,6 +2294,10 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 let isNewStudent = false;
                 
                 if (existingStudent) {
+                    // ========== EXISTING STUDENT: UPDATE, DO NOT TOUCH removedItems ==========
+                    // An existing student may already have payment history and
+                    // active/customized items, so we never auto-remove anything
+                    // for them here.
                     studentId = existingStudent.id;
                     studentData = {
                         ...existingStudent,
@@ -2434,6 +2324,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     if (idx !== -1) students[idx] = studentData;
                     results.success++;
                 } else {
+                    // ========== BRAND-NEW STUDENT: AUTO-REMOVE ALL ITEMS ==========
                     isNewStudent = true;
                     studentId = uuidv4();
 
@@ -2466,6 +2357,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                         enrollmentDate: new Date().toISOString().split('T')[0],
                         status: 'Active',
                         currentClassId: classId || null,
+                        // ========== NEW: items not yet activated for this student ==========
                         removedItems: hasAutoRemovedItems ? autoRemovedItems : null,
                         hasRemovedItems: hasAutoRemovedItems,
                         removedItemsCount: hasAutoRemovedItems ? Object.keys(autoRemovedItems).length : 0,
@@ -2484,6 +2376,9 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 
                 results.students.push(studentData);
                 
+                // ============================================================
+                // CREATE ENROLLMENT
+                // ============================================================
                 if (classId && studentId) {
                     const existingEnrollment = enrollments.find(e => 
                         e.studentId === studentId && 
@@ -2506,6 +2401,9 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                     }
                 }
                 
+                // ============================================================
+                // CREATE FEE ASSIGNMENT
+                // ============================================================
                 if (feeStructureId && studentId) {
                     const existingAssignment = feeAssignments.find(a => 
                         a.studentId === studentId
@@ -2547,6 +2445,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
             }
         }
         
+        // Save all data
         saveFile(files.students, students);
         saveFile(files.enrollments, enrollments);
         saveFile(files.studentFeeAssignments, feeAssignments);
@@ -2558,6 +2457,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
         console.log(`   Fee assignments: ${results.feeAssignments.length}`);
         console.log(`   New students with auto-removed items: ${newStudentCount}`);
         
+        // Build detailed summary
         let responseMessage = `Import completed: ${results.success} students processed, ${results.failed} failed.\n\n`;
         
         if (results.feeAssignments.length > 0) {
@@ -2609,10 +2509,13 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
 });
 
 // ==================== GET IMPORT TEMPLATE ====================
-
 app.get('/api/students/import/template', (req, res) => {
     console.log('📋 Generating import template - v2.0 (Simplified Fields)');
     
+    // ================================================================
+    // TEMPLATE HEADERS - Only fields that need to be imported
+    // These match the registration form fields
+    // ================================================================
     const template = [
         [
             'First Name *',
@@ -2630,6 +2533,7 @@ app.get('/api/students/import/template', (req, res) => {
             'Address *',
             'Class *'
         ],
+        // Example Row
         [
             'John',
             'Doe',
@@ -2646,6 +2550,7 @@ app.get('/api/students/import/template', (req, res) => {
             'Kampala, Uganda',
             'P.5'
         ],
+        // Another Example Row (Boarding)
         [
             'Mary',
             'Smith',
@@ -2664,10 +2569,16 @@ app.get('/api/students/import/template', (req, res) => {
         ]
     ];
     
+    // ================================================================
+    // CREATE WORKBOOK
+    // ================================================================
     const ws = xlsx.utils.aoa_to_sheet(template);
     const wb = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(wb, ws, 'Students');
     
+    // ================================================================
+    // AUTO-FIT COLUMN WIDTHS
+    // ================================================================
     const colWidths = [
         { wch: 15 }, // First Name
         { wch: 15 }, // Last Name
@@ -2686,6 +2597,9 @@ app.get('/api/students/import/template', (req, res) => {
     ];
     ws['!cols'] = colWidths;
     
+    // ================================================================
+    // ADD INSTRUCTION SHEET
+    // ================================================================
     const instructions = [
         ['📋 IMPORT INSTRUCTIONS'],
         [''],
@@ -2731,20 +2645,34 @@ app.get('/api/students/import/template', (req, res) => {
     const wsInstructions = xlsx.utils.aoa_to_sheet(instructions);
     xlsx.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
     
+    // ================================================================
+    // GENERATE BUFFER
+    // ================================================================
     const buffer = xlsx.write(wb, { 
         type: 'buffer', 
         bookType: 'xlsx',
         bookSST: false
     });
     
+    // ================================================================
+    // SEND RESPONSE
+    // ================================================================
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=student_import_template.xlsx');
     res.send(buffer);
     
     console.log('✅ Template generated successfully with simplified fields');
 });
+// ==================== FIXED STUDENT REGISTRATION ENDPOINT ====================
 
-// ==================== STUDENT REGISTRATION ENDPOINT ====================
+// ==================== FIXED STUDENT REGISTRATION WITH CUSTOM BURSARY ====================
+
+// ==================== COMPLETE STUDENT REGISTRATION ENDPOINT ====================
+// Version: 3.0 - With Custom Bursary and Custom Transportation
+
+// ==================== COMPLETE FIXED STUDENT REGISTRATION ENDPOINT ====================
+
+// ==================== UPDATED STUDENT REGISTRATION WITH CUSTOMIZATIONS ====================
 
 app.post('/api/students/register', async (req, res) => {
     console.log('=== REGISTRATION REQUEST RECEIVED (v2.0 - Default-Removed Items) ===');
@@ -2759,22 +2687,26 @@ app.post('/api/students/register', async (req, res) => {
             birthPlace, nationality, relationship, parentOccupation,
             customBursaryAmount,
             customTransportation,
-            customItemOverrides,
-            removedItems
+            customItemOverrides, // Custom values for specific items
+            removedItems         // Items NOT activated for this student (student does not pay)
         } = req.body;
 
+        // ========== VALIDATE REQUIRED FIELDS ==========
         if (!firstName || !lastName || !gender || !parentName || !parentPhone || !address || !enrollmentClass || !feeStructureId) {
             console.log('❌ Missing required fields');
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        // ========== READ EXISTING DATA ==========
         let students = readFile(files.students);
         if (!Array.isArray(students)) students = [];
 
+        // Generate admission number
         const currentYear = academicYear || new Date().getFullYear();
         const nextNumber = String(students.length + 1).padStart(4, '0');
         const admissionNumber = `STU${currentYear}${nextNumber}`;
 
+        // ========== FETCH THE FEE STRUCTURE ONCE (shared by overrides + removed items) ==========
         const feeStructures = readFile(files.feeStructures);
         const feeStructure = feeStructures.find(f => f && f.id === feeStructureId);
 
@@ -2782,6 +2714,7 @@ app.post('/api/students/register', async (req, res) => {
             console.warn(`⚠️ Fee structure ${feeStructureId} not found — proceeding, but item lookups will be limited`);
         }
 
+        // Helper: locate an item's defaults inside the fee structure by id or name
         function findItemDefaults(itemId) {
             const result = {
                 itemName: itemId,
@@ -2811,6 +2744,7 @@ app.post('/api/students/register', async (req, res) => {
             return result;
         }
 
+        // ========== HANDLE CUSTOM BURSARY ==========
         let customBursary = null;
         const parsedCustomBursaryAmount = parseFloat(customBursaryAmount) || 0;
         if (parsedCustomBursaryAmount > 0) {
@@ -2822,6 +2756,7 @@ app.post('/api/students/register', async (req, res) => {
             console.log('🎖️ Custom bursary applied:', customBursary);
         }
 
+        // ========== HANDLE CUSTOM TRANSPORTATION ==========
         let customTransportationData = null;
         if (customTransportation) {
             customTransportationData = {
@@ -2837,6 +2772,7 @@ app.post('/api/students/register', async (req, res) => {
             console.log('🚌 Custom transportation applied:', customTransportationData);
         }
 
+        // ========== HANDLE CUSTOM ITEM OVERRIDES ==========
         let customItemOverridesData = null;
         if (customItemOverrides && typeof customItemOverrides === 'object' && Object.keys(customItemOverrides).length > 0) {
             customItemOverridesData = {};
@@ -2875,6 +2811,17 @@ app.post('/api/students/register', async (req, res) => {
             }
         }
 
+        // ========== HANDLE REMOVED ITEMS (NOT ACTIVATED — student is not billed) ==========
+        // The registration UI now marks every item as removed by default; the bursar
+        // restores whatever should actually be billed. Whatever is still flagged
+        // `true` here at submit time never got restored, so it stays off this
+        // student's bill (tuition is unaffected either way).
+        //
+        // EXCEPTION: genuinely termly items (scholastic requirements, etc.) are
+        // billed automatically every term and should never be registered as
+        // "removed" — UNLESS the component is an opt-in one like Transportation
+        // (Van Fee), which stays removed by default even though it's termly,
+        // since not every student uses it and it requires manual bursar activation.
         let removedItemsData = null;
         if (removedItems && typeof removedItems === 'object' && Object.keys(removedItems).length > 0) {
             removedItemsData = {};
@@ -2885,6 +2832,8 @@ app.post('/api/students/register', async (req, res) => {
                 const defaults = findItemDefaults(itemId);
                 const isOptIn = isOptInComponent(defaults.componentName);
 
+                // ✅ Skip auto-removal only for genuinely auto-billed termly items.
+                // Opt-in components (Transportation/Van) stay removed even if termly.
                 if (defaults.periodType === 'termly' && !isOptIn) continue;
 
                 removedItemsData[itemId] = {
@@ -2910,6 +2859,7 @@ app.post('/api/students/register', async (req, res) => {
             }
         }
 
+        // ========== CREATE NEW STUDENT OBJECT ==========
         const newStudent = {
             id: uuidv4(),
             admissionNumber: admissionNumber,
@@ -2938,17 +2888,21 @@ app.post('/api/students/register', async (req, res) => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
 
+            // Customizations
             customBursary: customBursary,
             customTransportation: customTransportationData,
             customItemOverrides: customItemOverridesData,
 
+            // Items not yet activated for this student
             removedItems: removedItemsData,
 
+            // Tracking flags
             hasCustomizations: !!(customItemOverridesData && Object.keys(customItemOverridesData).length > 0),
             hasRemovedItems: !!(removedItemsData && Object.keys(removedItemsData).length > 0),
             customizationCount: customItemOverridesData ? Object.keys(customItemOverridesData).length : 0,
             removedItemsCount: removedItemsData ? Object.keys(removedItemsData).length : 0,
 
+            // Fee structure reference
             assignedFeeStructureId: feeStructureId,
             feeStructureId: feeStructureId
         };
@@ -2962,6 +2916,7 @@ app.post('/api/students/register', async (req, res) => {
             removedItems: removedItemsData ? Object.keys(removedItemsData).length : 0
         });
 
+        // ========== SAVE STUDENT ==========
         students.push(newStudent);
         const saved = saveFile(files.students, students);
 
@@ -2972,6 +2927,7 @@ app.post('/api/students/register', async (req, res) => {
 
         console.log('✅ Student saved successfully with ID:', newStudent.id);
 
+        // ========== CREATE ENROLLMENT RECORD ==========
         let enrollments = readFile(files.enrollments);
         if (!Array.isArray(enrollments)) enrollments = [];
 
@@ -2985,6 +2941,7 @@ app.post('/api/students/register', async (req, res) => {
         });
         saveFile(files.enrollments, enrollments);
 
+        // ========== SAVE FEE ASSIGNMENT ==========
         if (feeStructureId) {
             let assignments = readFile(files.studentFeeAssignments);
             if (!Array.isArray(assignments)) assignments = [];
@@ -3027,8 +2984,9 @@ app.post('/api/students/register', async (req, res) => {
     }
 });
 
-// ==================== DELETE PAYMENTS FOR REMOVED ITEMS ====================
+// ==================== UPDATED STUDENT UPDATE WITH CUSTOMIZATIONS ====================
 
+// ==================== HELPER: DELETE PAYMENTS FOR REMOVED ITEMS (PERIOD‑AWARE) ====================
 function deletePaymentsForItems(studentId, itemsToRemove, period) {
     const { year, term } = period;
     console.log(`🗑️ deletePaymentsForItems: Student ${studentId}, Period ${year} Term ${term}`);
@@ -3039,6 +2997,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
     let payments = readFile(files.feePayments);
     let termRecords = readFile(files.studentTermRecords);
 
+    // Normalize removed items for matching (case‑insensitive, trimmed)
     const normalizedItems = itemsToRemove.map(item => ({
         itemName: (item.itemName || item.itemId || '').trim().toLowerCase(),
         componentName: (item.componentName || '').trim().toLowerCase()
@@ -3047,6 +3006,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
     let anyPaymentDeleted = false;
     let updatedPayments = [];
 
+    // Matching logic: case‑insensitive, component‑name tolerant
     function matchesRemoved(paymentItem) {
         if (!paymentItem) return false;
         const paidItemName = (paymentItem.itemName || paymentItem.name || '').trim().toLowerCase();
@@ -3068,6 +3028,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
     }
 
     for (const payment of payments) {
+        // Only process payments for this student in the given period
         if (payment.studentId !== studentId ||
             payment.term !== term ||
             parseInt(payment.academicYear) !== year) {
@@ -3090,6 +3051,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
             });
         }
 
+        // Remove from all known payment structures
         if (payment.activityItemPayments) {
             payment.activityItemPayments = filterItems(payment.activityItemPayments);
         }
@@ -3107,6 +3069,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
         if (paymentChanged) {
             anyPaymentDeleted = true;
 
+            // Recalculate totals
             let newActivityTotal = 0;
             if (payment.activityItemPayments) {
                 for (const item of payment.activityItemPayments) {
@@ -3123,6 +3086,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
             payment.activityTotalPaid = newActivityTotal;
             payment.totalAmount = (payment.tuitionPaid || 0) + newActivityTotal;
 
+            // If payment becomes empty, delete the entire record
             if (payment.totalAmount === 0 &&
                 (payment.activityItemPayments || []).length === 0 &&
                 (payment.individualPayments || []).length === 0) {
@@ -3134,6 +3098,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
         updatedPayments.push(payment);
     }
 
+    // ---- Update studentTermRecords for the same period ----
     const termRecordKey = `${studentId}_${year}_${term}`;
     if (termRecords[termRecordKey]) {
         const termRecord = termRecords[termRecordKey];
@@ -3172,6 +3137,7 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
         }
     }
 
+    // Save if anything changed
     if (anyPaymentDeleted) {
         saveFile(files.feePayments, updatedPayments);
         saveFile(files.studentTermRecords, termRecords);
@@ -3180,9 +3146,14 @@ function deletePaymentsForItems(studentId, itemsToRemove, period) {
         console.log(`ℹ️ No payments found for removed items in ${year} Term ${term}`);
     }
 }
-
-// ==================== REVERSE INVENTORY FOR REMOVED ITEMS ====================
-
+// ==================== HELPER: REVERSE INVENTORY FOR REMOVED ITEMS (PERIOD-AWARE) ====================
+// When a scholastic item is removed from a student for a specific academic period,
+// any inventory stock that was added because of THAT student's payment (for that
+// exact item, in that exact period) must be pulled back out of inventoryStock.json,
+// and the originating inventoryTransactions.json entry marked as reversed.
+// Non-scholastic items simply won't have matching inventory transactions, so this
+// is safe to call for every removed item — it only acts on ones that actually
+// exist in the inventory system.
 function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
     const { year, term } = period;
     console.log(`📦 reverseInventoryForRemovedItems: Student ${studentId}, Period ${year} Term ${term}`);
@@ -3199,6 +3170,7 @@ function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
     let transactions = readFile(inventoryTransactionsPath);
     if (!Array.isArray(transactions)) transactions = [];
 
+    // Normalize removed item names for matching (case-insensitive, trimmed)
     const normalizedItemNames = itemsToRemove.map(item =>
         (item.itemName || item.itemId || '').trim().toLowerCase()
     );
@@ -3207,6 +3179,9 @@ function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
     const updatedTransactions = [];
 
     for (const tx of transactions) {
+        // Only touch inventory RECEIPT transactions that were auto-created from
+        // THIS student's payment, in THIS exact academic year/term, and not
+        // already reversed.
         const isCandidate = tx &&
             tx.isInventory === true &&
             tx.transactionType === 'receipt' &&
@@ -3230,6 +3205,7 @@ function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
             continue;
         }
 
+        // ========== REVERSE THE STOCK THIS TRANSACTION ADDED ==========
         const qty = tx.quantity || 0;
         const stockKey = `${tx.itemName}_${tx.academicYear}_${tx.term}`;
 
@@ -3239,6 +3215,7 @@ function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
             stock[stockKey].lastUpdated = new Date().toISOString();
         }
 
+        // Also adjust the legacy (name-only) stock entry if it exists
         if (stock[tx.itemName]) {
             stock[tx.itemName].totalReceived = Math.max(0, (stock[tx.itemName].totalReceived || 0) - qty);
             stock[tx.itemName].available = Math.max(0, (stock[tx.itemName].available || 0) - qty);
@@ -3248,6 +3225,8 @@ function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
         console.log(`   🗑️ Reversed inventory receipt: "${tx.itemName}" qty ${qty} (student ${studentId}, ${year} Term ${term})`);
         anyReversed = true;
 
+        // Keep the transaction for audit purposes, but mark it reversed so it
+        // no longer counts toward stock totals or shows as active in reports.
         tx.reversed = true;
         tx.reversedAt = new Date().toISOString();
         tx.reverseReason = 'Item removed from student for this academic period';
@@ -3263,8 +3242,13 @@ function reverseInventoryForRemovedItems(studentId, itemsToRemove, period) {
     }
 }
 
-// ==================== REVERSE INVENTORY FOR DELETED PAYMENT ITEM ====================
-
+// ==================== HELPER: REVERSE INVENTORY FOR A DELETED PAYMENT ITEM ====================
+// When a "brought_item" payment is deleted (single item, reset-item, or whole receipt),
+// pull the matching stock back out and mark the originating receipt transaction(s) as reversed.
+// ==================== HELPER: REVERSE INVENTORY FOR A DELETED PAYMENT ITEM ====================
+// Deducts stock directly (same key pattern used when stock was added), regardless of
+// whether a matching receipt transaction can be found. Transaction matching is used
+// only for audit-trail marking, never to gate the actual stock deduction.
 function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear, term, quantityToReverse) {
     if (!quantityToReverse || quantityToReverse <= 0 || !itemName) return;
 
@@ -3281,6 +3265,7 @@ function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear
     const year = parseInt(academicYear);
     const termNum = parseInt(term);
 
+    // ========== 1. DIRECT STOCK DEDUCTION (always happens) ==========
     const stockKey = `${itemName}_${year}_${termNum}`;
     let deducted = 0;
 
@@ -3292,6 +3277,7 @@ function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear
         stock[stockKey].lastUpdated = new Date().toISOString();
         deducted = qty;
     } else {
+        // fallback: try matching by name+year+term case-insensitively
         const fallbackKey = Object.keys(stock).find(k => {
             const entry = stock[k];
             return entry && entry.name &&
@@ -3309,6 +3295,7 @@ function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear
         }
     }
 
+    // Also deduct the legacy (name-only) stock entry if it exists
     if (stock[itemName]) {
         const before = stock[itemName].available || 0;
         const qty = Math.min(quantityToReverse, before);
@@ -3317,6 +3304,7 @@ function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear
         stock[itemName].lastUpdated = new Date().toISOString();
     }
 
+    // ========== 2. BEST-EFFORT: mark matching receipt transactions as reversed (audit only) ==========
     let remaining = quantityToReverse;
     const candidates = transactions
         .map((tx, idx) => ({ tx, idx }))
@@ -3354,6 +3342,7 @@ function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear
         remaining -= qtyFromThisTx;
     }
 
+    // ========== 3. RECORD A REVERSAL TRANSACTION FOR AUDIT (regardless of matches found) ==========
     transactions.push({
         id: uuidv4(),
         itemName: itemName,
@@ -3378,8 +3367,8 @@ function reverseInventoryForDeletedPaymentItem(studentId, itemName, academicYear
     }
 }
 
-// ==================== COMPUTE INVENTORY QTY FOR PAYMENT ITEM ====================
-
+// ==================== HELPER: COMPUTE INVENTORY QTY A PAYMENT ITEM CONTRIBUTED ====================
+// Must mirror the exact logic in updateInventoryFromPayment() so reversals match originals.
 function computeInventoryQtyForPaymentItem(item) {
     if (!item) return 0;
     const unitPrice = parseFloat(item.unitPrice) || 0;
@@ -3399,9 +3388,7 @@ function computeInventoryQtyForPaymentItem(item) {
 
     return 0;
 }
-
-// ==================== STUDENT UPDATE ROUTE ====================
-
+// ==================== REBUILT PUT ROUTE (PERIOD‑AWARE) ====================
 app.put('/api/students/:id', (req, res) => {
     try {
         let students = readFile(files.students);
@@ -3413,6 +3400,7 @@ app.put('/api/students/:id', (req, res) => {
         const oldStudent = students[index];
         const updatedData = req.body;
 
+        // ========== DETECT NEWLY REMOVED ITEMS (PERIOD‑AWARE) ==========
         const oldRemoved = oldStudent.removedItems || {};
         const newRemoved = updatedData.removedItems || {};
         const newlyRemoved = {};
@@ -3423,11 +3411,14 @@ app.put('/api/students/:id', (req, res) => {
             }
         }
 
+        // Group newly removed items by their removal period
         if (Object.keys(newlyRemoved).length > 0) {
+            // Use current settings as fallback if period not provided
             const settings = readFile(files.settings);
             const defaultYear = settings.currentAcademicYear || new Date().getFullYear();
             const defaultTerm = settings.currentTerm || 1;
 
+            // Group by period (year + term)
             const periodGroups = new Map();
             for (const [itemId, data] of Object.entries(newlyRemoved)) {
                 const year = data.academicYear || defaultYear;
@@ -3443,12 +3434,15 @@ app.put('/api/students/:id', (req, res) => {
                 });
             }
 
+            // Delete payments for each period separately
             for (const [key, group] of periodGroups) {
                 deletePaymentsForItems(oldStudent.id, group.items, { year: group.year, term: group.term });
-                reverseInventoryForRemovedItems(oldStudent.id, group.items, { year: group.year, term: group.term });
+           reverseInventoryForRemovedItems(oldStudent.id, group.items, { year: group.year, term: group.term }); // ← add this line
             }
         }
+        // ========== END NEW LOGIC ==========
 
+        // ----- Existing custom overrides logic (unchanged) -----
         if (updatedData.customItemOverrides) {
             if (!oldStudent.customItemOverrides) {
                 oldStudent.customItemOverrides = {};
@@ -3502,6 +3496,7 @@ app.put('/api/students/:id', (req, res) => {
             delete updatedData.customItemOverrides;
         }
 
+        // Apply all other updates (including removedItems with their periods)
         students[index] = {
             ...oldStudent,
             ...updatedData,
@@ -3524,6 +3519,11 @@ app.delete('/api/students/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// ================================================================
+// COMPLETE REBUILD: STUDENT PROMOTION ENDPOINT
+// ================================================================
+
+
 app.get('/api/school/grading', (req, res) => {
     res.json({ gradingSystem: getGradingSystem() });
 });
@@ -3539,6 +3539,11 @@ app.put('/api/school/grading', (req, res) => {
 
 // ==================== ACADEMIC ROUTES ====================
 
+// Add this to your server.js if not already present
+// ==================== FIXED ACADEMIC SETTINGS ENDPOINTS ====================
+
+// GET academic settings
+// ==================== FIXED ACADEMIC SETTINGS GET ====================
 app.get('/api/academic/settings', (req, res) => {
     try {
         console.log('=== GET ACADEMIC SETTINGS CALLED ===');
@@ -3546,6 +3551,7 @@ app.get('/api/academic/settings', (req, res) => {
         let settings = readFile(files.settings);
         console.log('Settings file content:', settings);
         
+        // Ensure settings has required fields
         if (!settings) {
             settings = {};
         }
@@ -3563,6 +3569,8 @@ app.get('/api/academic/settings', (req, res) => {
     }
 });
 
+
+// ==================== FIXED ACADEMIC SETTINGS UPDATE ====================
 app.put('/api/academic/settings', (req, res) => {
     console.log('=== UPDATE ACADEMIC SETTINGS CALLED ===');
     console.log('Request body:', req.body);
@@ -3575,18 +3583,22 @@ app.put('/api/academic/settings', (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         
+        // Read existing settings
         let settings = readFile(files.settings);
         console.log('Existing settings:', settings);
         
+        // Update settings
         settings.currentAcademicYear = currentYear;
         settings.currentTerm = currentTerm;
         settings.lastUpdated = new Date().toISOString();
         
         console.log('New settings to save:', settings);
         
+        // Save to file
         const saved = saveFile(files.settings, settings);
         
         if (saved) {
+            // Verify the save by reading back
             const verifySettings = readFile(files.settings);
             console.log('Verified saved settings:', verifySettings);
             
@@ -3604,6 +3616,7 @@ app.put('/api/academic/settings', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.get('/api/academic/years', (req, res) => {
     const years = [];
@@ -3790,11 +3803,13 @@ app.post('/api/attendance', (req, res) => {
 
 // ==================== FEE STRUCTURE ROUTES ====================
 
+// Get all fee structures
 app.get('/api/fee/structures', (req, res) => {
     try {
         let structures = readFile(files.feeStructures);
         if (!Array.isArray(structures)) structures = [];
         
+        // Transform structures with period grouping for frontend
         const transformed = structures.map(fs => ({
             ...fs,
             tuition: fs.tuition || 0,
@@ -3822,6 +3837,12 @@ app.get('/api/fee/structures/:id', (req, res) => {
     }
 });
 
+// Create enhanced fee structure
+// Replace your existing /api/fee/structures/enhanced endpoint with this
+// ==================== FIXED ENHANCED FEE STRUCTURE ENDPOINT ====================
+
+// ==================== COMPLETELY FIXED ENHANCED FEE STRUCTURE ENDPOINT ====================
+
 app.post('/api/fee/structures/enhanced', async (req, res) => {
     try {
         const { 
@@ -3842,6 +3863,7 @@ app.post('/api/fee/structures/enhanced', async (req, res) => {
             return res.status(400).json({ error: 'Name and level are required' });
         }
         
+        // Process the activity components
         const processedComponents = [];
         
         if (activityComponents && Array.isArray(activityComponents) && activityComponents.length > 0) {
@@ -3862,6 +3884,7 @@ app.post('/api/fee/structures/enhanced', async (req, res) => {
                     const cashAmount = parseFloat(item.cashAmount) || 0;
                     const totalAmount = parseFloat(item.totalAmount) || cashAmount;
                     
+                    // Calculate unit price if needed
                     let unitPrice = 0;
                     if (quantity > 0) {
                         unitPrice = totalAmount / quantity;
@@ -3897,9 +3920,11 @@ app.post('/api/fee/structures/enhanced', async (req, res) => {
         
         console.log('Total processed components:', processedComponents.length);
         
+        // Read existing structures
         let structures = readFile(files.feeStructures);
         if (!Array.isArray(structures)) structures = [];
         
+        // Create new structure
         const newStructure = {
             id: uuidv4(),
             name: name,
@@ -3930,6 +3955,8 @@ app.post('/api/fee/structures/enhanced', async (req, res) => {
     }
 });
 
+// ==================== FIXED UPDATE ENHANCED FEE STRUCTURE ENDPOINT ====================
+
 app.put('/api/fee/structures/enhanced/:id', (req, res) => {
     try {
         let structures = readFile(files.feeStructures);
@@ -3940,6 +3967,10 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
         const existing = structures[index];
         const feeStructureId = req.params.id;
 
+        // ========== BUILD SET OF ITEM IDs THAT ALREADY EXISTED BEFORE THIS SAVE ==========
+        // Used below to detect which items in the incoming payload are brand new
+        // (added just now via the Edit Fee Structure modal), so we can auto-remove
+        // them for every student already on this fee structure.
         const existingItemIds = new Set();
         for (const comp of (existing.activityComponents || [])) {
             for (const item of (comp.items || [])) {
@@ -3947,8 +3978,9 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
             }
         }
         
+        // Process the activity components
         const processedComponents = [];
-        const newlyAddedItems = [];
+        const newlyAddedItems = []; // items that did not exist in this structure before this save
         
         if (activityComponents && Array.isArray(activityComponents)) {
             for (const component of activityComponents) {
@@ -3978,6 +4010,7 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
 
                         processedItems.push(processedItem);
 
+                        // ========== DETECT NEW ITEM ==========
                         if (!existingItemIds.has(itemId) && !existingItemIds.has(item.name)) {
                             newlyAddedItems.push({
                                 itemId: itemId,
@@ -3988,6 +4021,9 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
                                 defaultQuantity: processedItem.quantity,
                                 paymentOption: processedItem.paymentOption,
                                 periodType: component.periodType || 'termly',
+                                // ✅ Opt-in components (e.g. Transportation/Van) must stay
+                                // removed by default even though they're termly, since not
+                                // every student uses them — bursar restores manually.
                                 isOptIn: isOptInComponent(component.statusGroupName || component.name)
                             });
                         }
@@ -4022,6 +4058,20 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
         
         saveFile(files.feeStructures, structures);
 
+        // ================================================================
+        // ========== AUTO-REMOVE NEWLY ADDED ITEMS FOR EXISTING STUDENTS ==========
+        // ================================================================
+        // Any item that didn't exist in this fee structure before this save is
+        // brand new to every student already assigned to it. Mark it "removed"
+        // (not billed) for each of those students, exactly like a manual
+        // Edit Student -> Remove would — the bursar restores it per student
+        // once it should actually be charged. Tuition and any pre-existing
+        // items are never touched by this.
+        //
+        // EXCEPTION: genuinely termly items (scholastic requirements, etc.)
+        // are billed automatically every term and skip this auto-remove step
+        // entirely — UNLESS the component is an opt-in one like Transportation
+        // (Van Fee), which stays removed by default even though it's termly.
         let studentsUpdatedCount = 0;
         let itemsAutoRemovedCount = 0;
 
@@ -4034,6 +4084,9 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
             let feeAssignments = readFile(files.studentFeeAssignments);
             if (!Array.isArray(feeAssignments)) feeAssignments = [];
 
+            // Build the set of student IDs currently on this fee structure —
+            // via student.assignedFeeStructureId/feeStructureId, or via any
+            // fee assignment record referencing this structure.
             const studentIdsOnStructure = new Set();
             for (const s of students) {
                 if (s && (s.assignedFeeStructureId === feeStructureId || s.feeStructureId === feeStructureId)) {
@@ -4056,6 +4109,9 @@ app.put('/api/fee/structures/enhanced/:id', (req, res) => {
 
                 let studentChanged = false;
                 for (const newItem of newlyAddedItems) {
+                    // ✅ Skip auto-removal only for genuinely auto-billed termly
+                    // items. Opt-in components (Transportation) stay removed
+                    // even though they're termly.
                     const isTermlyAutoBilled = newItem.periodType === 'termly' && !newItem.isOptIn;
                     if (isTermlyAutoBilled) continue;
 
@@ -4171,11 +4227,19 @@ app.get('/api/student-fee-assignments', (req, res) => {
     res.json(readFile(files.studentFeeAssignments));
 });
 
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (YEAR-AWARE - FIXED) ====================
+// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL) ====================
+// Works for BOTH promotion and edit student
+// ==================== STUDENT FEE ASSIGNMENTS (UNIVERSAL - FULLY FIXED) ====================
 app.post('/api/student-fee-assignments', (req, res) => {
     const { studentId, feeStructureId, bursaryId, academicYear, term } = req.body;
 
     console.log('📌 Fee assignment request:', { studentId, feeStructureId, academicYear, term });
 
+    // Get current year from settings if not provided
     let year = academicYear;
     if (!year) {
         const settings = readFile(files.settings);
@@ -4186,11 +4250,13 @@ app.post('/api/student-fee-assignments', (req, res) => {
     let assignments = readFile(files.studentFeeAssignments);
     if (!Array.isArray(assignments)) assignments = [];
 
+    // SIMPLE FIND - works for both promotion and edit
     const existingIndex = assignments.findIndex(a => 
         a.studentId === studentId && 
         a.academicYear === year
     );
 
+    // Build assignment
     const assignment = {
         id: existingIndex !== -1 ? assignments[existingIndex].id : uuidv4(),
         studentId: studentId,
@@ -4202,10 +4268,12 @@ app.post('/api/student-fee-assignments', (req, res) => {
         updatedAt: new Date().toISOString()
     };
 
+    // Preserve custom bursary if exists
     if (existingIndex !== -1 && assignments[existingIndex].customBursaryAmount) {
         assignment.customBursaryAmount = assignments[existingIndex].customBursaryAmount;
     }
 
+    // Save assignment
     if (existingIndex !== -1) {
         assignments[existingIndex] = assignment;
         console.log(`✅ Updated fee assignment for student ${studentId}, year ${year}, fee ${feeStructureId}`);
@@ -4216,10 +4284,14 @@ app.post('/api/student-fee-assignments', (req, res) => {
 
     saveFile(files.studentFeeAssignments, assignments);
 
+    // ================================================================
+    // CRITICAL: Update the student's assignedFeeStructureId
+    // ================================================================
     let students = readFile(files.students);
     if (Array.isArray(students)) {
         const studentIndex = students.findIndex(s => s.id === studentId);
         if (studentIndex !== -1) {
+            // Force update the student's fee structure IDs
             students[studentIndex].assignedFeeStructureId = feeStructureId || null;
             students[studentIndex].feeStructureId = feeStructureId || null;
             students[studentIndex]._feeAssignmentPeriod = { year: year, term: termNum };
@@ -4228,6 +4300,7 @@ app.post('/api/student-fee-assignments', (req, res) => {
             saveFile(files.students, students);
             console.log(`✅ Updated student ${studentId} assignedFeeStructureId to ${feeStructureId}`);
             
+            // Verify the update
             const verifyStudents = readFile(files.students);
             const verifiedStudent = verifyStudents.find(s => s.id === studentId);
             console.log(`🔍 Verified student fee structure ID: ${verifiedStudent?.assignedFeeStructureId}`);
@@ -4242,9 +4315,7 @@ app.post('/api/student-fee-assignments', (req, res) => {
         studentUpdated: true
     });
 });
-
-// ==================== DEBUG FEE MAPPING ====================
-
+// ==================== DEBUG: CHECK FEE STRUCTURE MAPPING ====================
 app.get('/api/debug/fee-mapping', (req, res) => {
     const { className, studentType } = req.query;
 
@@ -4254,6 +4325,7 @@ app.get('/api/debug/fee-mapping', (req, res) => {
 
     const feeStructures = readFile(files.feeStructures);
 
+    // Build maps
     const dayMap = {};
     const boardingMap = {};
 
@@ -4292,6 +4364,7 @@ app.get('/api/debug/fee-mapping', (req, res) => {
     const map = isBoarding ? boardingMap : dayMap;
     const clean = className.toLowerCase().trim();
 
+    // Find matches
     const matches = [];
     for (const [key, fs] of Object.entries(map)) {
         if (fs.name.toLowerCase().includes(clean) || clean.includes(fs.name.toLowerCase()) || key.includes(clean) || clean.includes(key)) {
@@ -4299,6 +4372,7 @@ app.get('/api/debug/fee-mapping', (req, res) => {
         }
     }
 
+    // Exact match
     const exactMatch = map[clean] || map[clean.replace(/\s/g, '')] || null;
 
     res.json({
@@ -4310,7 +4384,6 @@ app.get('/api/debug/fee-mapping', (req, res) => {
         availableFeeStructures: feeStructures.filter(f => f.isActive !== false).map(f => ({ id: f.id, name: f.name, level: f.level }))
     });
 });
-
 function getCurrentAcademicYear() {
     const settings = readFile(files.settings);
     return settings.currentAcademicYear || new Date().getFullYear();
@@ -4321,8 +4394,7 @@ function getCurrentTerm() {
     return settings.currentTerm || 1;
 }
 
-// ==================== STATUS GROUPS ROUTES ====================
-
+// Get all status groups
 app.get('/api/fee/status-groups', (req, res) => {
     try {
         const groups = readFile(files.statusGroups);
@@ -4333,6 +4405,7 @@ app.get('/api/fee/status-groups', (req, res) => {
     }
 });
 
+// Create a new status group
 app.post('/api/fee/status-groups', (req, res) => {
     try {
         const { name, description, color } = req.body;
@@ -4356,6 +4429,7 @@ app.post('/api/fee/status-groups', (req, res) => {
     }
 });
 
+// Update a status group
 app.put('/api/fee/status-groups/:id', (req, res) => {
     try {
         let groups = readFile(files.statusGroups);
@@ -4373,6 +4447,7 @@ app.put('/api/fee/status-groups/:id', (req, res) => {
     }
 });
 
+// Delete a status group
 app.delete('/api/fee/status-groups/:id', (req, res) => {
     try {
         let groups = readFile(files.statusGroups);
@@ -4386,7 +4461,7 @@ app.delete('/api/fee/status-groups/:id', (req, res) => {
 });
 
 // ==================== FEE PAYMENTS ROUTES ====================
-
+// Example in server.js - update your payment endpoint
 app.get('/api/fee/payments', (req, res) => {
     const { year, term } = req.query;
     let payments = readFile(files.feePayments);
@@ -4397,7 +4472,6 @@ app.get('/api/fee/payments', (req, res) => {
     
     res.json(payments);
 });
-
 app.post('/api/fee/payments', (req, res) => {
     const { studentId, studentName, admissionNumber, term, academicYear, feeStructureId, feeStructureName, bursaryId, amount, method, date, reference, notes } = req.body;
     
@@ -4431,6 +4505,15 @@ app.post('/api/fee/payments', (req, res) => {
     res.json({ success: true, receiptNumber: receiptNumber, payment: payment });
 });
 
+// app.delete('/api/fee/payments/:id', (req, res) => {
+//     let payments = readFile(files.feePayments);
+//     payments = payments.filter(p => p.id !== req.params.id);
+//     saveFile(files.feePayments, payments);
+//     res.json({ success: true });
+// });
+
+
+// Add this after your GET /api/academic/years endpoint
 app.post('/api/academic/years', (req, res) => {
     const { year } = req.body;
     
@@ -4445,8 +4528,10 @@ app.post('/api/academic/years', (req, res) => {
     }
     
     try {
+        // Create directory for the new year
         fs.mkdirSync(yearDir, { recursive: true });
         
+        // Create term subdirectories
         for (let term = 1; term <= 3; term++) {
             const termDir = path.join(yearDir, `term${term}`);
             fs.mkdirSync(termDir, { recursive: true });
@@ -4458,6 +4543,7 @@ app.post('/api/academic/years', (req, res) => {
         res.status(500).json({ error: 'Failed to create academic year' });
     }
 });
+
 
 app.post('/api/academic/years/:toYear/copy-from/:fromYear', (req, res) => {
     const { toYear, fromYear } = req.params;
@@ -4474,7 +4560,11 @@ app.post('/api/academic/years/:toYear/copy-from/:fromYear', (req, res) => {
     }
     
     try {
+        // Create target directory
         fs.mkdirSync(toYearDir, { recursive: true });
+        
+        // Copy term structures (optional - you can copy fee structures, classes, etc.)
+        // This is a placeholder - implement based on your needs
         
         res.json({ success: true, message: `Data copied from ${fromYear} to ${toYear}` });
     } catch (error) {
@@ -4483,7 +4573,33 @@ app.post('/api/academic/years/:toYear/copy-from/:fromYear', (req, res) => {
     }
 });
 
+// ==================== ENHANCED PAYMENT ROUTES ====================
+
+// Update the fee payment endpoint to handle separate fees correctly
+// ==================== FIXED FEE PAYMENT ENDPOINT ====================
+
+// ==================== FIXED ENHANCED PAYMENT ROUTE - REPLACE THIS ENTIRE FUNCTION ====================
+
+// ==================== COMPLETELY REBUILT ENHANCED PAYMENT ROUTE ====================
+// ========== AUTO-STOCK UPDATE FROM PAYMENTS ==========
+// Add this function to server.js
+
 // ==================== INVENTORY UPDATE FROM PAYMENT ====================
+// ==================== COMPLETELY REWRITTEN INVENTORY UPDATE ====================
+// Version: 4.0 - Guaranteed File Save with Verification
+
+// ==================== DEBUG INVENTORY UPDATE - WITH VERIFICATION ====================
+// Version: 5.0 - Forces save and verifies
+
+// ==================== INVENTORY UPDATE FUNCTION ====================
+// Add this BEFORE your payment endpoints
+
+// ==================== SUPER DEBUG INVENTORY UPDATE ====================
+// ==================== ULTRA SAFE INVENTORY UPDATE ====================
+// Version: 6.0 - Forces stock to always be an object
+
+// ==================== FIXED: updateInventoryFromPayment ====================
+// Version: 7.0 - Properly tracks BOTH cash and item payments
 
 async function updateInventoryFromPayment(studentId, activityItemPayments, academicYear, term) {
     console.log('=== 🛡️ ULTRA SAFE INVENTORY UPDATE v7.0 ===');
@@ -4496,16 +4612,20 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
         return { success: true, itemsAdded: 0 };
     }
     
+    // ========== FILE PATHS ==========
+    const dataDir = path.join(__dirname, 'data');
     const inventoryStockPath = path.join(dataDir, 'inventoryStock.json');
     const inventoryTransactionsPath = path.join(dataDir, 'inventoryTransactions.json');
     
     console.log('📁 Stock File Path:', inventoryStockPath);
     
+    // ========== ENSURE DATA DIRECTORY EXISTS ==========
     if (!fs.existsSync(dataDir)) {
         console.log('📁 Creating data directory...');
         fs.mkdirSync(dataDir, { recursive: true });
     }
     
+    // ========== READ EXISTING STOCK - FORCE OBJECT ==========
     let stock = {};
     
     try {
@@ -4548,6 +4668,7 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
         fs.writeFileSync(inventoryStockPath, JSON.stringify({}, null, 2), 'utf8');
     }
     
+    // SAFETY CHECK: Ensure stock is ALWAYS an object
     if (Array.isArray(stock)) {
         console.log('⚠️ CRITICAL: stock is an array! Converting to object...');
         const newStock = {};
@@ -4563,6 +4684,7 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     console.log('📊 STOCK IS OBJECT:', typeof stock === 'object' && !Array.isArray(stock));
     console.log('📊 Stock keys before processing:', Object.keys(stock));
     
+    // ========== READ EXISTING TRANSACTIONS ==========
     let transactions = [];
     try {
         if (fs.existsSync(inventoryTransactionsPath)) {
@@ -4586,6 +4708,7 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     let itemsAdded = 0;
     let totalQuantityAdded = 0;
     
+    // ========== PROCESS EACH ITEM ==========
     const newKeys = [];
     
     for (const payment of activityItemPayments) {
@@ -4605,12 +4728,15 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
         console.log(`📦 Processing: ${itemName}`);
         console.log(`   Type: ${paymentType}, Brought: ${itemsBrought}, Paid: ${amountPaid}`);
         
+        // ========== CRITICAL: Calculate quantity to add ==========
         let quantityToAdd = 0;
         
         if (paymentType === 'brought_item' && itemsBrought > 0) {
+            // ========== ITEMS BROUGHT - Add to stock ==========
             quantityToAdd = itemsBrought;
             console.log(`   📦 Items brought: ${quantityToAdd}`);
         } else if (paymentType === 'paid_cash' && amountPaid > 0) {
+            // ========== CASH PAYMENT - Convert to items ==========
             if (unitPrice > 0) {
                 quantityToAdd = Math.floor(amountPaid / unitPrice);
             } else {
@@ -4626,10 +4752,12 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
             continue;
         }
         
+        // ========== Create stock key ==========
         const stockKey = `${itemName}_${year}_${termNum}`;
         console.log(`  📊 Stock key: ${stockKey}`);
         newKeys.push(stockKey);
         
+        // Initialize stock entry
         if (!stock[stockKey]) {
             stock[stockKey] = {
                 name: itemName,
@@ -4643,11 +4771,13 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
             console.log(`  🆕 Created new stock entry`);
         }
         
+        // ========== Update stock ==========
         const previousAvailable = stock[stockKey].available || 0;
         stock[stockKey].totalReceived = (stock[stockKey].totalReceived || 0) + quantityToAdd;
         stock[stockKey].available = (stock[stockKey].available || 0) + quantityToAdd;
         stock[stockKey].lastUpdated = new Date().toISOString();
         
+        // ========== Update legacy stock entry ==========
         if (!stock[itemName]) {
             stock[itemName] = {
                 name: itemName,
@@ -4665,6 +4795,7 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
         console.log(`  ✅ Added ${quantityToAdd} ${itemName}(s) to stock`);
         console.log(`     Available now: ${stock[stockKey].available}`);
         
+        // ========== Record transaction ==========
         const transaction = {
             id: uuidv4(),
             itemName: itemName,
@@ -4687,6 +4818,7 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
             date: new Date().toISOString().split('T')[0],
             isInventory: true,
             autoAdded: true,
+            // ========== Track payment type ==========
             isItemPayment: paymentType === 'brought_item',
             isCashPayment: paymentType === 'paid_cash'
         };
@@ -4696,6 +4828,7 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
         totalQuantityAdded += quantityToAdd;
     }
     
+    // ========== SAFETY CHECK: Ensure stock is STILL an object ==========
     if (Array.isArray(stock)) {
         console.log('⚠️ CRITICAL ERROR: stock became an array! Converting back...');
         const newStock = {};
@@ -4712,10 +4845,12 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     console.log('   Is Object:', typeof stock === 'object' && !Array.isArray(stock));
     console.log('   Keys:', Object.keys(stock));
     
+    // ========== SAVE TO DISK ==========
     if (itemsAdded > 0) {
         console.log('\n💾 SAVING TO DISK...');
         
         try {
+            // CRITICAL: Ensure stock is an object before saving
             if (Array.isArray(stock)) {
                 console.log('⚠️ Converting array to object before saving...');
                 const newStock = {};
@@ -4728,17 +4863,20 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
                 stock = newStock;
             }
             
+            // Save stock
             const stockJson = JSON.stringify(stock, null, 2);
             console.log('📝 Stock JSON to save:', stockJson);
             fs.writeFileSync(inventoryStockPath, stockJson, 'utf8');
             console.log(`✅ Stock written to: ${inventoryStockPath}`);
             
+            // Verify save
             const verifyContent = fs.readFileSync(inventoryStockPath, 'utf8');
             const verifyStock = JSON.parse(verifyContent);
             const verifyKeys = Object.keys(verifyStock);
             console.log(`📊 Verified keys: ${verifyKeys.join(', ')}`);
             console.log(`📊 Verified count: ${verifyKeys.length}`);
             
+            // Save transactions
             const txJson = JSON.stringify(transactions, null, 2);
             fs.writeFileSync(inventoryTransactionsPath, txJson, 'utf8');
             console.log(`✅ Transactions saved: ${transactions.length} records`);
@@ -4772,7 +4910,6 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
 }
 
 // ==================== TEST INVENTORY DIRECTLY ====================
-
 app.post('/api/test/inventory-direct', async (req, res) => {
     console.log('=== TEST INVENTORY DIRECT ===');
     
@@ -4781,6 +4918,7 @@ app.post('/api/test/inventory-direct', async (req, res) => {
         
         console.log('📦 Testing with:', { itemName, quantity, studentId, year, term });
         
+        // Create a mock payment item
         const mockItem = {
             itemName: itemName || 'Test Item',
             paymentType: 'brought_item',
@@ -4793,6 +4931,7 @@ app.post('/api/test/inventory-direct', async (req, res) => {
             componentName: 'Test Scholastic'
         };
         
+        // Call the inventory function directly
         const result = await updateInventoryFromPayment(
             studentId || 'test_student',
             [mockItem],
@@ -4802,6 +4941,7 @@ app.post('/api/test/inventory-direct', async (req, res) => {
         
         console.log('📦 Result:', result);
         
+        // Check if stock was saved
         const stockPath = path.join(__dirname, 'data', 'inventoryStock.json');
         let stock = {};
         if (fs.existsSync(stockPath)) {
@@ -4825,8 +4965,27 @@ app.post('/api/test/inventory-direct', async (req, res) => {
         });
     }
 });
+// ==================== FIXED ENHANCED PAYMENT ROUTE ====================
+// Version: 2.0 - Correctly separates tuition from activity payments
 
-// ==================== ENHANCED PAYMENT ENDPOINT ====================
+// ==================== FIXED ENHANCED PAYMENT ROUTE ====================
+// Version: 3.0 - Respects manual receipt entry, auto-generates if empty
+
+// ==================== COMPLETE ENHANCED PAYMENT ENDPOINT ====================
+// Version: 7.0 - Full payment processing with inventory update
+
+// ==================== COMPLETE WORKING ENHANCED PAYMENT ENDPOINT ====================
+// Version: 7.0 - With Inventory Management Support
+
+// ==================== ENHANCED PAYMENT ENDPOINT WITH PREVIOUS BALANCE SUPPORT ====================
+// Version: 3.0 - Full Previous Academic Period Balance Tracking
+
+// ==================== COMPLETE REBUILT ENHANCED PAYMENT ENDPOINT ====================
+// Version: 8.0 - Full previous balance support with item-level tracking
+
+// ==================== COMPLETE REBUILT: /api/fee/payments/enhanced ====================
+// Version: 9.0 - FIXED INDIVIDUAL PAYMENT ISSUE
+// Each payment is stored as an INDIVIDUAL record, NOT cumulative
 
 app.post('/api/fee/payments/enhanced', async (req, res) => {
     console.log('=== ENHANCED PAYMENT REQUEST v9.0 (INDIVIDUAL PAYMENTS FIXED) ===');
@@ -4851,6 +5010,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             notes,
             receiptNumber: providedReceiptNumber,
             
+            // ========== PREVIOUS BALANCE FIELDS ==========
             isPreviousBalancePayment,
             targetPeriodYear,
             targetPeriodTerm,
@@ -4858,15 +5018,18 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             isBulkPayment,
             bulkPaymentId,
             
+            // ========== INDIVIDUAL PAYMENT FLAG ==========
             isIndividualPayment,
             paymentMode
         } = req.body;
         
+        // ========== DETERMINE THE ACTUAL PERIOD TO RECORD THIS PAYMENT ==========
         let recordYear = academicYear || new Date().getFullYear();
         let recordTerm = parseInt(term) || 1;
         let isPreviousPayment = false;
         let previousPaymentInfo = null;
         
+        // If this is a previous balance payment, use the target period
         if (isPreviousBalancePayment === true) {
             if (targetPeriodYear && targetPeriodTerm !== undefined && targetPeriodTerm !== null) {
                 recordYear = targetPeriodYear.toString();
@@ -4883,6 +5046,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             }
         }
         
+        // Validate period
         if (isNaN(recordTerm) || recordTerm < 1 || recordTerm > 3) {
             recordTerm = 1;
         }
@@ -4891,6 +5055,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
         const currentTerm = recordTerm;
         const roundedTuitionPaid = Math.round(tuitionPaid || 0);
         
+        // ========== READ TERM RECORDS ==========
         let termRecords = readFile(files.studentTermRecords);
         if (!termRecords || typeof termRecords !== 'object') {
             termRecords = {};
@@ -4898,6 +5063,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
         
         const recordKey = `${studentId}_${currentYear}_${currentTerm}`;
         
+        // Initialize term record if it doesn't exist
         if (!termRecords[recordKey]) {
             termRecords[recordKey] = {
                 studentId: studentId,
@@ -4909,6 +5075,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                 isPreviousBalanceRecord: isPreviousPayment,
                 originalPeriod: previousPaymentInfo || null,
                 createdAt: new Date().toISOString(),
+                // ========== NEW: Track individual payments ==========
                 individualPayments: [],
                 individualTuitionPayments: []
             };
@@ -4917,9 +5084,12 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             termRecords[recordKey].originalPeriod = previousPaymentInfo;
         }
         
+        // ========== RECORD TUITION PAYMENT - FIXED ==========
         if (roundedTuitionPaid > 0) {
+            // ========== FIX: Add to total, but also store individual payment ==========
             termRecords[recordKey].tuitionTotalPaid = Math.round((termRecords[recordKey].tuitionTotalPaid || 0) + roundedTuitionPaid);
             
+            // ========== STORE INDIVIDUAL TUITION PAYMENT ==========
             if (!termRecords[recordKey].individualTuitionPayments) {
                 termRecords[recordKey].individualTuitionPayments = [];
             }
@@ -4930,13 +5100,14 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                 method: method || 'cash',
                 reference: reference || '',
                 isPreviousBalancePayment: isPreviousPayment,
-                paymentId: null
+                paymentId: null // Will be set after payment is created
             });
             
             console.log(`✅ INDIVIDUAL Tuition payment recorded: UGX ${roundedTuitionPaid} for ${currentYear} Term ${currentTerm}`);
             console.log(`   Total tuition paid: UGX ${termRecords[recordKey].tuitionTotalPaid}`);
         }
         
+        // ========== PROCESS ACTIVITY ITEMS - FIXED INDIVIDUAL PAYMENTS ==========
         let activityTotalPaid = 0;
         const processedItems = [];
         let totalIndividualAmount = 0;
@@ -4948,18 +5119,27 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                 const period = payment.periodType || 'termly';
                 const itemName = payment.itemName;
                 
+                // ========== CRITICAL FIX: Use individual amount ==========
+                // The amount sent from frontend is the INDIVIDUAL payment amount
                 let paidAmount = 0;
                 let itemsBrought = 0;
                 let isItemOnly = false;
                 
                 if (payment.paymentType === 'paid_cash') {
+                    // Cash payment - use the exact amount from the input
                     paidAmount = Math.round(payment.amountPaid || 0);
                     
+                    // If isIndividualPayment flag is true, this is already the individual amount
+                    // If not, we need to check if this is a cumulative total
                     if (!isIndividualPayment && !payment.isIndividualPayment) {
+                        // Legacy mode - try to determine individual amount
+                        // Look for the item in existing records to subtract already paid
                         const existingItem = termRecords[recordKey].activityItemsPaid[period].find(
                             i => i.itemName === itemName
                         );
                         if (existingItem) {
+                            // If we have an existing item, the individual payment is the difference
+                            // between what was already paid and what's being sent
                             const existingPaid = existingItem.amountPaid || 0;
                             if (paidAmount > existingPaid) {
                                 paidAmount = paidAmount - existingPaid;
@@ -4987,8 +5167,10 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                 const quantityRequired = Math.round(payment.quantityRequired || 0);
                 const totalItemAmount = Math.round(quantityRequired * unitPrice);
                 
+                // Calculate cash equivalent for brought items
                 const cashEquivalent = Math.round(itemsBrought * unitPrice);
                 
+                // If this is an item-only payment, adjust paidAmount
                 if (isItemOnly && itemsBrought > 0) {
                     paidAmount = cashEquivalent;
                 }
@@ -5001,13 +5183,17 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                     continue;
                 }
                 
+                // ========== STORE INDIVIDUAL PAYMENT ==========
+                // Check if this item already exists in term records
                 const existingItemIndex = termRecords[recordKey].activityItemsPaid[period].findIndex(
                     i => i.itemName === itemName
                 );
                 
                 if (existingItemIndex !== -1) {
+                    // ========== FIX: Update existing item with individual payment ==========
                     const existing = termRecords[recordKey].activityItemsPaid[period][existingItemIndex];
                     
+                    // Store individual payment in the payments array
                     if (!existing.payments) {
                         existing.payments = [];
                     }
@@ -5025,6 +5211,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                     };
                     existing.payments.push(paymentRecord);
                     
+                    // ========== CRITICAL: Recalculate totals from individual payments ==========
                     const totalPaidFromPayments = existing.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
                     const totalItemsFromPayments = existing.payments.reduce((sum, p) => sum + (p.itemsBrought || 0), 0);
                     
@@ -5048,6 +5235,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                     console.log(`       Individual payment: UGX ${paidAmount}`);
                     
                 } else {
+                    // ========== Create new item record with individual payment ==========
                     const itemsCovered = itemsBrought + Math.round(paidAmount / (unitPrice || 1));
                     const remainingQuantity = Math.max(0, quantityRequired - itemsCovered);
                     const remainingAmount = Math.max(0, totalItemAmount - (paidAmount + cashEquivalent));
@@ -5078,6 +5266,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                         status: status,
                         recordedAt: new Date().toISOString(),
                         isPreviousBalanceItem: isPreviousPayment,
+                        // ========== NEW: Store individual payments ==========
                         payments: [{
                             date: date || new Date().toISOString(),
                             amount: paidAmount || 0,
@@ -5109,9 +5298,12 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
         termRecords[recordKey].lastUpdated = new Date().toISOString();
         saveFile(files.studentTermRecords, termRecords);
         
+        // ========== CREATE PAYMENT RECORD ==========
         let finalReceiptNumber;
         
+        // ========== SPECIAL RECEIPT FOR PREVIOUS BALANCE PAYMENTS ==========
         if (isPreviousPayment) {
+            // Use PB prefix for Previous Balance
             const prefix = 'PB';
             const timestamp = Date.now().toString().slice(-6);
             const random = Math.floor(Math.random() * 900 + 100).toString();
@@ -5125,10 +5317,12 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                 console.log('🔄 Auto-generated previous balance receipt number:', finalReceiptNumber);
             }
         } else {
+            // Regular receipt generation
             if (providedReceiptNumber && providedReceiptNumber.trim() !== '') {
                 finalReceiptNumber = providedReceiptNumber.trim();
                 console.log('📝 Using manually entered receipt number:', finalReceiptNumber);
             } else {
+                // Get school info for receipt prefix
                 let school = {};
                 try {
                     const schoolData = readFile(files.schools);
@@ -5155,6 +5349,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
         let payments = readFile(files.feePayments);
         if (!Array.isArray(payments)) payments = [];
         
+        // ========== BUILD PAYMENT OBJECT ==========
         const payment = {
             id: uuidv4(),
             studentId: studentId,
@@ -5168,7 +5363,9 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             bursaryName: bursaryName || null,
             tuitionPaid: roundedTuitionPaid,
             activityTotalPaid: Math.round(activityTotalPaid),
+            // ========== CRITICAL FIX: Store individual payment items with correct amounts ==========
             activityItemPayments: processedItems.map(item => {
+                // Get the most recent individual payment
                 const lastPayment = item.payments && item.payments.length > 0 
                     ? item.payments[item.payments.length - 1] 
                     : null;
@@ -5180,6 +5377,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
                     unitPrice: item.unitPrice,
                     quantityRequired: item.quantityRequired,
                     paymentType: item.paymentType,
+                    // ========== Use individual amounts from the most recent payment ==========
                     amountPaid: lastPayment ? lastPayment.amount : item.amountPaid,
                     itemsBrought: lastPayment ? lastPayment.itemsBrought : item.itemsBrought,
                     cashEquivalent: item.cashEquivalent,
@@ -5201,6 +5399,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             receiptNumber: finalReceiptNumber,
             recordedAt: new Date().toISOString(),
             
+            // ========== PREVIOUS BALANCE TRACKING ==========
             isPreviousBalancePayment: isPreviousPayment || false,
             originalPeriod: isPreviousPayment ? {
                 year: academicYear || new Date().getFullYear(),
@@ -5216,6 +5415,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             periodDisplay: isPreviousPayment ? 
                 `${currentYear} Term ${currentTerm} (Previous Balance)` : 
                 `${currentYear} Term ${currentTerm}`,
+            // ========== NEW: Mark as individual payment ==========
             isIndividualPayment: true,
             paymentMode: 'incremental',
             individualPayments: processedItems.map(item => {
@@ -5242,6 +5442,9 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             console.log(`📅 Applied to: ${currentYear} Term ${currentTerm} (Previous Balance)`);
         }
         
+        // =================================================================
+        // ========== UPDATE INVENTORY FROM PAYMENT ==========
+        // =================================================================
         console.log('\n📦 === UPDATING INVENTORY FROM PAYMENT ===');
         console.log('📦 Items to process:', activityItemPayments?.length || 0);
         
@@ -5260,6 +5463,9 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             }
         }
         
+        // =================================================================
+        // ========== SEND RESPONSE ==========
+        // =================================================================
         const responseData = {
             success: true,
             receiptNumber: finalReceiptNumber,
@@ -5282,6 +5488,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
             responseData.previousPaymentInfo = previousPaymentInfo;
         }
         
+        // Log summary of individual payments
         console.log('\n📊 INDIVIDUAL PAYMENT SUMMARY:');
         for (const ip of payment.individualPayments) {
             console.log(`   💵 ${ip.itemName}: UGX ${ip.amount.toLocaleString()} ${ip.itemsBrought > 0 ? `+ ${ip.itemsBrought} items` : ''}`);
@@ -5299,8 +5506,7 @@ app.post('/api/fee/payments/enhanced', async (req, res) => {
         });
     }
 });
-
-// ==================== GET STUDENT TERM STATUS ====================
+// ==================== TEST INVENTORY DIRECTLY ====================
 
 app.get('/api/fee/student/:studentId/term-status/:term/:year', async (req, res) => {
     try {
@@ -5418,7 +5624,6 @@ app.get('/api/fee/student/:studentId/:year/:term/unpaid-items', async (req, res)
 });
 
 // ==================== DEBUG PAYMENT FLOW ====================
-
 app.post('/api/debug/payment-flow', async (req, res) => {
     console.log('=== 🔍 DEBUG PAYMENT FLOW ===');
     console.log('Full Request Body:', JSON.stringify(req.body, null, 2));
@@ -5447,6 +5652,7 @@ app.post('/api/debug/payment-flow', async (req, res) => {
             });
         }
         
+        // Try to manually update inventory
         console.log('\n🔄 Manually calling updateInventoryFromPayment...');
         const result = await updateInventoryFromPayment(
             studentId,
@@ -5456,6 +5662,7 @@ app.post('/api/debug/payment-flow', async (req, res) => {
         );
         console.log('   Result:', result);
         
+        // Check stock after manual update
         const stockPath = path.join(__dirname, 'data', 'inventoryStock.json');
         let stock = {};
         if (fs.existsSync(stockPath)) {
@@ -5670,6 +5877,9 @@ app.get('/api/reports/export-all', (req, res) => {
     res.json(allData);
 });
 
+
+// ==================== UPDATE STUDENT WITH CUSTOM TRANSPORTATION FEE ====================
+
 // ==================== UPDATE STUDENT TRANSPORTATION FEE ====================
 
 app.put('/api/students/:id/transportation', (req, res) => {
@@ -5714,7 +5924,10 @@ app.put('/api/students/:id/transportation', (req, res) => {
     }
 });
 
+
+
 // ==================== COMPLETE REBUILT INVENTORY SYSTEM ====================
+// Version: 6.0 - Fully Working with Automatic Stock Updates
 
 const inventoryFiles = {
     inventoryItems: path.join(dataDir, 'inventoryItems.json'),
@@ -5722,6 +5935,7 @@ const inventoryFiles = {
     inventoryStock: path.join(dataDir, 'inventoryStock.json')
 };
 
+// Initialize inventory files
 function initializeInventoryFiles() {
     try {
         if (!fs.existsSync(inventoryFiles.inventoryItems)) {
@@ -5741,10 +5955,12 @@ function initializeInventoryFiles() {
 
 initializeInventoryFiles();
 
+// ========== HELPER: GET PERIOD STOCK KEY ==========
 function getPeriodStockKey(itemName, year, term) {
     return `${itemName}_${year}_${term}`;
 }
 
+// ========== HELPER: GET CURRENT PERIOD ==========
 function getCurrentPeriod() {
     const settings = readFile(files.settings);
     const year = settings.currentAcademicYear || new Date().getFullYear();
@@ -5752,17 +5968,170 @@ function getCurrentPeriod() {
     return { year, term, periodKey: `${year}_${term}` };
 }
 
+// ==================== HELPER: CHECK IF SCHOLASTIC ITEM ====================
+function isScholasticItem(component, item) {
+    const statusGroupName = component.statusGroupName || '';
+    const componentName = component.name || '';
+    
+    // Check status group name
+    const isScholastic = statusGroupName.toLowerCase().includes('scholastic') || 
+                         componentName.toLowerCase().includes('scholastic');
+    
+    // Check item name against scholastic keywords
+    const scholasticKeywords = [
+        'book', 'pen', 'pencil', 'rubber', 'eraser', 'ruler', 
+        'notebook', 'exercise', 'textbook', 'story', 'reader',
+        'chart', 'map', 'globe', 'calculator', 'set', 'compass',
+        'protractor', 'stapler', 'puncher', 'file', 'folder',
+        'binder', 'paper', 'ream', 'envelope', 'marker', 'crayon',
+        'paint', 'brush', 'clay', 'scissors', 'glue', 'tape',
+        'covers', 'toilet', 'broom', 'sugar', 'box file', 'clear bag',
+        'handwriting book', 'manila cards', 'cutters', 'inside brooms',
+        'sealed sugar', 'packet of crayons', 'exercise book',
+        'notebook', 'story book', 'textbook', 'reader',
+        'handwriting', 'manila', 'cutters', 'brooms'
+    ];
+    
+    const itemNameLower = (item.name || '').toLowerCase();
+    const matchesKeyword = scholasticKeywords.some(keyword => itemNameLower.includes(keyword));
+    
+    // 🔥 FIX: Also check if it's a transportation or development item (exclude them)
+    const isTransportation = statusGroupName.toLowerCase().includes('transport') || 
+                             componentName.toLowerCase().includes('transport') ||
+                             itemNameLower.includes('van') ||
+                             itemNameLower.includes('transport');
+    
+    const isDevelopment = statusGroupName.toLowerCase().includes('development') ||
+                          componentName.toLowerCase().includes('development');
+    
+    const isAdmission = statusGroupName.toLowerCase().includes('admission') ||
+                        componentName.toLowerCase().includes('admission');
+    
+    // 🔥 FIX: EXCLUDE transportation, development, and admission items
+    if (isTransportation || isDevelopment || isAdmission) {
+        console.log(`🚫 Excluding non-scholastic item: ${item.name} (${statusGroupName})`);
+        return false;
+    }
+    
+    return isScholastic || matchesKeyword;
+}
+
+// ========== HELPER: GET UNIT PRICE FROM FEE STRUCTURE ==========
+function getUnitPriceFromFeeStructure(itemName, componentName, feeStructure) {
+    if (!feeStructure || !feeStructure.activityComponents) return 0;
+    
+    for (const comp of feeStructure.activityComponents) {
+        if (comp.name === componentName) {
+            for (const item of (comp.items || [])) {
+                if (item.name === itemName) {
+                    return item.unitPrice || (item.totalAmount / (item.quantity || 1));
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+// ========== HELPER: GET QUANTITY REQUIRED ==========
+function getQuantityRequired(itemName, componentName, feeStructure) {
+    if (!feeStructure || !feeStructure.activityComponents) return 0;
+    
+    for (const comp of feeStructure.activityComponents) {
+        if (comp.name === componentName) {
+            for (const item of (comp.items || [])) {
+                if (item.name === itemName) {
+                    return item.quantity || 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+// ========== MAIN INVENTORY SUMMARY ENDPOINT ==========
+// ==================== FIXED INVENTORY SUMMARY ENDPOINT ====================
+// Version: 5.2 - isFirstTerm properly defined
+
+// ==================== FIXED INVENTORY SUMMARY ENDPOINT ====================
+// Version: 6.0 - Properly links fee structures and calculates requirements
+
+app.get('/api/inventory/summary', async (req, res) => {
+    console.log('📊 Inventory summary requested - Version 6.0');
+    
+    try {
+        const settings = readFile(files.settings);
+        const currentYear = settings.currentAcademicYear || new Date().getFullYear();
+        const currentTerm = settings.currentTerm || 1;
+        const isFirstTerm = currentTerm === 1;
+        
+        // Read all required data
+        const feeStructures = readFile(files.feeStructures);
+        const students = readFile(files.students);
+        const feeAssignments = readFile(files.studentFeeAssignments);
+        const allPayments = readFile(files.feePayments);
+        const termRecords = readFile(files.studentTermRecords);
+        const classes = readFile(files.classes);
+        
+        // Build maps for quick lookup
+        const classesMap = {};
+        classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
+        
+        const assignmentsMap = {};
+        feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
+        
+        // ========== BUILD FEE STRUCTURE MAP ==========
+        const feeStructureMap = {};
+        feeStructures.forEach(fs => { 
+            if (fs && fs.id) feeStructureMap[fs.id] = fs; 
+        });
+        
+        console.log(`📊 Found ${feeStructures.length} fee structures`);
+        console.log(`📊 Found ${students.length} students`);
+        console.log(`📊 Found ${feeAssignments.length} fee assignments`);
+        
+        // ========== INITIALIZE INVENTORY DATA ==========
+        const inventoryData = {
+            levels: {
+                Nursery: { items: {}, classBreakdown: {}, totalItems: 0, totalBrought: 0, totalCashPaid: 0, students: [] },
+                LowerPrimary: { items: {}, classBreakdown: {}, totalItems: 0, totalBrought: 0, totalCashPaid: 0, students: [] },
+                UpperPrimary: { items: {}, classBreakdown: {}, totalItems: 0, totalBrought: 0, totalCashPaid: 0, students: [] }
+            },
+            classDetails: {},
+            feeStructureDetails: {},
+            itemTotals: {},
+            stock: {},
+            transactions: []
+        };
+        
+        // ========== READ STOCK ==========
+        const stockPath = path.join(dataDir, 'inventoryStock.json');
+        let stock = {};
+        try {
+            if (fs.existsSync(stockPath)) {
+                const content = fs.readFileSync(stockPath, 'utf8');
+                stock = JSON.parse(content);
+                console.log(`📊 Stock loaded. Keys: ${Object.keys(stock).length}`);
+            }
+        } catch (e) {
+            console.warn('Could not read stock:', e.message);
+        }
+        
+       // ==================== HELPER: CHECK IF SCHOLASTIC ITEM ====================
+// ==================== HELPER: CHECK IF SCHOLASTIC ITEM ====================
 function isScholasticItem(component, item) {
     const statusGroupName = component.statusGroupName || component.name || '';
     const componentName = component.name || '';
     
+    // 🔥 PRIMARY: Check if the status group is "Scholastic" or "schoolastic requirement"
     const isScholasticGroup = statusGroupName.toLowerCase().includes('scholastic') || 
                               statusGroupName.toLowerCase().includes('schoolastic');
     
+    // If it's explicitly a scholastic group, return true
     if (isScholasticGroup) {
         return true;
     }
     
+    // 🔥 EXCLUDE: Transportation, Admission, Development
     const isExcluded = statusGroupName.toLowerCase().includes('transport') ||
                        statusGroupName.toLowerCase().includes('admission') ||
                        statusGroupName.toLowerCase().includes('development') ||
@@ -5773,6 +6142,7 @@ function isScholasticItem(component, item) {
         return false;
     }
     
+    // 🔥 SECONDARY: Fallback to keyword matching for items without status groups
     const scholasticKeywords = [
         'book', 'pen', 'pencil', 'rubber', 'eraser', 'ruler', 
         'notebook', 'exercise', 'textbook', 'story', 'reader',
@@ -5789,94 +6159,6 @@ function isScholasticItem(component, item) {
     
     return matchesKeyword;
 }
-
-function getUnitPriceFromFeeStructure(itemName, componentName, feeStructure) {
-    if (!feeStructure || !feeStructure.activityComponents) return 0;
-    
-    for (const comp of feeStructure.activityComponents) {
-        if (comp.name === componentName) {
-            for (const item of (comp.items || [])) {
-                if (item.name === itemName) {
-                    return item.unitPrice || (item.totalAmount / (item.quantity || 1));
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-function getQuantityRequired(itemName, componentName, feeStructure) {
-    if (!feeStructure || !feeStructure.activityComponents) return 0;
-    
-    for (const comp of feeStructure.activityComponents) {
-        if (comp.name === componentName) {
-            for (const item of (comp.items || [])) {
-                if (item.name === itemName) {
-                    return item.quantity || 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-// ==================== INVENTORY SUMMARY ENDPOINT ====================
-
-app.get('/api/inventory/summary', async (req, res) => {
-    console.log('📊 Inventory summary requested - Version 6.0');
-    
-    try {
-        const settings = readFile(files.settings);
-        const currentYear = settings.currentAcademicYear || new Date().getFullYear();
-        const currentTerm = settings.currentTerm || 1;
-        const isFirstTerm = currentTerm === 1;
-        
-        const feeStructures = readFile(files.feeStructures);
-        const students = readFile(files.students);
-        const feeAssignments = readFile(files.studentFeeAssignments);
-        const allPayments = readFile(files.feePayments);
-        const termRecords = readFile(files.studentTermRecords);
-        const classes = readFile(files.classes);
-        
-        const classesMap = {};
-        classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
-        
-        const assignmentsMap = {};
-        feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
-        
-        const feeStructureMap = {};
-        feeStructures.forEach(fs => { 
-            if (fs && fs.id) feeStructureMap[fs.id] = fs; 
-        });
-        
-        console.log(`📊 Found ${feeStructures.length} fee structures`);
-        console.log(`📊 Found ${students.length} students`);
-        console.log(`📊 Found ${feeAssignments.length} fee assignments`);
-        
-        const inventoryData = {
-            levels: {
-                Nursery: { items: {}, classBreakdown: {}, totalItems: 0, totalBrought: 0, totalCashPaid: 0, students: [] },
-                LowerPrimary: { items: {}, classBreakdown: {}, totalItems: 0, totalBrought: 0, totalCashPaid: 0, students: [] },
-                UpperPrimary: { items: {}, classBreakdown: {}, totalItems: 0, totalBrought: 0, totalCashPaid: 0, students: [] }
-            },
-            classDetails: {},
-            feeStructureDetails: {},
-            itemTotals: {},
-            stock: {},
-            transactions: []
-        };
-        
-        const stockPath = path.join(dataDir, 'inventoryStock.json');
-        let stock = {};
-        try {
-            if (fs.existsSync(stockPath)) {
-                const content = fs.readFileSync(stockPath, 'utf8');
-                stock = JSON.parse(content);
-                console.log(`📊 Stock loaded. Keys: ${Object.keys(stock).length}`);
-            }
-        } catch (e) {
-            console.warn('Could not read stock:', e.message);
-        }
         
         function getOrCreateItemInLevel(levelKey, itemName) {
             if (!inventoryData.levels[levelKey]) {
@@ -5917,12 +6199,14 @@ app.get('/api/inventory/summary', async (req, res) => {
             return inventoryData.classDetails[className].items[itemName];
         }
         
+        // ========== PROCESS EACH STUDENT ==========
         for (const student of students) {
             const assignment = assignmentsMap[student.id] || {};
             const feeStructure = feeStructureMap[assignment.feeStructureId];
             
             if (!feeStructure) continue;
             
+            // Get student's class
             let currentClass = 'Not Assigned';
             let classLevel = 'Unknown';
             if (student.currentClassId && classesMap[student.currentClassId]) {
@@ -5935,6 +6219,7 @@ app.get('/api/inventory/summary', async (req, res) => {
             const levelKey = classLevel === 'Nursery' ? 'Nursery' : 
                             classLevel === 'LowerPrimary' ? 'LowerPrimary' : 'UpperPrimary';
             
+            // ========== PROCESS FEE STRUCTURE FOR SCHOLASTIC ITEMS ==========
             if (!inventoryData.feeStructureDetails[feeStructure.id]) {
                 inventoryData.feeStructureDetails[feeStructure.id] = {
                     name: feeStructure.name,
@@ -5950,10 +6235,12 @@ app.get('/api/inventory/summary', async (req, res) => {
                 };
             }
             
+            // Add student to level
             if (!inventoryData.levels[levelKey].students.includes(student.id)) {
                 inventoryData.levels[levelKey].students.push(student.id);
             }
             
+            // ========== PROCESS EACH COMPONENT ==========
             for (const component of (feeStructure.activityComponents || [])) {
                 const periodType = component.periodType || 'termly';
                 
@@ -5971,6 +6258,7 @@ app.get('/api/inventory/summary', async (req, res) => {
                     const unitPrice = item.unitPrice || (item.totalAmount / quantityRequired);
                     const totalAmount = item.totalAmount || 0;
                     
+                    // ========== GET PAYMENT DATA ==========
                     const termRecordKey = `${student.id}_${currentYear}_${currentTerm}`;
                     const termRecord = termRecords[termRecordKey] || { activityItemsPaid: { one_time: [], termly: [], yearly: [] } };
                     
@@ -5988,6 +6276,7 @@ app.get('/api/inventory/summary', async (req, res) => {
                         }
                     }
                     
+                    // Also check payments directly
                     const studentPayments = allPayments.filter(p => 
                         p && p.studentId === student.id && 
                         p.term === currentTerm && 
@@ -6010,12 +6299,14 @@ app.get('/api/inventory/summary', async (req, res) => {
                         }
                     }
                     
+                    // ========== UPDATE LEVEL DATA ==========
                     const levelItem = getOrCreateItemInLevel(levelKey, itemName);
                     levelItem.totalItemsRequired += quantityRequired;
                     levelItem.totalBrought += itemsBrought;
                     levelItem.totalCashCoveredItems += Math.floor(cashPaid / (unitPrice || 1));
                     levelItem.studentsCount++;
                     
+                    // Level class breakdown
                     if (!levelItem.classBreakdown[currentClass]) {
                         levelItem.classBreakdown[currentClass] = { 
                             totalItemsRequired: 0, 
@@ -6027,10 +6318,12 @@ app.get('/api/inventory/summary', async (req, res) => {
                     levelItem.classBreakdown[currentClass].totalBrought += itemsBrought;
                     levelItem.classBreakdown[currentClass].totalCashCoveredItems += Math.floor(cashPaid / (unitPrice || 1));
                     
+                    // Level totals
                     inventoryData.levels[levelKey].totalItems += quantityRequired;
                     inventoryData.levels[levelKey].totalBrought += itemsBrought;
                     inventoryData.levels[levelKey].totalCashPaid += cashPaid;
                     
+                    // ========== UPDATE CLASS DATA ==========
                     const classItem = getOrCreateItemInClass(currentClass, itemName);
                     classItem.totalItemsRequired += quantityRequired;
                     classItem.totalBrought += itemsBrought;
@@ -6042,6 +6335,7 @@ app.get('/api/inventory/summary', async (req, res) => {
                     inventoryData.classDetails[currentClass].totalCashPaid += cashPaid;
                     inventoryData.classDetails[currentClass].studentCount++;
                     
+                    // ========== UPDATE FEE STRUCTURE DATA ==========
                     const fsClass = inventoryData.feeStructureDetails[feeStructure.id].classes[currentClass];
                     if (!fsClass.items[itemName]) {
                         fsClass.items[itemName] = { 
@@ -6057,6 +6351,7 @@ app.get('/api/inventory/summary', async (req, res) => {
                     fsClass.items[itemName].studentsCount++;
                     fsClass.studentCount++;
                     
+                    // ========== UPDATE GLOBAL ITEM TOTALS ==========
                     if (!inventoryData.itemTotals[itemName]) {
                         inventoryData.itemTotals[itemName] = {
                             totalItemsRequired: 0,
@@ -6073,6 +6368,7 @@ app.get('/api/inventory/summary', async (req, res) => {
             }
         }
         
+        // ========== BUILD RESPONSE ==========
         const response = {
             success: true,
             data: {
@@ -6102,8 +6398,7 @@ app.get('/api/inventory/summary', async (req, res) => {
     }
 });
 
-// ==================== INVENTORY STOCK ROUTES ====================
-
+// ========== GET STOCK ENDPOINT ==========
 app.get('/api/inventory/stock', (req, res) => {
     try {
         const stock = readFile(inventoryFiles.inventoryStock);
@@ -6112,6 +6407,7 @@ app.get('/api/inventory/stock', (req, res) => {
         const currentTerm = settings.currentTerm || 1;
         const currentPeriodKey = `${currentYear}_${currentTerm}`;
         
+        // Filter out internal tracking keys (_issued_studentId entries)
         const filteredStock = {};
         for (const [key, value] of Object.entries(stock || {})) {
             if (!key.includes('_issued_') && typeof value === 'object' && value !== null) {
@@ -6119,6 +6415,7 @@ app.get('/api/inventory/stock', (req, res) => {
             }
         }
         
+        // Return the flat stock object directly — frontend uses it as-is
         res.json(filteredStock);
         
     } catch (error) {
@@ -6127,15 +6424,18 @@ app.get('/api/inventory/stock', (req, res) => {
     }
 });
 
+// ========== GET TRANSACTIONS ENDPOINT ==========
 app.get('/api/inventory/transactions', (req, res) => {
     try {
         const { itemName, periodKey, academicYear, term } = req.query;
         let transactions = readFile(inventoryFiles.inventoryTransactions);
         
+        // Filter by item
         if (itemName) {
             transactions = transactions.filter(t => t.itemName === itemName);
         }
         
+        // Filter by period
         if (periodKey) {
             transactions = transactions.filter(t => t.periodKey === periodKey);
         } else if (academicYear && term) {
@@ -6145,6 +6445,7 @@ app.get('/api/inventory/transactions', (req, res) => {
             );
         }
         
+        // Sort by date descending
         transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         res.json(transactions);
@@ -6154,6 +6455,7 @@ app.get('/api/inventory/transactions', (req, res) => {
     }
 });
 
+// ========== GET DESTINATIONS ENDPOINT ==========
 app.get('/api/inventory/destinations', (req, res) => {
     try {
         const destinations = [
@@ -6178,6 +6480,7 @@ app.get('/api/inventory/destinations', (req, res) => {
     }
 });
 
+// ========== MANUAL STOCK UPDATE ENDPOINT ==========
 app.post('/api/inventory/stock/update', (req, res) => {
     try {
         const { itemName, quantity, operation, comment, academicYear, term } = req.body;
@@ -6194,6 +6497,7 @@ app.post('/api/inventory/stock/update', (req, res) => {
         let stock = readFile(inventoryFiles.inventoryStock);
         let transactions = readFile(inventoryFiles.inventoryTransactions);
         
+        // Initialize item if it doesn't exist
         if (!stock[stockKey]) {
             stock[stockKey] = {
                 name: itemName,
@@ -6231,6 +6535,7 @@ app.post('/api/inventory/stock/update', (req, res) => {
         
         stock[stockKey].lastUpdated = new Date().toISOString();
         
+        // Also update legacy stock entry if it exists
         if (stock[itemName]) {
             if (operation === 'add') {
                 stock[itemName].totalReceived = (stock[itemName].totalReceived || 0) + quantity;
@@ -6242,6 +6547,7 @@ app.post('/api/inventory/stock/update', (req, res) => {
             stock[itemName].lastUpdated = new Date().toISOString();
         }
         
+        // Record transaction
         const transaction = {
             id: uuidv4(),
             itemName: itemName,
@@ -6281,6 +6587,7 @@ app.post('/api/inventory/stock/update', (req, res) => {
     }
 });
 
+// ========== ISSUE ITEM ENDPOINT ==========
 app.post('/api/inventory/issue', (req, res) => {
     try {
         const { 
@@ -6308,6 +6615,7 @@ app.post('/api/inventory/issue', (req, res) => {
             return res.status(400).json({ error: 'Recipient name is required' });
         }
         
+        // Determine the period to use
         let year, termNum;
         if (academicYear && term) {
             year = parseInt(academicYear);
@@ -6328,6 +6636,7 @@ app.post('/api/inventory/issue', (req, res) => {
         let stock = readFile(inventoryFiles.inventoryStock);
         let transactions = readFile(inventoryFiles.inventoryTransactions);
         
+        // Check if stock exists for this period
         if (!stock[stockKey]) {
             return res.status(400).json({ 
                 error: `Item "${itemName}" not found in stock for period ${periodKeyUsed}. Please restock first.`,
@@ -6336,6 +6645,7 @@ app.post('/api/inventory/issue', (req, res) => {
             });
         }
         
+        // Check if enough stock available
         const available = stock[stockKey].available || 0;
         if (available < quantity) {
             return res.status(400).json({ 
@@ -6345,17 +6655,20 @@ app.post('/api/inventory/issue', (req, res) => {
             });
         }
         
+        // DEDUCT FROM STOCK
         const previousAvailable = stock[stockKey].available || 0;
         stock[stockKey].issued = (stock[stockKey].issued || 0) + quantity;
         stock[stockKey].available = Math.max(0, (stock[stockKey].available || 0) - quantity);
         stock[stockKey].lastUpdated = new Date().toISOString();
         
+        // Also update legacy stock entry if it exists
         if (stock[itemName]) {
             stock[itemName].issued = (stock[itemName].issued || 0) + quantity;
             stock[itemName].available = Math.max(0, (stock[itemName].available || 0) - quantity);
             stock[itemName].lastUpdated = new Date().toISOString();
         }
         
+        // Record transaction
         const transaction = {
             id: uuidv4(),
             itemName: itemName,
@@ -6397,6 +6710,7 @@ app.post('/api/inventory/issue', (req, res) => {
     }
 });
 
+// ========== REVERSE TRANSACTION ENDPOINT ==========
 app.post('/api/inventory/reverse/:transactionId', (req, res) => {
     try {
         const { transactionId } = req.params;
@@ -6417,6 +6731,7 @@ app.post('/api/inventory/reverse/:transactionId', (req, res) => {
         
         let stock = readFile(inventoryFiles.inventoryStock);
         
+        // Determine the stock key
         let stockKey = transaction.itemName;
         if (transaction.periodKey) {
             stockKey = getPeriodStockKey(transaction.itemName, transaction.academicYear || new Date().getFullYear(), transaction.term || 1);
@@ -6430,18 +6745,21 @@ app.post('/api/inventory/reverse/:transactionId', (req, res) => {
                 stock[stockKey].available = (stock[stockKey].available || 0) + transaction.quantity;
                 stock[stockKey].lastUpdated = new Date().toISOString();
             } else if (stock[transaction.itemName]) {
+                // Fallback to legacy stock
                 stock[transaction.itemName].issued = Math.max(0, (stock[transaction.itemName].issued || 0) - transaction.quantity);
                 stock[transaction.itemName].available = (stock[transaction.itemName].available || 0) + transaction.quantity;
                 stock[transaction.itemName].lastUpdated = new Date().toISOString();
             }
         }
         
+        // Mark transaction as reversed
         transaction.reversed = true;
         transaction.reversedAt = new Date().toISOString();
         transaction.reverseReason = reason || 'Transaction reversed';
         transaction.canEdit = false;
         transaction.canReverse = false;
         
+        // Create a reverse record
         const reverseRecord = {
             id: uuidv4(),
             originalTransactionId: transactionId,
@@ -6475,6 +6793,7 @@ app.post('/api/inventory/reverse/:transactionId', (req, res) => {
     }
 });
 
+// ========== EDIT TRANSACTION ENDPOINT ==========
 app.put('/api/inventory/transaction/:transactionId', (req, res) => {
     try {
         const { transactionId } = req.params;
@@ -6495,6 +6814,7 @@ app.put('/api/inventory/transaction/:transactionId', (req, res) => {
         
         let stock = readFile(inventoryFiles.inventoryStock);
         
+        // Determine the stock key
         let stockKey = transaction.itemName;
         if (transaction.periodKey) {
             stockKey = getPeriodStockKey(transaction.itemName, transaction.academicYear || new Date().getFullYear(), transaction.term || 1);
@@ -6538,6 +6858,7 @@ app.put('/api/inventory/transaction/:transactionId', (req, res) => {
     }
 });
 
+// ========== RESET INVENTORY (Admin) ==========
 app.post('/api/inventory/reset', (req, res) => {
     try {
         const { confirm } = req.body;
@@ -6546,6 +6867,7 @@ app.post('/api/inventory/reset', (req, res) => {
             return res.status(400).json({ error: 'Invalid confirmation' });
         }
         
+        // Reset all inventory files
         saveFile(inventoryFiles.inventoryStock, {});
         saveFile(inventoryFiles.inventoryTransactions, []);
         saveFile(inventoryFiles.inventoryItems, {});
@@ -6563,8 +6885,11 @@ app.post('/api/inventory/reset', (req, res) => {
 });
 
 console.log('✅ Inventory Backend v6.0 - Complete Rebuild Loaded!');
-
-// ==================== FILTER OPTIONS FOR REPORTS ====================
+console.log('   - Auto-stock deduction from payments');
+console.log('   - Period-aware stock management');
+console.log('   - Manual stock updates');
+console.log('   - Issue, Edit, Reverse transactions');
+console.log('   - Comprehensive inventory summary');
 
 app.get('/api/reports/filter-options', async (req, res) => {
     try {
@@ -6572,19 +6897,27 @@ app.get('/api/reports/filter-options', async (req, res) => {
         const students = readFile(files.students);
         const classes = readFile(files.classes);
         
+        // Get all classes
         const classOptions = classes.map(c => ({ id: c.id, name: c.name, level: c.level }));
+        
+        // Get all levels
         const levelOptions = ['Nursery', 'LowerPrimary', 'UpperPrimary'];
+        
+        // Get all students
         const studentOptions = students.map(s => ({ 
             id: s.id, 
             name: `${s.firstName || ''} ${s.lastName || ''}`.trim(),
             admissionNumber: s.admissionNumber || ''
         }));
+        
+        // Get all fee structures
         const feeStructureOptions = feeStructures.map(fs => ({
             id: fs.id,
             name: fs.name || 'Unnamed',
             level: fs.level || 'LowerPrimary'
         }));
         
+        // Get all status groups and scholastic items
         const statusGroupSet = new Set();
         const scholasticItemsSet = new Set();
         
@@ -6601,6 +6934,8 @@ app.get('/api/reports/filter-options', async (req, res) => {
         
         const statusGroupOptions = Array.from(statusGroupSet);
         const scholasticItemOptions = Array.from(scholasticItemsSet);
+        
+        // Payment status options
         const paymentStatusOptions = ['Fully Paid', 'Payment Due', 'No Payment', 'Credit Balance'];
         
         res.json({
@@ -6639,6 +6974,7 @@ app.get('/api/system/status', (req, res) => {
 
 app.delete('/api/system/reset', (req, res) => {
     try {
+        // Clear all data files
         Object.keys(files).forEach(key => {
             if (key === 'settings') {
                 saveFile(files.settings, {
@@ -6694,6 +7030,7 @@ app.delete('/api/system/reset', (req, res) => {
     }
 });
 
+// Add this to your server.js file
 app.post('/api/academic/years/:year/terms/:term', (req, res) => {
     const { year, term } = req.params;
     const yearDir = path.join(dataDir, year);
@@ -6709,12 +7046,53 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
     res.json({ success: true, message: `Academic scope ${year}/Term ${term} ready` });
 });
 
-// ==================== COMPREHENSIVE REPORT ENDPOINT ====================
 
+// ========== GET COMPREHENSIVE REPORT DATA (FIXED) ==========
+// ==================== COMPLETE REBUILT COMPREHENSIVE REPORT ENDPOINT ====================
+// Version: FINAL - Full Customization Support
+// ALL item values use custom overrides when available
+
+// ==================== COMPLETE REBUILT COMPREHENSIVE REPORT ENDPOINT ====================
+// Version: 7.0 - Fully working with payment aggregation, period protocols, and custom overrides
+
+// ==================== COMPLETE FIXED BACKEND ENDPOINT ====================
+// Version: 8.0 - Correct Multi-Period Calculations
+
+// ==================== COMPLETE FIXED COMPREHENSIVE REPORT ENDPOINT ====================
+// Version: 9.0 - Fixes One-Time item display and Current Period totals
+
+// ==================== COMPLETE REBUILT: /api/reports/comprehensive ====================
+// Version: 10.0 - FULL PERIOD AWARE TUITION WITH BREAKDOWN
+// - Tuition: Aggregated across ALL periods (sum of expected, paid, balance per period)
+// - Tuition Period Breakdown: Each term/year shows expected, paid, balance
+// - OR Logic: Credit balance when overpaid
+// - One-Time: Only in current period
+// - Yearly: Only in first term of each year
+// - Termly: Every term
+
+// ==================== COMPLETE REBUILT: /api/reports/comprehensive ====================
+// Version: 11.0 - FULLY WORKING WITH CORRECT DATA
+// - Proper period scoping (Termly, Yearly, One-Time)
+// - Correct OR logic for cash vs items
+// - Accurate payment aggregation
+// - Proper handling of customizations and removed items
+
+// ==================== COMPLETE REBUILT: /api/reports/comprehensive ====================
+// Version: 11.1 - FIXED: Includes periods from fee assignments
+// - Proper period scoping (Termly, Yearly, One-Time)
+// - Correct OR logic for cash vs items
+// - Accurate payment aggregation
+// - Proper handling of customizations and removed items
+// - Now detects periods from fee assignments (promoted years) even with no payments
+
+// ==================== COMPREHENSIVE REPORT (v12.0 - PERIOD SCOPING FIXED) ====================
 app.get('/api/reports/comprehensive', async (req, res) => {
     console.log('=== COMPREHENSIVE REPORT v11.2 - PERIOD-AWARE REMOVAL ===');
     
     try {
+        // ================================================================
+        // STEP 1: READ SETTINGS
+        // ================================================================
         const settings = readFile(files.settings);
         const defaultYear = settings.currentAcademicYear || new Date().getFullYear();
         const defaultTerm = settings.currentTerm || 1;
@@ -6747,6 +7125,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             includeAllPeriods: includeAllPeriodsBool
         });
 
+        // ================================================================
+        // STEP 2: FETCH ALL DATA
+        // ================================================================
         let feeStructures = readFile(files.feeStructures) || [];
         let students = readFile(files.students) || [];
         let feeAssignments = readFile(files.studentFeeAssignments) || [];
@@ -6763,6 +7144,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             classes: classes.length
         });
 
+        // ================================================================
+        // STEP 3: BUILD MAPS
+        // ================================================================
         const classesMap = {};
         classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
         
@@ -6775,8 +7159,14 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const feeStructuresMap = {};
         feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
 
+        // ================================================================
+        // STEP 4: HELPER FUNCTIONS
+        // ================================================================
+
+        // 4.1: Get Current Period
         const isFirstTerm = targetTerm === 1;
 
+        // 4.2: Get Period Label
         function getPeriodLabel(year, term, isCurrent) {
             const termNames = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
             const termShort = { 1: 'T1', 2: 'T2', 3: 'T3' };
@@ -6784,15 +7174,18 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return isCurrent ? `${label} ⭐ CURRENT` : label;
         }
 
+        // 4.3: Get Term Name
         function getTermName(term) {
             const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
             return names[term] || `Term ${term}`;
         }
 
+        // 4.4: Format Money
         function formatMoney(amount) {
             return Math.round(amount || 0).toLocaleString('en-US');
         }
 
+        // 4.5: Get Customized Item Value
         function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
             if (!student) {
                 return {
@@ -6857,14 +7250,19 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             };
         }
 
+        // ================================================================
+        // NEW: PERIOD-AWARE REMOVAL CHECK
+        // ================================================================
         function isItemRemovedForPeriod(student, itemId, year, term) {
             if (!student || !student.removedItems) return false;
             const removed = student.removedItems[itemId];
             if (!removed || removed.isActive === false) return false;
+            // Legacy removals without period stamp: treat as removed everywhere
             if (removed.academicYear === undefined || removed.term === undefined) return true;
             return removed.academicYear === parseInt(year) && removed.term === parseInt(term);
         }
 
+        // 4.6: Get Period-Scoped Payments (unchanged)
         function getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData) {
             const studentPayments = allPaymentsData.filter(p => p && p.studentId === studentId);
             if (periodType === 'one_time') {
@@ -6882,6 +7280,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
         }
 
+        // 4.7: getPaidAmountsForItem (unchanged)
         function getPaidAmountsForItem(studentId, componentName, itemName, periodType, year, term, allPaymentsData) {
             const scopedPayments = getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData);
             let cashPaid = 0;
@@ -6983,6 +7382,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
 
+        // 4.8: Calculate Item Totals with OR Logic (unchanged)
         function calculateItemTotalsWithORLogic(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
             const finalItemsBrought = Math.min(itemsBrought, qtyRequired);
             let cashExpected = 0;
@@ -7020,6 +7420,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             };
         }
 
+        // ================================================================
+        // STEP 5: GET ALL PERIODS FOR STUDENT (unchanged)
+        // ================================================================
         function getAllPeriodsForStudent(studentId) {
             const periods = new Map();
             const currentYear = parseInt(targetYear);
@@ -7082,6 +7485,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 });
         }
 
+        // ================================================================
+        // STEP 6: PROCESS STUDENTS
+        // ================================================================
         console.log('👨‍🎓 Processing students...');
         
         const processedStudents = [];
@@ -7128,6 +7534,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             if (level && level !== 'all' && classLevel !== level) continue;
             if (studentId && studentId !== 'all' && student.id !== studentId) continue;
             
+            // ================================================================
+            // Get ALL periods for the student (for scoping rules)
+            // ================================================================
             const allPeriods = getAllPeriodsForStudent(student.id);
             const sortedAsc = [...allPeriods].sort((a, b) => {
                 if (a.year !== b.year) return a.year - b.year;
@@ -7165,6 +7574,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
+            // ============================================================
+            // CALCULATE TUITION (unchanged)
+            // ============================================================
             let originalTuition = feeStructure.tuition || 0;
             let tuitionExpected = originalTuition;
             let discountAmount = 0;
@@ -7261,6 +7673,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 tuitionStatusIcon = '⚠️';
             }
             
+            // ============================================================
+            // BUILD STATUS GROUPS WITH PERIOD-AWARE REMOVAL
+            // ============================================================
             const statusGroups = {};
             let studentTotalCashExpected = 0;
             let studentTotalCashPaid = 0;
@@ -7294,6 +7709,11 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         if (!item) continue;
                         
                         const itemId = item.id || item.name;
+                        
+                        // ============================================================
+                        // REMOVED GLOBAL SKIP – we will handle per‑period below
+                        // ============================================================
+                        // if (isItemRemoved(student, itemId)) continue;   // <-- REMOVED
                         
                         const defaultAmount = item.totalAmount || 0;
                         const defaultQuantity = item.quantity || 1;
@@ -7339,6 +7759,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         
                         const itemData = statusGroups[groupName].items[item.name];
                         
+                        // ============================================================
+                        // CALCULATE FOR EACH PERIOD (with period‑aware removal)
+                        // ============================================================
                         let totalQtyCollected = 0;
                         let totalAmtCollected = 0;
                         let totalCashExpected = 0;
@@ -7349,6 +7772,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             const isCurrentPeriod = (period.year === currentYear && period.term === currentTerm);
                             const isFirstTermForPeriod = (period.term === 1);
                             
+                            // ================================================================
+                            // Determine if this item should be included in this period
+                            // ================================================================
                             let shouldInclude = false;
                             if (periodType === 'termly') {
                                 shouldInclude = true;
@@ -7359,6 +7785,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                                 shouldInclude = (period.term === maxTerm);
                             }
                             
+                            // ================================================================
+                            // NEW: PERIOD-AWARE REMOVAL – skip if removed for this specific period
+                            // ================================================================
                             if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
                                 shouldInclude = false;
                             }
@@ -7379,6 +7808,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                                 continue;
                             }
                             
+                            // ============================================================
+                            // GET PAID AMOUNTS FOR THIS PERIOD
+                            // ============================================================
                             const paidInfo = getPaidAmountsForItem(
                                 student.id, component.name, item.name, 
                                 periodType, period.year, period.term, allPayments
@@ -7388,6 +7820,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             const itemsBrought = paidInfo.itemsBrought;
                             const paymentHistories = paidInfo.paymentHistories;
                             
+                            // ============================================================
+                            // CALCULATE WITH OR LOGIC
+                            // ============================================================
                             const totals = calculateItemTotalsWithORLogic(
                                 effectiveQuantity,
                                 effectiveAmount,
@@ -7402,6 +7837,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             const amtRemaining = totals.cashRemaining;
                             const isPeriodFullyPaid = totals.isFullyPaid;
                             
+                            // ============================================================
+                            // STORE PERIOD BREAKDOWN
+                            // ============================================================
                             itemData.periodBreakdown[periodKey] = {
                                 year: period.year,
                                 term: period.term,
@@ -7424,11 +7862,17 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             totalCashPaid += totals.cashPaid;
                         }
                         
+                        // ============================================================
+                        // UPDATE ITEM TOTALS
+                        // ============================================================
                         itemData.totalCollected = totalQtyCollected;
                         itemData.totalRemaining = Math.max(0, effectiveQuantity - totalQtyCollected);
                         itemData.totalAmountCollected = totalAmtCollected;
                         itemData.isFullyPaid = itemData.totalRemaining <= 0 && totalAmtCollected >= effectiveAmount;
                         
+                        // ============================================================
+                        // UPDATE GROUP TOTALS
+                        // ============================================================
                         statusGroups[groupName].totalRequired += effectiveQuantity;
                         statusGroups[groupName].totalCollected += totalQtyCollected;
                         statusGroups[groupName].totalRemaining += itemData.totalRemaining;
@@ -7443,10 +7887,16 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
             }
             
+            // ============================================================
+            // CALCULATE STUDENT TOTALS
+            // ============================================================
             const studentTotalExpected = tuitionExpected + studentTotalCashExpected;
             const studentTotalPaid = tuitionPaid + studentTotalCashPaid;
             const studentTotalBalance = studentTotalExpected - studentTotalPaid;
             
+            // ============================================================
+            // UPDATE GLOBAL TOTALS
+            // ============================================================
             totalTuitionExpected += tuitionExpected;
             totalTuitionCollected += tuitionPaid;
             totalTuitionBalance += tuitionBalance;
@@ -7462,6 +7912,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
             totalCustomizedItems += studentCustomizedItems;
             
+            // ============================================================
+            // DETERMINE OVERALL STATUS
+            // ============================================================
             let overallStatus = 'Payment Due';
             let statusColor = 'bg-yellow-100 text-yellow-800';
             let statusIcon = '⚠️';
@@ -7492,6 +7945,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 if (overallStatus !== paymentStatus) continue;
             }
             
+            // ============================================================
+            // BUILD STUDENT OBJECT
+            // ============================================================
             processedStudents.push({
                 id: student.id,
                 admissionNumber: student.admissionNumber || '',
@@ -7544,6 +8000,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             });
         }
         
+        // ================================================================
+        // STEP 7: CALCULATE FINAL TOTALS
+        // ================================================================
         console.log('📊 Final Totals:', {
             students: processedStudents.length,
             tuitionExpected: totalTuitionExpected,
@@ -7560,6 +8019,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const tuitionRate = totalTuitionExpected > 0 ? (totalTuitionCollected / totalTuitionExpected * 100) : 0;
         const overallCollectionRate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
         
+        // ================================================================
+        // BUILD STATUS GROUP TOTALS
+        // ================================================================
         const statusGroupTotals = {};
         for (const student of processedStudents) {
             for (const [groupName, groupData] of Object.entries(student.statusGroups || {})) {
@@ -7626,6 +8088,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
         }
 
+        // ================================================================
+        // STEP 8: BUILD RESPONSE
+        // ================================================================
         const response = {
             success: true,
             data: {
@@ -7696,9 +8161,18 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         });
     }
 });
-
 console.log('✅ Comprehensive Report API v11.1 - PERIOD DETECTION FIXED!');
+console.log('   - Correct OR logic for cash vs items');
+console.log('   - Proper period scoping (Termly, Yearly, One-Time)');
+console.log('   - Accurate payment aggregation');
+console.log('   - Customizations and removed items handled');
+console.log('   - Raw payments included for Excel export');
+console.log('   - Activity Cash Paid correctly tracked');
+console.log('   - ✅ Periods now include years from fee assignments (promoted years)');
+console.log('   - ✅ One-Time items only appear in the oldest period');
+console.log('   - ✅ Yearly items only appear in the latest term of each year');
 
+// ========== HELPER: DEDUPLICATE HISTORIES ==========
 function deduplicateHistories(histories) {
     if (!histories || histories.length === 0) return [];
     const seen = new Set();
@@ -7713,8 +8187,7 @@ function deduplicateHistories(histories) {
     }
     return unique;
 }
-
-// ==================== UNIFORM MANAGEMENT ROUTES ====================
+// ==================== UNIFORM MANAGEMENT ROUTES (COMPLETELY FIXED) ====================
 
 const uniformFiles = {
     uniformStock: path.join(dataDir, 'uniformStock.json'),
@@ -7722,7 +8195,9 @@ const uniformFiles = {
     uniformAssignments: path.join(dataDir, 'uniformAssignments.json')
 };
 
+// Initialize uniform files - ONLY create empty files if they don't exist
 function initializeUniformFiles() {
+    // Check if stock file exists, if not create empty
     if (!fs.existsSync(uniformFiles.uniformStock)) {
         saveFile(uniformFiles.uniformStock, {});
     }
@@ -7737,6 +8212,7 @@ function initializeUniformFiles() {
 
 initializeUniformFiles();
 
+// ========== GET UNIFORM SUMMARY (FIXED - NO AUTO-RESTOCKING) ==========
 app.get('/api/uniform/summary', async (req, res) => {
     try {
         console.log('=== UNIFORM SUMMARY REQUEST ===');
@@ -7752,6 +8228,7 @@ app.get('/api/uniform/summary', async (req, res) => {
         const termRecords = readFile(files.studentTermRecords);
         const classes = readFile(files.classes);
         
+        // READ existing stock - DO NOT MODIFY or auto-add
         let stockData = readFile(uniformFiles.uniformStock);
         let transactions = readFile(uniformFiles.uniformTransactions);
         let assignments = readFile(uniformFiles.uniformAssignments);
@@ -7759,12 +8236,14 @@ app.get('/api/uniform/summary', async (req, res) => {
         console.log('Current stock:', Object.keys(stockData));
         console.log('Transactions count:', transactions.length);
         
+        // Build maps
         const assignmentsMap = {};
         feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
         
         const classesMap = {};
         classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
         
+        // Helper: Check if an item is a uniform item
         function isUniformItem(component, item) {
             const statusGroupName = component.statusGroupName || '';
             const componentName = component.name || '';
@@ -7785,6 +8264,7 @@ app.get('/api/uniform/summary', async (req, res) => {
             return isUniform || matchesKeyword;
         }
         
+        // Get all uniform items from fee structures (for reference only)
         const uniformItemsSet = new Set();
         feeStructures.forEach(fs => {
             (fs.activityComponents || []).forEach(comp => {
@@ -7797,6 +8277,7 @@ app.get('/api/uniform/summary', async (req, res) => {
             });
         });
         
+        // ========== PROCESS STUDENT UNIFORM DATA ==========
         const uniformData = {
             levels: {
                 Nursery: { items: {}, students: [], totalItems: 0, collected: 0, remaining: 0 },
@@ -7812,6 +8293,7 @@ app.get('/api/uniform/summary', async (req, res) => {
             uniformItems: Array.from(uniformItemsSet)
         };
         
+        // Process each student's uniform requirements and payments
         for (const student of students) {
             const assignment = assignmentsMap[student.id] || {};
             const feeStructure = feeStructures.find(f => f && f.id === assignment.feeStructureId);
@@ -7827,6 +8309,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                 currentClass = student.currentClass;
             }
             
+            // Get student payments for current term
             const studentPayments = allPayments.filter(p => 
                 p && p.studentId === student.id && 
                 p.term === currentTerm && 
@@ -7838,9 +8321,11 @@ app.get('/api/uniform/summary', async (req, res) => {
             let totalUniformCollected = 0;
             let totalUniformRemaining = 0;
             
+            // Process uniform items from fee structure
             for (const component of (feeStructure.activityComponents || [])) {
                 const periodType = component.periodType || 'termly';
                 
+                // Only include items based on period type
                 const shouldInclude = (periodType === 'termly') || 
                                      (periodType === 'one_time' && currentTerm === 1) ||
                                      (periodType === 'yearly' && currentTerm === 1);
@@ -7854,10 +8339,12 @@ app.get('/api/uniform/summary', async (req, res) => {
                     const quantityRequired = item.quantity || 1;
                     const unitPrice = item.unitPrice || (item.totalAmount / quantityRequired);
                     
+                    // Calculate payments for this item
                     let cashPaid = 0;
                     let itemsBrought = 0;
                     
                     for (const payment of studentPayments) {
+                        // Check activityItemPayments
                         if (payment.activityItemPayments) {
                             for (const paidItem of payment.activityItemPayments) {
                                 if (paidItem.componentName === component.name && 
@@ -7872,6 +8359,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                             }
                         }
                         
+                        // Check paymentsByPeriodType
                         if (payment.paymentsByPeriodType) {
                             const periodItems = payment.paymentsByPeriodType[periodType] || [];
                             for (const paidItem of periodItems) {
@@ -7887,9 +8375,11 @@ app.get('/api/uniform/summary', async (req, res) => {
                         }
                     }
                     
+                    // Calculate what's been collected (CAP at required quantity)
                     const cashCoversItems = Math.floor(cashPaid / unitPrice);
                     let totalCollected = itemsBrought + cashCoversItems;
                     
+                    // IMPORTANT: Cap collected at required quantity
                     if (totalCollected > quantityRequired) {
                         totalCollected = quantityRequired;
                     }
@@ -7897,6 +8387,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                     const remaining = Math.max(0, quantityRequired - totalCollected);
                     const isFullyPaid = totalCollected >= quantityRequired;
                     
+                    // Check if already issued (from assignments)
                     let isIssued = false;
                     let issuedQuantity = 0;
                     if (assignments[student.id] && assignments[student.id].items && assignments[student.id].items[itemName]) {
@@ -7904,6 +8395,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                         isIssued = issuedQuantity > 0;
                     }
                     
+                    // Calculate remaining after issue
                     const effectiveRemaining = Math.max(0, remaining - issuedQuantity);
                     
                     studentUniformItems[itemName] = {
@@ -7921,6 +8413,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                         paymentHistories: []
                     };
                     
+                    // Record payment history
                     for (const payment of studentPayments) {
                         if (payment.activityItemPayments) {
                             for (const paidItem of payment.activityItemPayments) {
@@ -7945,6 +8438,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                 }
             }
             
+            // Store student uniform data if they have items
             if (Object.keys(studentUniformItems).length > 0) {
                 uniformData.studentDetails[student.id] = {
                     id: student.id,
@@ -7960,6 +8454,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                     isComplete: totalUniformRemaining === 0 && totalUniformRequired > 0
                 };
                 
+                // Add to level summary
                 const levelKey = classLevel === 'Nursery' ? 'Nursery' : 
                                 classLevel === 'LowerPrimary' ? 'LowerPrimary' : 'UpperPrimary';
                 
@@ -7986,6 +8481,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                     }
                 }
                 
+                // Add to class details
                 if (!uniformData.classDetails[currentClass]) {
                     uniformData.classDetails[currentClass] = {
                         name: currentClass,
@@ -8018,6 +8514,7 @@ app.get('/api/uniform/summary', async (req, res) => {
                     uniformData.classDetails[currentClass].items[itemName].studentsCount++;
                 }
                 
+                // Add to item totals
                 for (const [itemName, itemData] of Object.entries(studentUniformItems)) {
                     if (!uniformData.itemTotals[itemName]) {
                         uniformData.itemTotals[itemName] = {
@@ -8054,6 +8551,7 @@ app.get('/api/uniform/summary', async (req, res) => {
     }
 });
 
+// ========== ISSUE UNIFORM ITEM (FIXED - Deducts from stock) ==========
 app.post('/api/uniform/issue', (req, res) => {
     try {
         const { studentId, itemName, quantity, comment } = req.body;
@@ -8066,28 +8564,33 @@ app.post('/api/uniform/issue', (req, res) => {
         let transactions = readFile(uniformFiles.uniformTransactions);
         let assignments = readFile(uniformFiles.uniformAssignments);
         
+        // Check if item exists in stock
         if (!stock[itemName]) {
             return res.status(400).json({ 
                 error: `Item "${itemName}" not found in stock. Please restock first.` 
             });
         }
         
+        // Check if enough stock available
         if ((stock[itemName].available || 0) < quantity) {
             return res.status(400).json({ 
                 error: `Not enough stock. Available: ${stock[itemName].available || 0}, Requested: ${quantity}` 
             });
         }
         
+        // Get student info
         const students = readFile(files.students);
         const student = students.find(s => s.id === studentId);
         if (!student) {
             return res.status(404).json({ error: 'Student not found' });
         }
         
+        // DEDUCT FROM STOCK
         stock[itemName].issued = (stock[itemName].issued || 0) + quantity;
         stock[itemName].available = Math.max(0, (stock[itemName].available || 0) - quantity);
         stock[itemName].lastUpdated = new Date().toISOString();
         
+        // Record transaction
         const transaction = {
             id: uuidv4(),
             studentId: studentId,
@@ -8106,6 +8609,7 @@ app.post('/api/uniform/issue', (req, res) => {
         
         transactions.push(transaction);
         
+        // Update student assignments
         if (!assignments[studentId]) {
             assignments[studentId] = {
                 studentId: studentId,
@@ -8132,6 +8636,7 @@ app.post('/api/uniform/issue', (req, res) => {
             transactionId: transaction.id
         });
         
+        // Save all changes
         saveFile(uniformFiles.uniformStock, stock);
         saveFile(uniformFiles.uniformTransactions, transactions);
         saveFile(uniformFiles.uniformAssignments, assignments);
@@ -8152,6 +8657,7 @@ app.post('/api/uniform/issue', (req, res) => {
     }
 });
 
+// ========== UPDATE UNIFORM STOCK (FIXED - Manual stock management) ==========
 app.post('/api/uniform/stock', (req, res) => {
     try {
         const { itemName, quantity, operation, comment } = req.body;
@@ -8163,6 +8669,7 @@ app.post('/api/uniform/stock', (req, res) => {
         let stock = readFile(uniformFiles.uniformStock);
         let transactions = readFile(uniformFiles.uniformTransactions);
         
+        // Initialize item if it doesn't exist
         if (!stock[itemName]) {
             stock[itemName] = {
                 name: itemName,
@@ -8198,6 +8705,7 @@ app.post('/api/uniform/stock', (req, res) => {
         
         stock[itemName].lastUpdated = new Date().toISOString();
         
+        // Record transaction
         const transaction = {
             id: uuidv4(),
             studentId: null,
@@ -8235,21 +8743,26 @@ app.post('/api/uniform/stock', (req, res) => {
     }
 });
 
+// ========== GET UNIFORM TRANSACTIONS (FIXED) ==========
 app.get('/api/uniform/transactions', (req, res) => {
     try {
         const { studentId, itemName, limit } = req.query;
         let transactions = readFile(uniformFiles.uniformTransactions);
         
+        // Filter by studentId if provided
         if (studentId) {
             transactions = transactions.filter(t => t.studentId === studentId);
         }
         
+        // Filter by itemName if provided
         if (itemName) {
             transactions = transactions.filter(t => t.itemName === itemName);
         }
         
+        // Sort by date (newest first)
         transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
+        // Apply limit if provided
         if (limit && parseInt(limit) > 0) {
             transactions = transactions.slice(0, parseInt(limit));
         }
@@ -8261,12 +8774,16 @@ app.get('/api/uniform/transactions', (req, res) => {
     }
 });
 
+// ========== GET UNIFORM STUDENT HISTORY ==========
 app.get('/api/uniform/student/:studentId/history', (req, res) => {
     try {
         const { studentId } = req.params;
         let transactions = readFile(uniformFiles.uniformTransactions);
         
+        // Filter by studentId
         transactions = transactions.filter(t => t.studentId === studentId);
+        
+        // Sort by date (newest first)
         transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         res.json({
@@ -8280,12 +8797,16 @@ app.get('/api/uniform/student/:studentId/history', (req, res) => {
     }
 });
 
+// ========== GET UNIFORM ITEM HISTORY ==========
 app.get('/api/uniform/item/:itemName/history', (req, res) => {
     try {
         const { itemName } = req.params;
         let transactions = readFile(uniformFiles.uniformTransactions);
         
+        // Filter by itemName
         transactions = transactions.filter(t => t.itemName === itemName);
+        
+        // Sort by date (newest first)
         transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         res.json({
@@ -8299,6 +8820,7 @@ app.get('/api/uniform/item/:itemName/history', (req, res) => {
     }
 });
 
+// ========== RESET UNIFORM STOCK (Admin function) ==========
 app.post('/api/uniform/reset', (req, res) => {
     try {
         const { confirm } = req.body;
@@ -8307,6 +8829,7 @@ app.post('/api/uniform/reset', (req, res) => {
             return res.status(400).json({ error: 'Invalid confirmation. Please type "RESET UNIFORM STOCK"' });
         }
         
+        // Reset stock to empty
         saveFile(uniformFiles.uniformStock, {});
         saveFile(uniformFiles.uniformTransactions, []);
         saveFile(uniformFiles.uniformAssignments, {});
@@ -8324,12 +8847,20 @@ app.post('/api/uniform/reset', (req, res) => {
 });
 
 // ==================== DASHBOARD STATISTICS ENDPOINT ====================
+// Version: 3.1 - FIXED: Uses currentAcademicSettings
+
+// ==================== DASHBOARD STATISTICS ENDPOINT ====================
+// Version: 4.0 - COMPLETE REBUILD - Works with any data structure
+
+// ==================== COMPLETE REBUILT DASHBOARD STATS ENDPOINT ====================
+// Version: 3.0 - Tuition-Only Financial Cards + Complete Statistics
 
 app.get('/api/dashboard/stats', async (req, res) => {
     console.log('=== DASHBOARD STATS REQUESTED ===');
     console.log('📍 Starting dashboard statistics generation...');
     
     try {
+        // ========== STEP 1: READ SETTINGS ==========
         let currentYear = new Date().getFullYear();
         let currentTerm = 1;
         
@@ -8349,6 +8880,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const isFirstTerm = currentTerm === 1;
         const termName = getTermName(currentTerm);
         
+        // ========== STEP 2: READ ALL DATA FILES ==========
         console.log('📂 Reading data files...');
         
         let students = [];
@@ -8373,6 +8905,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         
         console.log(`📊 Data loaded: ${students.length} students, ${feeStructures.length} fee structures, ${feePayments.length} payments`);
         
+        // ========== STEP 3: BUILD MAPS FOR QUICK LOOKUP ==========
         console.log('🔍 Building lookup maps...');
         
         const assignmentsMap = {};
@@ -8395,10 +8928,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
             if (fs && fs.id) feeStructuresMap[fs.id] = fs; 
         });
         
+        // ========== STEP 4: FILTER PAYMENTS FOR CURRENT TERM ==========
         const currentTermPayments = feePayments.filter(p => 
             p && p.term === currentTerm && p.academicYear === currentYear.toString()
         );
         
+        // ========== STEP 5: PROCESS STUDENTS ==========
         console.log('👨‍🎓 Processing students...');
         
         let totalStudents = students.length;
@@ -8406,6 +8941,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         let maleCount = 0;
         let femaleCount = 0;
         
+        // TUITION-ONLY STATS
         let tuitionExpected = 0;
         let tuitionCollected = 0;
         let tuitionFullyPaidCount = 0;
@@ -8413,10 +8949,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
         let tuitionNoPaymentCount = 0;
         let tuitionCreditBalanceCount = 0;
         
+        // STATUS GROUP STATS
         const statusGroupsMap = {};
         const allItemsMap = {};
         const allStatusGroupNames = new Set();
         
+        // First, extract all status groups and items from fee structures
         feeStructures.forEach(fs => {
             if (!fs || !fs.activityComponents) return;
             
@@ -8447,6 +8985,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     allStatusGroupNames.add(sgName);
                 }
                 
+                // Process items
                 (comp.items || []).forEach(item => {
                     if (!item) return;
                     const itemName = item.name || 'Unnamed Item';
@@ -8469,6 +9008,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     statusGroupsMap[sgId].items[itemName].required += quantityRequired;
                     statusGroupsMap[sgId].items[itemName].totalAmount += totalAmount;
                     
+                    // Global items map
                     if (!allItemsMap[itemName]) {
                         allItemsMap[itemName] = {
                             name: itemName,
@@ -8487,18 +9027,22 @@ app.get('/api/dashboard/stats', async (req, res) => {
             });
         });
         
+        // Process each student for status groups and tuition
         for (const student of students) {
             if (!student) continue;
             
+            // Count gender
             if (student.gender === 'Male') maleCount++;
             else if (student.gender === 'Female') femaleCount++;
             
+            // ========== CALCULATE TUITION ==========
             const assignment = assignmentsMap[student.id] || {};
             const feeStructure = feeStructuresMap[assignment.feeStructureId];
             
             if (feeStructure) {
                 let expectedTuition = feeStructure.tuition || 0;
                 
+                // Apply custom bursary from student record first
                 if (student.customBursary && student.customBursary.amount > 0) {
                     expectedTuition = Math.max(0, expectedTuition - student.customBursary.amount);
                 } else if (assignment.bursaryId && bursariesMap[assignment.bursaryId]) {
@@ -8514,6 +9058,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 
                 tuitionExpected += expectedTuition;
                 
+                // Get tuition payments for this student
                 const studentPayments = currentTermPayments.filter(p => 
                     p && p.studentId === student.id
                 );
@@ -8521,6 +9066,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 const tuitionPaid = studentPayments.reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
                 tuitionCollected += tuitionPaid;
                 
+                // Track tuition status
                 const tuitionBalance = expectedTuition - tuitionPaid;
                 if (Math.abs(tuitionBalance) <= 10 && tuitionPaid > 0) {
                     tuitionFullyPaidCount++;
@@ -8533,11 +9079,13 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 }
             }
             
+            // ========== PROCESS STATUS GROUPS FOR THIS STUDENT ==========
             const studentAssignment = assignmentsMap[student.id] || {};
             const studentFeeStructure = feeStructuresMap[studentAssignment.feeStructureId];
             
             if (!studentFeeStructure) continue;
             
+            // Get student's class
             let currentClass = 'Not Assigned';
             let classLevel = 'Unknown';
             if (student.currentClassId && classesMap[student.currentClassId]) {
@@ -8547,6 +9095,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 currentClass = student.currentClass;
             }
             
+            // Get student's term record
             const termRecordKey = student.id + '_' + currentYear + '_' + currentTerm;
             const termRecord = termRecords[termRecordKey] || { 
                 activityItemsPaid: { one_time: [], termly: [], yearly: [] },
@@ -8554,10 +9103,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 activityTotalPaid: 0
             };
             
+            // Get student payments for this term
             const studentPayments = currentTermPayments.filter(p => 
                 p && p.studentId === student.id
             );
             
+            // Process each component in the fee structure
             if (studentFeeStructure.activityComponents) {
                 for (const comp of studentFeeStructure.activityComponents) {
                     if (!comp) continue;
@@ -8592,6 +9143,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                         };
                     }
                     
+                    // Process each item in the component
                     for (const item of (comp.items || [])) {
                         if (!item) continue;
                         const itemName = item.name || 'Unnamed Item';
@@ -8600,12 +9152,15 @@ app.get('/api/dashboard/stats', async (req, res) => {
                         const unitPrice = item.unitPrice || (totalAmount / quantityRequired);
                         const paymentOption = item.paymentOption || 'either';
                         
+                        // Calculate what's been paid for this item
                         let cashPaid = 0;
                         let itemsBrought = 0;
                         
+                        // Check payments
                         for (const payment of studentPayments) {
                             if (!payment) continue;
                             
+                            // Check activityItemPayments
                             if (payment.activityItemPayments) {
                                 for (const paidItem of payment.activityItemPayments) {
                                     if (!paidItem) continue;
@@ -8621,6 +9176,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                                 }
                             }
                             
+                            // Check paymentsByPeriodType
                             if (payment.paymentsByPeriodType) {
                                 const periodItems = payment.paymentsByPeriodType[periodType] || [];
                                 for (const paidItem of periodItems) {
@@ -8637,6 +9193,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                             }
                         }
                         
+                        // Also check term record
                         const periodItems = termRecord.activityItemsPaid?.[periodType] || [];
                         const paidRecord = periodItems.find(p => p && p.itemName === itemName);
                         if (paidRecord) {
@@ -8644,22 +9201,26 @@ app.get('/api/dashboard/stats', async (req, res) => {
                             itemsBrought = Math.max(itemsBrought, paidRecord.itemsBrought || 0);
                         }
                         
+                        // Calculate collected quantity (cap at required)
                         const cashCoversItems = unitPrice > 0 ? Math.floor(cashPaid / unitPrice) : 0;
                         const totalCollected = Math.min(itemsBrought + cashCoversItems, quantityRequired);
                         const remaining = Math.max(0, quantityRequired - totalCollected);
                         
+                        // Update status group totals
                         if (statusGroupsMap[sgId]) {
                             statusGroupsMap[sgId].totalRequired += quantityRequired;
                             statusGroupsMap[sgId].totalCollected += totalCollected;
                             statusGroupsMap[sgId].totalRemaining += remaining;
                             statusGroupsMap[sgId].studentCount = (statusGroupsMap[sgId].studentCount || 0) + 1;
                             
+                            // Update item totals
                             if (statusGroupsMap[sgId].items[itemName]) {
                                 statusGroupsMap[sgId].items[itemName].collected += totalCollected;
                                 statusGroupsMap[sgId].items[itemName].remaining += remaining;
                                 statusGroupsMap[sgId].items[itemName].studentsCount++;
                             }
                             
+                            // Update class breakdown
                             if (!statusGroupsMap[sgId].classBreakdown[currentClass]) {
                                 statusGroupsMap[sgId].classBreakdown[currentClass] = { 
                                     required: 0, 
@@ -8672,6 +9233,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                             statusGroupsMap[sgId].classBreakdown[currentClass].remaining += remaining;
                         }
                         
+                        // Update global items map
                         if (allItemsMap[itemName]) {
                             allItemsMap[itemName].collected += totalCollected;
                             allItemsMap[itemName].remaining += remaining;
@@ -8682,9 +9244,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
             }
         }
         
+        // ========== CALCULATE TOTALS ==========
         const tuitionOutstanding = Math.max(0, tuitionExpected - tuitionCollected);
         const tuitionRate = tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0;
         
+        // ========== BUILD STATUS GROUP HEALTH ==========
         const statusGroupHealth = [];
         for (const sgId in statusGroupsMap) {
             const sg = statusGroupsMap[sgId];
@@ -8704,6 +9268,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         }
         statusGroupHealth.sort((a, b) => b.rate - a.rate);
         
+        // ========== BUILD ITEMS LIST ==========
         const itemsList = [];
         for (const itemName in allItemsMap) {
             const item = allItemsMap[itemName];
@@ -8719,6 +9284,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         }
         itemsList.sort((a, b) => a.name.localeCompare(b.name));
         
+        // ========== BUILD RECENT PAYMENTS ==========
         const sortedPayments = [...currentTermPayments]
             .filter(p => p && p.date)
             .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -8738,6 +9304,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             
             const totalAmount = payment.totalAmount || payment.amount || 0;
             
+            // Only include payments with amount > 0 or items
             if (totalAmount > 0 || itemNames.length > 0) {
                 recentPayments.push({
                     date: payment.date,
@@ -8751,9 +9318,11 @@ app.get('/api/dashboard/stats', async (req, res) => {
             }
         }
         
+        // ========== CALCULATE STATUS GROUP COUNT ==========
         const statusGroupsCount = Object.keys(statusGroupsMap).length;
         const totalItemsCount = Object.keys(allItemsMap).length;
         
+        // ========== BUILD RESPONSE ==========
         const responseData = {
             success: true,
             data: {
@@ -8780,6 +9349,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                         creditBalance: tuitionCreditBalanceCount
                     }
                 },
+                // ===== TUITION-ONLY FINANCIAL STATS =====
                 tuitionStats: {
                     expected: tuitionExpected,
                     collected: tuitionCollected,
@@ -8788,6 +9358,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     fullyPaid: tuitionFullyPaidCount,
                     withBalance: tuitionPaymentDueCount
                 },
+                // ===== STATUS GROUP STATS =====
                 statusGroups: Object.values(statusGroupsMap),
                 statusGroupHealth: statusGroupHealth,
                 items: itemsList,
@@ -8819,6 +9390,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
     }
 });
 
+// ========== HELPER: GET STATUS GROUP COLOR ==========
 function getStatusGroupColor(name) {
     if (!name) return 'bg-gray-100 text-gray-800 border-gray-200';
     
@@ -8831,11 +9403,14 @@ function getStatusGroupColor(name) {
         'schoolastic requirement': 'bg-green-100 text-green-800 border-green-200',
         'Sports': 'bg-blue-100 text-blue-800 border-blue-200',
         'Development': 'bg-red-100 text-red-800 border-red-200',
-        'Tuition': 'bg-indigo-100 text-indigo-800 border-indigo-200'
+        'Tuition': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+        'Uniform': 'bg-pink-100 text-pink-800 border-pink-200'
     };
     
+    // Try exact match first
     if (colorMap[name]) return colorMap[name];
     
+    // Try case-insensitive partial match
     const lowerName = name.toLowerCase();
     for (const [key, color] of Object.entries(colorMap)) {
         if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
@@ -8846,11 +9421,13 @@ function getStatusGroupColor(name) {
     return 'bg-gray-100 text-gray-800 border-gray-200';
 }
 
+// ========== HELPER: GET TERM NAME ==========
 function getTermName(term) {
     const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
     return names[term] || `Term ${term}`;
 }
 
+// ==================== CLEAN INVENTORY DATA ====================
 app.post('/api/inventory/clean', (req, res) => {
     try {
         var stock = readFile(inventoryFiles.inventoryStock);
@@ -8866,6 +9443,10 @@ app.post('/api/inventory/clean', (req, res) => {
             var isScholastic = scholasticKeywords.some(function(kw) { return lowerName.includes(kw); });
             var isExcluded = excludeKeywords.some(function(kw) { return lowerName.includes(kw); });
             
+            // Also check if it has a status group
+            var hasStatusGroup = false;
+            // ... check status groups
+            
             if (isScholastic && !isExcluded) {
                 newStock[key] = item;
             } else {
@@ -8879,9 +9460,49 @@ app.post('/api/inventory/clean', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// ========== HELPER: GET STATUS GROUP COLOR ==========
+function getStatusGroupColor(name) {
+    if (!name) return 'bg-gray-100 text-gray-800 border-gray-200';
+    
+    const colorMap = {
+        'Transportation': 'bg-orange-100 text-orange-800 border-orange-200',
+        'transportation': 'bg-orange-100 text-orange-800 border-orange-200',
+        'Admission': 'bg-purple-100 text-purple-800 border-purple-200',
+        'Admission Fee': 'bg-purple-100 text-purple-800 border-purple-200',
+        'Scholastic': 'bg-green-100 text-green-800 border-green-200',
+        'schoolastic requirement': 'bg-green-100 text-green-800 border-green-200',
+        'Sports': 'bg-blue-100 text-blue-800 border-blue-200',
+        'Development': 'bg-red-100 text-red-800 border-red-200',
+        'Tuition': 'bg-indigo-100 text-indigo-800 border-indigo-200'
+    };
+    
+    // Try exact match first
+    if (colorMap[name]) return colorMap[name];
+    
+    // Try case-insensitive partial match
+    const lowerName = name.toLowerCase();
+    for (const [key, color] of Object.entries(colorMap)) {
+        if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
+            return color;
+        }
+    }
+    
+    return 'bg-gray-100 text-gray-800 border-gray-200';
+}
+
+// ========== HELPER: GET TERM NAME ==========
+function getTermName(term) {
+    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+    return names[term] || `Term ${term}`;
+}
+
+// ========== LOG WHEN ENDPOINT IS LOADED ==========
+console.log('✅ Dashboard Stats API endpoint loaded successfully!');
+// ==================== FRONTEND ROUTES ====================
+
 
 // ==================== CUSTOM ITEM OVERRIDE API ENDPOINTS ====================
-
+// GET all customizations for a student
 app.get('/api/students/:studentId/customizations', (req, res) => {
     try {
         const students = readFile(files.students);
@@ -8894,6 +9515,7 @@ app.get('/api/students/:studentId/customizations', (req, res) => {
     }
 });
 
+// GET customization for a specific item
 app.get('/api/students/:studentId/customizations/:itemId', (req, res) => {
     try {
         const students = readFile(files.students);
@@ -8907,6 +9529,7 @@ app.get('/api/students/:studentId/customizations/:itemId', (req, res) => {
     }
 });
 
+// CREATE or UPDATE a single customization
 app.put('/api/students/:studentId/customizations/:itemId', (req, res) => {
     try {
         const { customAmount, customQuantity, paymentOption, reason, componentId, itemName, defaultAmount, defaultQuantity } = req.body;
@@ -8932,6 +9555,7 @@ app.put('/api/students/:studentId/customizations/:itemId', (req, res) => {
             updatedBy: req.body.updatedBy || 'System'
         };
 
+        // If both custom values are empty, remove the override
         if (customization.customAmount === null && customization.customQuantity === null) {
             delete students[index].customItemOverrides[req.params.itemId];
             const count = Object.keys(students[index].customItemOverrides).length;
@@ -8941,6 +9565,7 @@ app.put('/api/students/:studentId/customizations/:itemId', (req, res) => {
             return res.json({ success: true, message: 'Customization removed', customization: null });
         }
 
+        // ✅ Preserve all other customizations – only this itemId is updated
         students[index].customItemOverrides[req.params.itemId] = customization;
         students[index].hasCustomizations = true;
         students[index].customizationCount = Object.keys(students[index].customItemOverrides).length;
@@ -8953,6 +9578,7 @@ app.put('/api/students/:studentId/customizations/:itemId', (req, res) => {
     }
 });
 
+// DELETE a customization (revert to default)
 app.delete('/api/students/:studentId/customizations/:itemId', (req, res) => {
     try {
         const students = readFile(files.students);
@@ -8972,6 +9598,7 @@ app.delete('/api/students/:studentId/customizations/:itemId', (req, res) => {
     }
 });
 
+// Summary endpoint (unchanged)
 app.get('/api/students/customizations/summary', (req, res) => {
     try {
         const students = readFile(files.students);
@@ -8989,15 +9616,17 @@ app.get('/api/students/customizations/summary', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 // ==================== SCHOOL STOCK MANAGEMENT SYSTEM ====================
+// Version: 1.0 - Manual Stock Items (Food, Supplies, etc.)
 
+// File paths for school stock
 const schoolStockFiles = {
     schoolStock: path.join(dataDir, 'schoolStock.json'),
     schoolStockTransactions: path.join(dataDir, 'schoolStockTransactions.json'),
     schoolStockCategories: path.join(dataDir, 'schoolStockCategories.json')
 };
 
+// Initialize school stock files
 function initializeSchoolStockFiles() {
     try {
         if (!fs.existsSync(schoolStockFiles.schoolStock)) {
@@ -9025,6 +9654,7 @@ function initializeSchoolStockFiles() {
 
 initializeSchoolStockFiles();
 
+// ========== HELPER: UPDATE SCHOOL STOCK ==========
 function updateSchoolStock(itemName, quantity, operation, comment, category) {
     const stock = readFile(schoolStockFiles.schoolStock);
     const transactions = readFile(schoolStockFiles.schoolStockTransactions);
@@ -9091,6 +9721,10 @@ function updateSchoolStock(itemName, quantity, operation, comment, category) {
     return { stock: stock[itemName], transaction, message };
 }
 
+// ==================== SCHOOL STOCK ROUTES ====================
+// ========== IMPORTANT: SPECIFIC ROUTES FIRST, WILDCARD LAST ==========
+
+// 1. GET SCHOOL STOCK CATEGORIES (Most specific - no parameters)
 app.get('/api/school-stock/categories', (req, res) => {
     try {
         const categories = readFile(schoolStockFiles.schoolStockCategories);
@@ -9101,6 +9735,7 @@ app.get('/api/school-stock/categories', (req, res) => {
     }
 });
 
+// 2. GET SCHOOL STOCK TRANSACTIONS (Specific - query parameters only)
 app.get('/api/school-stock/transactions', (req, res) => {
     try {
         const { itemName, category, limit } = req.query;
@@ -9126,6 +9761,7 @@ app.get('/api/school-stock/transactions', (req, res) => {
     }
 });
 
+// 3. GET SCHOOL STOCK SUMMARY (Specific - no parameters)
 app.get('/api/school-stock/summary', (req, res) => {
     try {
         const stock = readFile(schoolStockFiles.schoolStock);
@@ -9183,6 +9819,7 @@ app.get('/api/school-stock/summary', (req, res) => {
     }
 });
 
+// 4. GET ALL SCHOOL STOCK ITEMS (No parameters)
 app.get('/api/school-stock', (req, res) => {
     try {
         const { category } = req.query;
@@ -9211,6 +9848,7 @@ app.get('/api/school-stock', (req, res) => {
     }
 });
 
+// 5. GET SCHOOL STOCK ITEM BY NAME (Wildcard - MUST BE LAST)
 app.get('/api/school-stock/:itemName', (req, res) => {
     try {
         const itemName = req.params.itemName;
@@ -9230,6 +9868,7 @@ app.get('/api/school-stock/:itemName', (req, res) => {
     }
 });
 
+// 6. CREATE SCHOOL STOCK CATEGORY
 app.post('/api/school-stock/categories', (req, res) => {
     try {
         const { name, description, color, icon } = req.body;
@@ -9266,6 +9905,7 @@ app.post('/api/school-stock/categories', (req, res) => {
     }
 });
 
+// 7. UPDATE SCHOOL STOCK CATEGORY
 app.put('/api/school-stock/categories/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -9307,6 +9947,7 @@ app.put('/api/school-stock/categories/:id', (req, res) => {
     }
 });
 
+// 8. DELETE SCHOOL STOCK CATEGORY
 app.delete('/api/school-stock/categories/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -9333,6 +9974,7 @@ app.delete('/api/school-stock/categories/:id', (req, res) => {
     }
 });
 
+// 9. UPDATE SCHOOL STOCK (Add or Remove items)
 app.post('/api/school-stock/update', (req, res) => {
     try {
         const { itemName, quantity, operation, comment, category } = req.body;
@@ -9359,6 +10001,7 @@ app.post('/api/school-stock/update', (req, res) => {
     }
 });
 
+// 10. ISSUE SCHOOL STOCK ITEM
 app.post('/api/school-stock/issue', (req, res) => {
     try {
         const { itemName, quantity, destination, recipient, comment } = req.body;
@@ -9428,6 +10071,7 @@ app.post('/api/school-stock/issue', (req, res) => {
     }
 });
 
+// 11. REVERSE SCHOOL STOCK TRANSACTION
 app.post('/api/school-stock/reverse/:transactionId', (req, res) => {
     try {
         const { transactionId } = req.params;
@@ -9493,6 +10137,7 @@ app.post('/api/school-stock/reverse/:transactionId', (req, res) => {
     }
 });
 
+// 12. EDIT SCHOOL STOCK TRANSACTION
 app.put('/api/school-stock/transaction/:transactionId', (req, res) => {
     try {
         const { transactionId } = req.params;
@@ -9549,8 +10194,33 @@ app.put('/api/school-stock/transaction/:transactionId', (req, res) => {
 });
 
 console.log('✅ School Stock Management System v1.0 Loaded!');
+console.log('   - Manual stock items (Food, Supplies, etc.)');
+console.log('   - Category-based organization');
+console.log('   - Issue, Edit, Reverse transactions');
+console.log('   - Separate from scholastic inventory');
 
-// ==================== PREVIOUS BALANCES API ENDPOINT ====================
+// ==================== PREVIOUS BALANCES API ENDPOINTS ====================
+
+// ==================== COMPLETE REBUILT PREVIOUS BALANCES ENDPOINT ====================
+// Version: 3.0 - Carries forward ALL unpaid items from previous periods
+// With full item-level detail, custom overrides, and removed items support
+
+// ==================== COMPLETE REBUILT PREVIOUS BALANCES ENDPOINT ====================
+// Version: 4.0 - Returns FULL fee structure data for each period with balance
+
+// ============================================================================
+// COMPLETE REBUILT: /api/students/${studentId}/previous-balances
+// Version: 5.0 - Full Period Carryover with Customizations
+// ============================================================================
+
+// ============================================================================
+// COMPLETE REBUILT: /api/students/:studentId/previous-balances
+// Version: 12.0 - Only periods WITH BALANCES are shown (like v5.0 logic)
+// ============================================================================
+
+// ==================== COMPLETE REBUILT PREVIOUS BALANCES ENDPOINT ====================
+// Version: 13.0 - STABLE ITEM IDs FOR PERSISTENT CUSTOMIZATIONS
+// ALL dynamically generated items now have deterministic IDs
 
 app.get('/api/students/:studentId/previous-balances', async (req, res) => {
     console.log('=== GET PREVIOUS BALANCES v13.0 - STABLE ITEM IDs ===');
@@ -9559,6 +10229,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
     try {
         const { studentId } = req.params;
         
+        // ========== FETCH ALL DATA ==========
         const [
             studentsData,
             feeStructuresData,
@@ -9592,6 +10263,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         classes = Array.isArray(classes) ? classes : [];
         feeBursaries = Array.isArray(feeBursaries) ? feeBursaries : [];
         
+        // ========== FIND THE STUDENT ==========
         const student = students.find(s => s && s.id === studentId);
         if (!student) {
             return res.status(404).json({ error: 'Student not found' });
@@ -9601,6 +10273,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         console.log('📦 Removed Items:', Object.keys(student.removedItems || {}));
         console.log('⚡ Custom Overrides:', Object.keys(student.customItemOverrides || {}));
         
+        // ========== GET CURRENT ACADEMIC SETTINGS ==========
         const settingsPath = path.join(__dirname, 'data', 'settings.json');
         let currentYear = new Date().getFullYear();
         let currentTerm = 1;
@@ -9615,6 +10288,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         
         console.log(`📅 CURRENT PERIOD: ${currentYear} Term ${currentTerm}`);
         
+        // ========== BUILD MAPS ==========
         const classesMap = {};
         classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
         
@@ -9627,6 +10301,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         const bursariesMap = {};
         feeBursaries.forEach(b => { if (b && b.id) bursariesMap[b.id] = b; });
         
+        // ========== GET STUDENT'S FEE STRUCTURE ==========
         const assignment = assignmentsMap[studentId] || {};
         let feeStructure = feeStructuresMap[assignment.feeStructureId];
         
@@ -9673,17 +10348,26 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         
         console.log('✅ Fee structure found:', feeStructure.name);
         
-        function getStableItemId(componentId, itemName, periodType, year, term) {
-            const key = `${componentId}_${itemName}_${periodType || 'termly'}`;
-            let hash = 0;
-            for (let i = 0; i < key.length; i++) {
-                const char = key.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return `item_${Math.abs(hash)}_${year || ''}_${term || ''}`;
-        }
+        // ========== HELPER: GET STABLE ITEM ID ==========
+        // 🔥 CRITICAL FIX: Generate a deterministic ID for any item
+        // This ensures the same item gets the same ID on every page load
+       // ========== GET STABLE ITEM ID ==========
+function getStableItemId(componentId, itemName, periodType, year, term) {
+    // IMPORTANT: Use the SAME format everywhere!
+    // Format: componentId_itemName_periodType
+    const key = `${componentId}_${itemName}_${periodType || 'termly'}`;
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+        const char = key.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return `item_${Math.abs(hash)}_${year || ''}_${term || ''}`;
+}
 
+
+
+        // ========== HELPER: GET STABLE COMPONENT ID ==========
         function getStableComponentId(componentName, periodType, year, term) {
             const key = `comp_${componentName}_${periodType || 'termly'}`;
             let hash = 0;
@@ -9695,6 +10379,8 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             return `comp_${Math.abs(hash)}`;
         }
 
+        // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
+        // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
         function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
             if (!student) {
                 return {
@@ -9763,335 +10449,364 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             };
         }
 
+        // ========== HELPER: CHECK IF ITEM IS REMOVED ==========
         function isItemRemoved(studentData, itemId) {
             if (!studentData || !studentData.removedItems) return false;
             return studentData.removedItems[itemId] && studentData.removedItems[itemId].isActive !== false;
         }
 
-        function getPaidAmountsForItem(studentId, componentId, componentName, itemId, itemName, periodType, year, term, allPaymentsData) {
-            let scopedPayments = [];
+        // ========== HELPER: GET PAID AMOUNTS FOR ITEM WITH PERIOD SCOPE ==========
+       function getPaidAmountsForItem(studentId, componentId, componentName, itemId, itemName, periodType, year, term, allPaymentsData) {
+    let scopedPayments = [];
 
-            if (periodType === 'one_time') {
-                scopedPayments = allPaymentsData.filter(p => p && p.studentId === studentId);
-            } else if (periodType === 'yearly') {
-                scopedPayments = allPaymentsData.filter(p => 
-                    p && p.studentId === studentId && 
-                    p.academicYear === year.toString()
-                );
+    if (periodType === 'one_time') {
+        scopedPayments = allPaymentsData.filter(p => p && p.studentId === studentId);
+    } else if (periodType === 'yearly') {
+        scopedPayments = allPaymentsData.filter(p => 
+            p && p.studentId === studentId && 
+            p.academicYear === year.toString()
+        );
+    } else {
+        scopedPayments = allPaymentsData.filter(p => 
+            p && p.studentId === studentId && 
+            p.term === term && 
+            p.academicYear === year.toString()
+        );
+    }
+
+    let cashPaid = 0;
+    let itemsBrought = 0;
+    const paymentHistories = [];
+    const processedKeys = new Set();
+    const uniquePaymentItems = new Map();
+
+    for (const payment of scopedPayments) {
+        if (!payment || !payment.id) continue;
+
+        // Check activityItemPayments
+        if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
+            for (const paidItem of payment.activityItemPayments) {
+                if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
+                const compMatch = paidItem.componentName.toLowerCase() === componentName.toLowerCase();
+                const itemMatch = paidItem.itemName.toLowerCase() === itemName.toLowerCase();
+                if (compMatch && itemMatch) {
+                    const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
+                    if (!uniquePaymentItems.has(key)) {
+                        uniquePaymentItems.set(key, { payment, paidItem });
+                    }
+                }
+            }
+        }
+
+        // Check paymentsByPeriodType
+        if (payment.paymentsByPeriodType) {
+            const periodTypes = ['one_time', 'termly', 'yearly'];
+            for (const pt of periodTypes) {
+                const periodItems = payment.paymentsByPeriodType[pt] || [];
+                for (const paidItem of periodItems) {
+                    if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
+                    const compMatch = paidItem.componentName.toLowerCase() === componentName.toLowerCase();
+                    const itemMatch = paidItem.itemName.toLowerCase() === itemName.toLowerCase();
+                    if (compMatch && itemMatch) {
+                        const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
+                        if (!uniquePaymentItems.has(key)) {
+                            uniquePaymentItems.set(key, { payment, paidItem });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (const [key, data] of uniquePaymentItems) {
+        const { payment, paidItem } = data;
+        const historyKey = `${payment.receiptNumber || payment.id}_${paidItem.itemName}`;
+        if (processedKeys.has(historyKey)) continue;
+        processedKeys.add(historyKey);
+
+        // ---- FIX: correctly handle cash mislabeled as brought_item ----
+        if (paidItem.paymentType === 'paid_cash') {
+            const amount = (paidItem.amountPaid || 0);
+            cashPaid += amount;
+            paymentHistories.push({
+                type: 'cash',
+                amount: amount,
+                date: payment.date || new Date().toISOString(),
+                receiptNumber: payment.receiptNumber || 'N/A',
+                academicYear: payment.academicYear,
+                term: payment.term,
+                paymentId: payment.id,
+                isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
+                method: payment.method || 'cash'
+            });
+        } else if (paidItem.paymentType === 'brought_item') {
+            const qty = (paidItem.itemsBrought || 0);
+            // ***** NEW: if qty is 0 and amountPaid > 0, treat as cash *****
+            if (qty === 0 && (paidItem.amountPaid || 0) > 0) {
+                const amount = paidItem.amountPaid || 0;
+                cashPaid += amount;
+                paymentHistories.push({
+                    type: 'cash',
+                    amount: amount,
+                    date: payment.date || new Date().toISOString(),
+                    receiptNumber: payment.receiptNumber || 'N/A',
+                    academicYear: payment.academicYear,
+                    term: payment.term,
+                    paymentId: payment.id,
+                    isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
+                    method: payment.method || 'cash'
+                });
             } else {
-                scopedPayments = allPaymentsData.filter(p => 
-                    p && p.studentId === studentId && 
-                    p.term === term && 
-                    p.academicYear === year.toString()
-                );
+                const equiv = (paidItem.cashEquivalent || qty * (paidItem.unitPrice || 0));
+                itemsBrought += qty;
+                cashPaid += equiv;
+                paymentHistories.push({
+                    type: 'item',
+                    quantity: qty,
+                    amount: equiv,
+                    date: payment.date || new Date().toISOString(),
+                    receiptNumber: payment.receiptNumber || 'N/A',
+                    academicYear: payment.academicYear,
+                    term: payment.term,
+                    paymentId: payment.id,
+                    isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
+                    method: payment.method || 'cash'
+                });
             }
-
-            let cashPaid = 0;
-            let itemsBrought = 0;
-            const paymentHistories = [];
-            const processedKeys = new Set();
-            const uniquePaymentItems = new Map();
-
-            for (const payment of scopedPayments) {
-                if (!payment || !payment.id) continue;
-
-                if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
-                    for (const paidItem of payment.activityItemPayments) {
-                        if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                        const compMatch = paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                        const itemMatch = paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                        if (compMatch && itemMatch) {
-                            const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
-                            if (!uniquePaymentItems.has(key)) {
-                                uniquePaymentItems.set(key, { payment, paidItem });
-                            }
-                        }
-                    }
-                }
-
-                if (payment.paymentsByPeriodType) {
-                    const periodTypes = ['one_time', 'termly', 'yearly'];
-                    for (const pt of periodTypes) {
-                        const periodItems = payment.paymentsByPeriodType[pt] || [];
-                        for (const paidItem of periodItems) {
-                            if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                            const compMatch = paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                            const itemMatch = paidItem.itemName.toLowerCase() === itemName.toLowerCase();
-                            if (compMatch && itemMatch) {
-                                const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
-                                if (!uniquePaymentItems.has(key)) {
-                                    uniquePaymentItems.set(key, { payment, paidItem });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (const [key, data] of uniquePaymentItems) {
-                const { payment, paidItem } = data;
-                const historyKey = `${payment.receiptNumber || payment.id}_${paidItem.itemName}`;
-                if (processedKeys.has(historyKey)) continue;
-                processedKeys.add(historyKey);
-
-                if (paidItem.paymentType === 'paid_cash') {
-                    const amount = (paidItem.amountPaid || 0);
-                    cashPaid += amount;
-                    paymentHistories.push({
-                        type: 'cash',
-                        amount: amount,
-                        date: payment.date || new Date().toISOString(),
-                        receiptNumber: payment.receiptNumber || 'N/A',
-                        academicYear: payment.academicYear,
-                        term: payment.term,
-                        paymentId: payment.id,
-                        isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
-                        method: payment.method || 'cash'
-                    });
-                } else if (paidItem.paymentType === 'brought_item') {
-                    const qty = (paidItem.itemsBrought || 0);
-                    if (qty === 0 && (paidItem.amountPaid || 0) > 0) {
-                        const amount = paidItem.amountPaid || 0;
-                        cashPaid += amount;
-                        paymentHistories.push({
-                            type: 'cash',
-                            amount: amount,
-                            date: payment.date || new Date().toISOString(),
-                            receiptNumber: payment.receiptNumber || 'N/A',
-                            academicYear: payment.academicYear,
-                            term: payment.term,
-                            paymentId: payment.id,
-                            isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
-                            method: payment.method || 'cash'
-                        });
-                    } else {
-                        const equiv = (paidItem.cashEquivalent || qty * (paidItem.unitPrice || 0));
-                        itemsBrought += qty;
-                        cashPaid += equiv;
-                        paymentHistories.push({
-                            type: 'item',
-                            quantity: qty,
-                            amount: equiv,
-                            date: payment.date || new Date().toISOString(),
-                            receiptNumber: payment.receiptNumber || 'N/A',
-                            academicYear: payment.academicYear,
-                            term: payment.term,
-                            paymentId: payment.id,
-                            isPreviousBalancePayment: payment.isPreviousBalancePayment || false,
-                            method: payment.method || 'cash'
-                        });
-                    }
-                }
-            }
-
-            const seen = new Set();
-            const uniqueHistories = [];
-            for (const h of paymentHistories) {
-                const key = `${h.date || ''}_${h.type || ''}_${h.amount || 0}_${h.quantity || 0}_${h.receiptNumber || ''}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueHistories.push(h);
-                }
-            }
-
-            return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
+    }
 
-        function buildFeeItemsFromStructure(fs, studentData, year, term, isFirstTerm) {
-            if (!fs || !fs.activityComponents) return { items: [], totalExpected: 0 };
-            
-            const items = [];
-            let totalExpected = 0;
-            const removedItems = studentData?.removedItems || {};
-            const customTransportation = studentData?.customTransportation || null;
-            const customOverrides = studentData?.customItemOverrides || {};
-            
-            console.log(`📦 Building fee items for ${year} Term ${term}`);
-            console.log(`📦 Custom Overrides keys:`, Object.keys(customOverrides));
-            
-            function findCustomOverride(itemName, componentName, itemId) {
-                console.log(`  🔍 Looking for: "${itemName}"`);
-                
-                for (const [key, custom] of Object.entries(customOverrides)) {
-                    if (custom.isActive === false) continue;
-                    if (custom.itemName === itemName) {
-                        console.log(`    ✅ FOUND by itemName: ${key}`);
-                        return custom;
-                    }
-                }
-                
-                if (itemId && customOverrides[itemId]) {
-                    const custom = customOverrides[itemId];
-                    if (custom.isActive !== false) {
-                        console.log(`    ✅ FOUND by itemId: ${itemId}`);
-                        return custom;
-                    }
-                }
-                
-                for (const [key, custom] of Object.entries(customOverrides)) {
-                    if (custom.isActive === false) continue;
-                    if (key.includes(itemName)) {
-                        console.log(`    ✅ FOUND by key containing name: ${key}`);
-                        return custom;
-                    }
-                }
-                
-                console.log(`    ❌ No override found for: "${itemName}"`);
-                return null;
-            }
-            
-            for (const component of fs.activityComponents) {
-                if (!component) continue;
-                
-                const periodType = component.periodType || 'termly';
-                const isTransportation = component.name.toLowerCase().includes('transport') || 
-                                        (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
-                
-                let shouldInclude = false;
-                if (periodType === 'termly') shouldInclude = true;
-                else if (periodType === 'one_time') shouldInclude = true;
-                else if (periodType === 'yearly') shouldInclude = isFirstTerm;
-                
-                if (!shouldInclude) continue;
-                
-                for (const item of (component.items || [])) {
-                    if (!item) continue;
-                    
-                    const itemName = item.name || 'Unnamed Item';
-                    const itemId = item.id || itemName;
-                    
-                    if (removedItems[itemId] && removedItems[itemId].isActive !== false) {
-                        console.log(`   ⏭️ Skipping removed item: ${itemName}`);
-                        continue;
-                    }
-                    
-                    const custom = findCustomOverride(itemName, component.name, itemId);
-                    
-                    let defaultAmount = item.totalAmount || 0;
-                    let defaultQuantity = item.quantity || 1;
-                    let defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
-                    let defaultPaymentOption = item.paymentOption || 'either';
-                    
-                    let effectiveAmount = defaultAmount;
-                    let effectiveQuantity = defaultQuantity;
-                    let effectiveUnitPrice = defaultUnitPrice;
-                    let effectivePaymentOption = defaultPaymentOption;
-                    let isCustomized = false;
-                    let customReason = null;
-                    
-                    if (custom && custom.isActive !== false) {
-                        console.log(`   ⚡ Applying custom to: ${itemName}`);
-                        
-                        if (custom.customAmount !== null && custom.customAmount !== undefined && custom.customAmount > 0) {
-                            effectiveAmount = custom.customAmount;
-                            console.log(`      Amount: ${defaultAmount} → ${effectiveAmount}`);
-                        }
-                        
-                        if (custom.customQuantity !== null && custom.customQuantity !== undefined && custom.customQuantity > 0) {
-                            effectiveQuantity = custom.customQuantity;
-                            console.log(`      Qty: ${defaultQuantity} → ${effectiveQuantity}`);
-                        }
-                        
-                        if (custom.paymentOption) {
-                            effectivePaymentOption = custom.paymentOption;
-                        }
-                        
-                        effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
-                        isCustomized = true;
-                        customReason = custom.reason || 'Customized via edit student';
-                    }
-                    
-                    if (isTransportation && customTransportation) {
-                        if (customTransportation.hasTransportation === false) {
-                            console.log(`   🚌 Transportation disabled: ${itemName}`);
-                            continue;
-                        }
-                        if (customTransportation.amount) {
-                            effectiveAmount = customTransportation.amount;
-                            effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
-                            isCustomized = true;
-                            customReason = 'Custom Transportation';
-                        }
-                    }
-                    
-                    const paidInfo = getPaidAmountsForItem(
-                        studentData.id,
-                        component.id || component.name,
-                        component.name,
-                        itemId,
-                        itemName,
-                        periodType,
-                        year,
-                        term,
-                        allPayments
-                    );
-                    
-                    const cashPaid = paidInfo.cashPaid || 0;
-                    const itemsBrought = paidInfo.itemsBrought || 0;
-                    const paymentHistories = paidInfo.paymentHistories || [];
-                    
-                    let remainingAmount = 0;
-                    let remainingQuantity = 0;
-                    let isFullyPaid = false;
-                    
-                    if (effectivePaymentOption === 'cash_only') {
-                        remainingAmount = Math.max(0, effectiveAmount - cashPaid);
-                        isFullyPaid = remainingAmount <= 0;
-                    } else if (effectivePaymentOption === 'item_only') {
-                        remainingQuantity = Math.max(0, effectiveQuantity - itemsBrought);
-                        isFullyPaid = remainingQuantity <= 0;
-                    } else {
-                        const totalPaidValue = cashPaid + (itemsBrought * effectiveUnitPrice);
-                        const totalRequired = effectiveQuantity * effectiveUnitPrice;
-                        isFullyPaid = totalPaidValue >= totalRequired;
-                        if (!isFullyPaid) {
-                            remainingAmount = Math.max(0, totalRequired - totalPaidValue);
-                            remainingQuantity = Math.ceil(remainingAmount / effectiveUnitPrice);
-                        }
-                    }
-                    
-                    totalExpected += effectiveAmount;
-                    
-                    items.push({
-                        componentId: component.id || component.name,
-                        componentName: component.name,
-                        periodType: periodType,
-                        itemId: itemId,
-                        itemName: itemName,
-                        quantity: effectiveQuantity,
-                        totalAmount: effectiveAmount,
-                        unitPrice: effectiveUnitPrice,
-                        paymentOption: effectivePaymentOption,
-                        remainingAmount: remainingAmount,
-                        remainingQuantity: remainingQuantity,
-                        cashPaid: cashPaid,
-                        itemsBrought: itemsBrought,
-                        isFullyPaid: isFullyPaid,
-                        isCustomized: isCustomized,
-                        customReason: customReason,
-                        paymentHistories: paymentHistories,
-                        isSpecialItem: isTransportation || effectivePaymentOption === 'cash_only' || effectivePaymentOption === 'item_only',
-                        isTransportation: isTransportation,
-                        statusGroupName: component.statusGroupName || component.name || 'Other',
-                        customAmount: custom?.customAmount || null,
-                        customQuantity: custom?.customQuantity || null,
-                        defaultAmount: defaultAmount,
-                        defaultQuantity: defaultQuantity,
-                        defaultUnitPrice: defaultUnitPrice,
-                        defaultPaymentOption: defaultPaymentOption
-                    });
-                    
-                    console.log(`   ✅ ${isCustomized ? '⚡ CUSTOM' : 'Default'} ${itemName}: UGX ${effectiveAmount}`);
-                }
-            }
-            
-            console.log(`📦 Total items: ${items.length}, Customized: ${items.filter(i => i.isCustomized).length}`);
-            return { items, totalExpected };
+    // Deduplicate histories
+    const seen = new Set();
+    const uniqueHistories = [];
+    for (const h of paymentHistories) {
+        const key = `${h.date || ''}_${h.type || ''}_${h.amount || 0}_${h.quantity || 0}_${h.receiptNumber || ''}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            uniqueHistories.push(h);
         }
+    }
 
+    return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
+}
+
+       // ==================== COMPLETE FIXED: BUILD FEE ITEMS FROM STRUCTURE ====================
+// Version: 7.0 - PROPERLY APPLIES CUSTOM OVERRIDES TO DYNAMIC ITEMS
+
+// ==================== COMPLETE FIXED: BUILD FEE ITEMS FROM STRUCTURE ====================
+// Version: 7.0 - PROPERLY APPLIES CUSTOM OVERRIDES TO DYNAMIC ITEMS
+
+// ==================== COMPLETE FIXED: BUILD FEE ITEMS FROM STRUCTURE ====================
+// Version: 8.0 - PROPERLY APPLIES CUSTOM OVERRIDES FROM EDIT STUDENT
+
+function buildFeeItemsFromStructure(fs, studentData, year, term, isFirstTerm) {
+    if (!fs || !fs.activityComponents) return { items: [], totalExpected: 0 };
+    
+    const items = [];
+    let totalExpected = 0;
+    const removedItems = studentData?.removedItems || {};
+    const customTransportation = studentData?.customTransportation || null;
+    const customOverrides = studentData?.customItemOverrides || {};
+    
+    console.log(`📦 Building fee items for ${year} Term ${term}`);
+    console.log(`📦 Custom Overrides keys:`, Object.keys(customOverrides));
+    
+    // ========== HELPER: FIND CUSTOM OVERRIDE - SIMPLE RELIABLE ==========
+    function findCustomOverride(itemName, componentName, itemId) {
+        console.log(`  🔍 Looking for: "${itemName}"`);
+        
+        // 1. Try by exact itemName (MOST RELIABLE)
+        for (const [key, custom] of Object.entries(customOverrides)) {
+            if (custom.isActive === false) continue;
+            if (custom.itemName === itemName) {
+                console.log(`    ✅ FOUND by itemName: ${key}`);
+                return custom;
+            }
+        }
+        
+        // 2. Try by itemId
+        if (itemId && customOverrides[itemId]) {
+            const custom = customOverrides[itemId];
+            if (custom.isActive !== false) {
+                console.log(`    ✅ FOUND by itemId: ${itemId}`);
+                return custom;
+            }
+        }
+        
+        // 3. Try by key containing itemName
+        for (const [key, custom] of Object.entries(customOverrides)) {
+            if (custom.isActive === false) continue;
+            if (key.includes(itemName)) {
+                console.log(`    ✅ FOUND by key containing name: ${key}`);
+                return custom;
+            }
+        }
+        
+        console.log(`    ❌ No override found for: "${itemName}"`);
+        return null;
+    }
+    
+    // ========== PROCESS EACH COMPONENT ==========
+    for (const component of fs.activityComponents) {
+        if (!component) continue;
+        
+        const periodType = component.periodType || 'termly';
+        const isTransportation = component.name.toLowerCase().includes('transport') || 
+                                (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
+        
+        let shouldInclude = false;
+        if (periodType === 'termly') shouldInclude = true;
+        else if (periodType === 'one_time') shouldInclude = true;
+        else if (periodType === 'yearly') shouldInclude = isFirstTerm;
+        
+        if (!shouldInclude) continue;
+        
+        for (const item of (component.items || [])) {
+            if (!item) continue;
+            
+            const itemName = item.name || 'Unnamed Item';
+            const itemId = item.id || itemName;
+            
+            // Check if removed
+            if (removedItems[itemId] && removedItems[itemId].isActive !== false) {
+                console.log(`   ⏭️ Skipping removed item: ${itemName}`);
+                continue;
+            }
+            
+            // ========== FIND CUSTOM OVERRIDE ==========
+            const custom = findCustomOverride(itemName, component.name, itemId);
+            
+            // ========== APPLY CUSTOM VALUES ==========
+            let defaultAmount = item.totalAmount || 0;
+            let defaultQuantity = item.quantity || 1;
+            let defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
+            let defaultPaymentOption = item.paymentOption || 'either';
+            
+            let effectiveAmount = defaultAmount;
+            let effectiveQuantity = defaultQuantity;
+            let effectiveUnitPrice = defaultUnitPrice;
+            let effectivePaymentOption = defaultPaymentOption;
+            let isCustomized = false;
+            let customReason = null;
+            
+            // Apply custom override if found
+            if (custom && custom.isActive !== false) {
+                console.log(`   ⚡ Applying custom to: ${itemName}`);
+                
+                if (custom.customAmount !== null && custom.customAmount !== undefined && custom.customAmount > 0) {
+                    effectiveAmount = custom.customAmount;
+                    console.log(`      Amount: ${defaultAmount} → ${effectiveAmount}`);
+                }
+                
+                if (custom.customQuantity !== null && custom.customQuantity !== undefined && custom.customQuantity > 0) {
+                    effectiveQuantity = custom.customQuantity;
+                    console.log(`      Qty: ${defaultQuantity} → ${effectiveQuantity}`);
+                }
+                
+                if (custom.paymentOption) {
+                    effectivePaymentOption = custom.paymentOption;
+                }
+                
+                effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
+                isCustomized = true;
+                customReason = custom.reason || 'Customized via edit student';
+            }
+            
+            // Handle transportation custom
+            if (isTransportation && customTransportation) {
+                if (customTransportation.hasTransportation === false) {
+                    console.log(`   🚌 Transportation disabled: ${itemName}`);
+                    continue;
+                }
+                if (customTransportation.amount) {
+                    effectiveAmount = customTransportation.amount;
+                    effectiveUnitPrice = effectiveAmount / (effectiveQuantity || 1);
+                    isCustomized = true;
+                    customReason = 'Custom Transportation';
+                }
+            }
+            
+            // ========== GET PAID AMOUNTS ==========
+            const paidInfo = getPaidAmountsForItem(
+                studentData.id,
+                component.id || component.name,
+                component.name,
+                itemId,
+                itemName,
+                periodType,
+                year,
+                term,
+                allPayments
+            );
+            
+            const cashPaid = paidInfo.cashPaid || 0;
+            const itemsBrought = paidInfo.itemsBrought || 0;
+            const paymentHistories = paidInfo.paymentHistories || [];
+            
+            // ========== CALCULATE REMAINING ==========
+            let remainingAmount = 0;
+            let remainingQuantity = 0;
+            let isFullyPaid = false;
+            
+            if (effectivePaymentOption === 'cash_only') {
+                remainingAmount = Math.max(0, effectiveAmount - cashPaid);
+                isFullyPaid = remainingAmount <= 0;
+            } else if (effectivePaymentOption === 'item_only') {
+                remainingQuantity = Math.max(0, effectiveQuantity - itemsBrought);
+                isFullyPaid = remainingQuantity <= 0;
+            } else {
+                const totalPaidValue = cashPaid + (itemsBrought * effectiveUnitPrice);
+                const totalRequired = effectiveQuantity * effectiveUnitPrice;
+                isFullyPaid = totalPaidValue >= totalRequired;
+                if (!isFullyPaid) {
+                    remainingAmount = Math.max(0, totalRequired - totalPaidValue);
+                    remainingQuantity = Math.ceil(remainingAmount / effectiveUnitPrice);
+                }
+            }
+            
+            totalExpected += effectiveAmount;
+            
+            items.push({
+                componentId: component.id || component.name,
+                componentName: component.name,
+                periodType: periodType,
+                itemId: itemId,
+                itemName: itemName,
+                quantity: effectiveQuantity,
+                totalAmount: effectiveAmount,
+                unitPrice: effectiveUnitPrice,
+                paymentOption: effectivePaymentOption,
+                remainingAmount: remainingAmount,
+                remainingQuantity: remainingQuantity,
+                cashPaid: cashPaid,
+                itemsBrought: itemsBrought,
+                isFullyPaid: isFullyPaid,
+                isCustomized: isCustomized,
+                customReason: customReason,
+                paymentHistories: paymentHistories,
+                isSpecialItem: isTransportation || effectivePaymentOption === 'cash_only' || effectivePaymentOption === 'item_only',
+                isTransportation: isTransportation,
+                statusGroupName: component.statusGroupName || component.name || 'Other',
+                customAmount: custom?.customAmount || null,
+                customQuantity: custom?.customQuantity || null,
+                defaultAmount: defaultAmount,
+                defaultQuantity: defaultQuantity,
+                defaultUnitPrice: defaultUnitPrice,
+                defaultPaymentOption: defaultPaymentOption
+            });
+            
+            console.log(`   ✅ ${isCustomized ? '⚡ CUSTOM' : 'Default'} ${itemName}: UGX ${effectiveAmount}`);
+        }
+    }
+    
+    console.log(`📦 Total items: ${items.length}, Customized: ${items.filter(i => i.isCustomized).length}`);
+    return { items, totalExpected };
+}
+        // ========== GET ALL PERIODS WITH PAYMENTS OR RECORDS ==========
         function getAllPeriodsWithData(studentId, allPaymentsData, termRecordsData) {
             const allPeriods = new Map();
             
+            // From payments
             allPaymentsData.forEach(p => {
                 if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
                     const key = `${p.academicYear}_${p.term}`;
@@ -10106,6 +10821,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 }
             });
             
+            // From term records
             for (const [key, record] of Object.entries(termRecordsData)) {
                 if (key.startsWith(studentId + '_')) {
                     const parts = key.split('_');
@@ -10120,6 +10836,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 }
             }
             
+            // Sort periods by year and term (newest first)
             return Array.from(allPeriods.entries())
                 .map(([key, data]) => ({ ...data, periodKey: key }))
                 .sort((a, b) => {
@@ -10128,6 +10845,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 });
         }
 
+        // ========== CHECK IF PERIOD HAS BALANCE ==========
         function periodHasBalance(periodData) {
             const tuitionBalance = periodData.tuition?.balance || 0;
             const itemsRemaining = periodData.activity?.itemsRemaining || 0;
@@ -10145,6 +10863,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             return hasBalance;
         }
 
+        // ========== PROCESS EACH PERIOD ==========
         const isFirstTerm = currentTerm === 1;
         const allPeriods = getAllPeriodsWithData(studentId, allPayments, termRecords);
         const currentPeriodKey = `${currentYear}_${currentTerm}`;
@@ -10157,11 +10876,13 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         let totalPreviousItems = 0;
         let totalPreviousPeriods = 0;
         
+        // Process all periods
         for (const period of allPeriods) {
             const { year, term, periodKey, payments } = period;
             const isCurrentPeriod = periodKey === currentPeriodKey;
             const isFirstTermForPeriod = term === 1;
             
+            // Get term record for this period
             const termRecordKey = `${studentId}_${year}_${term}`;
             const termRecord = termRecords[termRecordKey] || { 
                 activityItemsPaid: { one_time: [], termly: [], yearly: [] },
@@ -10169,6 +10890,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 activityTotalPaid: 0
             };
             
+            // ========== CALCULATE TUITION ==========
             let tuitionExpected = feeStructure?.tuition || 0;
             let discountAmount = 0;
             let appliedBursary = null;
@@ -10189,6 +10911,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 }
             }
             
+            // Calculate tuition paid for this period
             let tuitionPaid = 0;
             const periodPayments = allPayments.filter(p => 
                 p && p.studentId === studentId && 
@@ -10203,6 +10926,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             tuitionPaid = Math.max(tuitionPaid, termRecord.tuitionTotalPaid || 0);
             const tuitionBalance = tuitionExpected - tuitionPaid;
             
+            // ========== CALCULATE ACTIVITY ITEMS ==========
             let periodItems = [];
             let totalActivityExpected = 0;
             let totalActivityPaid = 0;
@@ -10210,9 +10934,12 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             let totalItemsRemaining = 0;
             let statusGroupBreakdown = {};
             
+            // Get fee items for this period (with customizations and period logic)
             const feeItemsForPeriod = buildFeeItemsFromStructure(feeStructure, student, year, term, isFirstTermForPeriod);
             
+            // Process each fee item
             for (const feeItem of feeItemsForPeriod.items) {
+                // Get paid details for this specific period
                 const paidInfo = getPaidAmountsForItem(
                     studentId,
                     feeItem.componentId,
@@ -10229,15 +10956,18 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 const itemsBrought = paidInfo.itemsBrought;
                 const paymentHistories = paidInfo.paymentHistories;
                 
+                // Calculate remaining for this period
                 let remainingAmount = feeItem.remainingAmount || 0;
                 let remainingQuantity = feeItem.remainingQuantity || 0;
                 let isFullyPaid = feeItem.isFullyPaid || false;
                 
+                // Update period totals
                 totalActivityExpected += feeItem.totalAmount || 0;
                 totalActivityPaid += cashPaid;
                 totalActivityBalance += remainingAmount;
                 totalItemsRemaining += remainingQuantity;
                 
+                // Build status group breakdown
                 const sgName = feeItem.statusGroupName || 'Other';
                 if (!statusGroupBreakdown[sgName]) {
                     statusGroupBreakdown[sgName] = {
@@ -10263,6 +10993,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                     paymentHistories: paymentHistories
                 });
                 
+                // Add to period items
                 periodItems.push({
                     ...feeItem,
                     cashPaid: cashPaid,
@@ -10274,10 +11005,12 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 });
             }
             
+            // ========== CALCULATE TOTALS ==========
             const totalExpected = tuitionExpected + totalActivityExpected;
             const totalPaid = tuitionPaid + totalActivityPaid;
             const totalBalance = totalExpected - totalPaid;
             
+            // Build period data
             const periodData = {
                 periodKey: periodKey,
                 year: year,
@@ -10329,9 +11062,11 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
                 hasBalance: false
             };
             
+            // ========== DETERMINE IF PERIOD HAS BALANCE ==========
             const hasBalance = periodHasBalance(periodData);
             periodData.hasBalance = hasBalance;
             
+            // ========== STORE PERIOD DATA ==========
             if (isCurrentPeriod) {
                 currentPeriodData = periodData;
                 console.log(`📌 Current Period: ${year} Term ${term} - Balance: UGX ${totalBalance}, Items: ${totalItemsRemaining}`);
@@ -10346,6 +11081,7 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             }
         }
         
+        // ========== IF NO CURRENT PERIOD EXISTS, CREATE ONE ==========
         if (!currentPeriodData) {
             console.log('⚠️ No current period found, creating one with fee structure carryover...');
             
@@ -10429,9 +11165,11 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
             console.log('✅ Current period created with fee structure:', feeStructure?.name);
         }
         
+        // ========== CALCULATE FINAL TOTALS ==========
         const totalPreviousBalanceSum = previousPeriodsData.reduce((sum, p) => sum + p.total.balance, 0);
         const totalPreviousItemsSum = previousPeriodsData.reduce((sum, p) => sum + p.activity.itemsRemaining, 0);
         
+        // ========== BUILD RESPONSE ==========
         const response = {
             success: true,
             student: {
@@ -10494,9 +11232,27 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
 });
 
 console.log('✅ Previous Balances API v13.0 - STABLE ITEM IDs LOADED!');
+console.log('   🔑 All items now have deterministic, stable IDs');
+console.log('   📦 Customizations persist across page reloads');
+console.log('   🎯 IDs are generated from: componentName + itemName + periodType');
+console.log('   🔁 Same ID = same item = customizations persist');
+console.log('✅ Previous Balances API v12.0 - ONLY PERIODS WITH BALANCES LOADED!');
+console.log('   📅 Carries forward fee structure to new periods');
+console.log('   ⚡ Preserves all custom item overrides');
+console.log('   🚫 Handles removed items correctly');
+console.log('   🎖️ Applies custom bursary to tuition');
+console.log('   🚌 Handles custom transportation');
+console.log('   📋 ONLY shows previous periods with BALANCES');
+console.log('   ⏭️ Fully paid periods are SKIPPED (not shown)');
+console.log('   📦 Period-aware payment scoping (one_time, yearly, termly)');
+console.log('   ⭐ One-Time items follow student FOREVER until fully paid');
+console.log('   📆 Yearly items reset each year');
+console.log('   📅 Termly items independent per term');
 
-// ==================== DELETE PAYMENT RECORD ====================
 
+// Delete a specific payment record
+// ==================== DELETE A PAYMENT RECORD (WITH INVENTORY REVERSAL) ====================
+// ==================== DELETE A PAYMENT RECORD (WITH INVENTORY REVERSAL FOR CASH & ITEMS) ====================
 app.delete('/api/fee/payments/:id', (req, res) => {
     try {
         const paymentId = req.params.id;
@@ -10510,9 +11266,11 @@ app.delete('/api/fee/payments/:id', (req, res) => {
             return res.status(404).json({ error: 'Payment not found' });
         }
 
+        // ========== Reverse inventory for all items in this receipt ==========
         if (paymentToDelete) {
             const itemQtyMap = {};
 
+            // Helper to add quantity for an item
             function addItemQuantity(item) {
                 if (!item) return;
                 const name = (item.itemName || '').trim();
@@ -10525,6 +11283,7 @@ app.delete('/api/fee/payments/:id', (req, res) => {
                     if (unitPrice > 0) {
                         qtyToAdd = Math.floor((item.amountPaid || 0) / unitPrice);
                     } else {
+                        // Fallback: use quantityRequired if available
                         qtyToAdd = item.quantityRequired || 0;
                     }
                 }
@@ -10533,12 +11292,14 @@ app.delete('/api/fee/payments/:id', (req, res) => {
                 }
             }
 
+            // Check activityItemPayments
             if (Array.isArray(paymentToDelete.activityItemPayments)) {
                 for (const item of paymentToDelete.activityItemPayments) {
                     addItemQuantity(item);
                 }
             }
 
+            // Check paymentsByPeriodType
             if (paymentToDelete.paymentsByPeriodType) {
                 for (const pt of ['one_time', 'termly', 'yearly']) {
                     const periodItems = paymentToDelete.paymentsByPeriodType[pt] || [];
@@ -10548,6 +11309,7 @@ app.delete('/api/fee/payments/:id', (req, res) => {
                 }
             }
 
+            // Reverse inventory for each item
             for (const [name, qty] of Object.entries(itemQtyMap)) {
                 reverseInventoryForDeletedPaymentItem(
                     paymentToDelete.studentId,
@@ -10567,6 +11329,9 @@ app.delete('/api/fee/payments/:id', (req, res) => {
     }
 });
 
+// ==================== DELETE ONE ITEM'S PAYMENT FROM A SHARED RECEIPT ====================
+// ==================== DELETE ONE ITEM'S PAYMENT FROM A SHARED RECEIPT (WITH INVENTORY REVERSAL) ====================
+// ==================== DELETE ONE ITEM'S PAYMENT (WITH INVENTORY REVERSAL FOR CASH & ITEMS) ====================
 app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
     try {
         const { paymentId } = req.params;
@@ -10599,8 +11364,9 @@ app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
         }
 
         let removed = false;
-        let inventoryQtyToReverse = 0;
+        let inventoryQtyToReverse = 0; // quantity to reverse (items or cash-equivalent items)
 
+        // ========== Remove from activityItemPayments ==========
         if (Array.isArray(payment.activityItemPayments)) {
             const i = payment.activityItemPayments.findIndex(matches);
             if (i !== -1) {
@@ -10611,6 +11377,7 @@ app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
             }
         }
 
+        // ========== Remove from paymentsByPeriodType (if not already removed) ==========
         if (!removed && payment.paymentsByPeriodType) {
             for (const pt of ['one_time', 'termly', 'yearly']) {
                 const arr = payment.paymentsByPeriodType[pt] || [];
@@ -10631,6 +11398,7 @@ app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
             return res.status(404).json({ error: 'That specific item payment was not found in this receipt' });
         }
 
+        // ========== Reverse inventory if this payment added stock ==========
         if (inventoryQtyToReverse > 0) {
             reverseInventoryForDeletedPaymentItem(
                 payment.studentId,
@@ -10641,6 +11409,7 @@ app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
             );
         }
 
+        // Recalculate totals for this record only
         const newActivityTotal = (payment.activityItemPayments || []).reduce((sum, i) =>
             sum + (i.paymentType === 'paid_cash'
                 ? (i.amountPaid || 0)
@@ -10648,6 +11417,7 @@ app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
         payment.activityTotalPaid = newActivityTotal;
         payment.totalAmount = (payment.tuitionPaid || 0) + newActivityTotal;
 
+        // Keep studentTermRecords in sync
         try {
             let termRecords = readFile(files.studentTermRecords);
             const key = `${payment.studentId}_${payment.academicYear}_${payment.term}`;
@@ -10688,7 +11458,7 @@ app.delete('/api/fee/payments/:paymentId/item', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
+// ==================== DELETE ONLY THE TUITION PORTION OF A RECEIPT ====================
 app.delete('/api/fee/payments/:paymentId/tuition', (req, res) => {
     try {
         const { paymentId } = req.params;
@@ -10713,14 +11483,52 @@ app.delete('/api/fee/payments/:paymentId/tuition', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// ================================================================
+// STUDENT PROMOTION ENDPOINT - COMPLETE
+// ================================================================
 
-// ==================== STUDENT PROMOTION ENDPOINT ====================
+// Make sure uuid is required at the top of server.js
+// const { v4: uuidv4 } = require('uuid');
 
+// ================================================================
+// STUDENT PROMOTION - COMPLETE REBUILD (WORKING)
+// ================================================================
+
+// ================================================================
+// STUDENT PROMOTION - COMPLETE REBUILD (PROPER FEE STRUCTURE)
+// ================================================================
+
+// ==================== STUDENT PROMOTION (YEAR-AWARE) ====================
+// Version: 3.0 - Fully fixed for multi‑year fee assignment
+// ==================== STUDENT PROMOTION (v4.0 - FULLY REBUILT) ====================
+// Supports: batch by class/level/all, individual with per-student overrides
+// ==================== STUDENT PROMOTION (v5.0 - FULLY FIXED) ====================
+// Fixed issues:
+// 1. Fee structure not updating after promotion
+// 2. Manual fee assignment not saving
+// 3. Fee structure finder not matching class names
+// 4. Year-aware assignments not working
+// 5. Student's assignedFeeStructureId not updating
+
+// ==================== STUDENT PROMOTION (v6.0 - FULLY FIXED) ====================
+// Fixed: Fee structure now uses TARGET class, not source class
+
+// ==================== STUDENT PROMOTION (v7.0 - FINAL FIX) ====================
+// FIXED: Fee structure now uses TARGET class (not source class)
+// FIXED: Proper year-aware assignment
+// FIXED: Auto-detection of Day/Boarding
+
+// ==================== STUDENT PROMOTION (v8.0 - FULLY WORKING) ====================
+// ==================== STUDENT PROMOTION (v9.0 - WITH P.7 ARCHIVING) ====================
+// ==================== STUDENT PROMOTION (v10.0 - WITH P.7 ARCHIVING FIXED) ====================
 app.post('/api/students/promote', async (req, res) => {
     console.log('🎓 === STUDENT PROMOTION REQUEST (v10.0 - WITH P.7 ARCHIVING FIXED) ===');
     console.log('📦 Body:', JSON.stringify(req.body, null, 2));
 
     try {
+        // ================================================================
+        // 1. READ ALL DATA
+        // ================================================================
         const dataDir = path.join(__dirname, 'data');
 
         function readJSON(file) {
@@ -10763,6 +11571,9 @@ app.post('/api/students/promote', async (req, res) => {
         feeStructures = Array.isArray(feeStructures) ? feeStructures : [];
         classes = Array.isArray(classes) ? classes : [];
 
+        // ================================================================
+        // 1.5 READ/WRITE ARCHIVE FILE
+        // ================================================================
         const archivePath = path.join(dataDir, 'archivedStudents.json');
         
         function readArchive() {
@@ -10788,6 +11599,7 @@ app.post('/api/students/promote', async (req, res) => {
             }
         }
 
+        // Get current academic settings
         const settings = readJSON('settings.json');
         const currentYear = settings.currentAcademicYear || new Date().getFullYear();
         const currentTerm = settings.currentTerm || 1;
@@ -10796,12 +11608,18 @@ app.post('/api/students/promote', async (req, res) => {
         console.log(`📊 Data: ${students.length} students, ${feeStructures.length} fee structures, ${classes.length} classes`);
         console.log(`📅 Current: ${currentYear} Term ${currentTerm}, Next: ${nextYear}`);
 
+        // ================================================================
+        // 2. BUILD MAPS
+        // ================================================================
         const classMap = {};
         classes.forEach(c => { if (c && c.id) classMap[c.id] = c; });
 
         const feeStructureMap = {};
         feeStructures.forEach(f => { if (f && f.id) feeStructureMap[f.id] = f; });
 
+        // ================================================================
+        // 3. BUILD FEE STRUCTURE LOOKUP
+        // ================================================================
         function buildFeeStructureLookup() {
             const dayMap = {};
             const boardingMap = {};
@@ -10813,6 +11631,7 @@ app.post('/api/students/promote', async (req, res) => {
                 const isBoarding = name.includes('boarding');
                 const isDay = name.includes('day');
 
+                // Store by exact name
                 if (isBoarding) {
                     boardingMap[name] = fs;
                     let base = name.replace('boarding', '').trim();
@@ -10826,6 +11645,7 @@ app.post('/api/students/promote', async (req, res) => {
                     dayMap[base.replace(/\s/g, '')] = fs;
                 }
 
+                // Map by number (P.5, Primary 5, etc.)
                 const numMatch = fs.name.match(/(\d+)/);
                 if (numMatch) {
                     const num = numMatch[1];
@@ -10846,6 +11666,7 @@ app.post('/api/students/promote', async (req, res) => {
                     }
                 }
 
+                // Map by level
                 const levelMatch = fs.name.match(/(baby|middle|top|nursery)/i);
                 if (levelMatch) {
                     const level = levelMatch[1].toLowerCase();
@@ -10871,6 +11692,10 @@ app.post('/api/students/promote', async (req, res) => {
         }
 
         const { dayMap, boardingMap } = buildFeeStructureLookup();
+
+        // ================================================================
+        // 4. HELPER FUNCTIONS
+        // ================================================================
 
         function determineStudentType(feeStructureId) {
             if (!feeStructureId) return 'Day';
@@ -10946,6 +11771,9 @@ app.post('/api/students/promote', async (req, res) => {
             return className === 'p.7' || className === 'primary 7' || className === 'p7';
         }
 
+        // ================================================================
+        // 5. DETERMINE STUDENTS TO PROMOTE
+        // ================================================================
         const {
             items,
             studentIds,
@@ -10958,6 +11786,9 @@ app.post('/api/students/promote', async (req, res) => {
 
         let promotionTasks = [];
 
+        // ================================================================
+        // CASE A: Individual promotion with per-student targets
+        // ================================================================
         if (items && Array.isArray(items) && items.length > 0) {
             console.log(`📋 Processing ${items.length} individual promotion tasks`);
             
@@ -10967,12 +11798,14 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
 
+                // Check if this is a P.7 student to be archived
                 const student = students.find(s => s.id === item.studentId);
                 const isP7 = student ? isP7Student(student, classMap) : false;
 
                 if (isP7 || item.isP7 === true || item.archive === true) {
                     console.log(`   🎓 P.7 student detected: ${student?.firstName} ${student?.lastName}`);
                     
+                    // Get the student's current class ID from their enrollment
                     const currentEnrollment = enrollments.find(e => 
                         e.studentId === item.studentId && e.isCurrent === true
                     );
@@ -10985,6 +11818,7 @@ app.post('/api/students/promote', async (req, res) => {
                         feeStructureId: null
                     });
                 } else {
+                    // Normal promotion - require toClassId
                     if (!item.toClassId) {
                         console.warn(`⚠️ Skipping item without toClassId:`, item);
                         continue;
@@ -11000,6 +11834,9 @@ app.post('/api/students/promote', async (req, res) => {
                 }
             }
         }
+        // ================================================================
+        // CASE B: Batch by studentIds with same target class
+        // ================================================================
         else if (studentIds && Array.isArray(studentIds) && studentIds.length > 0 && toClassId) {
             console.log(`📋 Processing ${studentIds.length} students to class ${toClassId}`);
             for (const id of studentIds) {
@@ -11029,6 +11866,9 @@ app.post('/api/students/promote', async (req, res) => {
                 }
             }
         }
+        // ================================================================
+        // CASE C: Batch by class, level, or all school
+        // ================================================================
         else {
             const currentEnrollments = enrollments.filter(e => e.isCurrent === true);
             let targetStudentIds = [];
@@ -11065,6 +11905,7 @@ app.post('/api/students/promote', async (req, res) => {
                 const currentClass = classMap[currentEnrollment.classId];
                 if (!currentClass) continue;
 
+                // Check if P.7
                 const isP7 = isP7Student(student, classMap);
 
                 if (isP7) {
@@ -11104,6 +11945,7 @@ app.post('/api/students/promote', async (req, res) => {
             }
         }
 
+        // Remove duplicates
         const seen = new Set();
         promotionTasks = promotionTasks.filter(task => {
             const key = `${task.studentId}_${task.toClassId}_${task.isP7}`;
@@ -11121,11 +11963,15 @@ app.post('/api/students/promote', async (req, res) => {
             });
         }
 
+        // ================================================================
+        // 6. PROCESS EACH PROMOTION TASK
+        // ================================================================
         const results = { success: [], failed: [], skipped: [], archived: [] };
         const enrollmentsToAdd = [];
         const enrollmentsToUpdate = [];
         const studentsToUpdate = [];
 
+        // Read existing archive
         let archivedStudents = readArchive();
 
         for (const task of promotionTasks) {
@@ -11152,9 +11998,13 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
 
+                // ============================================================
+                // HANDLE P.7 ARCHIVING
+                // ============================================================
                 if (isP7 === true || archive === true) {
                     console.log(`   🎓 P.7 STUDENT DETECTED - ARCHIVING: ${student.firstName} ${student.lastName}`);
                     
+                    // Create archive record
                     const studentEnrollments = enrollments.filter(e => e.studentId === studentId);
                     const studentFeeAssignments = feeAssignments.filter(a => a.studentId === studentId);
                     
@@ -11172,19 +12022,23 @@ app.post('/api/students/promote', async (req, res) => {
                     archivedStudents.push(archiveRecord);
                     console.log(`   ✅ Student ${student.firstName} ${student.lastName} archived`);
                     
+                    // Mark student as inactive
                     student.status = 'Inactive';
                     student.graduatedAt = new Date().toISOString();
                     student.graduationReason = 'Completed P.7 - Primary Education Complete';
                     
+                    // Mark current enrollment as not current and completed
                     currentEnrollment.isCurrent = false;
                     currentEnrollment.completedAt = new Date().toISOString();
                     currentEnrollment.completionReason = 'Completed P.7 - Primary Education Complete';
                     
+                    // Update student in array
                     const studentIdx = students.findIndex(s => s.id === studentId);
                     if (studentIdx !== -1) {
                         students[studentIdx] = student;
                     }
                     
+                    // Record success
                     results.success.push({
                         studentId,
                         studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown',
@@ -11207,6 +12061,11 @@ app.post('/api/students/promote', async (req, res) => {
                     continue;
                 }
 
+                // ============================================================
+                // NORMAL PROMOTION FOR NON-P.7 STUDENTS
+                // ============================================================
+                
+                // Get target class
                 const targetClass = classMap[toClassId];
                 if (!targetClass) {
                     results.failed.push({ studentId, reason: 'Target class not found' });
@@ -11217,6 +12076,7 @@ app.post('/api/students/promote', async (req, res) => {
                 console.log(`   Current Class: ${currentClass.name}`);
                 console.log(`   TARGET Class: ${targetClass.name}`);
 
+                // Get student's current fee assignment
                 const currentAssignment = feeAssignments.find(a =>
                     a && a.studentId === studentId &&
                     a.academicYear === currentYear
@@ -11224,6 +12084,7 @@ app.post('/api/students/promote', async (req, res) => {
 
                 const currentFeeStructureId = currentAssignment.feeStructureId || student.assignedFeeStructureId || student.feeStructureId || null;
 
+                // Determine student type
                 let studentType = 'Day';
                 if (currentFeeStructureId) {
                     const currentFs = feeStructureMap[currentFeeStructureId];
@@ -11234,6 +12095,7 @@ app.post('/api/students/promote', async (req, res) => {
                     }
                 }
 
+                // Determine new fee structure
                 let newFeeStructureId = null;
                 let newFeeStructureName = null;
                 let isOverridden = false;
@@ -11263,6 +12125,7 @@ app.post('/api/students/promote', async (req, res) => {
                     }
                 }
 
+                // Create new enrollment
                 const newEnrollment = {
                     id: uuidv4(),
                     studentId: studentId,
@@ -11274,11 +12137,13 @@ app.post('/api/students/promote', async (req, res) => {
                     createdAt: new Date().toISOString()
                 };
 
+                // Mark old enrollment as not current
                 currentEnrollment.isCurrent = false;
                 currentEnrollment.completedAt = new Date().toISOString();
                 enrollmentsToUpdate.push(currentEnrollment);
                 enrollmentsToAdd.push(newEnrollment);
 
+                // Save fee assignment
                 if (newFeeStructureId) {
                     console.log(`   📝 Assigning fee structure for ${nextYear}: ${newFeeStructureName} (${newFeeStructureId})`);
                     
@@ -11312,6 +12177,7 @@ app.post('/api/students/promote', async (req, res) => {
                     console.log(`   ✅ Fee assignment saved for ${nextYear}`);
                 }
 
+                // Update student
                 student.currentClassId = toClassId;
                 if (newFeeStructureId) {
                     student.assignedFeeStructureId = newFeeStructureId;
@@ -11341,6 +12207,9 @@ app.post('/api/students/promote', async (req, res) => {
             }
         }
 
+        // ================================================================
+        // 7. SAVE ALL CHANGES
+        // ================================================================
         console.log(`\n💾 Saving changes...`);
         
         if (archivedStudents.length > 0) {
@@ -11360,6 +12229,9 @@ app.post('/api/students/promote', async (req, res) => {
         saveJSON('students.json', students);
         saveJSON('enrollments.json', enrollments);
 
+        // ================================================================
+        // 8. BUILD RESPONSE
+        // ================================================================
         const response = {
             success: true,
             message: `Promoted ${results.success.filter(r => !r.isArchived).length} students, Archived ${results.archived.length} P.7 students`,
@@ -11396,9 +12268,11 @@ app.post('/api/students/promote', async (req, res) => {
         });
     }
 });
+// ================================================================
+// ENROLLMENTS ENDPOINT
+// ================================================================
 
-// ==================== ENROLLMENTS ENDPOINT ====================
-
+// Get all enrollments
 app.get('/api/enrollments', (req, res) => {
     try {
         const enrollments = readFile(files.enrollments);
@@ -11458,7 +12332,12 @@ app.put('/api/enrollments/:id', (req, res) => {
     }
 });
 
-// ==================== TEACHER LOGIN ====================
+
+// ==================== TEACHER LOGIN AUTHENTICATION (SINGLE NAME FIELD) ====================
+// Version: 2.0 - Teacher logs in with EITHER first name OR last name + password
+
+// ==================== TEACHER LOGIN (SIMPLIFIED - NO SESSION) ====================
+// Version: 1.0 - Simple login without session verification
 
 app.post('/api/teachers/login', (req, res) => {
     try {
@@ -11474,6 +12353,7 @@ app.post('/api/teachers/login', (req, res) => {
         let teachers = readFile(files.teachers);
         if (!Array.isArray(teachers)) teachers = [];
 
+        // Find teacher by name (first OR last) and password
         let teacher = teachers.find(t => 
             t.status === 'Active' &&
             t.password === password &&
@@ -11481,6 +12361,7 @@ app.post('/api/teachers/login', (req, res) => {
              t.lastName && t.lastName.toLowerCase() === name.toLowerCase())
         );
 
+        // If not found, try partial match
         if (!teacher) {
             teacher = teachers.find(t => 
                 t.status === 'Active' &&
@@ -11497,8 +12378,10 @@ app.post('/api/teachers/login', (req, res) => {
             });
         }
 
+        // Log the login
         console.log(`✅ Teacher logged in: ${teacher.firstName} ${teacher.lastName} (${teacher.teacherId})`);
 
+        // Return teacher data (excluding password)
         const { password: _, ...teacherData } = teacher;
 
         res.json({ 
@@ -11517,6 +12400,7 @@ app.post('/api/teachers/login', (req, res) => {
     }
 });
 
+// ==================== GET TEACHER BY ID (SIMPLIFIED) ====================
 app.get('/api/teachers/:id', (req, res) => {
     try {
         const teachers = readFile(files.teachers);
@@ -11524,6 +12408,7 @@ app.get('/api/teachers/:id', (req, res) => {
         if (!teacher) {
             return res.status(404).json({ error: 'Teacher not found' });
         }
+        // Remove password before sending
         const { password, ...teacherData } = teacher;
         res.json(teacherData);
     } catch (error) {
@@ -11533,9 +12418,15 @@ app.get('/api/teachers/:id', (req, res) => {
 });
 
 console.log('✅ Simplified teacher login routes loaded');
-
 // ==================== ATTENDANCE ROUTES ====================
+// Version: 2.0 - Teacher-specific attendance management
 
+// ==================== GET STUDENTS BY CLASS ====================
+// ==================== COMPLETE ATTENDANCE SYSTEM ====================
+// Version: 3.0 - Full attendance management
+
+// ==================== GET STUDENTS BY CLASS ====================
+// ==================== GET STUDENTS BY CLASS (FIXED) ====================
 app.get('/api/classes/:classId/students', (req, res) => {
     try {
         const classId = req.params.classId;
@@ -11548,10 +12439,14 @@ app.get('/api/classes/:classId/students', (req, res) => {
             return res.status(404).json({ error: 'Class not found' });
         }
 
+        // Get student IDs from current enrollments
         const enrolledStudentIds = enrollments
             .filter(e => e.classId === classId && e.isCurrent === true)
             .map(e => e.studentId);
 
+        // ================================================================
+        // ✅ FIX: Also include students whose currentClassId matches
+        // ================================================================
         const classStudentIds = students
             .filter(s => 
                 s.status === 'Active' &&
@@ -11559,6 +12454,7 @@ app.get('/api/classes/:classId/students', (req, res) => {
             )
             .map(s => s.id);
 
+        // Remove duplicates
         const uniqueStudentIds = [...new Set(classStudentIds)];
 
         const classStudents = students
@@ -11575,6 +12471,7 @@ app.get('/api/classes/:classId/students', (req, res) => {
             }))
             .sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
 
+        // Also get students who are in this class via their currentClassId but not enrolled
         const directClassStudents = students
             .filter(s => 
                 s.status === 'Active' &&
@@ -11590,7 +12487,7 @@ app.get('/api/classes/:classId/students', (req, res) => {
                 parentInfo: s.parentInfo,
                 currentClassId: s.currentClassId,
                 enrolledAt: s.enrolledAt,
-                isDirectAssignment: true
+                isDirectAssignment: true // Flag to indicate no enrollment record
             }));
 
         console.log(`📚 Class ${classObj.name}: ${classStudents.length} students (${directClassStudents.length} direct assignments)`);
@@ -11610,6 +12507,9 @@ app.get('/api/classes/:classId/students', (req, res) => {
     }
 });
 
+// ==================== SAVE ATTENDANCE ====================
+
+// ==================== SAVE ATTENDANCE (FIXED) ====================
 app.post('/api/attendance/class', (req, res) => {
     try {
         const { classId, date, presentStudentIds, teacherId, notes } = req.body;
@@ -11628,6 +12528,11 @@ app.post('/api/attendance/class', (req, res) => {
         const students = readFile(files.students);
         const enrollments = readFile(files.enrollments);
 
+        // ================================================================
+        // ✅ FIX: Get ALL students in this class
+        // - From current enrollments
+        // - AND from students with currentClassId === classId
+        // ================================================================
         const enrolledStudentIds = enrollments
             .filter(e => e.classId === classId && e.isCurrent === true)
             .map(e => e.studentId);
@@ -11636,10 +12541,12 @@ app.post('/api/attendance/class', (req, res) => {
             .filter(s => s.currentClassId === classId && s.status === 'Active')
             .map(s => s.id);
 
+        // Combine and deduplicate
         const allStudentIds = [...new Set([...enrolledStudentIds, ...directClassStudentIds])];
 
         console.log(`📚 Class ${classId}: ${allStudentIds.length} students (${enrolledStudentIds.length} enrolled, ${directClassStudentIds.length} direct)`);
 
+        // Build attendance records for ALL students in the class
         const records = allStudentIds.map(studentId => {
             const isPresent = presentStudentIds.includes(studentId);
             const student = students.find(s => s.id === studentId);
@@ -11653,6 +12560,7 @@ app.post('/api/attendance/class', (req, res) => {
             };
         });
 
+        // Check if attendance already exists for this date and class
         const existingIndex = attendance.findIndex(a => 
             a.classId === classId && a.date === date
         );
@@ -11696,6 +12604,7 @@ app.post('/api/attendance/class', (req, res) => {
     }
 });
 
+// ==================== GET ATTENDANCE BY CLASS ====================
 app.get('/api/attendance/class/:classId', (req, res) => {
     try {
         const { classId } = req.params;
@@ -11714,8 +12623,10 @@ app.get('/api/attendance/class/:classId', (req, res) => {
             records = records.filter(a => a.date >= startDate && a.date <= endDate);
         }
 
+        // Sort by date descending (most recent first)
         records.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+        // Get student details for each attendance record
         const students = readFile(files.students);
         const studentMap = {};
         students.forEach(s => {
@@ -11753,6 +12664,7 @@ app.get('/api/attendance/class/:classId', (req, res) => {
     }
 });
 
+// ==================== GET ATTENDANCE FOR A SPECIFIC DATE ====================
 app.get('/api/attendance/date/:date', (req, res) => {
     try {
         const { date } = req.params;
@@ -11802,6 +12714,7 @@ app.get('/api/attendance/date/:date', (req, res) => {
     }
 });
 
+// ==================== GET STUDENT ATTENDANCE SUMMARY ====================
 app.get('/api/attendance/student/:studentId/summary', (req, res) => {
     try {
         const { studentId } = req.params;
@@ -11824,11 +12737,14 @@ app.get('/api/attendance/student/:studentId/summary', (req, res) => {
             }
         }
 
+        // Filter by year if provided
         if (year) {
             records = records.filter(r => new Date(r.date).getFullYear() === parseInt(year));
         }
 
+        // Filter by term if provided
         if (term) {
+            // Term 1: Jan-Apr, Term 2: May-Aug, Term 3: Sep-Dec
             const termMonths = {
                 1: [0, 1, 2, 3],
                 2: [4, 5, 6, 7],
@@ -11863,6 +12779,7 @@ app.get('/api/attendance/student/:studentId/summary', (req, res) => {
     }
 });
 
+// ==================== DELETE ATTENDANCE RECORD ====================
 app.delete('/api/attendance/:attendanceId', (req, res) => {
     try {
         const { attendanceId } = req.params;
@@ -11879,6 +12796,7 @@ app.delete('/api/attendance/:attendanceId', (req, res) => {
         attendance.splice(index, 1);
         saveFile(files.attendance, attendance);
 
+        // Also remove from term records
         let termRecords = readFile(files.studentTermRecords);
         if (termRecords && typeof termRecords === 'object') {
             const settings = readFile(files.settings);
@@ -11907,6 +12825,7 @@ app.delete('/api/attendance/:attendanceId', (req, res) => {
     }
 });
 
+// ==================== GET ATTENDANCE STATISTICS ====================
 app.get('/api/attendance/stats', (req, res) => {
     try {
         const { classId } = req.query;
@@ -11960,12 +12879,17 @@ app.get('/api/attendance/stats', (req, res) => {
 
 console.log('✅ Complete Attendance System loaded');
 
+console.log('✅ Teacher attendance routes loaded');
+
+
 // ==================== SWEEPING ROSTER SYSTEM ====================
+// Version: 1.0 - Full CRUD operations for sweeping rosters
 
 const sweepingFiles = {
     sweepingRosters: path.join(dataDir, 'sweepingRosters.json')
 };
 
+// Initialize sweeping roster file
 function initializeSweepingFiles() {
     if (!fs.existsSync(sweepingFiles.sweepingRosters)) {
         saveFile(sweepingFiles.sweepingRosters, {});
@@ -11975,20 +12899,24 @@ function initializeSweepingFiles() {
 
 initializeSweepingFiles();
 
+// ========== HELPER: READ SWEEPING ROSTERS ==========
 function readSweepingRosters() {
     return readFile(sweepingFiles.sweepingRosters) || {};
 }
 
+// ========== HELPER: SAVE SWEEPING ROSTERS ==========
 function saveSweepingRosters(data) {
     return saveFile(sweepingFiles.sweepingRosters, data);
 }
 
+// ========== HELPER: VALIDATE DAY ==========
 const VALID_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function isValidDay(day) {
     return VALID_DAYS.includes(day);
 }
 
+// ========== GET SWEEPING ROSTER FOR A CLASS ==========
 app.get('/api/sweeping/class/:classId', (req, res) => {
     const { classId } = req.params;
     console.log(`📋 Fetching sweeping roster for class: ${classId}`);
@@ -11997,6 +12925,7 @@ app.get('/api/sweeping/class/:classId', (req, res) => {
         const rosters = readSweepingRosters();
         const roster = rosters[classId] || {};
 
+        // Ensure all days exist
         const fullRoster = {};
         for (const day of VALID_DAYS) {
             fullRoster[day] = roster[day] || [];
@@ -12013,6 +12942,7 @@ app.get('/api/sweeping/class/:classId', (req, res) => {
     }
 });
 
+// ========== GET SWEEPING ROSTER FOR A SPECIFIC DAY ==========
 app.get('/api/sweeping/class/:classId/day/:day', (req, res) => {
     const { classId, day } = req.params;
     console.log(`📋 Fetching sweeping roster for class: ${classId}, day: ${day}`);
@@ -12026,6 +12956,7 @@ app.get('/api/sweeping/class/:classId/day/:day', (req, res) => {
         const roster = rosters[classId] || {};
         const students = roster[day] || [];
 
+        // Get student details
         const allStudents = readFile(files.students) || [];
         const studentDetails = students.map(id => {
             const s = allStudents.find(st => st.id === id);
@@ -12046,6 +12977,7 @@ app.get('/api/sweeping/class/:classId/day/:day', (req, res) => {
     }
 });
 
+// ========== SET/UPDATE SWEEPING ROSTER FOR A DAY ==========
 app.put('/api/sweeping/class/:classId/day/:day', (req, res) => {
     const { classId, day } = req.params;
     const { studentIds } = req.body;
@@ -12062,6 +12994,7 @@ app.put('/api/sweeping/class/:classId/day/:day', (req, res) => {
     }
 
     try {
+        // Verify all students exist
         const allStudents = readFile(files.students) || [];
         const validStudentIds = allStudents.map(s => s.id);
         const invalidIds = studentIds.filter(id => !validStudentIds.includes(id));
@@ -12078,11 +13011,13 @@ app.put('/api/sweeping/class/:classId/day/:day', (req, res) => {
             rosters[classId] = {};
         }
 
+        // Deduplicate student IDs
         const uniqueStudentIds = [...new Set(studentIds)];
         rosters[classId][day] = uniqueStudentIds;
 
         saveSweepingRosters(rosters);
 
+        // Get student details for response
         const studentDetails = uniqueStudentIds.map(id => {
             const s = allStudents.find(st => st.id === id);
             return s ? { id: s.id, firstName: s.firstName, lastName: s.lastName, admissionNumber: s.admissionNumber } : null;
@@ -12102,6 +13037,7 @@ app.put('/api/sweeping/class/:classId/day/:day', (req, res) => {
     }
 });
 
+// ========== ADD STUDENTS TO SWEEPING ROSTER (APPEND) ==========
 app.post('/api/sweeping/class/:classId/day/:day/add', (req, res) => {
     const { classId, day } = req.params;
     const { studentIds } = req.body;
@@ -12137,6 +13073,7 @@ app.post('/api/sweeping/class/:classId/day/:day/add', (req, res) => {
             rosters[classId][day] = [];
         }
 
+        // Append unique students
         const existing = new Set(rosters[classId][day]);
         for (const id of studentIds) {
             if (!existing.has(id)) {
@@ -12166,6 +13103,7 @@ app.post('/api/sweeping/class/:classId/day/:day/add', (req, res) => {
     }
 });
 
+// ========== REMOVE STUDENTS FROM SWEEPING ROSTER ==========
 app.delete('/api/sweeping/class/:classId/day/:day/remove', (req, res) => {
     const { classId, day } = req.params;
     const { studentIds } = req.body;
@@ -12212,6 +13150,7 @@ app.delete('/api/sweeping/class/:classId/day/:day/remove', (req, res) => {
     }
 });
 
+// ========== CLEAR ENTIRE DAY ROSTER ==========
 app.delete('/api/sweeping/class/:classId/day/:day', (req, res) => {
     const { classId, day } = req.params;
 
@@ -12244,6 +13183,7 @@ app.delete('/api/sweeping/class/:classId/day/:day', (req, res) => {
     }
 });
 
+// ========== DELETE ENTIRE CLASS ROSTER ==========
 app.delete('/api/sweeping/class/:classId', (req, res) => {
     const { classId } = req.params;
 
@@ -12266,12 +13206,14 @@ app.delete('/api/sweeping/class/:classId', (req, res) => {
     }
 });
 
+// ========== GET SWEEPING SUMMARY FOR TEACHER ==========
 app.get('/api/sweeping/teacher/:teacherId', (req, res) => {
     const { teacherId } = req.params;
 
     console.log(`📋 Fetching sweeping summary for teacher: ${teacherId}`);
 
     try {
+        // Get teacher data
         const teachers = readFile(files.teachers) || [];
         const teacher = teachers.find(t => t.id === teacherId || t.teacherId === teacherId);
 
@@ -12327,6 +13269,7 @@ app.get('/api/sweeping/teacher/:teacherId', (req, res) => {
     }
 });
 
+// ========== GET SWEEPING SUMMARY FOR ALL CLASSES ==========
 app.get('/api/sweeping/summary', (req, res) => {
     console.log('📋 Fetching sweeping summary for all classes');
 
@@ -12381,10 +13324,19 @@ app.get('/api/sweeping/summary', (req, res) => {
     }
 });
 
-console.log('✅ Sweeping Roster API endpoints registered');
+console.log('✅ Sweeping Roster API endpoints registered:');
+console.log('   GET    /api/sweeping/class/:classId');
+console.log('   GET    /api/sweeping/class/:classId/day/:day');
+console.log('   PUT    /api/sweeping/class/:classId/day/:day');
+console.log('   POST   /api/sweeping/class/:classId/day/:day/add');
+console.log('   DELETE /api/sweeping/class/:classId/day/:day/remove');
+console.log('   DELETE /api/sweeping/class/:classId/day/:day');
+console.log('   DELETE /api/sweeping/class/:classId');
+console.log('   GET    /api/sweeping/teacher/:teacherId');
+console.log('   GET    /api/sweeping/summary');
+
 
 // ==================== ATTENDANCE SUMMARY FOR ADMIN ====================
-
 app.get('/api/attendance/summary', (req, res) => {
     console.log('📊 Fetching attendance summary for admin');
 
@@ -12394,18 +13346,25 @@ app.get('/api/attendance/summary', (req, res) => {
         const classes = readFile(files.classes) || [];
         const teachers = readFile(files.teachers) || [];
 
+        // Build class map
         const classMap = {};
         classes.forEach(c => { if (c && c.id) classMap[c.id] = c; });
 
+        // Build teacher map
         const teacherMap = {};
         teachers.forEach(t => { if (t && t.id) teacherMap[t.id] = t; });
 
+        // Today's date
         const today = new Date().toISOString().split('T')[0];
 
+        // Filter today's attendance
         const todayAttendance = attendance.filter(a => a.date === today);
         let presentToday = 0, absentToday = 0, totalTodayStudents = 0;
 
+        // Compute today's stats
         if (todayAttendance.length > 0) {
+            const todayRecord = todayAttendance[0]; // assume one record per day per class? Actually we have per-class per-day records
+            // We'll aggregate by iterating all attendance records for today
             const allTodayRecords = attendance.filter(a => a.date === today);
             for (const rec of allTodayRecords) {
                 const records = rec.records || [];
@@ -12417,6 +13376,7 @@ app.get('/api/attendance/summary', (req, res) => {
             }
         }
 
+        // Week average (last 7 days)
         const weekStart = new Date();
         weekStart.setDate(weekStart.getDate() - 7);
         const weekStartStr = weekStart.toISOString().split('T')[0];
@@ -12431,6 +13391,7 @@ app.get('/api/attendance/summary', (req, res) => {
         }
         const weekAverage = totalWeekStudents > 0 ? Math.round((totalWeekPresent / totalWeekStudents) * 100) : 0;
 
+        // Build daily trend (last 7 days)
         const dailyTrend = [];
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
@@ -12453,6 +13414,7 @@ app.get('/api/attendance/summary', (req, res) => {
             });
         }
 
+        // Build by level
         const levelMap = {};
         const allStudents = students.filter(s => s.status === 'Active');
         const studentClassMap = {};
@@ -12464,6 +13426,7 @@ app.get('/api/attendance/summary', (req, res) => {
                     const level = cls.level || 'Unknown';
                     if (!levelMap[level]) levelMap[level] = { level, total: 0, present: 0, absent: 0 };
                     levelMap[level].total++;
+                    // Determine present status for today (we need to check if student has attendance today)
                     const todayRec = attendance.find(a => a.date === today && a.records && a.records.some(r => r.studentId === s.id));
                     if (todayRec) {
                         const studentRec = todayRec.records.find(r => r.studentId === s.id);
@@ -12483,6 +13446,7 @@ app.get('/api/attendance/summary', (req, res) => {
             rate: l.total > 0 ? Math.round((l.present / l.total) * 100) : 0
         }));
 
+        // Build by class
         const classBreakdown = {};
         allStudents.forEach(s => {
             const clsId = s.currentClassId;
@@ -12510,6 +13474,7 @@ app.get('/api/attendance/summary', (req, res) => {
             rate: c.total > 0 ? Math.round((c.present / c.total) * 100) : 0
         }));
 
+        // Recent records (last 50)
         const allRecords = [];
         const sortedAttendance = attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
         for (const rec of sortedAttendance.slice(0, 10)) {
@@ -12529,6 +13494,7 @@ app.get('/api/attendance/summary', (req, res) => {
         }
         const recentRecords = allRecords.slice(0, 50);
 
+        // Final summary
         const summary = {
             totalStudents: allStudents.length,
             presentToday,
@@ -12555,7 +13521,10 @@ app.get('/api/attendance/summary', (req, res) => {
 });
 
 // ==================== REPORT CARDS BACKEND ROUTES ====================
+// Version: 1.0 - Complete Report Card Management System
 
+
+// File paths for report card data
 const reportFiles = {
     template: path.join(dataDir, 'reportCardTemplate.json'),
     marks: path.join(dataDir, 'reportCardMarks.json'),
@@ -12563,8 +13532,10 @@ const reportFiles = {
     generated: path.join(dataDir, 'generatedReportCards.json')
 };
 
+// Initialize report card files
 function initializeReportFiles() {
     try {
+        // Template
         if (!fs.existsSync(reportFiles.template)) {
             saveFile(reportFiles.template, {
                 schoolName: '',
@@ -12574,12 +13545,15 @@ function initializeReportFiles() {
                 footer: ''
             });
         }
+        // Marks
         if (!fs.existsSync(reportFiles.marks)) {
             saveFile(reportFiles.marks, {});
         }
+        // Initials
         if (!fs.existsSync(reportFiles.initials)) {
             saveFile(reportFiles.initials, {});
         }
+        // Generated report cards
         if (!fs.existsSync(reportFiles.generated)) {
             saveFile(reportFiles.generated, []);
         }
@@ -12591,6 +13565,11 @@ function initializeReportFiles() {
 
 initializeReportFiles();
 
+// ================================================================
+// 1. REPORT CARD TEMPLATE ROUTES
+// ================================================================
+
+// GET report card template
 app.get('/api/report-cards/template', (req, res) => {
     try {
         const template = readFile(reportFiles.template);
@@ -12601,6 +13580,7 @@ app.get('/api/report-cards/template', (req, res) => {
     }
 });
 
+// POST save report card template
 app.post('/api/report-cards/template', (req, res) => {
     try {
         const { template } = req.body;
@@ -12615,6 +13595,7 @@ app.post('/api/report-cards/template', (req, res) => {
     }
 });
 
+// POST reset report card template
 app.post('/api/report-cards/template/reset', (req, res) => {
     try {
         const defaultTemplate = {
@@ -12632,6 +13613,13 @@ app.post('/api/report-cards/template/reset', (req, res) => {
     }
 });
 
+// ================================================================
+// 2. MARKS MANAGEMENT ROUTES
+// ================================================================
+
+// ==================== REPORT CARDS BACKEND ROUTES (YEAR/TERM AWARE) ====================
+
+// GET marks for a class (filter by term/year)
 app.get('/api/report-cards/class/:classId/marks', (req, res) => {
     try {
         const { classId } = req.params;
@@ -12649,6 +13637,10 @@ app.get('/api/report-cards/class/:classId/marks', (req, res) => {
     }
 });
 
+// POST save marks for a class (with term/year)
+
+
+// GET initials for a class (filter by term/year)
 app.get('/api/report-cards/class/:classId/initials', (req, res) => {
     try {
         const { classId } = req.params;
@@ -12666,6 +13658,7 @@ app.get('/api/report-cards/class/:classId/initials', (req, res) => {
     }
 });
 
+// POST save initials for a class (with term/year)
 app.post('/api/report-cards/class/:classId/initials', (req, res) => {
     try {
         const { classId } = req.params;
@@ -12691,11 +13684,15 @@ app.post('/api/report-cards/class/:classId/initials', (req, res) => {
     }
 });
 
+// POST save marks for a class
+// ==================== POST SAVE MARKS (VERIFIED) ====================
+// ==================== POST SAVE MARKS (USE CURRENT YEAR FROM SETTINGS) ====================
 app.post('/api/report-cards/class/:classId/marks', (req, res) => {
     try {
         const { classId } = req.params;
         const { marks, term, year } = req.body;
         
+        // If year/term not provided, get from settings
         let termNum = parseInt(term);
         let yearNum = parseInt(year);
         
@@ -12736,11 +13733,13 @@ app.post('/api/report-cards/class/:classId/marks', (req, res) => {
     }
 });
 
+// GET marks for a specific student
 app.get('/api/report-cards/student/:studentId/marks', (req, res) => {
     try {
         const { studentId } = req.params;
         const allMarks = readFile(reportFiles.marks);
 
+        // Find which class this student belongs to
         const enrollments = readFile(files.enrollments);
         const enrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent === true);
         if (!enrollment) {
@@ -12758,6 +13757,11 @@ app.get('/api/report-cards/student/:studentId/marks', (req, res) => {
     }
 });
 
+// ================================================================
+// 3. TEACHER INITIALS ROUTES
+// ================================================================
+
+// GET initials for a class
 app.get('/api/report-cards/class/:classId/initials', (req, res) => {
     try {
         const { classId } = req.params;
@@ -12770,6 +13774,7 @@ app.get('/api/report-cards/class/:classId/initials', (req, res) => {
     }
 });
 
+// POST save initials for a class
 app.post('/api/report-cards/class/:classId/initials', (req, res) => {
     try {
         const { classId } = req.params;
@@ -12791,6 +13796,11 @@ app.post('/api/report-cards/class/:classId/initials', (req, res) => {
     }
 });
 
+// ================================================================
+// 4. REPORT CARD GENERATION
+// ================================================================
+
+// Generate report cards for a class
 app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
     try {
         const { classId } = req.params;
@@ -12799,12 +13809,14 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
+        // Get class data
         const classes = readFile(files.classes);
         const classObj = classes.find(c => c.id === classId);
         if (!classObj) {
             return res.status(404).json({ success: false, error: 'Class not found' });
         }
 
+        // Get students in this class
         const students = readFile(files.students);
         const enrollments = readFile(files.enrollments);
 
@@ -12815,6 +13827,7 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
                 classStudents = [student];
             }
         } else {
+            // Get all students in this class
             const classEnrollments = enrollments.filter(e =>
                 e.classId === classId && e.academicYear === yearNum && e.isCurrent === true
             );
@@ -12826,17 +13839,21 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
             return res.status(404).json({ success: false, error: 'No students found for this class' });
         }
 
+        // Get subjects for this class
         const allSubjects = readFile(files.subjects);
         const classSubjects = allSubjects.filter(s =>
             s.classId === classId || s.classId === 'all' || s.classId === null
         );
 
+        // Get marks for this class
         const allMarks = readFile(reportFiles.marks);
         const classMarks = allMarks[classId] || {};
 
+        // Get initials for this class
         const allInitials = readFile(reportFiles.initials);
         const classInitials = allInitials[classId] || {};
 
+        // Get grading system
         const settings = readFile(files.settings);
         const gradingSystem = settings.gradingSystem || {
             'A': { min: 80, max: 100, remark: 'Excellent' },
@@ -12860,6 +13877,7 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
             return gradingSystem[grade]?.remark || '';
         }
 
+        // Generate report cards for each student
         const generatedReportCards = [];
 
         for (const student of classStudents) {
@@ -12875,11 +13893,13 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
                 const cat2 = subjectMarks['CAT 2'] || 0;
                 const exam = subjectMarks['Exam'] || 0;
 
+                // Calculate total and average for this subject
                 const total = cat1 + cat2 + exam;
                 const avg = (cat1 + cat2 + exam) / 3;
                 const grade = calculateGrade(avg);
                 const remark = getGradeRemark(grade);
 
+                // Get teacher initials for this subject
                 const initialsKey = `${student.id}_${subject.id}`;
                 const initials = classInitials[initialsKey] || '';
 
@@ -12905,6 +13925,7 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
             const overallGrade = calculateGrade(overallAverage);
             const overallRemark = getGradeRemark(overallGrade);
 
+            // Get student's current class name
             const studentEnrollment = enrollments.find(e =>
                 e.studentId === student.id && e.isCurrent === true
             );
@@ -12931,10 +13952,13 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
             generatedReportCards.push(reportCard);
         }
 
+        // Save generated report cards
         let allGenerated = readFile(reportFiles.generated);
+        // Remove old report cards for this class/term/year
         allGenerated = allGenerated.filter(r =>
             !(r.classId === classId && r.term === termNum && r.year === yearNum)
         );
+        // Add new report cards
         allGenerated = [...allGenerated, ...generatedReportCards];
         saveFile(reportFiles.generated, allGenerated);
 
@@ -12951,6 +13975,7 @@ app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
     }
 });
 
+// GET generated report cards for a class
 app.get('/api/report-cards/class/:classId', (req, res) => {
     try {
         const { classId } = req.params;
@@ -12963,6 +13988,7 @@ app.get('/api/report-cards/class/:classId', (req, res) => {
     }
 });
 
+// GET a specific report card
 app.get('/api/report-cards/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -12978,6 +14004,7 @@ app.get('/api/report-cards/:id', (req, res) => {
     }
 });
 
+// DELETE a report card
 app.delete('/api/report-cards/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -12995,6 +14022,11 @@ app.delete('/api/report-cards/:id', (req, res) => {
     }
 });
 
+// ================================================================
+// 5. STUDENT REPORT CARD PREVIEW
+// ================================================================
+
+// GET preview of a student's report card
 app.get('/api/report-cards/student/:studentId/preview', (req, res) => {
     try {
         const { studentId } = req.params;
@@ -13003,12 +14035,14 @@ app.get('/api/report-cards/student/:studentId/preview', (req, res) => {
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
+        // Get student data
         const students = readFile(files.students);
         const student = students.find(s => s.id === studentId);
         if (!student) {
             return res.status(404).json({ success: false, error: 'Student not found' });
         }
 
+        // Get enrollment
         const enrollments = readFile(files.enrollments);
         const enrollment = enrollments.find(e =>
             e.studentId === studentId && e.isCurrent === true
@@ -13019,24 +14053,29 @@ app.get('/api/report-cards/student/:studentId/preview', (req, res) => {
 
         const classId = enrollment.classId;
 
+        // Get class info
         const classes = readFile(files.classes);
         const classObj = classes.find(c => c.id === classId);
         if (!classObj) {
             return res.status(404).json({ success: false, error: 'Class not found' });
         }
 
+        // Get subjects for this class
         const allSubjects = readFile(files.subjects);
         const classSubjects = allSubjects.filter(s =>
             s.classId === classId || s.classId === 'all' || s.classId === null
         );
 
+        // Get marks for this student
         const allMarks = readFile(reportFiles.marks);
         const classMarks = allMarks[classId] || {};
         const studentMarks = classMarks[studentId] || {};
 
+        // Get initials
         const allInitials = readFile(reportFiles.initials);
         const classInitials = allInitials[classId] || {};
 
+        // Grading system
         const settings = readFile(files.settings);
         const gradingSystem = settings.gradingSystem || {
             'A': { min: 80, max: 100, remark: 'Excellent' },
@@ -13060,6 +14099,7 @@ app.get('/api/report-cards/student/:studentId/preview', (req, res) => {
             return gradingSystem[grade]?.remark || '';
         }
 
+        // Build report card
         const subjects = [];
         let totalScore = 0;
         let subjectCount = 0;
@@ -13126,6 +14166,10 @@ app.get('/api/report-cards/student/:studentId/preview', (req, res) => {
     }
 });
 
+// ================================================================
+// 6. BULK UPLOAD MARKS
+// ================================================================
+
 app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), async (req, res) => {
     try {
         const { classId } = req.params;
@@ -13134,6 +14178,7 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
 
+        // Parse the file (CSV or Excel)
         let workbook;
         let data;
         const fileExt = req.file.originalname.split('.').pop().toLowerCase();
@@ -13153,18 +14198,22 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
             return res.status(400).json({ success: false, error: 'File is empty or missing data rows' });
         }
 
+        // Parse headers
         const headers = data[0].map(h => String(h).trim());
 
+        // Find columns
         const colIndex = {
             studentId: headers.findIndex(h => h && h.toLowerCase().includes('student id')),
             studentName: headers.findIndex(h => h && h.toLowerCase().includes('student name')),
             admissionNumber: headers.findIndex(h => h && h.toLowerCase().includes('admission'))
         };
 
+        // Find subject columns (everything after admission)
         const subjectColumns = [];
         for (let i = 0; i < headers.length; i++) {
             const h = headers[i];
             if (i <= Math.max(colIndex.studentId, colIndex.studentName, colIndex.admissionNumber)) continue;
+            // Check if it's a subject column (contains assessment type)
             const parts = h.split(' - ');
             if (parts.length === 2) {
                 subjectColumns.push({
@@ -13173,6 +14222,7 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
                     assessmentType: parts[1].trim()
                 });
             } else {
+                // Try to parse as subject name (without assessment type)
                 subjectColumns.push({
                     index: i,
                     subjectName: h.trim(),
@@ -13181,17 +14231,20 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
             }
         }
 
+        // Get subjects for this class
         const allSubjects = readFile(files.subjects);
         const classSubjects = allSubjects.filter(s =>
             s.classId === classId || s.classId === 'all' || s.classId === null
         );
 
+        // Map subject names to subject IDs
         const subjectMap = {};
         for (const subject of classSubjects) {
             subjectMap[subject.name.toLowerCase()] = subject.id;
             subjectMap[subject.code?.toLowerCase()] = subject.id;
         }
 
+        // Process rows
         let allMarks = readFile(reportFiles.marks);
         if (!allMarks[classId]) allMarks[classId] = {};
 
@@ -13205,6 +14258,7 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
             let studentId = null;
             let studentName = '';
 
+            // Find student by admission number or name
             if (colIndex.admissionNumber !== -1 && row[colIndex.admissionNumber]) {
                 const admission = String(row[colIndex.admissionNumber]).trim();
                 const students = readFile(files.students);
@@ -13237,6 +14291,7 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
                 allMarks[classId][studentId] = {};
             }
 
+            // Process each subject column
             for (const col of subjectColumns) {
                 const value = row[col.index] ? String(row[col.index]).trim() : '';
                 if (value === '' || value === '-') continue;
@@ -13257,7 +14312,10 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
                     allMarks[classId][studentId][subjectId] = {};
                 }
 
+                // If it's a total, distribute to all assessment types
                 if (col.assessmentType === 'Total') {
+                    // Distribute evenly or just store as total?
+                    // For simplicity, store as a special "Total" field
                     allMarks[classId][studentId][subjectId]['Total'] = numValue;
                 } else {
                     allMarks[classId][studentId][subjectId][col.assessmentType] = numValue;
@@ -13267,6 +14325,7 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
             }
         }
 
+        // Save marks
         saveFile(reportFiles.marks, allMarks);
 
         res.json({
@@ -13284,6 +14343,10 @@ app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), a
     }
 });
 
+// ================================================================
+// 7. REPORT CARD STATISTICS
+// ================================================================
+
 app.get('/api/report-cards/class/:classId/stats', (req, res) => {
     try {
         const { classId } = req.params;
@@ -13292,14 +14355,17 @@ app.get('/api/report-cards/class/:classId/stats', (req, res) => {
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
+        // Get generated report cards for this class/term/year
         const allGenerated = readFile(reportFiles.generated);
         const classReportCards = allGenerated.filter(r =>
             r.classId === classId && r.term === termNum && r.year === yearNum
         );
 
+        // Get marks for this class
         const allMarks = readFile(reportFiles.marks);
         const classMarks = allMarks[classId] || {};
 
+        // Get students in this class
         const students = readFile(files.students);
         const enrollments = readFile(files.enrollments);
         const classEnrollments = enrollments.filter(e =>
@@ -13308,11 +14374,13 @@ app.get('/api/report-cards/class/:classId/stats', (req, res) => {
         const studentIds = classEnrollments.map(e => e.studentId);
         const classStudents = students.filter(s => studentIds.includes(s.id) && s.status === 'Active');
 
+        // Get subjects for this class
         const allSubjects = readFile(files.subjects);
         const classSubjects = allSubjects.filter(s =>
             s.classId === classId || s.classId === 'all' || s.classId === null
         );
 
+        // Grading system
         const settings = readFile(files.settings);
         const gradingSystem = settings.gradingSystem || {
             'A': { min: 80, max: 100, remark: 'Excellent' },
@@ -13332,6 +14400,7 @@ app.get('/api/report-cards/class/:classId/stats', (req, res) => {
             return 'F';
         }
 
+        // Calculate statistics
         let totalStudents = classStudents.length;
         let studentsWithMarks = 0;
         let gradeDistribution = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0 };
@@ -13373,6 +14442,7 @@ app.get('/api/report-cards/class/:classId/stats', (req, res) => {
             }
         }
 
+        // Calculate subject averages
         const subjectAverageList = Object.values(subjectAverages).map(s => ({
             subjectId: s.id,
             subjectName: s.name,
@@ -13403,13 +14473,25 @@ app.get('/api/report-cards/class/:classId/stats', (req, res) => {
 });
 
 console.log('✅ Report Card Backend Routes loaded!');
+console.log('   📄 /api/report-cards/template - Get/Set template');
+console.log('   📝 /api/report-cards/class/:classId/marks - Get/Set marks');
+console.log('   🔤 /api/report-cards/class/:classId/initials - Get/Set initials');
+console.log('   📊 /api/report-cards/class/:classId/generate - Generate report cards');
+console.log('   👁️ /api/report-cards/class/:classId - Get generated report cards');
+console.log('   🗑️ /api/report-cards/:id - Delete report card');
+console.log('   👤 /api/report-cards/student/:studentId/preview - Preview report card');
+console.log('   📈 /api/report-cards/class/:classId/stats - Get statistics');
+console.log('   📤 /api/report-cards/class/:classId/marks/bulk - Bulk upload marks');
+
 
 // ==================== PARENT PORTAL BACKEND ROUTES ====================
 
+// File paths for parent data
 const parentFiles = {
     parents: path.join(dataDir, 'parents.json')
 };
 
+// Initialize parent file
 function initializeParentFile() {
     if (!fs.existsSync(parentFiles.parents)) {
         saveFile(parentFiles.parents, {});
@@ -13419,6 +14501,7 @@ function initializeParentFile() {
 
 initializeParentFile();
 
+// ==================== PARENT LOGIN ====================
 app.post('/api/parent/login', (req, res) => {
     try {
         const { name, dob, password } = req.body;
@@ -13427,6 +14510,7 @@ app.post('/api/parent/login', (req, res) => {
             return res.status(400).json({ success: false, error: 'Parent name is required' });
         }
 
+        // Find all students with this parent name (case-insensitive)
         const students = readFile(files.students);
         const matchedStudents = students.filter(s => 
             s.parentInfo && s.parentInfo.name && 
@@ -13440,10 +14524,12 @@ app.post('/api/parent/login', (req, res) => {
             });
         }
 
+        // Check if this parent has a password saved
         const parents = readFile(parentFiles.parents);
         const parentKey = name.toLowerCase().trim();
         const parentRecord = parents[parentKey];
 
+        // If password is provided, verify it
         if (password) {
             if (!parentRecord) {
                 return res.status(401).json({ 
@@ -13457,6 +14543,7 @@ app.post('/api/parent/login', (req, res) => {
                     error: 'Incorrect password. Please try again.' 
                 });
             }
+            // Password verified - return student data
             return res.json({
                 success: true,
                 isFirstLogin: false,
@@ -13474,7 +14561,9 @@ app.post('/api/parent/login', (req, res) => {
             });
         }
 
+        // If DOB is provided, verify it (first-time login)
         if (dob) {
+            // Check if any student matches the DOB
             const matchedStudent = matchedStudents.find(s => s.dateOfBirth === dob);
             if (!matchedStudent) {
                 return res.status(401).json({ 
@@ -13482,6 +14571,7 @@ app.post('/api/parent/login', (req, res) => {
                     error: 'The date of birth does not match any student. Please check and try again.' 
                 });
             }
+            // DOB verified - allow password setup
             return res.json({
                 success: true,
                 isFirstLogin: true,
@@ -13500,6 +14590,7 @@ app.post('/api/parent/login', (req, res) => {
             });
         }
 
+        // No password and no DOB - just name check
         return res.json({
             success: true,
             exists: true,
@@ -13523,6 +14614,7 @@ app.post('/api/parent/login', (req, res) => {
     }
 });
 
+// ==================== SETUP PARENT PASSWORD ====================
 app.post('/api/parent/setup-password', (req, res) => {
     try {
         const { name, password } = req.body;
@@ -13531,6 +14623,7 @@ app.post('/api/parent/setup-password', (req, res) => {
             return res.status(400).json({ success: false, error: 'Name and password are required' });
         }
 
+        // Validate password: min 5 chars, letters and numbers
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{5,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({ 
@@ -13539,6 +14632,7 @@ app.post('/api/parent/setup-password', (req, res) => {
             });
         }
 
+        // Verify the parent exists
         const students = readFile(files.students);
         const matchedStudents = students.filter(s => 
             s.parentInfo && s.parentInfo.name && 
@@ -13552,6 +14646,7 @@ app.post('/api/parent/setup-password', (req, res) => {
             });
         }
 
+        // Save password
         let parents = readFile(parentFiles.parents);
         const parentKey = name.toLowerCase().trim();
 
@@ -13588,6 +14683,7 @@ app.post('/api/parent/setup-password', (req, res) => {
     }
 });
 
+// ==================== GET PARENT STUDENTS ====================
 app.get('/api/parent/students/:parentName', (req, res) => {
     try {
         const { parentName } = req.params;
@@ -13620,6 +14716,7 @@ app.get('/api/parent/students/:parentName', (req, res) => {
     }
 });
 
+// ==================== GET STUDENT DETAILS FOR PARENT ====================
 app.get('/api/parent/student/:studentId/details', (req, res) => {
     try {
         const { studentId } = req.params;
@@ -13631,26 +14728,33 @@ app.get('/api/parent/student/:studentId/details', (req, res) => {
             return res.status(404).json({ success: false, error: 'Student not found' });
         }
 
+        // Get enrollments
         const enrollments = readFile(files.enrollments);
         const studentEnrollments = enrollments.filter(e => e.studentId === studentId);
 
+        // Get classes
         const classes = readFile(files.classes);
         const classMap = {};
         classes.forEach(c => { if (c && c.id) classMap[c.id] = c; });
 
+        // Get current class
         const currentEnrollment = studentEnrollments.find(e => e.isCurrent === true);
         const currentClass = currentEnrollment ? classMap[currentEnrollment.classId] : null;
 
+        // Get fee assignments
         const feeAssignments = readFile(files.studentFeeAssignments);
         const studentFeeAssignments = feeAssignments.filter(a => a.studentId === studentId);
 
+        // Get fee structures
         const feeStructures = readFile(files.feeStructures);
         const feeStructureMap = {};
         feeStructures.forEach(f => { if (f && f.id) feeStructureMap[f.id] = f; });
 
+        // Get payments
         const allPayments = readFile(files.feePayments);
         const studentPayments = allPayments.filter(p => p.studentId === studentId);
 
+        // Get marks (report cards)
         const allMarks = readFile(reportFiles.marks);
         let studentMarks = {};
         for (const classId of Object.keys(allMarks)) {
@@ -13666,6 +14770,7 @@ app.get('/api/parent/student/:studentId/details', (req, res) => {
             }
         }
 
+        // Get attendance summary
         const attendance = readFile(files.attendance);
         let studentAttendance = [];
         for (const record of attendance) {
@@ -13687,6 +14792,7 @@ app.get('/api/parent/student/:studentId/details', (req, res) => {
         const totalCount = studentAttendance.length;
         const attendanceRate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) : 0;
 
+        // Get term records for fee breakdown
         const termRecords = readFile(files.studentTermRecords);
         const studentTermRecords = {};
         for (const [key, record] of Object.entries(termRecords)) {
@@ -13701,8 +14807,16 @@ app.get('/api/parent/student/:studentId/details', (req, res) => {
             }
         }
 
+        // Calculate total expected and paid
         let totalExpected = 0;
         let totalPaid = 0;
+        // Use fee assignments to calculate expected fee per year/term
+        // For simplicity, we'll use the current fee structure and multiply by number of terms? We'll just sum payments for now.
+
+        // Better: use the fee assignment for current year to get expected tuition and activity fees.
+        // But we can also calculate from fee structure.
+
+        // We'll include the fee structure details in the response.
 
         const currentFeeAssignment = studentFeeAssignments.find(a => a.academicYear === new Date().getFullYear());
         let currentFeeStructure = null;
@@ -13710,6 +14824,7 @@ app.get('/api/parent/student/:studentId/details', (req, res) => {
             currentFeeStructure = feeStructureMap[currentFeeAssignment.feeStructureId];
         }
 
+        // If no current fee assignment, try to get from student's assignedFeeStructureId
         if (!currentFeeStructure && student.assignedFeeStructureId) {
             currentFeeStructure = feeStructureMap[student.assignedFeeStructureId];
         }
@@ -13751,13 +14866,14 @@ app.get('/api/parent/student/:studentId/details', (req, res) => {
 console.log('✅ Parent Portal routes loaded');
 
 // ==================== EVENTS MANAGEMENT ====================
-
 const eventsFilePath = path.join(dataDir, 'events.json');
 
+// Initialize events file
 if (!fs.existsSync(eventsFilePath)) {
     saveFile(eventsFilePath, []);
 }
 
+// ========== GET EVENT CATEGORIES ==========
 app.get('/api/events/categories', (req, res) => {
     try {
         const categories = [
@@ -13779,11 +14895,13 @@ app.get('/api/events/categories', (req, res) => {
     }
 });
 
+// ========== GET ALL EVENTS ==========
 app.get('/api/events', (req, res) => {
     try {
         const { category, status, startDate, endDate } = req.query;
         let events = readFile(eventsFilePath) || [];
         
+        // Apply filters
         if (category && category !== 'all') {
             events = events.filter(e => e.category === category);
         }
@@ -13797,6 +14915,7 @@ app.get('/api/events', (req, res) => {
             events = events.filter(e => e.endDate <= endDate);
         }
         
+        // Sort by start date (most recent first)
         events.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
         res.json(events);
     } catch (error) {
@@ -13805,6 +14924,7 @@ app.get('/api/events', (req, res) => {
     }
 });
 
+// ========== GET SINGLE EVENT ==========
 app.get('/api/events/:id', (req, res) => {
     try {
         const events = readFile(eventsFilePath) || [];
@@ -13819,6 +14939,7 @@ app.get('/api/events/:id', (req, res) => {
     }
 });
 
+// ========== CREATE EVENT ==========
 app.post('/api/events', (req, res) => {
     try {
         const { 
@@ -13828,10 +14949,12 @@ app.post('/api/events', (req, res) => {
             color, image, link
         } = req.body;
         
+        // Validate required fields
         if (!title || !startDate || !endDate) {
             return res.status(400).json({ error: 'Title, start date, and end date are required' });
         }
         
+        // Validate dates
         if (new Date(endDate) < new Date(startDate)) {
             return res.status(400).json({ error: 'End date must be after start date' });
         }
@@ -13869,6 +14992,7 @@ app.post('/api/events', (req, res) => {
     }
 });
 
+// ========== UPDATE EVENT ==========
 app.put('/api/events/:id', (req, res) => {
     try {
         const events = readFile(eventsFilePath) || [];
@@ -13885,6 +15009,7 @@ app.put('/api/events/:id', (req, res) => {
             color, image, link
         } = req.body;
         
+        // Validate dates if provided
         if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
             return res.status(400).json({ error: 'End date must be after start date' });
         }
@@ -13917,6 +15042,7 @@ app.put('/api/events/:id', (req, res) => {
     }
 });
 
+// ========== DELETE EVENT ==========
 app.delete('/api/events/:id', (req, res) => {
     try {
         let events = readFile(eventsFilePath) || [];
@@ -13935,6 +15061,7 @@ app.delete('/api/events/:id', (req, res) => {
     }
 });
 
+// ========== GET EVENTS BY DATE RANGE ==========
 app.get('/api/events/range/:start/:end', (req, res) => {
     try {
         const { start, end } = req.params;
@@ -13951,6 +15078,29 @@ app.get('/api/events/range/:start/:end', (req, res) => {
     }
 });
 
+// ========== GET EVENT CATEGORIES ==========
+app.get('/api/events/categories', (req, res) => {
+    try {
+        const categories = [
+            { id: 'Academic', label: '📚 Academic', color: '#3b82f6' },
+            { id: 'Sports', label: '🏆 Sports', color: '#22c55e' },
+            { id: 'Cultural', label: '🎭 Cultural', color: '#a855f7' },
+            { id: 'Holiday', label: '🎉 Holiday', color: '#f59e0b' },
+            { id: 'Meeting', label: '📋 Meeting', color: '#8b5cf6' },
+            { id: 'Exam', label: '📝 Exam', color: '#ef4444' },
+            { id: 'Parent', label: '👨‍👩‍👦 Parent Event', color: '#ec4899' },
+            { id: 'Fundraising', label: '💰 Fundraising', color: '#14b8a6' },
+            { id: 'General', label: '📌 General', color: '#6b7280' },
+            { id: 'Other', label: '📎 Other', color: '#8b8b8b' }
+        ];
+        res.json(categories);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+});
+
+// ========== GET UPCOMING EVENTS ==========
 app.get('/api/events/upcoming/:limit', (req, res) => {
     try {
         const limit = parseInt(req.params.limit) || 5;
@@ -13972,10 +15122,10 @@ app.get('/api/events/upcoming/:limit', (req, res) => {
 console.log('✅ Events Management API routes loaded');
 
 // ==================== CHAT/CONTACT SYSTEM ====================
-
 const chatFilePath = path.join(dataDir, 'chatMessages.json');
 const chatContactsFilePath = path.join(dataDir, 'chatContacts.json');
 
+// Initialize chat files
 if (!fs.existsSync(chatFilePath)) {
     saveFile(chatFilePath, {});
 }
@@ -13983,11 +15133,13 @@ if (!fs.existsSync(chatContactsFilePath)) {
     saveFile(chatContactsFilePath, {});
 }
 
+// ========== GET ALL CONTACTS WITH FILTERS ==========
 app.get('/api/chat/contacts', (req, res) => {
     try {
         const { type } = req.query;
         let contacts = [];
         
+        // Get teachers
         const teachers = readFile(files.teachers) || [];
         teachers.forEach(t => {
             if (t.status === 'Active') {
@@ -14005,6 +15157,7 @@ app.get('/api/chat/contacts', (req, res) => {
             }
         });
         
+        // Get parents (from students.json)
         const students = readFile(files.students) || [];
         const parentsMap = {};
         students.forEach(s => {
@@ -14029,6 +15182,7 @@ app.get('/api/chat/contacts', (req, res) => {
         });
         Object.values(parentsMap).forEach(p => contacts.push(p));
         
+        // Get students (only those with accounts)
         students.forEach(s => {
             if (s.status === 'Active' && (s.phone || s.email)) {
                 contacts.push({
@@ -14046,6 +15200,7 @@ app.get('/api/chat/contacts', (req, res) => {
             }
         });
         
+        // Get director (from settings or schools)
         const settings = readFile(files.settings) || {};
         const school = readFile(files.schools) || [];
         const director = school[0]?.director || settings.director || null;
@@ -14063,10 +15218,12 @@ app.get('/api/chat/contacts', (req, res) => {
             });
         }
         
+        // Apply type filter
         if (type && type !== 'all') {
             contacts = contacts.filter(c => c.type === type);
         }
         
+        // Sort by name
         contacts.sort((a, b) => a.name.localeCompare(b.name));
         
         res.json(contacts);
@@ -14076,6 +15233,7 @@ app.get('/api/chat/contacts', (req, res) => {
     }
 });
 
+// ========== GET CHAT MESSAGES ==========
 app.get('/api/chat/messages/:contactId', (req, res) => {
     try {
         const { contactId } = req.params;
@@ -14084,8 +15242,10 @@ app.get('/api/chat/messages/:contactId', (req, res) => {
         const chatData = readFile(chatFilePath) || {};
         const messages = chatData[contactId] || [];
         
+        // Sort by timestamp (newest first for pagination)
         let sorted = [...messages].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
+        // Apply pagination
         if (before) {
             const beforeDate = new Date(before);
             sorted = sorted.filter(m => new Date(m.timestamp) < beforeDate);
@@ -14095,6 +15255,7 @@ app.get('/api/chat/messages/:contactId', (req, res) => {
             sorted = sorted.slice(0, parseInt(limit));
         }
         
+        // Return in chronological order (oldest first)
         res.json(sorted.reverse());
     } catch (error) {
         console.error('Error fetching messages:', error);
@@ -14102,6 +15263,7 @@ app.get('/api/chat/messages/:contactId', (req, res) => {
     }
 });
 
+// ========== SEND MESSAGE ==========
 app.post('/api/chat/messages', (req, res) => {
     try {
         const { contactId, message, messageType, replyTo, sender } = req.body;
@@ -14111,11 +15273,13 @@ app.post('/api/chat/messages', (req, res) => {
             return res.status(400).json({ error: 'Contact ID is required' });
         }
         
+        // Read existing messages
         const chatData = readFile(chatFilePath) || {};
         if (!chatData[contactId]) {
             chatData[contactId] = [];
         }
         
+        // Create message object
         const newMessage = {
             id: uuidv4(),
             sender: senderName,
@@ -14128,8 +15292,10 @@ app.post('/api/chat/messages', (req, res) => {
             replyTo: replyTo || null
         };
         
+        // Add message to chat
         chatData[contactId].push(newMessage);
         
+        // Update contact's last message
         const contacts = readFile(chatContactsFilePath) || {};
         if (!contacts[contactId]) {
             contacts[contactId] = {};
@@ -14141,6 +15307,7 @@ app.post('/api/chat/messages', (req, res) => {
         saveFile(chatFilePath, chatData);
         saveFile(chatContactsFilePath, contacts);
         
+        // Return the message
         res.status(201).json(newMessage);
     } catch (error) {
         console.error('Error sending message:', error);
@@ -14148,6 +15315,7 @@ app.post('/api/chat/messages', (req, res) => {
     }
 });
 
+// ========== MARK MESSAGES AS READ ==========
 app.put('/api/chat/messages/:contactId/read', (req, res) => {
     try {
         const { contactId } = req.params;
@@ -14155,6 +15323,7 @@ app.put('/api/chat/messages/:contactId/read', (req, res) => {
         const chatData = readFile(chatFilePath) || {};
         const messages = chatData[contactId] || [];
         
+        // Mark all messages as read
         let updated = false;
         messages.forEach(m => {
             if (!m.read && m.sender !== 'admin') {
@@ -14167,6 +15336,7 @@ app.put('/api/chat/messages/:contactId/read', (req, res) => {
             chatData[contactId] = messages;
             saveFile(chatFilePath, chatData);
             
+            // Reset unread count
             const contacts = readFile(chatContactsFilePath) || {};
             if (contacts[contactId]) {
                 contacts[contactId].unreadCount = 0;
@@ -14181,6 +15351,7 @@ app.put('/api/chat/messages/:contactId/read', (req, res) => {
     }
 });
 
+// ========== GET UNREAD COUNT ==========
 app.get('/api/chat/unread', (req, res) => {
     try {
         const contacts = readFile(chatContactsFilePath) || {};
@@ -14202,6 +15373,7 @@ app.get('/api/chat/unread', (req, res) => {
     }
 });
 
+// ========== DELETE MESSAGE ==========
 app.delete('/api/chat/messages/:messageId', (req, res) => {
     try {
         const { messageId } = req.params;
@@ -14219,6 +15391,7 @@ app.delete('/api/chat/messages/:messageId', (req, res) => {
             return res.status(404).json({ error: 'Message not found' });
         }
         
+        // Remove message
         messages.splice(index, 1);
         chatData[contactId] = messages;
         saveFile(chatFilePath, chatData);
@@ -14230,9 +15403,11 @@ app.delete('/api/chat/messages/:messageId', (req, res) => {
     }
 });
 
+// ========== TYPING INDICATOR ==========
 app.post('/api/chat/typing', (req, res) => {
     try {
         const { contactId, isTyping } = req.body;
+        // For now, just acknowledge
         res.json({ success: true });
     } catch (error) {
         console.error('Error updating typing status:', error);
@@ -14243,13 +15418,14 @@ app.post('/api/chat/typing', (req, res) => {
 console.log('✅ Chat/Contact API routes loaded');
 
 // ==================== ANNOUNCEMENTS ROUTES ====================
-
 const announcementsFile = path.join(dataDir, 'announcements.json');
 
+// Initialize announcements file
 if (!fs.existsSync(announcementsFile)) {
     saveFile(announcementsFile, []);
 }
 
+// Get all announcements (with filters)
 app.get('/api/announcements', (req, res) => {
     try {
         let announcements = readFile(announcementsFile);
@@ -14266,6 +15442,7 @@ app.get('/api/announcements', (req, res) => {
         if (category) {
             announcements = announcements.filter(a => a.category === category);
         }
+        // Sort by date descending (most recent first)
         announcements.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         res.json({ success: true, data: announcements });
     } catch (error) {
@@ -14273,6 +15450,7 @@ app.get('/api/announcements', (req, res) => {
     }
 });
 
+// Get single announcement
 app.get('/api/announcements/:id', (req, res) => {
     try {
         const announcements = readFile(announcementsFile);
@@ -14286,6 +15464,7 @@ app.get('/api/announcements/:id', (req, res) => {
     }
 });
 
+// Create announcement
 app.post('/api/announcements', (req, res) => {
     try {
         const { title, content, category, importance, targetAudience, startDate, endDate, isActive, author } = req.body;
@@ -14316,6 +15495,7 @@ app.post('/api/announcements', (req, res) => {
     }
 });
 
+// Update announcement
 app.put('/api/announcements/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -14333,6 +15513,7 @@ app.put('/api/announcements/:id', (req, res) => {
     }
 });
 
+// Delete announcement
 app.delete('/api/announcements/:id', (req, res) => {
     try {
         const { id } = req.params;
@@ -14345,12 +15526,14 @@ app.delete('/api/announcements/:id', (req, res) => {
     }
 });
 
+// GET all report card marks for a student (enriched with subject & class names)
 app.get('/api/report-cards/student/:studentId/all', (req, res) => {
     try {
         const { studentId } = req.params;
         const allMarks = readFile(reportFiles.marks) || {};
         const result = {};
 
+        // Iterate over classes, years, terms
         for (const classId of Object.keys(allMarks)) {
             for (const year of Object.keys(allMarks[classId])) {
                 for (const term of Object.keys(allMarks[classId][year])) {
@@ -14364,6 +15547,7 @@ app.get('/api/report-cards/student/:studentId/all', (req, res) => {
             }
         }
 
+        // Get subjects and classes for enrichment
         const subjects = readFile(files.subjects) || [];
         const classes = readFile(files.classes) || [];
         const subjectMap = {};
@@ -14371,6 +15555,7 @@ app.get('/api/report-cards/student/:studentId/all', (req, res) => {
         const classMap = {};
         classes.forEach(c => classMap[c.id] = c.name);
 
+        // Enrich with subject names and class names
         const enriched = {};
         for (const year of Object.keys(result)) {
             enriched[year] = {};
@@ -14399,13 +15584,14 @@ app.get('/api/report-cards/student/:studentId/all', (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
-
-// ==================== PURGE PAYMENTS FOR FEE STRUCTURE ITEMS ====================
-
+// ==================== PURGE ALL PAYMENTS FOR A FEE-STRUCTURE ITEM (or whole group) ====================
+// Called when an item/group is removed from a fee structure. Deletes every matching
+// payment entry across ALL students, recalculates payment totals, and reverses any
+// inventory stock that was auto-added from a "brought_item" payment for that item.
 app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
     console.log('🗑️ PURGE PAYMENTS FOR FEE STRUCTURE ITEM/GROUP');
     try {
-        const { itemName, componentName, feeStructureId } = req.body;
+        const { itemName, componentName, feeStructureId } = req.body; // NEW: feeStructureId required
 
         if (!itemName && !componentName) {
             return res.status(400).json({ error: 'itemName or componentName is required' });
@@ -14430,16 +15616,18 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
             return true;
         }
 
+        // ========== 1. PURGE FROM feePayments.json — ONLY for this fee structure ==========
         let payments = readFile(files.feePayments);
         if (!Array.isArray(payments)) payments = [];
 
         let deletedPaymentRecords = 0;
         let modifiedPaymentRecords = 0;
-        let skippedOtherFeeStructure = 0;
+        let skippedOtherFeeStructure = 0; // NEW: for visibility in logs/response
         const inventoryReversals = {};
 
         const keptPayments = [];
         for (const payment of payments) {
+            // ========== CRITICAL FIX: only touch payments belonging to THIS fee structure ==========
             if (payment.feeStructureId !== feeStructureId) {
                 keptPayments.push(payment);
                 continue;
@@ -14498,6 +15686,8 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
         }
         saveFile(files.feePayments, keptPayments);
 
+        // ========== 2. PURGE FROM studentTermRecords.json — ONLY students assigned to this fee structure ==========
+        // Build the set of student IDs who belong to this fee structure (any year/term assignment)
         let feeAssignments = readFile(files.studentFeeAssignments);
         if (!Array.isArray(feeAssignments)) feeAssignments = [];
         const studentIdsInThisFeeStructure = new Set(
@@ -14510,7 +15700,9 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
         for (const [key, record] of Object.entries(termRecords)) {
             if (!record || !record.activityItemsPaid) continue;
 
+            // key format: studentId_year_term — only touch students in this fee structure
             const studentIdFromKey = key.split('_')[0];
+            // fall back to matching via record.studentId if present
             const recordStudentId = record.studentId || studentIdFromKey;
             if (!studentIdsInThisFeeStructure.has(recordStudentId)) continue;
 
@@ -14536,6 +15728,7 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
         }
         saveFile(files.studentTermRecords, termRecords);
 
+        // ========== 3. REVERSE INVENTORY — only for the students/qty tracked above (already scoped) ==========
         let totalInventoryReversed = 0;
         for (const entry of Object.values(inventoryReversals)) {
             for (const [name, qty] of Object.entries(entry.itemQty)) {
@@ -14560,9 +15753,12 @@ app.delete('/api/fee/structures/items/purge-payments', (req, res) => {
     }
 });
 
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -14579,6 +15775,9 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+
+// Add to server.js for debugging
+// Add this to server.js for debugging
 app.get('/api/academic/debug', (req, res) => {
     try {
         const settings = readFile(files.settings);
@@ -14597,6 +15796,8 @@ app.get('/api/academic/debug', (req, res) => {
     }
 });
 
+// Reset all payments for a specific item for a student
+// ==================== RESET ALL PAYMENTS FOR A SPECIFIC ITEM (WITH INVENTORY REVERSAL FOR CASH & ITEMS) ====================
 app.delete('/api/fee/payments/reset-item', (req, res) => {
     console.log('🗑️ RESET ITEM PAYMENTS CALLED');
     console.log('📥 Request body:', req.body);
@@ -14623,6 +15824,7 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
 
         console.log(`📊 Total payments in file: ${payments.length}`);
 
+        // Helper: check if an item matches the target
         function itemMatches(item) {
             if (!item) return false;
             const itemNameLower = (item.itemName || '').trim().toLowerCase();
@@ -14650,6 +15852,7 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
             let containsItem = false;
             let totalQtyForPeriod = 0;
 
+            // 1. Check activityItemPayments
             if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
                 for (const pItem of payment.activityItemPayments) {
                     if (itemMatches(pItem)) {
@@ -14660,6 +15863,7 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
                 }
             }
 
+            // 2. Check paymentsByPeriodType
             if (!containsItem && payment.paymentsByPeriodType) {
                 const periodTypes = ['one_time', 'termly', 'yearly'];
                 for (const pt of periodTypes) {
@@ -14675,11 +15879,13 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
                 }
             }
 
+            // 3. Check individualPayments (no inventory impact, but still match)
             if (!containsItem && payment.individualPayments && Array.isArray(payment.individualPayments)) {
                 for (const ip of payment.individualPayments) {
                     if (ip.itemName && ip.itemName.trim().toLowerCase() === normalizedItemName.toLowerCase()) {
                         containsItem = true;
                         console.log(`   ✅ Match in individualPayments: ${ip.itemName}`);
+                        // individualPayments don't have paymentType, so no inventory
                     }
                 }
             }
@@ -14704,6 +15910,7 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
             }
         }
 
+        // Reverse inventory for each period
         for (const entry of Object.values(inventoryReversalsByPeriod)) {
             reverseInventoryForDeletedPaymentItem(
                 studentId,
@@ -14747,9 +15954,8 @@ app.delete('/api/fee/payments/reset-item', (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 // ==================== START SERVER ====================
-
+// ==================== START SERVER ====================
 function getLocalIP() {
     const { networkInterfaces } = require('os');
     const nets = networkInterfaces();
@@ -14765,60 +15971,35 @@ function getLocalIP() {
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');
 
-// Initialize database and start server
-async function startServer() {
-    await initializeDatabase();
-    
-    app.listen(PORT, '0.0.0.0', () => {
-        const ip = getLocalIP();
-        const networkUrl = `http://${ip}:${PORT}`;
+app.listen(PORT, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    const networkUrl = `http://${ip}:${PORT}`;
 
-        console.log('='.repeat(50));
-        console.log('🎓 UGANDA SCHOOL MANAGEMENT SYSTEM v3.0 (SQLite)');
-        console.log('='.repeat(50));
-        console.log(`✅ Server running on port ${PORT}`);
-        console.log(`   Local:   http://localhost:${PORT}`);
-        console.log(`   Network: ${networkUrl}`);
-        console.log(`📁 Data directory: ${dataDir}`);
-        console.log(`📁 Database file: ${DB_PATH}`);
-        console.log(`💰 Fee Types: Tuition | One-Time | Termly | Yearly`);
-        console.log('='.repeat(50));
-        console.log('Ready to serve! 🚀');
-        console.log('📱 Access from other devices on same network using:');
-        console.log(`   ${networkUrl}`);
+    console.log('='.repeat(50));
+    console.log('🎓 UGANDA SCHOOL MANAGEMENT SYSTEM v3.0');
+    console.log('='.repeat(50));
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`   Local:   http://localhost:${PORT}`);
+    console.log(`   Network: ${networkUrl}`);
+    console.log(`📁 Data directory: ${dataDir}`);
+    console.log(`💰 Fee Types: Tuition | One-Time | Termly | Yearly`);
+    console.log('='.repeat(50));
+    console.log('Ready to serve! 🚀');
+    console.log('📱 Access from other devices on same network using:');
+    console.log(`   ${networkUrl}`);
 
-        try {
-            const qrcode = require('qrcode-terminal');
-            console.log('📲 Scan the QR code below with your phone camera:');
-            qrcode.generate(networkUrl, { small: true });
-            console.log('📲 Or copy the URL above into your mobile browser.');
-        } catch (err) {
-            console.log('ℹ️ QR code generation skipped (qrcode-terminal not installed).');
-            console.log('   Install it with: npm install qrcode-terminal');
-        }
-        console.log('='.repeat(50));
-    });
-}
-
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n🛑 Shutting down...');
-    if (db) {
-        saveDatabase();
-        console.log('✅ Database saved to disk');
+    // ========== Generate QR code ==========
+    try {
+        const qrcode = require('qrcode-terminal');
+        console.log('📲 Scan the QR code below with your phone camera:');
+        qrcode.generate(networkUrl, { small: true });
+        console.log('📲 Or copy the URL above into your mobile browser.');
+    } catch (err) {
+        console.log('ℹ️ QR code generation skipped (qrcode-terminal not installed).');
+        console.log('   Install it with: npm install qrcode-terminal');
     }
-    process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-    console.log('\n🛑 Shutting down...');
-    if (db) {
-        saveDatabase();
-        console.log('✅ Database saved to disk');
-    }
-    process.exit(0);
+    console.log('='.repeat(50));
 });
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');
-
-startServer();
+// ==================== START SERVER ====================
