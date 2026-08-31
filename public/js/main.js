@@ -33851,7 +33851,7 @@ async function editStudentInfoList(studentId) {
                                 <span class="es-card-icon"><i class="fas fa-money-bill-wave"></i></span>
                                 <div><div class="es-card-title">Fee Assignment for ${currentYear}</div><div class="es-card-sub">Applies only to this academic year</div></div>
                             </div>
-                            <div class="es-card-body es-grid es-grid-2">
+                            <div class="es-card-body es-grid es-grid-2" style="z-index:-10000;">
                                 <div class="es-field">
                                     <label class="es-label">Fee Structure</label>
                                     <select id="editFeeStructure" class="es-input">
