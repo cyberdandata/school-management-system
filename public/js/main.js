@@ -32992,7 +32992,7 @@ function injectEditStudentStyles() {
 
 /* ============================== MAIN FUNCTION ============================== */
 async function editStudentInfoList(studentId) {
-    console.log('=== editStudentInfoList v3.0 — modern UI + group restore + item search/filter ===');
+    console.log('=== editStudentInfoList v3.1 — modern UI + group restore + item search/filter + bursary calculator ===');
     ensureSharedUiHelpers();
     injectEditStudentStyles();
 
@@ -33065,6 +33065,9 @@ async function editStudentInfoList(studentId) {
         let itemsGroupFilter = 'all';
         let itemsSearchDebounceHandle = null;
 
+        // ---- bursary calculator state ----
+        let bursaryCalcExpr = '';
+
         /* -------------------- helpers -------------------- */
         function getCustomizedItemValue(itemId, defaultAmount, defaultQuantity, defaultPaymentOption) {
             const isRemoved = student.removedItems && student.removedItems[itemId] && student.removedItems[itemId].isActive !== false;
@@ -33103,6 +33106,75 @@ async function editStudentInfoList(studentId) {
             } catch (_) {
                 return escaped;
             }
+        }
+
+        /* -------------------- bursary calculator -------------------- */
+        function updateBursaryCalcDisplay() {
+            const display = document.getElementById('esBursaryCalcDisplay');
+            if (display) display.value = bursaryCalcExpr || '0';
+        }
+
+        function openBursaryCalculator() {
+            const popup = document.getElementById('esBursaryCalcPopup');
+            if (!popup) return;
+            bursaryCalcExpr = '';
+            updateBursaryCalcDisplay();
+            popup.classList.remove('hidden');
+        }
+
+        function closeBursaryCalculator() {
+            document.getElementById('esBursaryCalcPopup')?.classList.add('hidden');
+        }
+
+        function toggleBursaryCalculator() {
+            const popup = document.getElementById('esBursaryCalcPopup');
+            if (!popup) return;
+            if (popup.classList.contains('hidden')) openBursaryCalculator();
+            else closeBursaryCalculator();
+        }
+
+        function evaluateBursaryCalcExpression() {
+            if (!bursaryCalcExpr) return;
+            if (!/^[0-9+\-*/.\s]+$/.test(bursaryCalcExpr)) {
+                window.showToast('Invalid calculation', 'warning');
+                return;
+            }
+            let result;
+            try {
+                result = Function(`"use strict"; return (${bursaryCalcExpr})`)();
+            } catch (_) {
+                window.showToast('Invalid calculation', 'warning');
+                return;
+            }
+            if (typeof result !== 'number' || !isFinite(result)) {
+                window.showToast('Invalid calculation', 'warning');
+                return;
+            }
+            result = Math.round(result * 100) / 100;
+
+            const amountInput = document.getElementById('editCustomBursaryAmount');
+            if (amountInput) {
+                amountInput.value = result;
+                amountInput.dispatchEvent(new Event('input'));
+            }
+
+            bursaryCalcExpr = '';
+            updateBursaryCalcDisplay();
+            closeBursaryCalculator();
+        }
+
+        function handleBursaryCalcButtonClick(key) {
+            if (key === 'C') {
+                bursaryCalcExpr = '';
+            } else if (key === '⌫') {
+                bursaryCalcExpr = bursaryCalcExpr.slice(0, -1);
+            } else if (key === '=') {
+                evaluateBursaryCalcExpression();
+                return;
+            } else {
+                bursaryCalcExpr += key;
+            }
+            updateBursaryCalcDisplay();
         }
 
                 async function persistRemovedAndCustomizations() {
@@ -33651,6 +33723,39 @@ async function editStudentInfoList(studentId) {
             });
         }
 
+        /* -------------------- bursary calculator markup pieces -------------------- */
+        const esCalcBtnStyle = 'padding:10px 0; border:1px solid #e2e5ea; border-radius:6px; background:#f4f5f7; cursor:pointer; font-size:14px; font-weight:600; color:#334155;';
+        const esCalcEqStyle = 'padding:10px 0; border:1px solid #0E9C8E; border-radius:6px; background:#0E9C8E; cursor:pointer; font-size:14px; font-weight:700; color:#fff;';
+        const esCalcPopupHtml = `
+            <div id="esBursaryCalcPopup" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:50; width:224px; background:#fff; border:1px solid #e2e5ea; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.18); padding:10px;">
+                <input type="text" id="esBursaryCalcDisplay" readonly value="0" style="width:100%; box-sizing:border-box; text-align:right; font-size:18px; padding:8px; border:1px solid #e2e5ea; border-radius:6px; margin-bottom:8px; background:#f8f9fb; color:#1f2430;">
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+                    <button type="button" data-calc="C" style="${esCalcBtnStyle} grid-column:span 2;">C</button>
+                    <button type="button" data-calc="⌫" style="${esCalcBtnStyle}">⌫</button>
+                    <button type="button" data-calc="/" style="${esCalcBtnStyle}">÷</button>
+
+                    <button type="button" data-calc="7" style="${esCalcBtnStyle}">7</button>
+                    <button type="button" data-calc="8" style="${esCalcBtnStyle}">8</button>
+                    <button type="button" data-calc="9" style="${esCalcBtnStyle}">9</button>
+                    <button type="button" data-calc="*" style="${esCalcBtnStyle}">×</button>
+
+                    <button type="button" data-calc="4" style="${esCalcBtnStyle}">4</button>
+                    <button type="button" data-calc="5" style="${esCalcBtnStyle}">5</button>
+                    <button type="button" data-calc="6" style="${esCalcBtnStyle}">6</button>
+                    <button type="button" data-calc="-" style="${esCalcBtnStyle}">−</button>
+
+                    <button type="button" data-calc="1" style="${esCalcBtnStyle}">1</button>
+                    <button type="button" data-calc="2" style="${esCalcBtnStyle}">2</button>
+                    <button type="button" data-calc="3" style="${esCalcBtnStyle}">3</button>
+                    <button type="button" data-calc="+" style="${esCalcBtnStyle}">+</button>
+
+                    <button type="button" data-calc="0" style="${esCalcBtnStyle} grid-column:span 2;">0</button>
+                    <button type="button" data-calc="." style="${esCalcBtnStyle}">.</button>
+                    <button type="button" data-calc="=" style="${esCalcEqStyle}">=</button>
+                </div>
+            </div>
+        `;
+
         /* ============================== MODAL MARKUP ============================== */
         const modalHtml = `
             <div class="es-overlay" id="editStudentModal">
@@ -33765,8 +33870,12 @@ async function editStudentInfoList(studentId) {
                                             ${feeBursaries.filter(b => b.isActive !== false).map(b => `<option value="${b.id}" ${currentBursaryId === b.id ? 'selected' : ''}>${esEscapeHtml(b.name)} (${b.type === 'percentage' ? b.value + '% off' : 'UGX ' + esFormatMoney(b.value) + ' off'})</option>`).join('')}
                                             <option value="custom" ${hasCustomBursary ? 'selected' : ''}>✏️ Custom Bursary</option>
                                         </select>
-                                        <div id="customBursaryContainer" class="${hasCustomBursary ? '' : 'hidden'}">
+                                        <div id="customBursaryContainer" class="${hasCustomBursary ? '' : 'hidden'}" style="position:relative; display:flex; align-items:center; gap:6px;">
                                             <input type="number" id="editCustomBursaryAmount" class="es-input" style="width:130px" value="${customBursaryAmount}" placeholder="Amount (UGX)" min="0" step="1000">
+                                            <button type="button" id="esBursaryCalcBtn" class="es-btn es-btn-sm es-btn-slate" title="Open calculator" style="padding:6px 10px;">
+                                                <i class="fas fa-calculator"></i>
+                                            </button>
+                                            ${esCalcPopupHtml}
                                         </div>
                                     </div>
                                     ${hasCustomBursary ? `<p style="font-size:11.5px;color:#15803d;margin-top:4px;">🎖️ Current: UGX ${esFormatMoney(customBursaryAmount)} off tuition</p>` : ''}
@@ -33867,10 +33976,46 @@ async function editStudentInfoList(studentId) {
                 document.getElementById('editCustomBursaryAmount')?.focus();
             } else {
                 customContainer.classList.add('hidden');
+                closeBursaryCalculator();
             }
         }
         document.getElementById('editBursary')?.addEventListener('change', toggleEditCustomBursary);
         toggleEditCustomBursary();
+
+        /* -------------------- bursary calculator listeners -------------------- */
+        document.getElementById('esBursaryCalcBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleBursaryCalculator();
+        });
+
+        document.getElementById('esBursaryCalcPopup')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const btn = e.target.closest('[data-calc]');
+            if (!btn) return;
+            handleBursaryCalcButtonClick(btn.dataset.calc);
+        });
+
+        // Enter key (or the on-screen "=" button, handled above) applies the result to the bursary input
+        document.addEventListener('keydown', function bursaryCalcKeyHandler(e) {
+            const popup = document.getElementById('esBursaryCalcPopup');
+            if (!popup || popup.classList.contains('hidden')) return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                evaluateBursaryCalcExpression();
+            } else if (e.key === 'Escape') {
+                e.stopImmediatePropagation();
+                closeBursaryCalculator();
+            }
+        });
+
+        // click-away closes the calculator popup
+        document.addEventListener('click', (e) => {
+            const popup = document.getElementById('esBursaryCalcPopup');
+            const btn = document.getElementById('esBursaryCalcBtn');
+            if (!popup || popup.classList.contains('hidden')) return;
+            if (!popup.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) closeBursaryCalculator();
+        });
 
         /* -------------------- close / escape / backdrop -------------------- */
         function closeEditStudentModal() {
