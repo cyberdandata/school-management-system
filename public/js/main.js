@@ -33658,7 +33658,7 @@ async function editStudentInfoList(studentId) {
 
         function buildCalculatorHTML() {
             return `
-                <div class="es-calc-overlay" id="esBursaryCalculatorOverlay" style="display:none;">
+                <div class="es-calc-overlay" id="esBursaryCalculatorOverlay" style="display:none; z-index:100000;">
                     <div class="es-calc-modal" onclick="event.stopPropagation();">
                         <div class="es-calc-header">
                             <span class="es-calc-title"><i class="fas fa-calculator"></i> Bursary Calculator</span>
