@@ -33727,34 +33727,34 @@ async function editStudentInfoList(studentId) {
         const esCalcBtnStyle = 'padding:10px 0; border:1px solid #e2e5ea; border-radius:6px; background:#f4f5f7; cursor:pointer; font-size:14px; font-weight:600; color:#334155;';
         const esCalcEqStyle = 'padding:10px 0; border:1px solid #0E9C8E; border-radius:6px; background:#0E9C8E; cursor:pointer; font-size:14px; font-weight:700; color:#fff;';
         const esCalcPopupHtml = `
-    <div id="esBursaryCalcPopup" class="hidden" style="position:fixed; z-index:99999; width:224px; background:#fff; border:1px solid #e2e5ea; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.18); padding:10px; display:none;">
-        <input type="text" id="esBursaryCalcDisplay" readonly value="0" style="width:100%; box-sizing:border-box; text-align:right; font-size:18px; padding:8px; border:1px solid #e2e5ea; border-radius:6px; margin-bottom:8px; background:#f8f9fb; color:#1f2430;">
-        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
-            <button type="button" data-calc="C" style="${esCalcBtnStyle} grid-column:span 2;">C</button>
-            <button type="button" data-calc="⌫" style="${esCalcBtnStyle}">⌫</button>
-            <button type="button" data-calc="/" style="${esCalcBtnStyle}">÷</button>
+            <div id="esBursaryCalcPopup" class="hidden" style="position:absolute; top:calc(100% + 6px); right:0; z-index:50; width:224px; background:#fff; border:1px solid #e2e5ea; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.18); padding:10px;">
+                <input type="text" id="esBursaryCalcDisplay" readonly value="0" style="width:100%; box-sizing:border-box; text-align:right; font-size:18px; padding:8px; border:1px solid #e2e5ea; border-radius:6px; margin-bottom:8px; background:#f8f9fb; color:#1f2430;">
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+                    <button type="button" data-calc="C" style="${esCalcBtnStyle} grid-column:span 2;">C</button>
+                    <button type="button" data-calc="⌫" style="${esCalcBtnStyle}">⌫</button>
+                    <button type="button" data-calc="/" style="${esCalcBtnStyle}">÷</button>
 
-            <button type="button" data-calc="7" style="${esCalcBtnStyle}">7</button>
-            <button type="button" data-calc="8" style="${esCalcBtnStyle}">8</button>
-            <button type="button" data-calc="9" style="${esCalcBtnStyle}">9</button>
-            <button type="button" data-calc="*" style="${esCalcBtnStyle}">×</button>
+                    <button type="button" data-calc="7" style="${esCalcBtnStyle}">7</button>
+                    <button type="button" data-calc="8" style="${esCalcBtnStyle}">8</button>
+                    <button type="button" data-calc="9" style="${esCalcBtnStyle}">9</button>
+                    <button type="button" data-calc="*" style="${esCalcBtnStyle}">×</button>
 
-            <button type="button" data-calc="4" style="${esCalcBtnStyle}">4</button>
-            <button type="button" data-calc="5" style="${esCalcBtnStyle}">5</button>
-            <button type="button" data-calc="6" style="${esCalcBtnStyle}">6</button>
-            <button type="button" data-calc="-" style="${esCalcBtnStyle}">−</button>
+                    <button type="button" data-calc="4" style="${esCalcBtnStyle}">4</button>
+                    <button type="button" data-calc="5" style="${esCalcBtnStyle}">5</button>
+                    <button type="button" data-calc="6" style="${esCalcBtnStyle}">6</button>
+                    <button type="button" data-calc="-" style="${esCalcBtnStyle}">−</button>
 
-            <button type="button" data-calc="1" style="${esCalcBtnStyle}">1</button>
-            <button type="button" data-calc="2" style="${esCalcBtnStyle}">2</button>
-            <button type="button" data-calc="3" style="${esCalcBtnStyle}">3</button>
-            <button type="button" data-calc="+" style="${esCalcBtnStyle}">+</button>
+                    <button type="button" data-calc="1" style="${esCalcBtnStyle}">1</button>
+                    <button type="button" data-calc="2" style="${esCalcBtnStyle}">2</button>
+                    <button type="button" data-calc="3" style="${esCalcBtnStyle}">3</button>
+                    <button type="button" data-calc="+" style="${esCalcBtnStyle}">+</button>
 
-            <button type="button" data-calc="0" style="${esCalcBtnStyle} grid-column:span 2;">0</button>
-            <button type="button" data-calc="." style="${esCalcBtnStyle}">.</button>
-            <button type="button" data-calc="=" style="${esCalcEqStyle}">=</button>
-        </div>
-    </div>
-`;
+                    <button type="button" data-calc="0" style="${esCalcBtnStyle} grid-column:span 2;">0</button>
+                    <button type="button" data-calc="." style="${esCalcBtnStyle}">.</button>
+                    <button type="button" data-calc="=" style="${esCalcEqStyle}">=</button>
+                </div>
+            </div>
+        `;
 
         /* ============================== MODAL MARKUP ============================== */
         const modalHtml = `
