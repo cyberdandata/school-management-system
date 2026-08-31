@@ -10266,7 +10266,7 @@ function renderTermCardFee(term, paidAmount, expectedAmount, studentId) {
 // ============================================================================
 
 async function showStudentRegistration() {
-    console.log('showStudentRegistration called - v6.0 (Default-Removed Items + Fuzzy Search/Filter edition)');
+    console.log('showStudentRegistration called - v6.1 (Default-Removed Items + Fuzzy Search/Filter + Bursary Calculator edition)');
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -10317,6 +10317,8 @@ async function showStudentRegistration() {
         // Ensure supporting UI helpers exist (toast + confirm modal), without
         // clobbering any app-wide versions that may already be defined.
         ensureSharedUiHelpers();
+        // Ensure the bursary quick-calculator popup styles exist.
+        ensureBursaryCalculatorStyles();
 
         // ========== FUZZY SEARCH HELPERS ==========
         // Levenshtein edit distance (classic DP implementation) — counts the
@@ -10590,7 +10592,12 @@ async function showStudentRegistration() {
                                             <option value="custom">Custom Bursary (enter amount)</option>
                                         </select>
                                         <div id="customBursaryContainer" class="hidden sr-custom-bursary">
-                                            <input type="number" id="customBursaryAmount" placeholder="Amount (UGX)" class="sr-input sr-input-sm">
+                                            <div class="sr-bursary-input-row">
+                                                <input type="number" id="customBursaryAmount" placeholder="Amount (UGX)" class="sr-input sr-input-sm">
+                                                <button type="button" class="sr-calc-trigger-btn" id="srBursaryCalcTrigger" title="Open calculator">
+                                                    <i class="fas fa-calculator"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -11304,6 +11311,7 @@ async function showStudentRegistration() {
             document.getElementById('customBursaryContainer')?.classList.add('hidden');
             const customBursaryAmount = document.getElementById('customBursaryAmount');
             if (customBursaryAmount) customBursaryAmount.value = '';
+            closeBursaryCalculator();
 
             document.getElementById('itemsCustomizationContainer')?.classList.add('hidden');
 
@@ -11561,6 +11569,191 @@ async function showStudentRegistration() {
             }
         }
 
+        // ========== Bursary quick calculator ==========
+        // A small popup calculator anchored to the calculator icon next to the
+        // custom bursary amount input. The user can tap digits/operators (or
+        // type on the keyboard), then press "Ent" (or hit Enter/"=") to push
+        // the computed result straight into #customBursaryAmount and update
+        // the live fee bar.
+        let srBursaryCalcExpression = '';
+        let srBursaryCalcPopupEl = null;
+
+        function buildBursaryCalculatorPopup() {
+            if (srBursaryCalcPopupEl) return srBursaryCalcPopupEl;
+
+            const popup = document.createElement('div');
+            popup.className = 'sr-calc-popup';
+            popup.id = 'srBursaryCalcPopup';
+            popup.innerHTML = `
+                <button type="button" class="sr-calc-close" aria-label="Close calculator"><i class="fas fa-xmark"></i></button>
+                <div class="sr-calc-display" id="srCalcDisplay">0</div>
+                <div class="sr-calc-grid">
+                    <button type="button" class="sr-calc-key sr-calc-clear" data-calc-action="clear">C</button>
+                    <button type="button" class="sr-calc-key sr-calc-clear" data-calc-action="backspace"><i class="fas fa-delete-left"></i></button>
+                    <button type="button" class="sr-calc-key sr-calc-op" data-calc-value="%">%</button>
+                    <button type="button" class="sr-calc-key sr-calc-op" data-calc-value="/">÷</button>
+
+                    <button type="button" class="sr-calc-key" data-calc-value="7">7</button>
+                    <button type="button" class="sr-calc-key" data-calc-value="8">8</button>
+                    <button type="button" class="sr-calc-key" data-calc-value="9">9</button>
+                    <button type="button" class="sr-calc-key sr-calc-op" data-calc-value="*">×</button>
+
+                    <button type="button" class="sr-calc-key" data-calc-value="4">4</button>
+                    <button type="button" class="sr-calc-key" data-calc-value="5">5</button>
+                    <button type="button" class="sr-calc-key" data-calc-value="6">6</button>
+                    <button type="button" class="sr-calc-key sr-calc-op" data-calc-value="-">−</button>
+
+                    <button type="button" class="sr-calc-key" data-calc-value="1">1</button>
+                    <button type="button" class="sr-calc-key" data-calc-value="2">2</button>
+                    <button type="button" class="sr-calc-key" data-calc-value="3">3</button>
+                    <button type="button" class="sr-calc-key sr-calc-op" data-calc-value="+">+</button>
+
+                    <button type="button" class="sr-calc-key sr-calc-zero" data-calc-value="0">0</button>
+                    <button type="button" class="sr-calc-key" data-calc-value=".">.</button>
+                    <button type="button" class="sr-calc-key sr-calc-equals" data-calc-action="equals">Ent</button>
+                </div>
+            `;
+            document.body.appendChild(popup);
+
+            popup.querySelector('.sr-calc-close').addEventListener('click', closeBursaryCalculator);
+
+            popup.querySelectorAll('[data-calc-value]').forEach(btn => {
+                btn.addEventListener('click', () => appendToBursaryCalcExpression(btn.dataset.calcValue));
+            });
+
+            popup.querySelector('[data-calc-action="clear"]').addEventListener('click', clearBursaryCalcExpression);
+            popup.querySelector('[data-calc-action="backspace"]').addEventListener('click', backspaceBursaryCalcExpression);
+            popup.querySelector('[data-calc-action="equals"]').addEventListener('click', () => evaluateBursaryCalcExpression(true));
+
+            srBursaryCalcPopupEl = popup;
+            return popup;
+        }
+
+        function updateBursaryCalcDisplay() {
+            const display = document.getElementById('srCalcDisplay');
+            if (display) display.textContent = srBursaryCalcExpression || '0';
+        }
+
+        function appendToBursaryCalcExpression(value) {
+            const operators = ['+', '-', '*', '/', '%'];
+            const isOperator = operators.includes(value);
+            const lastChar = srBursaryCalcExpression.slice(-1);
+            const lastIsOperator = operators.includes(lastChar);
+
+            if (isOperator && srBursaryCalcExpression === '' && value !== '-') return;
+            if (isOperator && lastIsOperator) {
+                srBursaryCalcExpression = srBursaryCalcExpression.slice(0, -1) + value;
+            } else {
+                srBursaryCalcExpression += value;
+            }
+            updateBursaryCalcDisplay();
+        }
+
+        function clearBursaryCalcExpression() {
+            srBursaryCalcExpression = '';
+            updateBursaryCalcDisplay();
+        }
+
+        function backspaceBursaryCalcExpression() {
+            srBursaryCalcExpression = srBursaryCalcExpression.slice(0, -1);
+            updateBursaryCalcDisplay();
+        }
+
+        // Only digits, parentheses, whitespace, and + - * / % . are ever
+        // evaluated — anything else is rejected before it reaches Function().
+        function safeEvaluateArithmetic(expr) {
+            const cleaned = (expr || '').trim();
+            if (!cleaned) return null;
+            if (!/^[0-9+\-*/%.() ]+$/.test(cleaned)) return null;
+            try {
+                const result = Function(`"use strict"; return (${cleaned.replace(/%/g, '/100*')});`)();
+                return (typeof result === 'number' && isFinite(result)) ? result : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function evaluateBursaryCalcExpression(applyToInput) {
+            const result = safeEvaluateArithmetic(srBursaryCalcExpression);
+            if (result === null) {
+                window.showToast('Invalid calculation', 'warning');
+                return;
+            }
+            const rounded = Math.round(result * 100) / 100;
+            srBursaryCalcExpression = String(rounded);
+            updateBursaryCalcDisplay();
+
+            if (applyToInput) {
+                const input = document.getElementById('customBursaryAmount');
+                if (input) {
+                    input.value = rounded;
+                    recalcFeeBar();
+                }
+                closeBursaryCalculator();
+                window.showToast(`Bursary amount set to UGX ${rounded.toLocaleString()}`, 'success');
+            }
+        }
+
+        function positionBursaryCalcPopup() {
+            const trigger = document.getElementById('srBursaryCalcTrigger');
+            const popup = srBursaryCalcPopupEl;
+            if (!trigger || !popup) return;
+            const rect = trigger.getBoundingClientRect();
+            const popupWidth = 250;
+            let left = rect.right - popupWidth;
+            if (left < 8) left = 8;
+            let top = rect.bottom + 8;
+            if (top + 320 > window.innerHeight) top = Math.max(8, rect.top - 328);
+            popup.style.left = `${left}px`;
+            popup.style.top = `${top}px`;
+        }
+
+        function openBursaryCalculator() {
+            const popup = buildBursaryCalculatorPopup();
+            const existingValue = document.getElementById('customBursaryAmount')?.value;
+            srBursaryCalcExpression = existingValue ? String(existingValue) : '';
+            updateBursaryCalcDisplay();
+            positionBursaryCalcPopup();
+            popup.classList.add('sr-calc-open');
+
+            setTimeout(() => {
+                document.addEventListener('click', handleOutsideBursaryCalcClick, { capture: true });
+                document.addEventListener('keydown', handleBursaryCalcKeydown);
+            }, 0);
+        }
+
+        function closeBursaryCalculator() {
+            if (srBursaryCalcPopupEl) srBursaryCalcPopupEl.classList.remove('sr-calc-open');
+            document.removeEventListener('click', handleOutsideBursaryCalcClick, { capture: true });
+            document.removeEventListener('keydown', handleBursaryCalcKeydown);
+        }
+
+        function handleOutsideBursaryCalcClick(e) {
+            const popup = srBursaryCalcPopupEl;
+            const trigger = document.getElementById('srBursaryCalcTrigger');
+            if (!popup) return;
+            if (popup.contains(e.target) || trigger?.contains(e.target)) return;
+            closeBursaryCalculator();
+        }
+
+        function handleBursaryCalcKeydown(e) {
+            if (!srBursaryCalcPopupEl?.classList.contains('sr-calc-open')) return;
+
+            if (e.key === 'Enter' || e.key === '=') {
+                e.preventDefault();
+                evaluateBursaryCalcExpression(true);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeBursaryCalculator();
+            } else if (e.key === 'Backspace') {
+                e.preventDefault();
+                backspaceBursaryCalcExpression();
+            } else if (/^[0-9+\-*/.%]$/.test(e.key)) {
+                e.preventDefault();
+                appendToBursaryCalcExpression(e.key);
+            }
+        }
+
         // ========== Attach globals ==========
         window.updateRegistrationFeeStructures = updateRegistrationFeeStructures;
         window.loadFeeStructureItemsForCustomization = loadFeeStructureItemsForCustomization;
@@ -11579,12 +11772,20 @@ async function showStudentRegistration() {
                         document.getElementById('customBursaryAmount')?.focus();
                     } else {
                         customContainer.classList.add('hidden');
+                        closeBursaryCalculator();
                     }
                 }
                 recalcFeeBar();
             });
         }
         document.getElementById('customBursaryAmount')?.addEventListener('input', () => recalcFeeBar());
+
+        // Calculator icon trigger — opens the popup calculator anchored to the input.
+        document.getElementById('srBursaryCalcTrigger')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openBursaryCalculator();
+        });
 
         const classSelect = document.getElementById('classId');
         if (classSelect) {
@@ -11614,7 +11815,7 @@ async function showStudentRegistration() {
             applyItemsFilter();
         });
 
-        console.log('showStudentRegistration rendered successfully (v6.0 - default-removed items + fuzzy search/filter)');
+        console.log('showStudentRegistration rendered successfully (v6.1 - default-removed items + fuzzy search/filter + bursary calculator)');
 
     } catch (error) {
         console.error('Error:', error);
@@ -11630,6 +11831,60 @@ async function showStudentRegistration() {
             `;
         }
     }
+}
+
+// ========== Bursary calculator popup styles ==========
+// Injected once, outside the render function, so repeated calls to
+// showStudentRegistration() don't duplicate the <style> tag.
+function ensureBursaryCalculatorStyles() {
+    if (document.getElementById('srBursaryCalcStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'srBursaryCalcStyles';
+    style.textContent = `
+        .sr-bursary-input-row { display:flex; align-items:center; gap:8px; }
+        .sr-bursary-input-row .sr-input { flex:1; }
+        .sr-calc-trigger-btn {
+            display:flex; align-items:center; justify-content:center;
+            width:38px; height:38px; flex-shrink:0; border-radius:10px;
+            border:1px solid rgba(79,95,232,0.25); background:#EEF0FE; color:#4F5FE8;
+            cursor:pointer; font-size:15px; transition:transform .15s ease, background .15s ease;
+        }
+        .sr-calc-trigger-btn:hover { background:#E0E4FC; transform:translateY(-1px); }
+        .sr-calc-trigger-btn:active { transform:translateY(0); }
+        .sr-calc-popup {
+            position:fixed; z-index:9999; width:250px; background:#fff;
+            border-radius:16px; box-shadow:0 18px 45px rgba(20,20,40,0.25);
+            border:1px solid rgba(0,0,0,0.06); padding:12px; display:none;
+            font-family:inherit;
+        }
+        .sr-calc-popup.sr-calc-open { display:block; animation:srCalcPop .16s ease; }
+        @keyframes srCalcPop { from { opacity:0; transform:scale(.96) translateY(4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .sr-calc-display {
+            width:100%; box-sizing:border-box; text-align:right; font-size:20px;
+            font-weight:600; padding:10px 12px; border-radius:10px; background:#F4F5FA;
+            border:1px solid rgba(0,0,0,0.06); margin-bottom:8px; min-height:26px;
+            overflow-x:auto; white-space:nowrap; color:#1F2333;
+        }
+        .sr-calc-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+        .sr-calc-key {
+            border:none; border-radius:9px; padding:10px 0; font-size:15px; font-weight:600;
+            background:#F4F5FA; color:#1F2333; cursor:pointer; transition:background .12s ease;
+        }
+        .sr-calc-key:hover { background:#E7E9F2; }
+        .sr-calc-key.sr-calc-op { background:#EEF0FE; color:#4F5FE8; }
+        .sr-calc-key.sr-calc-op:hover { background:#E0E4FC; }
+        .sr-calc-key.sr-calc-clear { background:#FDECEC; color:#C4402F; }
+        .sr-calc-key.sr-calc-clear:hover { background:#FBDCDC; }
+        .sr-calc-key.sr-calc-equals { background:#0E9C8E; color:#fff; grid-column:span 2; }
+        .sr-calc-key.sr-calc-equals:hover { background:#0C8A7D; }
+        .sr-calc-key.sr-calc-zero { grid-column:span 2; }
+        .sr-calc-close {
+            position:absolute; top:8px; right:10px; border:none; background:transparent;
+            color:#9298AA; font-size:14px; cursor:pointer;
+        }
+        .sr-calc-close:hover { color:#4B5163; }
+    `;
+    document.head.appendChild(style);
 }
 
 // ============================================================================
