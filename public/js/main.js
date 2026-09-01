@@ -70071,11 +70071,11 @@ function getTermName(term) {
 ================================================================ */
 
 // ---------------- GLOBAL STATE ----------------
-let dashboardValuesHidden = true;
-let dashboardStatsCache = null;
-let dashboardInventoryCache = null;
-let dashboardUniformCache = null;
-let inventoryFilterState = { statusGroup: 'all', search: '' };
+window.dashboardValuesHidden = true;
+window.dashboardStatsCache = null;
+window.dashboardInventoryCache = null;
+window.dashboardUniformCache = null;
+window.inventoryFilterState = { statusGroup: 'all', search: '' };
 
 const CLASS_ORDER = ['Baby Class', 'Middle Class', 'Top Class', 'P.1', 'P.2', 'P.3', 'P.4', 'P.5', 'P.6', 'P.7'];
 
