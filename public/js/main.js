@@ -63298,23 +63298,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     });
 
     // ========== BUILD STATUS GROUP ITEMS ==========
-    // NOTE: The global removal skip has been removed.
-    // Period-aware removal is handled by the backend's periodBreakdown data,
-    // where each period has isNotApplicable: true for removed periods.
     var statusGroupItems = {};
     var itemCustomizationMap = {};
     var periodBreakdownData = {};
-    // 🔧 FIX (v22): this map stores each student's OWN totals/period breakdown
-    // for each item, keyed by [groupName][itemName][studentId]. The old code
-    // had no such record — it discarded a student's real numbers the moment
-    // they were folded into the group-wide `items[itemName]` aggregate, then
-    // read that same aggregate back out later as if it were per-student data.
-    // 🔧 FIX (v23): a student can have an entry here with EVERY total at 0
-    // because the item had zero applicablePeriods for them (removed / not
-    // applicable / outside their period range). That is not the same as
-    // "paid in full" — it means "doesn't apply to this student" — so the
-    // renderer below now checks `applicablePeriods > 0` before treating the
-    // 0/0 case as fully paid.
     var perStudentItemTotals = {};
 
     for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
@@ -63322,7 +63308,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         var items = {};
         itemCustomizationMap[groupName] = {};
         periodBreakdownData[groupName] = {};
-        perStudentItemTotals[groupName] = {}; // 🔧 FIX
+        perStudentItemTotals[groupName] = {};
 
         for (var s = 0; s < students.length; s++) {
             var student = students[s];
@@ -63332,11 +63318,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     if (groupItems.hasOwnProperty(itemName)) {
                         var itemData = groupItems[itemName];
                         var itemId = itemData.id || itemName;
-
-                        // ============================================================
-                        // REMOVED: global removal skip – now period-aware via periodBreakdown
-                        // if (isItemRemoved(student, itemId)) { continue; }
-                        // ============================================================
 
                         var customValues = getCustomizedItemValue(
                             student,
@@ -63365,15 +63346,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         var isOneTime = itemData.isOneTime || false;
                         var periodType = itemData.periodType || 'termly';
 
-                        // ================================================================
-                        // Get the correct period breakdown from the item
-                        // ================================================================
                         var periodBreakdown = itemData.periodBreakdown || {};
                         var periodKeys = Object.keys(periodBreakdown);
 
-                        // ================================================================
-                        // Determine which periods this item should appear in
-                        // ================================================================
                         var applicablePeriods = [];
 
                         for (var pk = 0; pk < periodKeys.length; pk++) {
@@ -63384,22 +63359,16 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 continue;
                             }
 
-                            // ================================================================
-                            // Apply period scoping rules (matches viewStudentDetailsList)
-                            // ================================================================
                             var shouldIncludePeriod = false;
 
                             if (periodType === 'one_time') {
-                                // One-Time: Only include if this is the OLDEST period
                                 shouldIncludePeriod = (periodKey === oldestPeriodKey);
                             } else if (periodType === 'yearly') {
-                                // Yearly: Only include if this is the LATEST term of this year
                                 var parts = periodKey.split('_');
                                 var year = parseInt(parts[0]);
                                 var term = parseInt(parts[1]);
                                 shouldIncludePeriod = (term === maxTermByYear[year]);
                             } else {
-                                // Termly: Always include
                                 shouldIncludePeriod = true;
                             }
 
@@ -63411,9 +63380,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             }
                         }
 
-                        // ================================================================
-                        // If no applicable periods, check if it's a one-time or yearly with no data
-                        // ================================================================
                         if (applicablePeriods.length === 0) {
                             var hasDirectData = itemData.quantityCollected > 0 ||
                                                itemData.quantityRemaining > 0 ||
@@ -63422,8 +63388,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                                isOneTime;
 
                             if (hasDirectData) {
-                                // For one-time items with no period data, use the oldest period
-                                // For yearly items with no period data, use the latest term of the current year
                                 var fallbackPeriodKey = oldestPeriodKey;
                                 if (periodType === 'yearly') {
                                     var currentYearStr = currentYear.toString();
@@ -63435,7 +63399,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 if (fallbackPeriodKey) {
                                     var existingPd = periodBreakdown[fallbackPeriodKey];
                                     if (!existingPd || existingPd.isNotApplicable) {
-                                        // Create a fallback period data entry
                                         applicablePeriods.push({
                                             periodKey: fallbackPeriodKey,
                                             data: {
@@ -63453,9 +63416,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             }
                         }
 
-                        // ================================================================
-                        // AGGREGATE ACROSS APPLICABLE PERIODS ONLY (for THIS student)
-                        // ================================================================
                         var totalCashExpected = 0;
                         var totalCashPaid = 0;
                         var totalCashRemaining = 0;
@@ -63580,13 +63540,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             };
                         }
 
-                        // 🔧 FIX: store THIS student's true totals/period breakdown for
-                        // this item, BEFORE the group-aggregate skip/accumulate logic
-                        // below discards them. This is what the row renderer will read.
-                        // NOTE: applicablePeriodsCount can legitimately be 0 here — that
-                        // means this item does not apply to this student at all (removed,
-                        // out of range, etc). The renderer below must treat that as "—",
-                        // not as "0 required / 0 paid = fully paid".
                         if (!perStudentItemTotals[groupName][itemName]) {
                             perStudentItemTotals[groupName][itemName] = {};
                         }
@@ -63614,10 +63567,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             continue;
                         }
 
-                        // ================================================================
-                        // STORE ITEM DATA (group-wide aggregate — used for column
-                        // headers and the TOTALS row, never for a single student's row)
-                        // ================================================================
                         if (!items[itemName]) {
                             items[itemName] = {
                                 name: itemName,
@@ -63716,7 +63665,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             }
         }
 
-        // ========== FILTER ITEMS ==========
         var filteredItems = [];
         var itemNames = Object.keys(items);
         for (var i = 0; i < itemNames.length; i++) {
@@ -63776,10 +63724,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var subHeaders = [];
     var colspan = 4;
 
-    // 🔧 Frozen corner cells: sticky on BOTH top (header freeze) and left
-    // (column freeze) so # / Admission / Student / Class stay visible while
-    // scrolling either direction. rowspan="2" already makes each of these
-    // span the full header height, so top:0 alone covers both header rows.
+    // First four columns: sticky on both axes
     headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:0; z-index:40; width:40px; min-width:40px;">#</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:40px; z-index:40; width:110px; min-width:110px;">Admission</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:150px; z-index:40; width:150px; min-width:150px;">Student</th>');
@@ -63904,10 +63849,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         else if (student.overallStatus === 'Fully Paid') rowClass = 'bg-green-50';
         else if (student.hasCustomizations) rowClass = 'bg-orange-50/20';
 
-        // 🔧 The frozen columns need an OPAQUE background of their own (sticky
-        // cells don't inherit the <tr>'s background), so re-use the same
-        // status color the row already uses — falls back to white when the
-        // row has no special status.
         var frozenBg = rowClass ? rowClass.split(' ')[0] : 'bg-white';
 
         row += `
@@ -64108,25 +64049,11 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 var safeItemId = 'item_' + student.id + '_' + groupName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + itemName.replace(/[^a-zA-Z0-9]/g, '_');
                 var periodBreakdownId = 'period_breakdown_' + student.id + '_' + groupName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + itemName.replace(/[^a-zA-Z0-9]/g, '_');
 
-                // 🔧 FIX (v23): resolve this student's own totals for the item FIRST,
-                // and check whether the item even applies to them, BEFORE deciding
-                // whether to render a status cell or a dash. An item with itemData
-                // present but zero applicablePeriods for this student means it was
-                // removed / not applicable / out of range for them — that must render
-                // as "—", never as "✅ Fully Paid".
                 var studentTotals = (itemData && perStudentItemTotals[groupName] && perStudentItemTotals[groupName][itemName])
                     ? perStudentItemTotals[groupName][itemName][student.id]
                     : null;
                 var hasApplicableDataForStudent = !!(itemData && studentTotals && studentTotals.applicablePeriods > 0);
 
-                // 🔧 FIX (v24): having a period entry is NOT the same as actually
-                // owing something. A cash_only / item_only / either item that was
-                // removed / zeroed out for this student (customAmount: 0, etc.)
-                // still gets a period row, but with 0 expected AND 0 paid. The old
-                // "0 >= 0" comparison read that as "✅ Fully Paid" — it needs to
-                // read as "doesn't apply to this student" instead, UNLESS they
-                // actually have a payment on record despite owing nothing (rare
-                // edge case, which we still show normally rather than hide).
                 var owesNothingForThisItem = false;
                 if (hasApplicableDataForStudent) {
                     var _po = studentTotals.paymentOption;
@@ -64217,7 +64144,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
                     var oneTimeBadge = isOneTime ? '<span class="text-xs text-purple-500 font-bold">⭐ One-Time</span>' : '';
 
-                    // 🔧 FIX: this student's own period breakdown, not the group aggregate.
                     var periodBreakdown = studentTotals.periodBreakdown || {};
                     var periodKeys = Object.keys(periodBreakdown).sort();
                     var periodBreakdownHtml = '';
@@ -64444,9 +64370,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         </td>
                     `;
                 } else {
-                    // 🔧 FIX (v23): itemData missing OR the item has zero applicable
-                    // periods for this student (removed / not applicable to them) —
-                    // both cases render as "Doesn't pay", never a false "Fully Paid".
                     row += `
                         <td class="p-2 text-center border text-xs text-gray-400" colspan="2">
                             <span class="text-[10px] text-gray-400 italic">Doesn't pay</span>
@@ -64492,8 +64415,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         `;
     }
 
-    // ========== TOTALS ROW WITH FIXED ITEM_ONLY (unchanged — still the correct
-    // group-wide aggregate across every filtered student) ==========
     for (var sgIdx = 0; sgIdx < statusGroupsToRender.length; sgIdx++) {
         var groupName = statusGroupsToRender[sgIdx];
         var items = statusGroupItems[groupName] || [];
@@ -64575,11 +64496,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     ((totalCashPaid + (totalItemsCollected * (itemCustom.unitPrice || 0))) /
                      (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) * 100).toFixed(0) : 0;
 
-                // 🔧 FIX (v23): this used to be a SINGLE-QUOTED string containing a
-                // literal, un-evaluated `${totalCashPaid > 0 ? 'Cash' : 'Items'}` —
-                // that's why the report printed the raw template-literal syntax
-                // instead of "Cash Used" / "Items Used". Compute the label first,
-                // then splice it into the (real, backtick) totalRow template below.
                 var eitherUsedLabel = totalCashPaid > 0 ? 'Cash' : 'Items';
                 var eitherUsedBadge = (paymentOption === 'either' && isFullyPaid)
                     ? '<div class="text-[8px] text-purple-400">🔄 ' + eitherUsedLabel + ' Used</div>'
@@ -64642,8 +64558,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         </tr>
     `;
 
+    // ========================================================================
+    // WRAP THE TABLE IN A SCROLLABLE CONTAINER WITH FIXED HEIGHT
+    // This enables the sticky header and left columns to work together.
+    // ========================================================================
     var tableHtml = `
-        <div class="overflow-x-auto" id="reportTableWrapper">
+        <div class="overflow-auto" id="reportTableWrapper" style="max-height: 70vh; border: 1px solid #e5e7eb; border-radius: 8px;">
             <table class="w-full text-sm border-collapse" id="reportTable">
                 ${headerHtml}
                 <tbody>
