@@ -64137,7 +64137,29 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     : null;
                 var hasApplicableDataForStudent = !!(itemData && studentTotals && studentTotals.applicablePeriods > 0);
 
-                if (itemData && hasApplicableDataForStudent) {
+                // 🔧 FIX (v24): having a period entry is NOT the same as actually
+                // owing something. A cash_only / item_only / either item that was
+                // removed / zeroed out for this student (customAmount: 0, etc.)
+                // still gets a period row, but with 0 expected AND 0 paid. The old
+                // "0 >= 0" comparison read that as "✅ Fully Paid" — it needs to
+                // read as "doesn't apply to this student" instead, UNLESS they
+                // actually have a payment on record despite owing nothing (rare
+                // edge case, which we still show normally rather than hide).
+                var owesNothingForThisItem = false;
+                if (hasApplicableDataForStudent) {
+                    var _po = studentTotals.paymentOption;
+                    if (_po === 'cash_only') {
+                        owesNothingForThisItem = studentTotals.totalCashExpected <= 0;
+                    } else if (_po === 'item_only') {
+                        owesNothingForThisItem = studentTotals.totalItemsRequired <= 0;
+                    } else {
+                        owesNothingForThisItem = studentTotals.totalCashExpected <= 0 && studentTotals.totalItemsRequired <= 0;
+                    }
+                }
+                var studentHasAnyPaymentOnRecord = !!(studentTotals && (studentTotals.totalCashPaid > 0 || studentTotals.totalItemsCollected > 0));
+                var itemAppliesToStudent = hasApplicableDataForStudent && !(owesNothingForThisItem && !studentHasAnyPaymentOnRecord);
+
+                if (itemData && itemAppliesToStudent) {
                     var itemCustom = itemCustomizationMap[groupName] && itemCustomizationMap[groupName][itemName];
 
                     var paymentOption = studentTotals.paymentOption;
