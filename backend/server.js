@@ -2263,6 +2263,18 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 }
                 
                 // ============================================================
+                // COMPUTE BILLING PERIOD FROM ENROLLMENT DATE
+                // ============================================================
+                // The import template has no explicit enrollment-date column, so
+                // "now" is the effective enrollment date for a row processed here —
+                // matching what the code already defaults a new student's
+                // enrollmentDate field to below.
+                const effectiveEnrollmentDate = new Date().toISOString().split('T')[0];
+                const computedTerm = getTermForDate(effectiveEnrollmentDate) || (currentAcademicSettings.currentTerm || 1);
+                const computedYear = getAcademicYearForDate(effectiveEnrollmentDate) || parseInt(currentYear);
+                console.log(`📅 Row ${i+1}: Enrollment ${effectiveEnrollmentDate} → billing period: ${computedYear} Term ${computedTerm}`);
+                
+                // ============================================================
                 // FIND CLASS AND FEE STRUCTURE
                 // ============================================================
                 let classId = null;
@@ -2393,7 +2405,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                         address: address || '',
                         previousSchool: '',
                         admissionType: 'New',
-                        enrollmentDate: new Date().toISOString().split('T')[0],
+                        enrollmentDate: effectiveEnrollmentDate,
                         status: 'Active',
                         currentClassId: classId || null,
                         // ========== NEW: items not yet activated for this student ==========
@@ -2421,7 +2433,7 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                 if (classId && studentId) {
                     const existingEnrollment = enrollments.find(e => 
                         e.studentId === studentId && 
-                        e.academicYear === currentYear &&
+                        e.academicYear === computedYear &&
                         e.isCurrent === true
                     );
                     
@@ -2433,7 +2445,8 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                             id: uuidv4(),
                             studentId: studentId,
                             classId: classId,
-                            academicYear: currentYear,
+                            academicYear: computedYear,
+                            term: computedTerm,
                             isCurrent: true,
                             enrolledAt: new Date().toISOString()
                         });
@@ -2457,7 +2470,8 @@ app.post('/api/students/import', upload.single('file'), async (req, res) => {
                             studentId: studentId,
                             feeStructureId: feeStructureId,
                             bursaryId: null,
-                            academicYear: currentYear,
+                            academicYear: computedYear,
+                            term: computedTerm,
                             assignedAt: new Date().toISOString()
                         });
                     }
