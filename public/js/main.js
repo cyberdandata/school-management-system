@@ -64328,7 +64328,301 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                     ${hasUnpaidBadge2}
                                     <span class="text-gray-400 text-[8px] ml-auto">${totalRemainingDisplay2}</span>
                                 </button>
-                                <div id="${periodBreakdownId}" class="${isPeriodExpanded ? '' : 'hidden'} mt-1 bg-gray-50 rounded p-1 text-xs max-h-48 overflow-y-auto"
+                                <div id="${periodBreakdownId}" class="${isPeriodExpanded ? '' : 'hidden'} mt-1 bg-gray-50 rounded p-1 text-xs max-h-48 overflow-y-auto" style="font-size:9px;">
+                                    ${periodItemsHtml}
+                                    ${aggregatedSummary}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        periodBreakdownHtml = `
+                            <div class="mt-1 pt-1 border-t border-dashed text-[9px] text-gray-400 text-center">
+                                ${isOneTime ? '⭐ One-Time: Pay once' : 'No period data'}
+                            </div>
+                        `;
+                    }
+                    
+                    // ========== BUILD PAYMENT HISTORY ==========
+                    var isExpanded = window.expandedItems && window.expandedItems[safeItemId] || false;
+                    var uniqueHistories = deduplicateHistories(itemData.paymentHistories || []);
+                    var historyCount = uniqueHistories.length;
+                    
+                    var historyHtml = '';
+                    if (historyCount > 0) {
+                        var historyItemsHtml = '';
+                        for (var h = 0; h < uniqueHistories.length; h++) {
+                            var ph = uniqueHistories[h];
+                            var date = new Date(ph.date).toLocaleDateString();
+                            var time = ph.time || new Date(ph.date).toLocaleTimeString();
+                            var typeDisplay = ph.type === 'cash' ? '💵 Cash' : 
+                                               ph.type === 'item' ? '📦 Brought' : 'Unknown';
+                            var amountDisplay = ph.type === 'cash' ? 'UGX ' + formatMoney(ph.amount) :
+                                                ph.type === 'item' ? ph.quantity + ' item(s)' : '—';
+                            var methodDisplay = ph.method && ph.method !== 'cash' ? ' (' + ph.method.toUpperCase() + ')' : '';
+                            
+                            historyItemsHtml += `
+                                <div class="flex justify-between items-center py-0.5 border-b border-gray-100 last:border-0 text-[9px] hover:bg-gray-50 px-1 rounded" style="font-size:8px;">
+                                    <span class="text-gray-500">${date} ${time}</span>
+                                    <span class="font-medium">${typeDisplay}</span>
+                                    <span class="text-gray-600">${amountDisplay}</span>
+                                    <span class="text-blue-500 font-mono">${ph.receiptNumber || 'N/A'}</span>
+                                    <span class="text-gray-400">${methodDisplay}</span>
+                                </div>
+                            `;
+                        }
+                        
+                        historyHtml = `
+                            <div class="mt-1 pt-1 border-t border-dashed">
+                                <button onclick="toggleItemHistory('${safeItemId}')" 
+                                        class="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 w-full" style="font-size:9px;">
+                                    <i class="fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
+                                    <span>${isExpanded ? 'Hide' : 'View'} History (${historyCount})</span>
+                                </button>
+                                <div id="${safeItemId}" class="${isExpanded ? '' : 'hidden'} mt-1 bg-gray-50 rounded p-1 text-xs max-h-32 overflow-y-auto" style="font-size:9px;">
+                                    ${historyItemsHtml}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    var cellContent = `
+                        <div class="font-medium ${isFullyPaid ? 'text-green-600' : hasPayment ? 'text-yellow-600' : 'text-red-600'}">
+                            ${statusIcon} ${collectedDisplay}
+                        </div>
+                        <div class="text-xs ${isFullyPaid ? 'text-green-500' : 'text-red-500'}">
+                            ${remainingDisplay}
+                        </div>
+                        ${oneTimeBadge}
+                        ${customReasonDisplay}
+                    `;
+                    
+                    row += `
+                        <td class="p-2 text-center border text-xs ${statusColor} ${customClass}" ${customTooltip}>
+                            <div class="cursor-pointer hover:bg-gray-100 rounded p-1 transition">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span>${statusIcon}</span>
+                                    ${isCustomized ? '<span class="font-bold text-orange-500">⚡</span>' : ''}
+                                    ${isOneTime ? '<span class="text-purple-500 text-xs">⭐</span>' : ''}
+                                    ${paymentOption === 'cash_only' ? '<span class="text-xs text-blue-500">💵</span>' : ''}
+                                    ${paymentOption === 'item_only' ? '<span class="text-xs text-green-500">📦</span>' : ''}
+                                    ${paymentOption === 'either' ? '<span class="text-xs text-purple-500">🔄</span>' : ''}
+                                </div>
+                                ${cellContent}
+                            </div>
+                            ${historyHtml}
+                        </td>
+                        <td class="p-2 text-center border text-xs align-top">
+                            ${periodBreakdownHtml}
+                        </td>
+                    `;
+                } else {
+                    row += `
+                        <td class="p-2 text-center border text-xs text-gray-400" colspan="2">
+                            <span class="text-gray-300">—</span>
+                        </td>
+                    `;
+                }
+            }
+        }
+        
+        row += '</tr>';
+        bodyRows += row;
+    }
+    
+    // ========== BUILD TOTALS ROW ==========
+    var totalRow = `
+        <tr class="bg-gray-200 font-bold border-t-2 border-gray-400">
+            <td colspan="4" class="p-2 text-right border">TOTALS:</td>
+    `;
+    
+    if (includeTuition) {
+        var tuitionExpectedTotal = 0;
+        var tuitionPaidTotal = 0;
+        var tuitionBalanceTotal = 0;
+        
+        for (var s = 0; s < students.length; s++) {
+            var stu = students[s];
+            if (stu.tuition) {
+                tuitionExpectedTotal += stu.tuition.expected || 0;
+                tuitionPaidTotal += stu.tuition.paid || 0;
+                tuitionBalanceTotal += stu.tuition.balance || 0;
+            }
+        }
+        var tuitionRate = tuitionExpectedTotal > 0 ? ((tuitionPaidTotal / tuitionExpectedTotal) * 100) : 0;
+        
+        totalRow += `
+            <td class="p-2 text-right border">UGX ${formatMoney(tuitionExpectedTotal)}</td>
+            <td class="p-2 text-right border text-green-600">UGX ${formatMoney(tuitionPaidTotal)}</td>
+            <td class="p-2 text-right border ${tuitionBalanceTotal > 0 ? 'text-red-600' : tuitionBalanceTotal < 0 ? 'text-blue-600' : 'text-green-600'}">
+                UGX ${formatMoney(Math.abs(tuitionBalanceTotal))}
+            </td>
+            <td class="p-2 text-center border">${tuitionRate.toFixed(1)}%</td>
+            <td class="p-2 text-center border text-xs">—</td>
+        `;
+    }
+    
+    // ========== TOTALS ROW WITH FIXED ITEM_ONLY (unchanged — still the correct
+    // group-wide aggregate across every filtered student) ==========
+    for (var sgIdx = 0; sgIdx < statusGroupsToRender.length; sgIdx++) {
+        var groupName = statusGroupsToRender[sgIdx];
+        var items = statusGroupItems[groupName] || [];
+        
+        for (var i = 0; i < items.length; i++) {
+            var itemName = items[i];
+            var itemCustom = itemCustomizationMap[groupName] && itemCustomizationMap[groupName][itemName];
+            
+            if (itemCustom) {
+                var paymentOption = itemCustom.paymentOption || 'either';
+                var totalCashExpected = 0;
+                var totalCashPaid = 0;
+                var totalCashRemaining = 0;
+                var totalItemsRequired = itemCustom.totalItemsRequired || 0;
+                var totalItemsCollected = itemCustom.totalItemsCollected || 0;
+                var totalItemsRemaining = itemCustom.totalItemsRemaining || 0;
+                var isOneTime = itemCustom.isOneTime || false;
+                var totalPeriods = itemCustom.totalPeriods || 0;
+                var fullyPaidPeriods = itemCustom.fullyPaidPeriods || 0;
+                
+                if (paymentOption === 'item_only') {
+                    totalCashExpected = 0;
+                    totalCashPaid = 0;
+                    totalCashRemaining = 0;
+                } else if (paymentOption === 'cash_only') {
+                    totalCashExpected = itemCustom.totalCashExpected || 0;
+                    totalCashPaid = itemCustom.totalCashPaid || 0;
+                    totalCashRemaining = itemCustom.totalCashRemaining || 0;
+                } else {
+                    totalCashExpected = itemCustom.totalCashExpected || 0;
+                    totalCashPaid = itemCustom.totalCashPaid || 0;
+                    totalCashRemaining = itemCustom.totalCashRemaining || 0;
+                }
+                
+                var isFullyPaid = false;
+                if (paymentOption === 'cash_only') {
+                    isFullyPaid = totalCashPaid >= totalCashExpected;
+                } else if (paymentOption === 'item_only') {
+                    isFullyPaid = totalItemsCollected >= totalItemsRequired;
+                } else {
+                    var cashCoversAll = totalCashPaid >= totalCashExpected;
+                    var itemsCoverAll = totalItemsCollected >= totalItemsRequired;
+                    isFullyPaid = cashCoversAll || itemsCoverAll;
+                }
+                
+                var collectedDisplay = '';
+                if (paymentOption === 'cash_only') {
+                    collectedDisplay = totalCashPaid > 0 ? '💵 UGX ' + formatMoney(totalCashPaid) : '—';
+                } else if (paymentOption === 'item_only') {
+                    collectedDisplay = totalItemsCollected > 0 ? '📦 ' + totalItemsCollected + ' items' : '—';
+                } else {
+                    var parts = [];
+                    if (totalCashPaid > 0) parts.push('💵 UGX ' + formatMoney(totalCashPaid));
+                    if (totalItemsCollected > 0) parts.push('📦 ' + totalItemsCollected + ' items');
+                    collectedDisplay = parts.length > 0 ? parts.join(' + ') : '—';
+                }
+                
+                var remainingDisplay = '';
+                if (isFullyPaid) {
+                    if (paymentOption === 'cash_only' || (paymentOption === 'either' && totalCashPaid >= totalCashExpected)) {
+                        remainingDisplay = '✅ Fully Paid (Cash)';
+                    } else if (paymentOption === 'item_only' || (paymentOption === 'either' && totalItemsCollected >= totalItemsRequired)) {
+                        remainingDisplay = '✅ Fully Paid (Items)';
+                    } else {
+                        remainingDisplay = '✅ Paid';
+                    }
+                } else if (paymentOption === 'cash_only') {
+                    remainingDisplay = '💵 UGX ' + formatMoney(totalCashRemaining);
+                } else if (paymentOption === 'item_only') {
+                    remainingDisplay = '📦 ' + totalItemsRemaining + ' items';
+                } else {
+                    var remParts = [];
+                    if (totalCashRemaining > 0) remParts.push('💵 UGX ' + formatMoney(totalCashRemaining));
+                    if (totalItemsRemaining > 0) remParts.push('📦 ' + totalItemsRemaining + ' items');
+                    remainingDisplay = remParts.length > 0 ? remParts.join(' <span class="text-orange-500 font-bold">OR</span> ') : '✅ Paid';
+                }
+                
+                var rate = (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) > 0 ? 
+                    ((totalCashPaid + (totalItemsCollected * (itemCustom.unitPrice || 0))) / 
+                     (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) * 100).toFixed(0) : 0;
+                
+                totalRow += `
+                    <td class="p-2 text-center border text-xs ${isFullyPaid ? 'text-green-600' : totalCashPaid > 0 || totalItemsCollected > 0 ? 'text-yellow-600' : 'text-red-600'}">
+                        ${collectedDisplay}
+                        <div class="text-[9px] text-gray-400">${rate}%</div>
+                        ${totalPeriods > 1 ? '<div class="text-[9px] text-gray-400">' + fullyPaidPeriods + '/' + totalPeriods + ' periods paid</div>' : ''}
+                        ${isOneTime ? '<div class="text-[8px] text-purple-400">⭐ One-Time</div>' : ''}
+                        ${paymentOption === 'cash_only' ? '<div class="text-[8px] text-blue-400">💵 Cash Only</div>' : ''}
+                        ${paymentOption === 'item_only' ? '<div class="text-[8px] text-green-400">📦 Item Only</div>' : ''}
+                        ${paymentOption === 'either' && isFullyPaid ? '<div class="text-[8px] text-purple-400">🔄 ${totalCashPaid > 0 ? \'Cash\' : \'Items\'} Used</div>' : ''}
+                    </td>
+                    <td class="p-2 text-center border text-xs ${isFullyPaid ? 'text-green-600' : 'text-red-600'}">
+                        ${remainingDisplay}
+                    </td>
+                `;
+            } else {
+                totalRow += `
+                    <td class="p-2 text-center border text-xs text-gray-400" colspan="2">—</td>
+                `;
+            }
+        }
+    }
+    
+    totalRow += '</tr>';
+    
+    var overallRate = totals.overallCollectionRate || 0;
+    var totalCustomized = totals.totalStudentsWithCustomizations || 0;
+    var totalCustomizedItems = totals.totalCustomizedItems || 0;
+    var periodsCount = allPeriodKeys.length;
+    var currentPeriodLabel = getTermName(currentTerm) + ' ' + currentYear + ' ⭐ Current';
+    
+    var rateRow = `
+        <tr class="bg-gray-100">
+            <td colspan="${colspan}" class="p-2 text-center border font-semibold">
+                <div class="flex flex-col items-center gap-1 py-1">
+                    <div class="flex flex-wrap items-center justify-center gap-3 text-sm">
+                        <span>Overall Collection Rate: <strong class="text-blue-700">${overallRate}%</strong></span>
+                        <span class="text-gray-500">|</span>
+                        <span class="text-gray-600">📅 Current: <strong>${currentPeriodLabel}</strong></span>
+                        ${totalCustomized > 0 ? '<span class="text-orange-500">⚡ ' + totalCustomized + ' students with ' + totalCustomizedItems + ' customized items</span>' : ''}
+                        ${periodsCount > 1 ? '<span class="text-purple-500">📅 ' + periodsCount + ' academic periods included</span>' : ''}
+                        <span class="text-gray-400">🔄 OR Logic: Cash OR Items (not both)</span>
+                        <span class="text-green-400">📦 Item Only: Items only, NO cash</span>
+                    </div>
+                    <div class="w-full max-w-md mx-auto bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 rounded-full h-2" style="width: ${Math.min(100, overallRate)}%"></div>
+                    </div>
+                    <span class="text-xs text-gray-500">${students.length} students | ${statusGroupsToRender.length} status groups</span>
+                    ${includeTuition ? '<span class="text-xs text-gray-500">💰 Tuition aggregated across ' + (periodsCount || 1) + ' period(s)</span>' : ''}
+                    <span class="text-xs text-gray-400">📌 Cash Only: cash expected | Item Only: items required (0 cash) | Either: EITHER cash OR items</span>
+                    <span class="text-xs text-blue-400">📌 item_only items contribute 0 to cash expected, 0 to cash paid</span>
+                    <span class="text-xs text-purple-400">⭐ One-Time items only appear in the OLDEST period (${oldestPeriodKey || 'N/A'})</span>
+                    <span class="text-xs text-orange-400">📆 Yearly items only appear in the LATEST term of each year</span>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    var tableHtml = `
+        <div class="overflow-x-auto" id="reportTableWrapper">
+            <table class="w-full text-sm border-collapse" id="reportTable">
+                ${headerHtml}
+                <tbody>
+                    ${bodyRows}
+                    ${totalRow}
+                    ${rateRow}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    console.log('✅ Report table built with PER-STUDENT TOTALS FIXED v22.0');
+    console.log('   🔧 Each student row now reads its OWN totals/periods, not the group-wide sum');
+    console.log('   ⭐ One-Time items ONLY in oldest period: ' + oldestPeriodKey);
+    console.log('   📆 Yearly items ONLY in latest term of each year');
+    console.log('   📋 Periods: ' + allPeriodKeys.join(', '));
+    console.log('   📊 Max term per year: ' + JSON.stringify(maxTermByYear));
+    
+    return tableHtml;
+}
 // ==================== HELPER FUNCTIONS ====================
 
 function formatMoney(amount) {
