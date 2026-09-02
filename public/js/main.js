@@ -65402,21 +65402,26 @@ function attachReportFilterListeners() {
     }
 
     var periodFilter = document.getElementById('reportPeriodFilter');
-    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
-    if (periodFilter && includeAllPeriods) {
-        var syncPeriodLock = function () {
-            if (periodFilter.value === 'all') {
-                includeAllPeriods.checked = true;
-                includeAllPeriods.disabled = true;
-                includeAllPeriods.parentElement.style.opacity = '0.5';
-            } else {
-                includeAllPeriods.disabled = false;
-                includeAllPeriods.parentElement.style.opacity = '1';
-            }
-        };
-        periodFilter.addEventListener('change', syncPeriodLock);
-        syncPeriodLock();
-    }
+var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
+if (periodFilter && includeAllPeriods) {
+    var syncPeriodLock = function () {
+        if (periodFilter.value === 'all') {
+            // "All Periods" always means the full history
+            includeAllPeriods.checked = true;
+            includeAllPeriods.disabled = true;
+            includeAllPeriods.parentElement.style.opacity = '0.5';
+        } else {
+            // Picking a specific term (or "Current Period") narrows the
+            // report to just that period by default. The checkbox becomes
+            // an explicit opt-in for "show history up to this point" instead.
+            includeAllPeriods.checked = false;
+            includeAllPeriods.disabled = false;
+            includeAllPeriods.parentElement.style.opacity = '1';
+        }
+    };
+    periodFilter.addEventListener('change', syncPeriodLock);
+    syncPeriodLock();
+}
 
     var studentSearch = document.getElementById('reportStudentSearch');
     var studentSelect = document.getElementById('reportStudentFilter');
