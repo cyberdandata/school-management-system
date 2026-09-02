@@ -63806,12 +63806,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     if (includeTuition) {
         var tuitionPeriodCount = allPeriodKeys.length || 1;
         headers.push('<th class="p-2 text-center border bg-blue-100" colspan="5" style="position:sticky; top:0; z-index:20;">💰 Tuition <span class="text-xs font-normal text-gray-500">(' + tuitionPeriodCount + ' period(s))</span></th>');
-        // 🔧 FIX: sub-headers now use relative positioning; thead sticky keeps them fixed at top
-        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:relative; z-index:20;">Expected</th>');
-        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:relative; z-index:20;">Paid</th>');
-        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:relative; z-index:20;">Balance</th>');
-        subHeaders.push('<th class="p-2 text-center border bg-blue-50" style="position:relative; z-index:20;">Status</th>');
-        subHeaders.push('<th class="p-2 text-center border bg-blue-50" style="position:relative; z-index:20;">Periods</th>');
+        // 🔧 FIX: sub-headers use sticky with top:40px to stay below first header row
+        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Expected</th>');
+        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Paid</th>');
+        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Balance</th>');
+        subHeaders.push('<th class="p-2 text-center border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Status</th>');
+        subHeaders.push('<th class="p-2 text-center border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Periods</th>');
         colspan += 5;
     }
 
@@ -63893,9 +63893,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 periodStatusDisplay = ' (' + fullyPaidCount + '/' + periodCount + ' paid)';
             }
 
-            // 🔧 FIX: sub-headers for items now use relative positioning
-            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:relative; z-index:20;"><span title="' + escapeHtml(itemName) + '">' + escapeHtml(itemDisplay) + itemCustomBadge + oneTimeIndicator + yearlyIndicator + paymentOptionDisplay + '</span></th>');
-            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:relative; z-index:20;">Periods' + periodStatusDisplay + '</th>');
+            // 🔧 FIX: sub-headers for items use sticky with top:40px
+            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:sticky; top:40px; z-index:20;"><span title="' + escapeHtml(itemName) + '">' + escapeHtml(itemDisplay) + itemCustomBadge + oneTimeIndicator + yearlyIndicator + paymentOptionDisplay + '</span></th>');
+            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:sticky; top:40px; z-index:20;">Periods' + periodStatusDisplay + '</th>');
             colspan += 2;
         }
     }
