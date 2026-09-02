@@ -65744,8 +65744,6 @@ console.log('✅ Reports v4.0 (Modern Edition) loaded — teal/indigo ledger des
 // ==================== GENERATE REPORT ====================
 
 async function generateReportV3() {
-    console.log('Generating report v7.0...');
-    
     var level = document.getElementById('reportLevelFilter')?.value || 'all';
     var studentId = document.getElementById('reportStudentFilter')?.value || 'all';
     var feeStructureId = document.getElementById('reportFeeStructureFilter')?.value || 'all';
@@ -65753,12 +65751,12 @@ async function generateReportV3() {
     var itemName = document.getElementById('reportItemFilter')?.value || 'all';
     var includeTuition = document.getElementById('reportTuitionFilter')?.checked !== false;
     var paymentStatus = document.getElementById('reportPaymentStatusFilter')?.value || 'all';
-    
+
     var periodFilter = document.getElementById('reportPeriodFilter')?.value || 'all';
     var includeAllPeriods = document.getElementById('reportIncludeAllPeriods')?.checked !== false;
     var academicYear = null;
     var academicTerm = null;
-    
+
     if (periodFilter !== 'all' && periodFilter !== 'current') {
         var parts = periodFilter.split('_');
         if (parts.length === 2) {
@@ -65766,12 +65764,9 @@ async function generateReportV3() {
             academicTerm = parseInt(parts[1]);
         }
     }
-    
-    var submitBtn = document.querySelector('#reportFilterForm button[type="submit"]');
-    var originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-    submitBtn.disabled = true;
-    
+
+    if (typeof rptShowLoadingState === 'function') rptShowLoadingState();
+
     try {
         var params = new URLSearchParams({
             level: level,
@@ -65783,25 +65778,47 @@ async function generateReportV3() {
             includeTuition: includeTuition ? 'true' : 'false',
             includeAllPeriods: includeAllPeriods ? 'true' : 'false'
         });
-        
         if (academicYear) params.append('academicYear', academicYear);
         if (academicTerm) params.append('academicTerm', academicTerm);
-        
+
         var response = await fetch('/api/reports/comprehensive?' + params.toString());
         var result = await response.json();
-        
+
         if (result.success) {
             reportData = result.data;
             renderReportResultsV3(result.data);
+
+            var lastRun = document.getElementById('reportLastRun');
+            if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
+
+            var totals = result.data.totals || {};
+            var insightStrip = document.getElementById('reportInsightStrip');
+            if (insightStrip) {
+                insightStrip.classList.remove('hidden');
+                var count = (result.data.students || []).length;
+                var rate = parseFloat(totals.overallCollectionRate || 0);
+                var insightText = document.getElementById('reportInsightText');
+                if (insightText) {
+                    insightText.textContent = count === 0
+                        ? 'No students match this combination of filters.'
+                        : 'Showing ' + count + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
+                }
+                var insightRecords = document.getElementById('reportInsightRecords');
+                var insightRate = document.getElementById('reportInsightRate');
+                if (insightRecords && typeof rptCountUp === 'function') rptCountUp(insightRecords, count);
+                if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
+            }
+
+            if (typeof rptFilterSignature === 'function') rptLastAppliedSignature = rptFilterSignature();
+            if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(false);
         } else {
-            alert('Error: ' + (result.error || 'Unknown error'));
+            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error generating report:', error);
-        alert('Error generating report: ' + error.message);
+        showToast('Error generating report: ' + error.message, 'error');
     } finally {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+        if (typeof rptHideLoadingState === 'function') rptHideLoadingState();
     }
 }
 
