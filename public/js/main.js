@@ -63806,7 +63806,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     if (includeTuition) {
         var tuitionPeriodCount = allPeriodKeys.length || 1;
         headers.push('<th class="p-2 text-center border bg-blue-100" colspan="5" style="position:sticky; top:0; z-index:20;">💰 Tuition <span class="text-xs font-normal text-gray-500">(' + tuitionPeriodCount + ' period(s))</span></th>');
-        // 🔧 FIX: sub-headers use sticky with top:40px to stay below first header row
         subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Expected</th>');
         subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Paid</th>');
         subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Balance</th>');
@@ -63893,7 +63892,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 periodStatusDisplay = ' (' + fullyPaidCount + '/' + periodCount + ' paid)';
             }
 
-            // 🔧 FIX: sub-headers for items use sticky with top:40px
             subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:sticky; top:40px; z-index:20;"><span title="' + escapeHtml(itemName) + '">' + escapeHtml(itemDisplay) + itemCustomBadge + oneTimeIndicator + yearlyIndicator + paymentOptionDisplay + '</span></th>');
             subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:sticky; top:40px; z-index:20;">Periods' + periodStatusDisplay + '</th>');
             colspan += 2;
@@ -64595,7 +64593,11 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     ((totalCashPaid + (totalItemsCollected * (itemCustom.unitPrice || 0))) /
                      (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) * 100).toFixed(0) : 0;
 
-                // 🔧 FIX (v23): compute label before interpolation
+                // 🔧 FIX (v23): this used to be a SINGLE-QUOTED string containing a
+                // literal, un-evaluated `${totalCashPaid > 0 ? 'Cash' : 'Items'}` —
+                // that's why the report printed the raw template-literal syntax
+                // instead of "Cash Used" / "Items Used". Compute the label first,
+                // then splice it into the (real, backtick) totalRow template below.
                 var eitherUsedLabel = totalCashPaid > 0 ? 'Cash' : 'Items';
                 var eitherUsedBadge = (paymentOption === 'either' && isFullyPaid)
                     ? '<div class="text-[8px] text-purple-400">🔄 ' + eitherUsedLabel + ' Used</div>'
