@@ -351,6 +351,45 @@ function buildAllItemsRemovedForFeeStructure(feeStructure) {
 // ==================== FIXED READ FILE FUNCTION ====================
 // ==================== CORRECTED READ FILE FUNCTION ====================
 // ==================== HELPER: DEDUPLICATE PAYMENT ITEMS ====================
+// ==================== TERM-FROM-DATE HELPER ====================
+// Uses the school's configured term date ranges if present (however the
+// "Save Term Dates" feature stores them in settings.json), falling back
+// to the standard Jan-Apr / May-Aug / Sep-Dec split shown in the UI.
+function getTermForDate(dateStr, settingsOverride) {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+
+    const settings = settingsOverride || readFile(files.settings);
+    const termDates = settings.termDates || settings.termDateRanges || settings.academicTermDates || null;
+
+    if (termDates) {
+        for (const termNum of [1, 2, 3]) {
+            const t = termDates[termNum] || termDates[String(termNum)];
+            if (t && t.startDate && t.endDate) {
+                const start = new Date(t.startDate);
+                const end = new Date(t.endDate);
+                if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && date >= start && date <= end) {
+                    return termNum;
+                }
+            }
+        }
+    }
+
+    // Fallback: standard calendar split (Jan-Apr, May-Aug, Sep-Dec)
+    const month = date.getMonth() + 1;
+    if (month >= 1 && month <= 4) return 1;
+    if (month >= 5 && month <= 8) return 2;
+    return 3;
+}
+
+function getAcademicYearForDate(dateStr) {
+    if (!dateStr) return new Date().getFullYear();
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return new Date().getFullYear();
+    return date.getFullYear();
+}
+
 function deduplicatePaymentItems(items) {
     if (!items || !Array.isArray(items) || items.length === 0) return items;
     
