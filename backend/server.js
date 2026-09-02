@@ -7487,67 +7487,75 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // STEP 5: GET ALL PERIODS FOR STUDENT (unchanged)
         // ================================================================
         function getAllPeriodsForStudent(studentId) {
-            const periods = new Map();
-            const currentYear = parseInt(targetYear);
-            const currentTerm = parseInt(targetTerm);
-            
-            allPayments.forEach(p => {
-                if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
-                    const year = parseInt(p.academicYear);
-                    const term = parseInt(p.term);
-                    if (year < currentYear || (year === currentYear && term <= currentTerm)) {
-                        const key = `${year}_${term}`;
-                        if (!periods.has(key)) {
-                            periods.set(key, { year, term, payments: [] });
-                        }
-                        periods.get(key).payments.push(p);
-                    }
-                }
-            });
-            
-            for (const [key, record] of Object.entries(termRecords)) {
-                if (key.startsWith(studentId + '_')) {
-                    const parts = key.split('_');
-                    if (parts.length === 3) {
-                        const year = parseInt(parts[1]);
-                        const term = parseInt(parts[2]);
-                        if (year < currentYear || (year === currentYear && term <= currentTerm)) {
-                            const periodKey = `${year}_${term}`;
-                            if (!periods.has(periodKey)) {
-                                periods.set(periodKey, { year, term, payments: [] });
-                            }
-                        }
-                    }
-                }
+        const currentYear = parseInt(targetYear);
+        const currentTerm = parseInt(targetTerm);
+
+        // ================================================================
+        // DETERMINE START PERIOD FROM ENROLLMENT DATE
+        // ================================================================
+        // A period "applies" to a student because they were enrolled during
+        // it — not because a payment/term-record/fee-assignment happens to
+        // reference it. This stops phantom periods (e.g. a manufactured
+        // Term 1 balance for a student who joined in Term 3) and stops
+        // real gaps (e.g. Term 2 with no activity yet) from being silently
+        // skipped.
+        const student = students.find(s => s && s.id === studentId);
+
+        let startYear = currentYear;
+        let startTerm = currentTerm;
+
+        if (student && student.enrollmentDate) {
+            const enrollTerm = getTermForDate(student.enrollmentDate);
+            const enrollYear = getAcademicYearForDate(student.enrollmentDate);
+            if (enrollTerm && enrollYear &&
+                (enrollYear < currentYear || (enrollYear === currentYear && enrollTerm <= currentTerm))) {
+                startYear = enrollYear;
+                startTerm = enrollTerm;
             }
-            
-            const studentAssignments = feeAssignments.filter(a => a && a.studentId === studentId);
-            for (const ass of studentAssignments) {
-                const year = parseInt(ass.academicYear);
-                if (year && !isNaN(year)) {
-                    const term = parseInt(ass.term) || 1;
-                    if (year < currentYear || (year === currentYear && term <= currentTerm)) {
-                        const key = `${year}_${term}`;
-                        if (!periods.has(key)) {
-                            periods.set(key, { year, term, payments: [] });
-                        }
-                    }
-                }
-            }
-            
-            const currentKey = `${currentYear}_${currentTerm}`;
-            if (!periods.has(currentKey)) {
-                periods.set(currentKey, { year: currentYear, term: currentTerm, payments: [] });
-            }
-            
-            return Array.from(periods.entries())
-                .map(([key, data]) => ({ ...data, periodKey: key }))
-                .sort((a, b) => {
-                    if (a.year !== b.year) return b.year - a.year;
-                    return b.term - a.term;
-                });
         }
 
+        // ================================================================
+        // WALK EVERY TERM FROM ENROLLMENT THROUGH THE CURRENT PERIOD
+        // ================================================================
+        const periods = new Map();
+        let y = startYear;
+        let t = startTerm;
+
+        while (y < currentYear || (y === currentYear && t <= currentTerm)) {
+            const key = `${y}_${t}`;
+            if (!periods.has(key)) {
+                periods.set(key, { year: y, term: t, payments: [] });
+            }
+            t++;
+            if (t > 3) {
+                t = 1;
+                y++;
+            }
+        }
+
+        // ================================================================
+        // ATTACH MATCHING PAYMENTS TO EACH PERIOD (payment amounts are
+        // still read this way downstream — this does not affect whether
+        // a period is included, only what it displays)
+        // ================================================================
+        allPayments.forEach(p => {
+            if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
+                const year = parseInt(p.academicYear);
+                const term = parseInt(p.term);
+                const key = `${year}_${term}`;
+                if (periods.has(key)) {
+                    periods.get(key).payments.push(p);
+                }
+            }
+        });
+
+        return Array.from(periods.entries())
+            .map(([key, data]) => ({ ...data, periodKey: key }))
+            .sort((a, b) => {
+                if (a.year !== b.year) return b.year - a.year;
+                return b.term - a.term;
+            });
+    }
         // ================================================================
         // STEP 6: PROCESS STUDENTS
         // ================================================================
