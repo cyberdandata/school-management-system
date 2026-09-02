@@ -63794,19 +63794,23 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var subHeaders = [];
     var colspan = 4;
 
-    headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2">#</th>');
-    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2">Admission</th>');
-    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2">Student</th>');
-    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2">Class</th>');
+    // 🔧 Frozen corner cells: sticky on BOTH top (header freeze) and left
+    // (column freeze) so # / Admission / Student / Class stay visible while
+    // scrolling either direction. rowspan="2" already makes each of these
+    // span the full header height, so top:0 alone covers both header rows.
+    headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:0; z-index:40; width:40px; min-width:40px;">#</th>');
+    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:40px; z-index:40; width:110px; min-width:110px;">Admission</th>');
+    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:150px; z-index:40; width:150px; min-width:150px;">Student</th>');
+    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:300px; z-index:40; width:90px; min-width:90px; border-right:2px solid #9ca3af;">Class</th>');
 
     if (includeTuition) {
         var tuitionPeriodCount = allPeriodKeys.length || 1;
-        headers.push('<th class="p-2 text-center border bg-blue-100" colspan="5">💰 Tuition <span class="text-xs font-normal text-gray-500">(' + tuitionPeriodCount + ' period(s))</span></th>');
-        subHeaders.push('<th class="p-2 text-right border bg-blue-50">Expected</th>');
-        subHeaders.push('<th class="p-2 text-right border bg-blue-50">Paid</th>');
-        subHeaders.push('<th class="p-2 text-right border bg-blue-50">Balance</th>');
-        subHeaders.push('<th class="p-2 text-center border bg-blue-50">Status</th>');
-        subHeaders.push('<th class="p-2 text-center border bg-blue-50">Periods</th>');
+        headers.push('<th class="p-2 text-center border bg-blue-100" colspan="5" style="position:sticky; top:0; z-index:20;">💰 Tuition <span class="text-xs font-normal text-gray-500">(' + tuitionPeriodCount + ' period(s))</span></th>');
+        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Expected</th>');
+        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Paid</th>');
+        subHeaders.push('<th class="p-2 text-right border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Balance</th>');
+        subHeaders.push('<th class="p-2 text-center border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Status</th>');
+        subHeaders.push('<th class="p-2 text-center border bg-blue-50" style="position:sticky; top:40px; z-index:20;">Periods</th>');
         colspan += 5;
     }
 
@@ -63856,7 +63860,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         var periodBadge = allPeriodKeys.length > 1 ?
             '<span class="text-xs text-gray-400 block font-normal">' + allPeriodKeys.length + ' period(s)</span>' : '';
 
-        headers.push('<th class="p-2 text-center border ' + bgClass + '" colspan="' + (items.length * 2) + '">🏷️ ' + escapeHtml(displayName) + customBadge + oneTimeBadge + yearlyBadge + periodBadge + '</th>');
+        headers.push('<th class="p-2 text-center border ' + bgClass + '" colspan="' + (items.length * 2) + '" style="position:sticky; top:0; z-index:20;">🏷️ ' + escapeHtml(displayName) + customBadge + oneTimeBadge + yearlyBadge + periodBadge + '</th>');
 
         for (var i = 0; i < items.length; i++) {
             var itemName = items[i];
@@ -63888,8 +63892,8 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 periodStatusDisplay = ' (' + fullyPaidCount + '/' + periodCount + ' paid)';
             }
 
-            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs"><span title="' + escapeHtml(itemName) + '">' + escapeHtml(itemDisplay) + itemCustomBadge + oneTimeIndicator + yearlyIndicator + paymentOptionDisplay + '</span></th>');
-            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs">Periods' + periodStatusDisplay + '</th>');
+            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:sticky; top:40px; z-index:20;"><span title="' + escapeHtml(itemName) + '">' + escapeHtml(itemDisplay) + itemCustomBadge + oneTimeIndicator + yearlyIndicator + paymentOptionDisplay + '</span></th>');
+            subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs" style="position:sticky; top:40px; z-index:20;">Periods' + periodStatusDisplay + '</th>');
             colspan += 2;
         }
     }
@@ -63918,12 +63922,18 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         else if (student.overallStatus === 'Fully Paid') rowClass = 'bg-green-50';
         else if (student.hasCustomizations) rowClass = 'bg-orange-50/20';
 
+        // 🔧 The frozen columns need an OPAQUE background of their own (sticky
+        // cells don't inherit the <tr>'s background), so re-use the same
+        // status color the row already uses — falls back to white when the
+        // row has no special status.
+        var frozenBg = rowClass ? rowClass.split(' ')[0] : 'bg-white';
+
         row += `
             <tr class="border-b hover:bg-gray-50 ${rowClass}" data-student-id="${student.id}">
-                <td class="p-2 text-center text-gray-400 text-xs">${s + 1}</td>
-                <td class="p-2 font-mono text-xs font-semibold">${escapeHtml(student.admissionNumber)}</td>
-                <td class="p-2 font-medium">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
-                <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">${escapeHtml(student.currentClass)}</span></td>
+                <td class="p-2 text-center text-gray-400 text-xs ${frozenBg}" style="position:sticky; left:0; z-index:10; width:40px; min-width:40px;">${s + 1}</td>
+                <td class="p-2 font-mono text-xs font-semibold ${frozenBg}" style="position:sticky; left:40px; z-index:10; width:110px; min-width:110px;">${escapeHtml(student.admissionNumber)}</td>
+                <td class="p-2 font-medium ${frozenBg}" style="position:sticky; left:150px; z-index:10; width:150px; min-width:150px;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
+                <td class="p-2 ${frozenBg}" style="position:sticky; left:300px; z-index:10; width:90px; min-width:90px; border-right:2px solid #d1d5db;"><span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">${escapeHtml(student.currentClass)}</span></td>
         `;
 
         // ========== TUITION ==========
@@ -64432,10 +64442,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 } else {
                     // 🔧 FIX (v23): itemData missing OR the item has zero applicable
                     // periods for this student (removed / not applicable to them) —
-                    // both cases render as a plain dash, never a false "Fully Paid".
+                    // both cases render as "Doesn't pay", never a false "Fully Paid".
                     row += `
                         <td class="p-2 text-center border text-xs text-gray-400" colspan="2">
-                            <span class="text-gray-300">—</span>
+                            <span class="text-[10px] text-gray-400 italic">Doesn't pay</span>
                         </td>
                     `;
                 }
@@ -64449,7 +64459,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     // ========== BUILD TOTALS ROW ==========
     var totalRow = `
         <tr class="bg-gray-200 font-bold border-t-2 border-gray-400">
-            <td colspan="4" class="p-2 text-right border">TOTALS:</td>
+            <td colspan="4" class="p-2 text-right border bg-gray-200" style="position:sticky; left:0; z-index:10; width:390px; min-width:390px; border-right:2px solid #9ca3af;">TOTALS:</td>
     `;
 
     if (includeTuition) {
@@ -64587,7 +64597,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 `;
             } else {
                 totalRow += `
-                    <td class="p-2 text-center border text-xs text-gray-400" colspan="2">—</td>
+                    <td class="p-2 text-center border text-xs text-gray-400" colspan="2"><span class="text-[10px] text-gray-400 italic">Doesn't pay</span></td>
                 `;
             }
         }
