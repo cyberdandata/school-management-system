@@ -2404,9 +2404,6 @@ async function showStudentList() {
         }
 
         // ========== FUZZY SEARCH HELPERS ==========
-        // Levenshtein edit distance (classic DP implementation) — counts the
-        // minimum number of single-character insertions, deletions, or
-        // substitutions needed to turn `a` into `b`.
         function levenshteinDistance(a, b) {
             a = a || ''; b = b || '';
             const m = a.length, n = b.length;
@@ -2422,9 +2419,9 @@ async function showStudentList() {
                 for (let j = 1; j <= n; j++) {
                     const cost = a[i - 1] === b[j - 1] ? 0 : 1;
                     currRow[j] = Math.min(
-                        currRow[j - 1] + 1,      // insertion
-                        prevRow[j] + 1,           // deletion
-                        prevRow[j - 1] + cost     // substitution
+                        currRow[j - 1] + 1,
+                        prevRow[j] + 1,
+                        prevRow[j - 1] + cost
                     );
                 }
                 [prevRow, currRow] = [currRow, prevRow];
@@ -2432,8 +2429,6 @@ async function showStudentList() {
             return prevRow[n];
         }
 
-        // Returns a 0..1 similarity score between a search query and a single
-        // word/token, tolerant of typos, missing letters, or transpositions.
         function fuzzyWordScore(query, word) {
             if (!query || !word) return 0;
             if (word === query) return 1;
@@ -2446,74 +2441,40 @@ async function showStudentList() {
             return Math.max(0, 1 - dist / maxLen);
         }
 
-        // Fuzzy-matches a search query against a full text field (a student
-        // name, admission number, etc). Checks the whole string plus each
-        // individual word (so "gabriela" still matches "Gabriella Sserunjogi"
-        // even though the word order/spelling isn't exact), and requires a
-        // minimum query length before applying edit-distance tolerance so
-        // very short queries ("sg") don't produce noisy false positives.
         function fuzzyTextMatch(query, text, threshold = 0.6) {
             const q = (query || '').toLowerCase().trim();
             const t = (text || '').toLowerCase().trim();
             if (!q) return true;
             if (!t) return false;
 
-            // Fast path: plain substring match always counts, regardless of length.
             if (t.includes(q)) return true;
 
-            // Short queries: don't apply fuzzy edit-distance (too noisy on 1-2
-            // char inputs) — only substring/word-prefix matching applies.
             if (q.length < 3) {
                 return t.split(/\s+/).some(word => word.startsWith(q));
             }
 
-            // Whole-string similarity (helps when comparing full names)
             const fullScore = fuzzyWordScore(q, t);
             if (fullScore >= threshold) return true;
 
-            // Per-word similarity (helps when the query matches just one
-            // part of a multi-word name/field, e.g. only the first name)
             const words = t.split(/\s+/).filter(Boolean);
             return words.some(word => fuzzyWordScore(q, word) >= threshold);
         }
 
-        // Strengthened, order-independent name matcher. Handles:
-        //   1. Names typed in the CORRECT order ("Gabriella Sserunjogi")
-        //   2. Names typed in REVERSED order ("Sserunjogi Gabriella") —
-        //      e.g. searching surname-first even though the record stores
-        //      firstName + lastName.
-        //   3. Typos / missing letters in either word (via fuzzyWordScore).
-        //   4. Partial names — searching by just one of the two names.
-        // Every word the user typed must fuzzy-match a DIFFERENT word in the
-        // student's full name (order doesn't matter), so a query only
-        // "counts" once each of its words is actually accounted for
-        // somewhere in the name — this is what lets reversed order, typos,
-        // and partial names all be found while still ruling out unrelated
-        // students.
         function fuzzyNameMatch(query, text, threshold = 0.6) {
             const q = (query || '').toLowerCase().trim();
             const t = (text || '').toLowerCase().trim();
             if (!q) return true;
             if (!t) return false;
 
-            // Fast path: exact substring (covers correctly-ordered, even
-            // partial, queries typed with no typos).
             if (t.includes(q)) return true;
 
             const queryWords = q.split(/\s+/).filter(Boolean);
             const textWords = t.split(/\s+/).filter(Boolean);
 
-            // Single-word query: fall back to the existing whole-field fuzzy
-            // logic (already tolerant of typos and partial words).
             if (queryWords.length <= 1) {
                 return fuzzyTextMatch(q, t, threshold);
             }
 
-            // Multi-word query: match each query word against a distinct,
-            // not-yet-used word in the name — regardless of which order
-            // either side is in. This is what makes reversed full names
-            // ("Sserunjogi Gabriella" vs stored "Gabriella Sserunjogi")
-            // resolve correctly, while still tolerating a typo in any word.
             const usedIndices = new Set();
             for (const qWord of queryWords) {
                 let matched = false;
@@ -2718,7 +2679,6 @@ async function showStudentList() {
         let nurseryCount = 0, lowerPrimaryCount = 0, upperPrimaryCount = 0;
 
         for (const student of students) {
-            // Determine all periods for this student from payments, term records, fee assignments
             const studentPeriods = new Map();
 
             allPayments.forEach(p => {
@@ -2797,7 +2757,6 @@ async function showStudentList() {
             else if (classLevel === 'LowerPrimary') lowerPrimaryCount++;
             else if (classLevel === 'UpperPrimary') upperPrimaryCount++;
 
-            // ========== CALCULATE TUITION ==========
             let originalTuition = feeStructure ? (feeStructure.tuition || 0) : 0;
             let expectedTuition = originalTuition;
             let discountAmount = 0;
@@ -2858,7 +2817,6 @@ async function showStudentList() {
 
             if (!feeStructure) noFeeStructureCount++;
 
-            // ========== BUILD STATUS GROUP DATA – only for current period, only scholastic groups ==========
             const statusGroupTotals = {};
             for (const sg of sortedStatusGroups) {
                 statusGroupTotals[sg.name] = {
@@ -2871,7 +2829,6 @@ async function showStudentList() {
 
             let currentPeriodItemsRemaining = 0;
 
-            // ========== MAIN LOOP OVER COMPONENTS (for status groups and OR totals) ==========
             if (feeStructure && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     const periodType = component.periodType || 'termly';
@@ -2996,7 +2953,6 @@ async function showStudentList() {
                 }
             }
 
-            // ========== CALCULATE ORIGINAL TOTALS (for reference) ==========
             let totalExpected = 0, totalPaid = 0, totalBalance = 0, totalRemainingItems = 0, totalCustomItems = 0;
             for (const sg of sortedStatusGroups) {
                 const dataSg = statusGroupTotals[sg.name] || { expected: 0, paid: 0, balance: 0, itemsRemaining: 0, customItemsCount: 0 };
@@ -3015,16 +2971,7 @@ async function showStudentList() {
             const hasCustomizations = student.customItemOverrides && Object.keys(student.customItemOverrides).length > 0;
             if (hasCustomizations) studentsWithCustomizations++;
 
-            // ========== COMPUTE CASH‑ONLY TOTALS (tuition + all cash‑only items, regardless of period) ==========
-                    // ========== COMPUTE CASH-ONLY TOTALS (FIXED v2 — matches what's shown per-cell) ==========
-            // NOTE: We intentionally do NOT gate cash-only items by one_time/yearly period
-            // position here. renderStatusGroupCell() already displays a cash-only item's
-            // amount for any status group defined in the student's fee structure (via its
-            // fallback), regardless of period position. If we excluded those same items
-            // from this total, the Balance column would silently disagree with every cell
-            // above it. So this loop counts every cash-only item that exists in the fee
-            // structure and hasn't been explicitly removed for the student — exactly the
-            // same criteria the cell display already uses.
+            // Cash‑only totals (same logic as before)
             let cashOnlyExpected = expectedTuition;
             let cashOnlyPaid = tuitionPaid;
 
@@ -3055,11 +3002,6 @@ async function showStudentList() {
 
                         cashOnlyExpected += effectiveAmount;
 
-                        // Get paid amount for this item using deduplicated function.
-                        // Use the same period-scoping the display cell uses: termly items
-                        // check current-term payments only; one_time/yearly check across
-                        // all of the student's payments so a payment made in an earlier
-                        // period still counts as "paid" here.
                         const scopedPayments = (periodType === 'termly')
                             ? studentPayments
                             : allPayments.filter(p => p && p.studentId === student.id);
@@ -3076,7 +3018,6 @@ async function showStudentList() {
 
             const cashOnlyBalance = cashOnlyExpected - cashOnlyPaid;
 
-            // ========== OVERALL STATUS (based on cash‑only) ==========
             let overallStatusText, overallStatusColor, overallStatusIcon;
             if (cashOnlyBalance < -10) {
                 overallStatusText = 'Credit Balance';
@@ -3120,7 +3061,6 @@ async function showStudentList() {
                 totalBalance: totalBalance, totalRemainingItems: totalRemainingItems,
                 currentPeriodItemsRemaining: currentPeriodItemsRemaining,
                 totalCustomItems: totalCustomItems,
-                // ========== NEW CASH‑ONLY FIELDS ==========
                 cashOnlyExpected: cashOnlyExpected,
                 cashOnlyPaid: cashOnlyPaid,
                 cashOnlyBalance: cashOnlyBalance,
@@ -3183,239 +3123,227 @@ async function showStudentList() {
             `;
         }
 
-  function renderStatusGroupCell(student, sg) {
-    const sgData = student.statusGroupTotals?.[sg.name] || {
-        expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
-        hasStructure: false, periodTypes: new Set(), isTransportation: false,
-        customAmountApplied: false, customTransportAmount: null, customItemsCount: 0, existsInFeeStructure: false
-    };
+        function renderStatusGroupCell(student, sg) {
+            const sgData = student.statusGroupTotals?.[sg.name] || {
+                expected: 0, paid: 0, balance: 0, moneyRemaining: 0, itemsRemaining: 0, items: [],
+                hasStructure: false, periodTypes: new Set(), isTransportation: false,
+                customAmountApplied: false, customTransportAmount: null, customItemsCount: 0, existsInFeeStructure: false
+            };
 
-    if (!student.hasFeeStructure) {
-        return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-            <span class="italic">No Fee Structure</span>
-        </td>`;
-    }
-
-    // Check if this status group exists in the student's fee structure
-    const feeStructure = feeStructures.find(f => f && f.id === student.feeStructureId);
-    let groupExistsInFeeStructure = false;
-    if (feeStructure && feeStructure.activityComponents) {
-        for (const comp of feeStructure.activityComponents) {
-            const compGroupName = comp.statusGroupName || comp.name || 'Other';
-            if (compGroupName === sg.name) {
-                groupExistsInFeeStructure = true;
-                break;
+            if (!student.hasFeeStructure) {
+                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+                    <span class="italic">No Fee Structure</span>
+                </td>`;
             }
-        }
-    }
 
-    if (!groupExistsInFeeStructure) {
-        const displayName = sg.name === 'schoolastic requirement' ? 'Scholastic' :
-            sg.name === 'Admission Fee' ? 'Admission' : sg.name;
-        return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-            <span class="italic">Does not pay ${escapeHtml(displayName)}</span>
-        </td>`;
-    }
-
-    // Handle transportation disabled
-    if (sgData.isTransportation && student.customTransportation) {
-        if (student.customTransportation.hasTransportation === false) {
-            return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-                <span class="italic">Transport disabled</span>
-            </td>`;
-        }
-    }
-
-    // ========== RECALCULATE GROUP TOTALS DIRECTLY FROM FEE STRUCTURE ==========
-    // This ensures MDD (and any other item) appears even if the main loop missed it.
-    let directExpected = 0;
-    let directPaid = 0;
-    let directItemsRemaining = 0;
-    let directItemsRequired = 0;
-    let directItemsBrought = 0;
-    let hasDirectAmount = false;
-
-    const currentYear = student.currentYear || new Date().getFullYear();
-    const currentTerm = student.currentTerm || 1;
-    const isOldestPeriod = true; // If only one period, it's the oldest.
-    const isLatestTermForCurrentYear = true; // Only one term.
-
-    if (feeStructure && feeStructure.activityComponents) {
-        for (const comp of feeStructure.activityComponents) {
-            const compGroupName = comp.statusGroupName || comp.name || 'Other';
-            if (compGroupName !== sg.name) continue;
-
-            const periodType = comp.periodType || 'termly';
-            let shouldInclude = false;
-            if (periodType === 'termly') shouldInclude = true;
-            else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
-            else if (periodType === 'yearly') shouldInclude = isLatestTermForCurrentYear;
-            if (!shouldInclude) continue;
-
-            for (const item of (comp.items || [])) {
-                const itemId = item.id || item.name;
-                if (isItemRemoved(student, itemId)) continue;
-
-                const defaultAmount = item.totalAmount || 0;
-                const defaultQuantity = item.quantity || 1;
-                const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
-                const defaultPaymentOption = item.paymentOption || 'either';
-
-                const customValues = getCustomizedItemValue(
-                    student,
-                    itemId,
-                    defaultAmount,
-                    defaultQuantity,
-                    defaultPaymentOption,
-                    defaultUnitPrice
-                );
-
-                const effectiveAmount = customValues.amount;
-                const effectiveQuantity = customValues.quantity;
-                const effectiveUnitPrice = customValues.unitPrice;
-                const effectivePaymentOption = customValues.paymentOption;
-
-                directExpected += effectiveAmount;
-                hasDirectAmount = true;
-
-                if (effectivePaymentOption !== 'cash_only') {
-                    directItemsRequired += effectiveQuantity;
-                }
-            }
-        }
-    }
-
-    const effectiveExpected = sgData.expected || directExpected;
-    const effectivePaid = sgData.paid || directPaid;
-    const effectiveItemsRemaining = sgData.itemsRemaining || directItemsRemaining;
-    const effectiveBalance = effectiveExpected - effectivePaid;
-    const effectiveMoneyRemaining = sgData.moneyRemaining || (effectiveExpected - effectivePaid);
-
-    // If still no amount, show dash
-    if (effectiveExpected === 0 && effectivePaid === 0 && effectiveItemsRemaining === 0) {
-        // ✅ FIX: Double-check for a custom amount, but SKIP any item that has
-        // been removed for this student — a removed item must never surface
-        // here, custom or not, since it is not being charged at all.
-        let customTotal = 0;
-        if (student.customItemOverrides) {
-            for (const [itemId, custom] of Object.entries(student.customItemOverrides)) {
-                if (custom.isActive === false) continue;
-
-                // ✅ Skip removed items entirely — a removal always wins over
-                // any lingering customization data for that same item.
-                if (isItemRemoved(student, itemId)) continue;
-
-                // Check if this custom belongs to this group
-                let belongs = false;
-                if (feeStructure && feeStructure.activityComponents) {
-                    for (const comp of feeStructure.activityComponents) {
-                        const compGroupName = comp.statusGroupName || comp.name || 'Other';
-                        if (compGroupName !== sg.name) continue;
-                        for (const item of (comp.items || [])) {
-                            const id = item.id || item.name;
-                            if (id === itemId || item.name === custom.itemName) {
-                                belongs = true;
-                                break;
-                            }
-                        }
-                        if (belongs) break;
+            const feeStructure = feeStructures.find(f => f && f.id === student.feeStructureId);
+            let groupExistsInFeeStructure = false;
+            if (feeStructure && feeStructure.activityComponents) {
+                for (const comp of feeStructure.activityComponents) {
+                    const compGroupName = comp.statusGroupName || comp.name || 'Other';
+                    if (compGroupName === sg.name) {
+                        groupExistsInFeeStructure = true;
+                        break;
                     }
                 }
-                if (belongs) {
-                    const amount = custom.customAmount !== undefined && custom.customAmount !== null
-                        ? custom.customAmount
-                        : custom.defaultAmount || 0;
-                    customTotal += amount;
+            }
+
+            if (!groupExistsInFeeStructure) {
+                const displayName = sg.name === 'schoolastic requirement' ? 'Scholastic' :
+                    sg.name === 'Admission Fee' ? 'Admission' : sg.name;
+                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+                    <span class="italic">Does not pay ${escapeHtml(displayName)}</span>
+                </td>`;
+            }
+
+            if (sgData.isTransportation && student.customTransportation) {
+                if (student.customTransportation.hasTransportation === false) {
+                    return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+                        <span class="italic">Transport disabled</span>
+                    </td>`;
                 }
             }
+
+            // Recalculate group totals directly from fee structure for safety
+            let directExpected = 0;
+            let directPaid = 0;
+            let directItemsRemaining = 0;
+            let directItemsRequired = 0;
+            let directItemsBrought = 0;
+            let hasDirectAmount = false;
+
+            const currentYear = student.currentYear || new Date().getFullYear();
+            const currentTerm = student.currentTerm || 1;
+            const isOldestPeriod = true;
+            const isLatestTermForCurrentYear = true;
+
+            if (feeStructure && feeStructure.activityComponents) {
+                for (const comp of feeStructure.activityComponents) {
+                    const compGroupName = comp.statusGroupName || comp.name || 'Other';
+                    if (compGroupName !== sg.name) continue;
+
+                    const periodType = comp.periodType || 'termly';
+                    let shouldInclude = false;
+                    if (periodType === 'termly') shouldInclude = true;
+                    else if (periodType === 'one_time') shouldInclude = isOldestPeriod;
+                    else if (periodType === 'yearly') shouldInclude = isLatestTermForCurrentYear;
+                    if (!shouldInclude) continue;
+
+                    for (const item of (comp.items || [])) {
+                        const itemId = item.id || item.name;
+                        if (isItemRemoved(student, itemId)) continue;
+
+                        const defaultAmount = item.totalAmount || 0;
+                        const defaultQuantity = item.quantity || 1;
+                        const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
+                        const defaultPaymentOption = item.paymentOption || 'either';
+
+                        const customValues = getCustomizedItemValue(
+                            student,
+                            itemId,
+                            defaultAmount,
+                            defaultQuantity,
+                            defaultPaymentOption,
+                            defaultUnitPrice
+                        );
+
+                        const effectiveAmount = customValues.amount;
+                        const effectiveQuantity = customValues.quantity;
+                        const effectiveUnitPrice = customValues.unitPrice;
+                        const effectivePaymentOption = customValues.paymentOption;
+
+                        directExpected += effectiveAmount;
+                        hasDirectAmount = true;
+
+                        if (effectivePaymentOption !== 'cash_only') {
+                            directItemsRequired += effectiveQuantity;
+                        }
+                    }
+                }
+            }
+
+            const effectiveExpected = sgData.expected || directExpected;
+            const effectivePaid = sgData.paid || directPaid;
+            const effectiveItemsRemaining = sgData.itemsRemaining || directItemsRemaining;
+            const effectiveBalance = effectiveExpected - effectivePaid;
+            const effectiveMoneyRemaining = sgData.moneyRemaining || (effectiveExpected - effectivePaid);
+
+            if (effectiveExpected === 0 && effectivePaid === 0 && effectiveItemsRemaining === 0) {
+                let customTotal = 0;
+                if (student.customItemOverrides) {
+                    for (const [itemId, custom] of Object.entries(student.customItemOverrides)) {
+                        if (custom.isActive === false) continue;
+                        if (isItemRemoved(student, itemId)) continue;
+
+                        let belongs = false;
+                        if (feeStructure && feeStructure.activityComponents) {
+                            for (const comp of feeStructure.activityComponents) {
+                                const compGroupName = comp.statusGroupName || comp.name || 'Other';
+                                if (compGroupName !== sg.name) continue;
+                                for (const item of (comp.items || [])) {
+                                    const id = item.id || item.name;
+                                    if (id === itemId || item.name === custom.itemName) {
+                                        belongs = true;
+                                        break;
+                                    }
+                                }
+                                if (belongs) break;
+                            }
+                        }
+                        if (belongs) {
+                            const amount = custom.customAmount !== undefined && custom.customAmount !== null
+                                ? custom.customAmount
+                                : custom.defaultAmount || 0;
+                            customTotal += amount;
+                        }
+                    }
+                }
+                if (customTotal > 0) {
+                    return `<td class="p-2 text-center border-r border-slate-100 text-xs">
+                        <div class="font-semibold text-orange-600">UGX ${formatMoney(customTotal)}</div>
+                        <div class="text-[10px] text-slate-400">Custom amount</div>
+                    </td>`;
+                }
+                return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
+                    <span>—</span>
+                </td>`;
+            }
+
+            let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false;
+            let totalItemsBrought = 0, totalItemsRequired = 0;
+
+            for (const item of (sgData.items || [])) {
+                if (item.isFullyPaid) {
+                    if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
+                    else if (item.paymentOption === 'cash_only' || (item.paymentOption === 'either' && item.cashPaid >= item.totalAmount)) hasCashOnlyPaid = true;
+                    else if (item.paymentOption === 'either' && item.cashPaid > 0 && item.itemsBrought > 0) hasBothPaid = true;
+                }
+                totalItemsBrought += item.itemsBrought || 0;
+                totalItemsRequired += item.quantityRequired || 0;
+            }
+
+            const customItemsCount = sgData.customItemsCount || 0;
+            const hasCustomItems = customItemsCount > 0;
+            const customBadge = hasCustomItems ? `<span class="db-badge bg-amber-50 text-amber-600 ml-1">⚡${customItemsCount}</span>` : '';
+
+            const periodIcons = [];
+            const periodTypes = sgData.periodTypes || new Set();
+            if (periodTypes.has('one_time')) periodIcons.push('⭐');
+            if (periodTypes.has('termly')) periodIcons.push('📅');
+            if (periodTypes.has('yearly')) periodIcons.push('📆');
+            const periodBadge = periodIcons.length > 0 ? `<span class="text-[10px] text-slate-300 block">${periodIcons.join(' ')}</span>` : '';
+
+            let orBadge = '';
+            if (hasItemOnlyPaid && hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-purple-500 block font-medium">Both (Cash + Items)</span>`;
+            else if (hasItemOnlyPaid) orBadge = `<span class="text-[10px] text-indigo-500 block font-medium">Items Only</span>`;
+            else if (hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-emerald-500 block font-medium">Cash Only</span>`;
+
+            let displayHtml = '';
+            if (effectiveBalance <= 0 && effectivePaid >= 0 && effectiveItemsRemaining === 0) {
+                displayHtml = `<span class="text-emerald-600 font-bold text-xs"><i class="fas fa-circle-check mr-1"></i>Fully Paid</span>`;
+                if (hasItemOnlyPaid && !hasCashOnlyPaid) displayHtml += `<div class="text-[10px] text-indigo-500">Items only</div>`;
+                else if (hasCashOnlyPaid && !hasItemOnlyPaid) displayHtml += `<div class="text-[10px] text-emerald-500">Cash only</div>`;
+                else if (hasBothPaid) displayHtml += `<div class="text-[10px] text-purple-500">Cash + Items</div>`;
+            } else if (effectiveBalance < 0) {
+                displayHtml = `<span class="text-sky-600 font-bold font-mono-num">Credit ${formatMoney(Math.abs(effectiveBalance))}</span>`;
+            } else if (effectiveMoneyRemaining > 0 && effectiveItemsRemaining > 0) {
+                displayHtml = `
+                    <div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(effectiveMoneyRemaining)}</div>
+                    <div class="text-orange-600 text-[10px] font-medium">${effectiveItemsRemaining} item(s) remaining</div>
+                    <div class="text-[10px] text-slate-300">Cash OR Items</div>
+                    ${customBadge}${periodBadge}${orBadge}`;
+            } else if (effectiveMoneyRemaining > 0) {
+                displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(effectiveMoneyRemaining)}</div>${customBadge}${periodBadge}${orBadge}`;
+            } else if (effectiveItemsRemaining > 0) {
+                displayHtml = `<div class="text-orange-600 text-[10px] font-medium">${effectiveItemsRemaining} item(s) remaining</div>${customBadge}${periodBadge}${orBadge}`;
+            } else if (effectivePaid > 0) {
+                displayHtml = `<span class="text-emerald-600 font-mono-num font-semibold">UGX ${formatMoney(effectivePaid)}</span>${orBadge}${customBadge}${periodBadge}`;
+            } else {
+                displayHtml = `<span class="text-rose-600 font-mono-num font-semibold">UGX ${formatMoney(effectiveExpected)}</span>${orBadge}${customBadge}${periodBadge}`;
+            }
+
+            let itemsSummary = '';
+            if (totalItemsRequired > 0 || directItemsRequired > 0) {
+                const req = totalItemsRequired || directItemsRequired;
+                const brought = totalItemsBrought || directItemsBrought;
+                itemsSummary = `<div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-box-open mr-0.5"></i>${brought}/${req} items</div>`;
+            }
+
+            const infoIcon = effectiveExpected > 0 || effectiveItemsRemaining > 0 ?
+                `<i class="fas fa-circle-info text-indigo-400 ml-1 cursor-pointer hover:text-indigo-600"
+                    onclick="event.stopPropagation(); showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')"></i>` : '';
+
+            return `
+                <td class="p-2 text-center border-r border-slate-100 text-xs">
+                    <div class="cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 transition"
+                         onclick="showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')">
+                        ${displayHtml}
+                        ${itemsSummary}
+                        ${infoIcon}
+                    </div>
+                </td>
+            `;
         }
-        if (customTotal > 0) {
-            return `<td class="p-2 text-center border-r border-slate-100 text-xs">
-                <div class="font-semibold text-orange-600">UGX ${formatMoney(customTotal)}</div>
-                <div class="text-[10px] text-slate-400">Custom amount</div>
-            </td>`;
-        }
-        return `<td class="p-2 text-center border-r border-slate-100 text-xs text-slate-300">
-            <span>—</span>
-        </td>`;
-    }
-
-    // ========== EXISTING DISPLAY LOGIC (with effective values) ==========
-    let hasItemOnlyPaid = false, hasCashOnlyPaid = false, hasBothPaid = false;
-    let totalItemsBrought = 0, totalItemsRequired = 0;
-
-    for (const item of (sgData.items || [])) {
-        if (item.isFullyPaid) {
-            if (item.paymentOption === 'item_only' || (item.paymentOption === 'either' && item.itemsBrought >= item.quantityRequired && item.cashPaid === 0)) hasItemOnlyPaid = true;
-            else if (item.paymentOption === 'cash_only' || (item.paymentOption === 'either' && item.cashPaid >= item.totalAmount)) hasCashOnlyPaid = true;
-            else if (item.paymentOption === 'either' && item.cashPaid > 0 && item.itemsBrought > 0) hasBothPaid = true;
-        }
-        totalItemsBrought += item.itemsBrought || 0;
-        totalItemsRequired += item.quantityRequired || 0;
-    }
-
-    const customItemsCount = sgData.customItemsCount || 0;
-    const hasCustomItems = customItemsCount > 0;
-    const customBadge = hasCustomItems ? `<span class="db-badge bg-amber-50 text-amber-600 ml-1">⚡${customItemsCount}</span>` : '';
-
-    const periodIcons = [];
-    const periodTypes = sgData.periodTypes || new Set();
-    if (periodTypes.has('one_time')) periodIcons.push('⭐');
-    if (periodTypes.has('termly')) periodIcons.push('📅');
-    if (periodTypes.has('yearly')) periodIcons.push('📆');
-    const periodBadge = periodIcons.length > 0 ? `<span class="text-[10px] text-slate-300 block">${periodIcons.join(' ')}</span>` : '';
-
-    let orBadge = '';
-    if (hasItemOnlyPaid && hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-purple-500 block font-medium">Both (Cash + Items)</span>`;
-    else if (hasItemOnlyPaid) orBadge = `<span class="text-[10px] text-indigo-500 block font-medium">Items Only</span>`;
-    else if (hasCashOnlyPaid) orBadge = `<span class="text-[10px] text-emerald-500 block font-medium">Cash Only</span>`;
-
-    let displayHtml = '';
-    if (effectiveBalance <= 0 && effectivePaid >= 0 && effectiveItemsRemaining === 0) {
-        displayHtml = `<span class="text-emerald-600 font-bold text-xs"><i class="fas fa-circle-check mr-1"></i>Fully Paid</span>`;
-        if (hasItemOnlyPaid && !hasCashOnlyPaid) displayHtml += `<div class="text-[10px] text-indigo-500">Items only</div>`;
-        else if (hasCashOnlyPaid && !hasItemOnlyPaid) displayHtml += `<div class="text-[10px] text-emerald-500">Cash only</div>`;
-        else if (hasBothPaid) displayHtml += `<div class="text-[10px] text-purple-500">Cash + Items</div>`;
-    } else if (effectiveBalance < 0) {
-        displayHtml = `<span class="text-sky-600 font-bold font-mono-num">Credit ${formatMoney(Math.abs(effectiveBalance))}</span>`;
-    } else if (effectiveMoneyRemaining > 0 && effectiveItemsRemaining > 0) {
-        displayHtml = `
-            <div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(effectiveMoneyRemaining)}</div>
-            <div class="text-orange-600 text-[10px] font-medium">${effectiveItemsRemaining} item(s) remaining</div>
-            <div class="text-[10px] text-slate-300">Cash OR Items</div>
-            ${customBadge}${periodBadge}${orBadge}`;
-    } else if (effectiveMoneyRemaining > 0) {
-        displayHtml = `<div class="text-rose-600 font-bold font-mono-num">UGX ${formatMoney(effectiveMoneyRemaining)}</div>${customBadge}${periodBadge}${orBadge}`;
-    } else if (effectiveItemsRemaining > 0) {
-        displayHtml = `<div class="text-orange-600 text-[10px] font-medium">${effectiveItemsRemaining} item(s) remaining</div>${customBadge}${periodBadge}${orBadge}`;
-    } else if (effectivePaid > 0) {
-        displayHtml = `<span class="text-emerald-600 font-mono-num font-semibold">UGX ${formatMoney(effectivePaid)}</span>${orBadge}${customBadge}${periodBadge}`;
-    } else {
-        displayHtml = `<span class="text-rose-600 font-mono-num font-semibold">UGX ${formatMoney(effectiveExpected)}</span>${orBadge}${customBadge}${periodBadge}`;
-    }
-
-    let itemsSummary = '';
-    if (totalItemsRequired > 0 || directItemsRequired > 0) {
-        const req = totalItemsRequired || directItemsRequired;
-        const brought = totalItemsBrought || directItemsBrought;
-        itemsSummary = `<div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-box-open mr-0.5"></i>${brought}/${req} items</div>`;
-    }
-
-    const infoIcon = effectiveExpected > 0 || effectiveItemsRemaining > 0 ?
-        `<i class="fas fa-circle-info text-indigo-400 ml-1 cursor-pointer hover:text-indigo-600"
-            onclick="event.stopPropagation(); showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')"></i>` : '';
-
-    return `
-        <td class="p-2 text-center border-r border-slate-100 text-xs">
-            <div class="cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 transition"
-                 onclick="showStatusGroupItemDetailsModal('${student.id}', '${escapeHtml(sg.name)}')">
-                ${displayHtml}
-                ${itemsSummary}
-                ${infoIcon}
-            </div>
-        </td>
-    `;
-}
 
         // ========== BUILD HEADERS ==========
         let statusGroupHeaders = '';
@@ -3445,10 +3373,82 @@ async function showStudentList() {
         }
 
         // ====================================================================
-        // BUILD PAGE HTML
+        // BUILD PAGE HTML – with sticky header and sticky first 3 columns
         // ====================================================================
         const html = `
             <div class="db-app-bg -m-4 p-4 space-y-6 pb-8 rounded-2xl">
+
+                <style>
+                    /* Sticky table header */
+                    .db-sticky-table thead {
+                        position: sticky;
+                        top: 0;
+                        z-index: 30;
+                    }
+                    .db-sticky-table thead th {
+                        background: #f1f5f9;  /* matches db-table header background */
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                    }
+                    /* Sticky columns: #, Student Name, Class */
+                    .db-sticky-table tbody td:first-child,
+                    .db-sticky-table thead th:first-child {
+                        position: sticky;
+                        left: 0;
+                        z-index: 20;
+                        background: white;
+                        border-right: 1px solid #e2e8f0;
+                    }
+                    .db-sticky-table tbody td:nth-child(2),
+                    .db-sticky-table thead th:nth-child(2) {
+                        position: sticky;
+                        left: 40px;   /* width of # column + border */
+                        z-index: 20;
+                        background: white;
+                        border-right: 1px solid #e2e8f0;
+                    }
+                    .db-sticky-table tbody td:nth-child(3),
+                    .db-sticky-table thead th:nth-child(3) {
+                        position: sticky;
+                        left: 240px;  /* 40px + width of Student Name column */
+                        z-index: 20;
+                        background: white;
+                        border-right: 1px solid #e2e8f0;
+                    }
+                    /* Ensure header cells above column cells */
+                    .db-sticky-table thead th {
+                        z-index: 30;
+                    }
+                    /* Row hover effect for sticky cells */
+                    .db-sticky-table tbody tr:hover td:first-child,
+                    .db-sticky-table tbody tr:hover td:nth-child(2),
+                    .db-sticky-table tbody tr:hover td:nth-child(3) {
+                        background: #f8fafc;
+                    }
+                    /* Set fixed widths for sticky columns */
+                    .db-sticky-table th:first-child,
+                    .db-sticky-table td:first-child {
+                        width: 40px;
+                        min-width: 40px;
+                        max-width: 40px;
+                    }
+                    .db-sticky-table th:nth-child(2),
+                    .db-sticky-table td:nth-child(2) {
+                        width: 200px;
+                        min-width: 200px;
+                        max-width: 200px;
+                    }
+                    .db-sticky-table th:nth-child(3),
+                    .db-sticky-table td:nth-child(3) {
+                        width: 140px;
+                        min-width: 140px;
+                        max-width: 140px;
+                    }
+                    /* Additional styling for the container */
+                    .db-scroll {
+                        border-radius: 12px;
+                        border: 1px solid #e2e8f0;
+                    }
+                </style>
 
                 <!-- ================= HERO ================= -->
                 <div class="db-hero db-fade-in">
@@ -3591,14 +3591,12 @@ async function showStudentList() {
                 <!-- ================= STUDENTS TABLE ================= -->
                 <div class="db-card overflow-hidden">
                     <div class="overflow-x-auto db-scroll" style="max-height: 70vh; overflow-y: auto;">
-                        <table class="w-full text-sm">
+                        <table class="w-full text-sm db-sticky-table">
                             <thead class="db-table">
                                 <tr>
-                                    <th class="p-2.5 w-8">#</th>
-                                    <th class="p-2.5 text-left">Admission</th>
+                                    <th class="p-2.5 w-8 text-center">#</th>
                                     <th class="p-2.5 text-left">Student Name</th>
                                     <th class="p-2.5 text-left">Class</th>
-                                    <th class="p-2.5 text-left">Parent</th>
                                     <th class="p-2.5 text-center min-w-32 bg-indigo-50/60 border-r border-slate-100">Tuition</th>
                                     ${statusGroupHeaders}
                                     <th class="p-2.5 text-right">Total Paid</th>
@@ -3612,7 +3610,6 @@ async function showStudentList() {
                                     let statusGroupCells = '';
                                     for (const sg of sortedStatusGroups) statusGroupCells += renderStatusGroupCell(student, sg);
 
-                                    // ========== CASH‑ONLY VALUES ==========
                                     const cashPaid = student.cashOnlyPaid || 0;
                                     const cashBalance = student.cashOnlyBalance || 0;
                                     const cashPaidDisplay = cashPaid > 0 ? formatMoney(cashPaid) : '0';
@@ -3641,7 +3638,6 @@ async function showStudentList() {
                                             data-has-fee-structure="${student.hasFeeStructure}"
                                             data-has-customizations="${student.hasCustomizations}">
                                             <td class="p-2 text-center text-slate-300 text-xs font-mono-num">${index + 1}</td>
-                                            <td class="p-2 font-mono-num text-xs font-semibold text-slate-500">${student.admissionNumber}</td>
                                             <td class="p-2">
                                                 <div class="flex items-center gap-2.5">
                                                     <div class="w-8 h-8 ${avatarColor} rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0">${initials || 'S'}</div>
@@ -3653,11 +3649,6 @@ async function showStudentList() {
                                                 </div>
                                             </td>
                                             <td class="p-2"><span class="db-badge bg-purple-50 text-purple-700">${student.currentClass}</span></td>
-                                            <td class="p-2">
-                                                <p class="text-sm text-slate-600 truncate max-w-[140px]">${escapeHtml(student.parentName)}</p>
-                                                <p class="text-[10px] text-slate-400"><i class="fas fa-phone text-[9px] mr-0.5"></i>${student.parentPhone}</p>
-                                                ${bursaryBadge}${noStructureBadge}
-                                            </td>
                                             ${renderTuitionCell(student)}
                                             ${statusGroupCells}
                                             <td class="p-2 text-right font-mono-num font-bold ${cashPaid > 0 ? 'text-emerald-600' : 'text-slate-300'}">
@@ -3711,15 +3702,6 @@ async function showStudentList() {
                 const studentLevel = row.getAttribute('data-level') || '';
                 const studentStatus = row.getAttribute('data-status') || '';
 
-                // ========== STRENGTHENED NAME SEARCH MATCH ==========
-                // Name matching now uses fuzzyNameMatch, which on top of the
-                // existing typo-tolerance also ignores word ORDER — so typing
-                // the surname first, then the first name (reversed from how
-                // the record stores firstName + lastName), still finds the
-                // right student. Every possibility — exact, partial, typo'd,
-                // or reversed — is checked before ruling a student out.
-                // Admission numbers stay on the original single-field fuzzy
-                // match since there's no "order" to reverse there.
                 const matchSearch = searchTerm === '' ||
                     fuzzyNameMatch(searchTerm, name, 0.62) ||
                     fuzzyTextMatch(searchTerm, admission, 0.7);
