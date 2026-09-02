@@ -63081,8 +63081,8 @@ function buildSummaryCardsV3(totals, studentCount) {
 
 
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
-    console.log('=== BUILD REPORT TABLE v22.0 - PER-STUDENT TOTALS FIXED ===');
-    
+    console.log('=== BUILD REPORT TABLE v23.0 - NOT-APPLICABLE ITEMS FIXED ===');
+
     // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
     function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
         if (!student) {
@@ -63100,18 +63100,18 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 defaultQuantity: defaultQuantity || 1
             };
         }
-        
+
         if (student.customItemOverrides && student.customItemOverrides[itemId]) {
             var custom = student.customItemOverrides[itemId];
             if (custom.isActive !== false) {
-                var customAmount = (custom.customAmount !== null && custom.customAmount !== undefined) 
-                    ? custom.customAmount 
+                var customAmount = (custom.customAmount !== null && custom.customAmount !== undefined)
+                    ? custom.customAmount
                     : defaultAmount;
-                var customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) 
-                    ? custom.customQuantity 
+                var customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined)
+                    ? custom.customQuantity
                     : defaultQuantity;
                 var customPaymentOption = custom.paymentOption || defaultPaymentOption;
-                
+
                 var customUnitPrice = defaultUnitPrice;
                 if (customQuantity > 0 && customAmount > 0) {
                     customUnitPrice = customAmount / customQuantity;
@@ -63120,7 +63120,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 } else if (customQuantity > 0) {
                     customUnitPrice = defaultUnitPrice || (defaultAmount / (defaultQuantity || 1));
                 }
-                
+
                 return {
                     amount: customAmount,
                     quantity: customQuantity,
@@ -63136,7 +63136,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 };
             }
         }
-        
+
         return {
             amount: defaultAmount || 0,
             quantity: defaultQuantity || 1,
@@ -63159,10 +63159,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         var unique = [];
         for (var h = 0; h < histories.length; h++) {
             var history = histories[h];
-            var key = (history.date || '') + '_' + 
-                      (history.type || '') + '_' + 
-                      (history.amount || 0) + '_' + 
-                      (history.quantity || 0) + '_' + 
+            var key = (history.date || '') + '_' +
+                      (history.type || '') + '_' +
+                      (history.amount || 0) + '_' +
+                      (history.quantity || 0) + '_' +
                       (history.receiptNumber || '');
             if (!seen.has(key)) {
                 seen.add(key);
@@ -63202,40 +63202,40 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     function getCashValuesForItem(paymentOption, qtyRequired, qtyCollected, amountExpected, amountCollected, unitPrice) {
         var cashExpected = 0;
         var cashPaid = 0;
-        
+
         if (paymentOption === 'item_only') {
             return { cashExpected: 0, cashPaid: 0 };
         }
-        
+
         if (paymentOption === 'cash_only') {
             return {
                 cashExpected: amountExpected || 0,
                 cashPaid: Math.min(amountCollected || 0, amountExpected || 0)
             };
         }
-        
+
         var finalQtyCollected = Math.min(qtyCollected || 0, qtyRequired || 1);
         var finalAmountCollected = amountCollected || 0;
         var finalAmountExpected = amountExpected || 0;
         var finalQtyRequired = qtyRequired || 1;
         var finalUnitPrice = unitPrice || (finalAmountExpected / finalQtyRequired);
-        
+
         if (finalQtyCollected >= finalQtyRequired) {
             return { cashExpected: 0, cashPaid: 0 };
         }
-        
+
         if (finalAmountCollected >= finalAmountExpected) {
             return {
                 cashExpected: finalAmountExpected,
                 cashPaid: Math.min(finalAmountCollected, finalAmountExpected)
             };
         }
-        
+
         var remainingQty = Math.max(0, finalQtyRequired - finalQtyCollected);
         var remainingCash = remainingQty * finalUnitPrice;
         var cashExpectedValue = Math.min(finalAmountExpected, remainingCash);
         var cashPaidValue = Math.min(finalAmountCollected, cashExpectedValue);
-        
+
         return {
             cashExpected: cashExpectedValue,
             cashPaid: cashPaidValue
@@ -63246,10 +63246,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var filterStatusGroup = filters.statusGroup || 'all';
     var filterItem = filters.itemName || 'all';
     var isTuitionOnly = filterStatusGroup === 'none';
-    
+
     var currentYear = currentAcademicSettings.currentYear || new Date().getFullYear();
     var currentTerm = currentAcademicSettings.currentTerm || 1;
-    
+
     // Get all unique period keys from students
     var allPeriodKeys = [];
     for (var s = 0; s < students.length; s++) {
@@ -63264,7 +63264,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         }
     }
     allPeriodKeys.sort(); // Sorts ascending (oldest first)
-    
+
     // ================================================================
     // FIX: Determine oldest period and max term per year
     // ================================================================
@@ -63279,7 +63279,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             maxTermByYear[pYear] = pTerm;
         }
     }
-    
+
     // Get all status group names
     var allGroupNames = [];
     for (var s = 0; s < students.length; s++) {
@@ -63293,7 +63293,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             }
         }
     }
-    
+
     var statusGroupsToShow = [];
     if (isTuitionOnly) {
         statusGroupsToShow = [];
@@ -63304,7 +63304,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     } else {
         statusGroupsToShow = allGroupNames;
     }
-    
+
     var priorityOrder = ['Tuition', 'Admission Fee', 'Scholastic Requirements', 'Uniform', 'Transportation', 'Development Fee'];
     statusGroupsToShow.sort(function(a, b) {
         var aIdx = priorityOrder.indexOf(a);
@@ -63314,7 +63314,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         if (bIdx !== -1) return 1;
         return a.localeCompare(b);
     });
-    
+
     // ========== BUILD STATUS GROUP ITEMS ==========
     // NOTE: The global removal skip has been removed.
     // Period-aware removal is handled by the backend's periodBreakdown data,
@@ -63322,21 +63322,26 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var statusGroupItems = {};
     var itemCustomizationMap = {};
     var periodBreakdownData = {};
-    // 🔧 FIX: this new map stores each student's OWN totals/period breakdown
+    // 🔧 FIX (v22): this map stores each student's OWN totals/period breakdown
     // for each item, keyed by [groupName][itemName][studentId]. The old code
     // had no such record — it discarded a student's real numbers the moment
     // they were folded into the group-wide `items[itemName]` aggregate, then
     // read that same aggregate back out later as if it were per-student data.
-    // That's why every row for an item showed the identical group-wide total.
+    // 🔧 FIX (v23): a student can have an entry here with EVERY total at 0
+    // because the item had zero applicablePeriods for them (removed / not
+    // applicable / outside their period range). That is not the same as
+    // "paid in full" — it means "doesn't apply to this student" — so the
+    // renderer below now checks `applicablePeriods > 0` before treating the
+    // 0/0 case as fully paid.
     var perStudentItemTotals = {};
-    
+
     for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
         var groupName = statusGroupsToShow[sgIdx];
         var items = {};
         itemCustomizationMap[groupName] = {};
         periodBreakdownData[groupName] = {};
         perStudentItemTotals[groupName] = {}; // 🔧 FIX
-        
+
         for (var s = 0; s < students.length; s++) {
             var student = students[s];
             if (student.statusGroups && student.statusGroups[groupName]) {
@@ -63345,12 +63350,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     if (groupItems.hasOwnProperty(itemName)) {
                         var itemData = groupItems[itemName];
                         var itemId = itemData.id || itemName;
-                        
+
                         // ============================================================
                         // REMOVED: global removal skip – now period-aware via periodBreakdown
                         // if (isItemRemoved(student, itemId)) { continue; }
                         // ============================================================
-                        
+
                         var customValues = getCustomizedItemValue(
                             student,
                             itemId,
@@ -63359,49 +63364,49 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             itemData.paymentOption || 'either',
                             itemData.unitPrice || 0
                         );
-                        
+
                         var isCustomized = customValues.isCustomized;
                         var effectiveAmount = customValues.amount;
                         var effectiveQuantity = customValues.quantity;
                         var effectiveUnitPrice = customValues.unitPrice;
-                        
+
                         var effectivePaymentOption = customValues.paymentOption;
                         var defaultPaymentOption = itemData.paymentOption || 'either';
                         if (defaultPaymentOption === 'item_only') {
                             effectivePaymentOption = 'item_only';
                         }
-                        
+
                         var perPeriodQtyRequired = effectiveQuantity > 0 ? effectiveQuantity : 1;
                         var perPeriodAmountExpected = effectiveAmount;
                         var unitPrice = effectiveUnitPrice;
                         var paymentOption = effectivePaymentOption;
                         var isOneTime = itemData.isOneTime || false;
                         var periodType = itemData.periodType || 'termly';
-                        
+
                         // ================================================================
                         // Get the correct period breakdown from the item
                         // ================================================================
                         var periodBreakdown = itemData.periodBreakdown || {};
                         var periodKeys = Object.keys(periodBreakdown);
-                        
+
                         // ================================================================
                         // Determine which periods this item should appear in
                         // ================================================================
                         var applicablePeriods = [];
-                        
+
                         for (var pk = 0; pk < periodKeys.length; pk++) {
                             var periodKey = periodKeys[pk];
                             var pd = periodBreakdown[periodKey];
-                            
+
                             if (pd.isNotApplicable) {
                                 continue;
                             }
-                            
+
                             // ================================================================
                             // Apply period scoping rules (matches viewStudentDetailsList)
                             // ================================================================
                             var shouldIncludePeriod = false;
-                            
+
                             if (periodType === 'one_time') {
                                 // One-Time: Only include if this is the OLDEST period
                                 shouldIncludePeriod = (periodKey === oldestPeriodKey);
@@ -63415,7 +63420,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 // Termly: Always include
                                 shouldIncludePeriod = true;
                             }
-                            
+
                             if (shouldIncludePeriod) {
                                 applicablePeriods.push({
                                     periodKey: periodKey,
@@ -63423,17 +63428,17 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 });
                             }
                         }
-                        
+
                         // ================================================================
                         // If no applicable periods, check if it's a one-time or yearly with no data
                         // ================================================================
                         if (applicablePeriods.length === 0) {
-                            var hasDirectData = itemData.quantityCollected > 0 || 
-                                               itemData.quantityRemaining > 0 || 
+                            var hasDirectData = itemData.quantityCollected > 0 ||
+                                               itemData.quantityRemaining > 0 ||
                                                itemData.amountCollected > 0 ||
                                                itemData.amountRemaining > 0 ||
                                                isOneTime;
-                            
+
                             if (hasDirectData) {
                                 // For one-time items with no period data, use the oldest period
                                 // For yearly items with no period data, use the latest term of the current year
@@ -63444,7 +63449,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                         fallbackPeriodKey = currentYearStr + '_' + maxTermByYear[currentYearStr];
                                     }
                                 }
-                                
+
                                 if (fallbackPeriodKey) {
                                     var existingPd = periodBreakdown[fallbackPeriodKey];
                                     if (!existingPd || existingPd.isNotApplicable) {
@@ -63465,7 +63470,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 }
                             }
                         }
-                        
+
                         // ================================================================
                         // AGGREGATE ACROSS APPLICABLE PERIODS ONLY (for THIS student)
                         // ================================================================
@@ -63478,20 +63483,20 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         var applicablePeriodsCount = 0;
                         var fullyPaidPeriods = 0;
                         var hasAnyData = false;
-                        
+
                         var periodDataMap = {};
-                        
+
                         for (var apIdx = 0; apIdx < applicablePeriods.length; apIdx++) {
                             var ap = applicablePeriods[apIdx];
                             var periodKey = ap.periodKey;
                             var pd = ap.data;
-                            
+
                             applicablePeriodsCount++;
-                            
+
                             var cashPaid = pd.amtCollected || 0;
                             var itemsBrought = pd.qtyCollected || 0;
                             var finalItemsBrought = Math.min(itemsBrought, perPeriodQtyRequired);
-                            
+
                             var remainingCash = 0;
                             var remainingItems = 0;
                             var isPeriodFullyPaid = false;
@@ -63499,7 +63504,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             var displayItems = 0;
                             var isItemOnlyPaid = false;
                             var isCashOnlyPaid = false;
-                            
+
                             if (paymentOption === 'cash_only') {
                                 remainingCash = Math.max(0, perPeriodAmountExpected - cashPaid);
                                 isPeriodFullyPaid = remainingCash <= 0;
@@ -63516,7 +63521,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             } else {
                                 var cashCoversFull = cashPaid >= perPeriodAmountExpected;
                                 var itemsCoversFull = finalItemsBrought >= perPeriodQtyRequired;
-                                
+
                                 if (cashCoversFull) {
                                     isPeriodFullyPaid = true;
                                     isCashOnlyPaid = true;
@@ -63537,10 +63542,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                     var totalItemsCovered = Math.min(totalCovered, perPeriodQtyRequired);
                                     var remainingQty = Math.max(0, perPeriodQtyRequired - totalItemsCovered);
                                     var remainingAmt = remainingQty * unitPrice;
-                                    
+
                                     remainingCash = remainingAmt;
                                     remainingItems = remainingQty;
-                                    
+
                                     var totalValueCovered = cashPaid + (finalItemsBrought * unitPrice);
                                     var totalRequired = perPeriodQtyRequired * unitPrice;
                                     if (totalValueCovered >= totalRequired) {
@@ -63548,12 +63553,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                         remainingCash = 0;
                                         remainingItems = 0;
                                     }
-                                    
+
                                     displayCash = cashPaid;
                                     displayItems = finalItemsBrought;
                                 }
                             }
-                            
+
                             if (paymentOption === 'item_only') {
                                 totalCashExpected += 0;
                                 totalCashPaid += 0;
@@ -63563,19 +63568,19 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 totalCashPaid += displayCash;
                                 totalCashRemaining += remainingCash;
                             }
-                            
+
                             totalItemsRequired += perPeriodQtyRequired;
                             totalItemsCollected += displayItems;
                             totalItemsRemaining += remainingItems;
-                            
+
                             if (cashPaid > 0 || finalItemsBrought > 0 || remainingCash > 0 || remainingItems > 0) {
                                 hasAnyData = true;
                             }
-                            
+
                             if (isPeriodFullyPaid) {
                                 fullyPaidPeriods++;
                             }
-                            
+
                             periodDataMap[periodKey] = {
                                 cashExpected: paymentOption === 'item_only' ? 0 : perPeriodAmountExpected,
                                 cashPaid: paymentOption === 'item_only' ? 0 : displayCash,
@@ -63592,10 +63597,14 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 displayItemsCollected: displayItems
                             };
                         }
-                        
+
                         // 🔧 FIX: store THIS student's true totals/period breakdown for
                         // this item, BEFORE the group-aggregate skip/accumulate logic
                         // below discards them. This is what the row renderer will read.
+                        // NOTE: applicablePeriodsCount can legitimately be 0 here — that
+                        // means this item does not apply to this student at all (removed,
+                        // out of range, etc). The renderer below must treat that as "—",
+                        // not as "0 required / 0 paid = fully paid".
                         if (!perStudentItemTotals[groupName][itemName]) {
                             perStudentItemTotals[groupName][itemName] = {};
                         }
@@ -63618,11 +63627,11 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             perPeriodQtyRequired: perPeriodQtyRequired,
                             perPeriodCashExpected: paymentOption === 'item_only' ? 0 : perPeriodAmountExpected
                         };
-                        
+
                         if (!hasAnyData && !isOneTime && perPeriodQtyRequired === 0 && perPeriodAmountExpected === 0) {
                             continue;
                         }
-                        
+
                         // ================================================================
                         // STORE ITEM DATA (group-wide aggregate — used for column
                         // headers and the TOTALS row, never for a single student's row)
@@ -63659,7 +63668,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 displayItemsRemaining: 0
                             };
                         }
-                        
+
                         var itemRef = items[itemName];
                         itemRef.studentIds.add(student.id);
                         itemRef.totalCashExpected += totalCashExpected;
@@ -63677,7 +63686,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         itemRef.applicablePeriods += applicablePeriodsCount;
                         itemRef.fullyPaidPeriods += fullyPaidPeriods;
                         itemRef.totalPeriods += applicablePeriodsCount;
-                        
+
                         for (var periodKey in periodDataMap) {
                             if (periodDataMap.hasOwnProperty(periodKey)) {
                                 var pd = periodDataMap[periodKey];
@@ -63713,7 +63722,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 if (pd.isCurrent) ref.isCurrent = true;
                             }
                         }
-                        
+
                         if (isCustomized) {
                             itemRef.customizedStudentIds.add(student.id);
                             if (customValues.reason) {
@@ -63724,7 +63733,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 }
             }
         }
-        
+
         // ========== FILTER ITEMS ==========
         var filteredItems = [];
         var itemNames = Object.keys(items);
@@ -63736,9 +63745,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             filteredItems.push(itemName);
         }
         filteredItems.sort();
-        
+
         statusGroupItems[groupName] = filteredItems;
-        
+
         for (var i = 0; i < filteredItems.length; i++) {
             var itemName = filteredItems[i];
             if (items[itemName]) {
@@ -63771,7 +63780,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             }
         }
     }
-    
+
     var statusGroupsToRender = [];
     for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
         var groupName = statusGroupsToShow[sgIdx];
@@ -63779,17 +63788,17 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             statusGroupsToRender.push(groupName);
         }
     }
-    
+
     // ========== BUILD TABLE HEADERS ==========
     var headers = [];
     var subHeaders = [];
     var colspan = 4;
-    
+
     headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2">#</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2">Admission</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2">Student</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2">Class</th>');
-    
+
     if (includeTuition) {
         var tuitionPeriodCount = allPeriodKeys.length || 1;
         headers.push('<th class="p-2 text-center border bg-blue-100" colspan="5">💰 Tuition <span class="text-xs font-normal text-gray-500">(' + tuitionPeriodCount + ' period(s))</span></th>');
@@ -63800,32 +63809,32 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         subHeaders.push('<th class="p-2 text-center border bg-blue-50">Periods</th>');
         colspan += 5;
     }
-    
+
     for (var sgIdx = 0; sgIdx < statusGroupsToRender.length; sgIdx++) {
         var groupName = statusGroupsToRender[sgIdx];
         var items = statusGroupItems[groupName] || [];
         if (!items || items.length === 0) continue;
-        
-        var displayName = groupName === 'schoolastic requirement' ? 'Scholastic' : 
+
+        var displayName = groupName === 'schoolastic requirement' ? 'Scholastic' :
                           groupName === 'Admission Fee' ? 'Admission' : groupName;
-        
+
         var bgClass = sgIdx % 2 === 0 ? 'bg-purple-50' : 'bg-green-50';
-        
+
         var totalCustomized = 0;
         var hasCustom = false;
         for (var i = 0; i < items.length; i++) {
             var itemName = items[i];
-            if (itemCustomizationMap[groupName] && 
-                itemCustomizationMap[groupName][itemName] && 
+            if (itemCustomizationMap[groupName] &&
+                itemCustomizationMap[groupName][itemName] &&
                 itemCustomizationMap[groupName][itemName].customizedCount > 0) {
                 totalCustomized += itemCustomizationMap[groupName][itemName].customizedCount;
                 hasCustom = true;
             }
         }
-        
-        var customBadge = hasCustom ? 
+
+        var customBadge = hasCustom ?
             '<span class="ml-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">⚡ ' + totalCustomized + ' custom</span>' : '';
-        
+
         var oneTimeCount = 0;
         var yearlyCount = 0;
         for (var i = 0; i < items.length; i++) {
@@ -63839,23 +63848,23 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 }
             }
         }
-        var oneTimeBadge = oneTimeCount > 0 ? 
+        var oneTimeBadge = oneTimeCount > 0 ?
             '<span class="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">⭐ ' + oneTimeCount + ' one-time</span>' : '';
-        var yearlyBadge = yearlyCount > 0 ? 
+        var yearlyBadge = yearlyCount > 0 ?
             '<span class="ml-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">📆 ' + yearlyCount + ' yearly</span>' : '';
-        
-        var periodBadge = allPeriodKeys.length > 1 ? 
+
+        var periodBadge = allPeriodKeys.length > 1 ?
             '<span class="text-xs text-gray-400 block font-normal">' + allPeriodKeys.length + ' period(s)</span>' : '';
-        
+
         headers.push('<th class="p-2 text-center border ' + bgClass + '" colspan="' + (items.length * 2) + '">🏷️ ' + escapeHtml(displayName) + customBadge + oneTimeBadge + yearlyBadge + periodBadge + '</th>');
-        
+
         for (var i = 0; i < items.length; i++) {
             var itemName = items[i];
             var itemDisplay = itemName;
             if (itemDisplay.length > 14) {
                 itemDisplay = itemDisplay.substring(0, 12) + '…';
             }
-            
+
             var itemCustom = itemCustomizationMap[groupName] && itemCustomizationMap[groupName][itemName];
             var itemHasCustom = itemCustom && itemCustom.customizedCount > 0;
             var itemCustomBadge = itemHasCustom ? ' ⚡' : '';
@@ -63863,7 +63872,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             var oneTimeIndicator = itemIsOneTime ? ' ⭐' : '';
             var itemIsYearly = itemCustom && itemCustom.periodType === 'yearly';
             var yearlyIndicator = itemIsYearly ? ' 📆' : '';
-            
+
             var paymentOptionDisplay = '';
             if (itemCustom) {
                 var opt = itemCustom.paymentOption || 'either';
@@ -63871,20 +63880,20 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 else if (opt === 'item_only') paymentOptionDisplay = ' 📦';
                 else paymentOptionDisplay = ' 🔄';
             }
-            
+
             var periodCount = itemCustom ? itemCustom.applicablePeriods : 0;
             var fullyPaidCount = itemCustom ? itemCustom.fullyPaidPeriods : 0;
             var periodStatusDisplay = '';
             if (periodCount > 0) {
                 periodStatusDisplay = ' (' + fullyPaidCount + '/' + periodCount + ' paid)';
             }
-            
+
             subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs"><span title="' + escapeHtml(itemName) + '">' + escapeHtml(itemDisplay) + itemCustomBadge + oneTimeIndicator + yearlyIndicator + paymentOptionDisplay + '</span></th>');
             subHeaders.push('<th class="p-2 text-center border ' + bgClass + ' text-xs">Periods' + periodStatusDisplay + '</th>');
             colspan += 2;
         }
     }
-    
+
     var headerHtml = `
         <thead class="sticky top-0 z-10">
             <tr>
@@ -63895,20 +63904,20 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             </tr>
         </thead>
     `;
-    
+
     // ========== BUILD TABLE BODY ==========
     var bodyRows = '';
-    
+
     for (var s = 0; s < students.length; s++) {
         var student = students[s];
         var row = '';
         var rowClass = '';
-        
+
         if (student.overallStatus === 'Critical Overdue') rowClass = 'bg-red-50';
         else if (student.overallStatus === 'Credit Balance') rowClass = 'bg-blue-50';
         else if (student.overallStatus === 'Fully Paid') rowClass = 'bg-green-50';
         else if (student.hasCustomizations) rowClass = 'bg-orange-50/20';
-        
+
         row += `
             <tr class="border-b hover:bg-gray-50 ${rowClass}" data-student-id="${student.id}">
                 <td class="p-2 text-center text-gray-400 text-xs">${s + 1}</td>
@@ -63916,19 +63925,19 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 <td class="p-2 font-medium">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
                 <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">${escapeHtml(student.currentClass)}</span></td>
         `;
-        
+
         // ========== TUITION ==========
         if (includeTuition) {
             var tuitionData = student.tuition || {};
             var tuitionPeriodBreakdown = tuitionData.periodBreakdown || {};
             var tuitionPeriodKeys = Object.keys(tuitionPeriodBreakdown).sort();
-            
+
             var totalExpected = 0;
             var totalPaid = 0;
             var totalBalance = 0;
             var fullyPaidPeriods = 0;
             var hasUnpaidPeriods = false;
-            
+
             for (var pk = 0; pk < tuitionPeriodKeys.length; pk++) {
                 var periodKey = tuitionPeriodKeys[pk];
                 var pd = tuitionPeriodBreakdown[periodKey];
@@ -63938,18 +63947,18 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 if (pd.isFullyPaid) fullyPaidPeriods++;
                 if (!pd.isFullyPaid && pd.balance > 0) hasUnpaidPeriods = true;
             }
-            
+
             if (tuitionPeriodKeys.length === 0) {
                 totalExpected = tuitionData.expected || 0;
                 totalPaid = tuitionData.paid || 0;
                 totalBalance = tuitionData.balance || 0;
             }
-            
+
             var tuitionStatus = 'Payment Due';
             var tuitionStatusColor = 'text-red-600';
             var tuitionStatusBg = 'bg-red-100 text-red-800 border-red-200';
             var tuitionStatusIcon = '⚠️';
-            
+
             if (totalBalance < -10) {
                 tuitionStatus = 'Credit Balance';
                 tuitionStatusColor = 'text-blue-600';
@@ -63971,11 +63980,11 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 tuitionStatusBg = 'bg-red-100 text-red-800 border-red-200';
                 tuitionStatusIcon = '⚠️';
             }
-            
+
             var tuitionPeriodItemsHtml = '';
             var tuitionBreakdownId = 'tuition_breakdown_' + student.id;
             var isTuitionExpanded = window.expandedTuition && window.expandedTuition[tuitionBreakdownId] || false;
-            
+
             if (tuitionPeriodKeys.length > 0) {
                 for (var pk = 0; pk < tuitionPeriodKeys.length; pk++) {
                     var periodKey = tuitionPeriodKeys[pk];
@@ -63986,24 +63995,24 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     var termName = getTermName(term);
                     var termShort = getTermShort(term);
                     var isCurrent = (year == currentYear && term == currentTerm);
-                    
+
                     var isPeriodFullyPaid = pd.isFullyPaid || false;
                     var isPeriodOverpaid = pd.balance < 0;
-                    
-                    var periodStatus = isPeriodOverpaid ? '💰 Overpaid' : 
-                                       isPeriodFullyPaid ? '✅ Paid' : 
+
+                    var periodStatus = isPeriodOverpaid ? '💰 Overpaid' :
+                                       isPeriodFullyPaid ? '✅ Paid' :
                                        pd.paid > 0 ? '⚠️ Partial' : '❌ Unpaid';
-                    var periodStatusClass = isPeriodOverpaid ? 'text-blue-600' : 
-                                            isPeriodFullyPaid ? 'text-green-600' : 
+                    var periodStatusClass = isPeriodOverpaid ? 'text-blue-600' :
+                                            isPeriodFullyPaid ? 'text-green-600' :
                                             pd.paid > 0 ? 'text-yellow-600' : 'text-red-600';
-                    
+
                     tuitionPeriodItemsHtml += `
                         <div class="period-item ${isCurrent ? 'current-period' : ''}" style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;border-bottom:1px solid #f3f4f6;font-size:9px;">
                             <span class="term-name" style="font-weight:600;">${isCurrent ? '⭐ ' : ''}${termName} ${year}</span>
                             <span class="term-status ${periodStatusClass}" style="font-weight:500;">${periodStatus}</span>
                             <span class="term-detail" style="color:#6b7280;">UGX ${formatMoney(pd.paid)} / ${formatMoney(pd.expected)}</span>
                             <span class="term-remaining ${periodStatusClass}" style="font-weight:600;">
-                                ${pd.balance > 0 ? 'UGX ' + formatMoney(pd.balance) + ' due' : 
+                                ${pd.balance > 0 ? 'UGX ' + formatMoney(pd.balance) + ' due' :
                                   pd.balance < 0 ? 'Credit: UGX ' + formatMoney(Math.abs(pd.balance)) : '✓ Paid'}
                             </span>
                             ${isCurrent ? '<span class="current-label" style="font-size:7px;color:#2563eb;font-weight:700;">CURRENT</span>' : ''}
@@ -64014,20 +64023,20 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 var isCurrent = true;
                 var isPeriodFullyPaid = totalBalance <= 0 && totalPaid > 0;
                 var isPeriodOverpaid = totalBalance < 0;
-                var periodStatus = isPeriodOverpaid ? '💰 Overpaid' : 
-                                   isPeriodFullyPaid ? '✅ Paid' : 
+                var periodStatus = isPeriodOverpaid ? '💰 Overpaid' :
+                                   isPeriodFullyPaid ? '✅ Paid' :
                                    totalPaid > 0 ? '⚠️ Partial' : '❌ Unpaid';
-                var periodStatusClass = isPeriodOverpaid ? 'text-blue-600' : 
-                                        isPeriodFullyPaid ? 'text-green-600' : 
+                var periodStatusClass = isPeriodOverpaid ? 'text-blue-600' :
+                                        isPeriodFullyPaid ? 'text-green-600' :
                                         totalPaid > 0 ? 'text-yellow-600' : 'text-red-600';
-                
+
                 tuitionPeriodItemsHtml += `
                     <div class="period-item current-period" style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;border-bottom:1px solid #f3f4f6;font-size:9px;">
                         <span class="term-name" style="font-weight:600;">⭐ ${getTermName(currentTerm)} ${currentYear}</span>
                         <span class="term-status ${periodStatusClass}" style="font-weight:500;">${periodStatus}</span>
                         <span class="term-detail" style="color:#6b7280;">UGX ${formatMoney(totalPaid)} / ${formatMoney(totalExpected)}</span>
                         <span class="term-remaining ${periodStatusClass}" style="font-weight:600;">
-                            ${totalBalance > 0 ? 'UGX ' + formatMoney(totalBalance) + ' due' : 
+                            ${totalBalance > 0 ? 'UGX ' + formatMoney(totalBalance) + ' due' :
                               totalBalance < 0 ? 'Credit: UGX ' + formatMoney(Math.abs(totalBalance)) : '✓ Paid'}
                         </span>
                         <span class="current-label" style="font-size:7px;color:#2563eb;font-weight:700;">CURRENT</span>
@@ -64036,24 +64045,24 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 fullyPaidPeriods = isPeriodFullyPaid ? 1 : 0;
                 hasUnpaidPeriods = totalBalance > 0;
             }
-            
+
             var tuitionPeriodSummaryHtml = '';
             var totalRemainingDisplay = '';
             if (totalBalance > 0) totalRemainingDisplay = 'UGX ' + formatMoney(totalBalance) + ' due';
             else if (totalBalance < 0) totalRemainingDisplay = 'Credit: UGX ' + formatMoney(Math.abs(totalBalance));
             else totalRemainingDisplay = '✓ Paid';
-            
-            var hasUnpaidBadge = hasUnpaidPeriods ? 
-                '<span class="text-red-500 text-[8px] font-bold ml-1">⚠️ Unpaid</span>' : 
+
+            var hasUnpaidBadge = hasUnpaidPeriods ?
+                '<span class="text-red-500 text-[8px] font-bold ml-1">⚠️ Unpaid</span>' :
                 '<span class="text-green-500 text-[8px] font-bold ml-1">✅ All Paid</span>';
-            
+
             var tuitionRate = totalExpected > 0 ? ((totalPaid / totalExpected) * 100).toFixed(0) : 0;
             var rateColor = tuitionRate >= 100 ? 'text-green-600' : tuitionRate >= 70 ? 'text-yellow-600' : 'text-red-600';
-            
+
             tuitionPeriodSummaryHtml = `
                 <div class="mt-1 pt-1 border-t border-dashed">
-                    <button onclick="toggleTuitionBreakdown('${tuitionBreakdownId}')" 
-                            class="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 w-full" 
+                    <button onclick="toggleTuitionBreakdown('${tuitionBreakdownId}')"
+                            class="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 w-full"
                             style="font-size:9px;">
                         <i class="fas ${isTuitionExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
                         <span>${isTuitionExpanded ? 'Hide' : 'View'} Periods (${tuitionPeriodKeys.length || 1}, ${fullyPaidPeriods} paid)</span>
@@ -64067,7 +64076,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 <span style="font-weight:700;">📊 AGGREGATED (${tuitionPeriodKeys.length || 1} periods):</span>
                                 <span style="font-weight:700;">UGX ${formatMoney(totalPaid)} / ${formatMoney(totalExpected)}</span>
                                 <span style="font-weight:700;${tuitionStatusColor}">
-                                    ${totalBalance > 0 ? 'UGX ' + formatMoney(totalBalance) + ' due' : 
+                                    ${totalBalance > 0 ? 'UGX ' + formatMoney(totalBalance) + ' due' :
                                       totalBalance < 0 ? 'Credit: UGX ' + formatMoney(Math.abs(totalBalance)) : '✓ Paid'}
                                 </span>
                             </div>
@@ -64077,7 +64086,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     </div>
                 </div>
             `;
-            
+
             row += `
                 <td class="p-2 text-right font-semibold border">UGX ${formatMoney(totalExpected)}</td>
                 <td class="p-2 text-right font-semibold text-green-600 border">UGX ${formatMoney(totalPaid)}</td>
@@ -64094,46 +64103,51 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 </td>
             `;
         }
-        
+
         // ========== STATUS GROUP ITEMS ==========
         for (var sgIdx = 0; sgIdx < statusGroupsToRender.length; sgIdx++) {
             var groupName = statusGroupsToRender[sgIdx];
             var items = statusGroupItems[groupName] || [];
             var groupData = student.statusGroups ? student.statusGroups[groupName] : null;
-            
+
             for (var i = 0; i < items.length; i++) {
                 var itemName = items[i];
                 var itemData = groupData && groupData.items ? groupData.items[itemName] : null;
                 var safeItemId = 'item_' + student.id + '_' + groupName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + itemName.replace(/[^a-zA-Z0-9]/g, '_');
                 var periodBreakdownId = 'period_breakdown_' + student.id + '_' + groupName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + itemName.replace(/[^a-zA-Z0-9]/g, '_');
-                
-                if (itemData) {
-                    // 🔧 FIX: read this student's OWN totals/period-breakdown, not the
-                    // group-wide `itemCustomizationMap` aggregate (which is only
-                    // correct for the TOTALS row further below).
-                    var studentTotals = perStudentItemTotals[groupName] && perStudentItemTotals[groupName][itemName]
-                        ? perStudentItemTotals[groupName][itemName][student.id]
-                        : null;
+
+                // 🔧 FIX (v23): resolve this student's own totals for the item FIRST,
+                // and check whether the item even applies to them, BEFORE deciding
+                // whether to render a status cell or a dash. An item with itemData
+                // present but zero applicablePeriods for this student means it was
+                // removed / not applicable / out of range for them — that must render
+                // as "—", never as "✅ Fully Paid".
+                var studentTotals = (itemData && perStudentItemTotals[groupName] && perStudentItemTotals[groupName][itemName])
+                    ? perStudentItemTotals[groupName][itemName][student.id]
+                    : null;
+                var hasApplicableDataForStudent = !!(itemData && studentTotals && studentTotals.applicablePeriods > 0);
+
+                if (itemData && hasApplicableDataForStudent) {
                     var itemCustom = itemCustomizationMap[groupName] && itemCustomizationMap[groupName][itemName];
 
-                    var paymentOption = studentTotals ? studentTotals.paymentOption : (itemCustom ? itemCustom.paymentOption : 'either');
-                    var isCustomized = studentTotals ? studentTotals.isCustomized : (itemData.isCustomized || false);
-                    var customReason = studentTotals ? (studentTotals.customReason || '') : (itemData.customReason || '');
-                    var isOneTime = studentTotals ? studentTotals.isOneTime : (itemData.isOneTime || false);
-                    var unitPrice = studentTotals ? studentTotals.unitPrice : (itemCustom ? itemCustom.unitPrice : 0);
-                    
-                    var totalCashExpected = studentTotals ? studentTotals.totalCashExpected : 0;
-                    var totalCashPaid = studentTotals ? studentTotals.totalCashPaid : 0;
-                    var totalCashRemaining = studentTotals ? studentTotals.totalCashRemaining : 0;
-                    var totalItemsRequired = studentTotals ? studentTotals.totalItemsRequired : 0;
-                    var totalItemsCollected = studentTotals ? studentTotals.totalItemsCollected : 0;
-                    var totalItemsRemaining = studentTotals ? studentTotals.totalItemsRemaining : 0;
-                    var totalPeriods = studentTotals ? studentTotals.applicablePeriods : 1;
-                    var fullyPaidPeriods = studentTotals ? studentTotals.fullyPaidPeriods : 0;
-                    
+                    var paymentOption = studentTotals.paymentOption;
+                    var isCustomized = studentTotals.isCustomized;
+                    var customReason = studentTotals.customReason || '';
+                    var isOneTime = studentTotals.isOneTime;
+                    var unitPrice = studentTotals.unitPrice;
+
+                    var totalCashExpected = studentTotals.totalCashExpected;
+                    var totalCashPaid = studentTotals.totalCashPaid;
+                    var totalCashRemaining = studentTotals.totalCashRemaining;
+                    var totalItemsRequired = studentTotals.totalItemsRequired;
+                    var totalItemsCollected = studentTotals.totalItemsCollected;
+                    var totalItemsRemaining = studentTotals.totalItemsRemaining;
+                    var totalPeriods = studentTotals.applicablePeriods;
+                    var fullyPaidPeriods = studentTotals.fullyPaidPeriods;
+
                     var isFullyPaid = false;
                     var hasPayment = totalCashPaid > 0 || totalItemsCollected > 0;
-                    
+
                     if (paymentOption === 'cash_only') {
                         isFullyPaid = totalCashPaid >= totalCashExpected;
                     } else if (paymentOption === 'item_only') {
@@ -64143,7 +64157,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         var itemsCoverAll = totalItemsCollected >= totalItemsRequired;
                         isFullyPaid = cashCoversAll || itemsCoverAll;
                     }
-                    
+
                     var collectedDisplay = '';
                     if (paymentOption === 'cash_only') {
                         collectedDisplay = totalCashPaid > 0 ? '💵 UGX ' + formatMoney(totalCashPaid) : '—';
@@ -64155,7 +64169,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         if (totalItemsCollected > 0) parts.push('📦 ' + totalItemsCollected + ' items');
                         collectedDisplay = parts.length > 0 ? parts.join(' + ') : '—';
                     }
-                    
+
                     var remainingDisplay = '';
                     if (isFullyPaid) {
                         if (paymentOption === 'cash_only' || (paymentOption === 'either' && totalCashPaid >= totalCashExpected)) {
@@ -64175,32 +64189,32 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         if (totalItemsRemaining > 0) remParts.push('📦 ' + totalItemsRemaining + ' items');
                         remainingDisplay = remParts.length > 0 ? remParts.join(' <span class="text-orange-500 font-bold">OR</span> ') : '✅ Paid';
                     }
-                    
+
                     var statusIcon = isFullyPaid ? '✅' : hasPayment ? '⚠️' : '❌';
-                    var statusColor = isFullyPaid ? 'text-green-600' : 
+                    var statusColor = isFullyPaid ? 'text-green-600' :
                                       hasPayment ? 'text-yellow-600' : 'text-red-600';
-                    
+
                     var customBadge = isCustomized ? ' ⚡' : '';
                     var customTooltip = isCustomized ? 'title="Customized: ' + escapeHtml(customReason || 'Custom override applied') + '"' : '';
                     var customClass = isCustomized ? 'border-l-2 border-l-orange-400' : '';
-                    
-                    var customReasonDisplay = isCustomized && customReason ? 
+
+                    var customReasonDisplay = isCustomized && customReason ?
                         '<div class="text-xs text-orange-500 mt-0.5">📝 ' + escapeHtml(customReason) + '</div>' : '';
-                    
+
                     var oneTimeBadge = isOneTime ? '<span class="text-xs text-purple-500 font-bold">⭐ One-Time</span>' : '';
-                    
+
                     // 🔧 FIX: this student's own period breakdown, not the group aggregate.
-                    var periodBreakdown = studentTotals ? studentTotals.periodBreakdown : {};
+                    var periodBreakdown = studentTotals.periodBreakdown || {};
                     var periodKeys = Object.keys(periodBreakdown).sort();
                     var periodBreakdownHtml = '';
-                    
+
                     if (periodKeys.length > 0) {
                         var periodItemsHtml = '';
                         var hasUnpaidPeriods = false;
                         var periodFullyPaidCount = 0;
                         var totalPeriodQtyRemaining = 0;
                         var totalPeriodAmtRemaining = 0;
-                        
+
                         for (var pk = 0; pk < periodKeys.length; pk++) {
                             var periodKey = periodKeys[pk];
                             var pd = periodBreakdown[periodKey];
@@ -64210,7 +64224,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             var termName = getTermName(term);
                             var termShort = getTermShort(term);
                             var isCurrent = pd.isCurrent || false;
-                            
+
                             var pCashPaid = pd.cashPaid || 0;
                             var pCashRemaining = pd.cashRemaining || 0;
                             var pItemsCollected = pd.itemsCollected || 0;
@@ -64220,7 +64234,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             var pItemsRequired = pd.itemsRequired || 0;
                             var pIsCashOnlyPaid = pd.isCashOnlyPaid || false;
                             var pIsItemOnlyPaid = pd.isItemOnlyPaid || false;
-                            
+
                             if (pIsFullyPaid) {
                                 periodFullyPaidCount++;
                             } else {
@@ -64228,12 +64242,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 totalPeriodQtyRemaining += pItemsRemaining;
                                 totalPeriodAmtRemaining += pCashRemaining;
                             }
-                            
-                            var periodStatus = pIsFullyPaid ? '✅ Paid' : 
+
+                            var periodStatus = pIsFullyPaid ? '✅ Paid' :
                                                (pCashPaid > 0 || pItemsCollected > 0) ? '⚠️ Partial' : '❌ Unpaid';
-                            var periodStatusClass = pIsFullyPaid ? 'text-green-600' : 
+                            var periodStatusClass = pIsFullyPaid ? 'text-green-600' :
                                                    (pCashPaid > 0 || pItemsCollected > 0) ? 'text-yellow-600' : 'text-red-600';
-                            
+
                             var displayQty = '';
                             if (paymentOption === 'cash_only') {
                                 displayQty = pCashPaid > 0 ? '💵 UGX ' + formatMoney(pCashPaid) : '—';
@@ -64245,7 +64259,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 if (pItemsCollected > 0) dParts.push('📦 ' + pItemsCollected + ' items');
                                 displayQty = dParts.length > 0 ? dParts.join(' | ') : '—';
                             }
-                            
+
                             var remainingDisplay2 = '';
                             if (pIsFullyPaid) {
                                 if (pIsCashOnlyPaid) {
@@ -64265,7 +64279,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 if (pItemsRemaining > 0) rParts.push(pItemsRemaining + ' items');
                                 remainingDisplay2 = rParts.length > 0 ? rParts.join(' <span class="text-orange-500 font-bold">OR</span> ') : '—';
                             }
-                            
+
                             periodItemsHtml += `
                                 <div class="period-item ${isCurrent ? 'current-period' : ''}" style="display:flex;justify-content:space-between;align-items:center;padding:2px 4px;border-bottom:1px solid #f3f4f6;font-size:9px;">
                                     <span class="term-name" style="font-weight:600;">${isCurrent ? '⭐ ' : ''}${termName} ${year}</span>
@@ -64276,22 +64290,22 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 </div>
                             `;
                         }
-                        
+
                         var totalRemainingDisplay2 = '';
                         if (totalPeriodAmtRemaining > 0) totalRemainingDisplay2 += '💵 UGX ' + formatMoney(totalPeriodAmtRemaining);
                         if (totalPeriodQtyRemaining > 0) totalRemainingDisplay2 += (totalPeriodAmtRemaining > 0 ? ' <span class="text-orange-500 font-bold">OR</span> ' : '') + '📦 ' + totalPeriodQtyRemaining + ' items';
                         if (!totalPeriodAmtRemaining && !totalPeriodQtyRemaining) totalRemainingDisplay2 = '✅ Fully Paid';
-                        
-                        var hasUnpaidBadge2 = hasUnpaidPeriods ? 
-                            '<span class="text-red-500 text-[8px] font-bold ml-1">⚠️ ' + totalRemainingDisplay2 + '</span>' : 
+
+                        var hasUnpaidBadge2 = hasUnpaidPeriods ?
+                            '<span class="text-red-500 text-[8px] font-bold ml-1">⚠️ ' + totalRemainingDisplay2 + '</span>' :
                             '<span class="text-green-500 text-[8px] font-bold ml-1">✅ All Paid</span>';
-                        
+
                         var aggregatedSummary = '';
                         if (periodKeys.length > 1) {
                             var isAggFullyPaid = !hasUnpaidPeriods;
                             var aggStatus = isAggFullyPaid ? '✅ Fully Paid' : '⚠️ ' + totalRemainingDisplay2;
                             var aggColor = isAggFullyPaid ? 'text-green-600' : 'text-red-600';
-                            
+
                             var aggCollectedDisplay = '';
                             if (paymentOption === 'cash_only') {
                                 aggCollectedDisplay = totalCashPaid > 0 ? '💵 UGX ' + formatMoney(totalCashPaid) : '—';
@@ -64303,7 +64317,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 if (totalItemsCollected > 0) aggParts.push('📦 ' + totalItemsCollected + ' items');
                                 aggCollectedDisplay = aggParts.length > 0 ? aggParts.join(' + ') : '—';
                             }
-                            
+
                             aggregatedSummary = `
                                 <div class="mt-2 pt-2 border-t border-gray-300 font-bold text-xs">
                                     <div class="flex justify-between items-center" style="font-size:8px;">
@@ -64316,12 +64330,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 </div>
                             `;
                         }
-                        
+
                         var isPeriodExpanded = window.expandedPeriods && window.expandedPeriods[periodBreakdownId] || false;
-                        
+
                         periodBreakdownHtml = `
                             <div class="mt-1 pt-1 border-t border-dashed">
-                                <button onclick="togglePeriodBreakdown('${periodBreakdownId}')" 
+                                <button onclick="togglePeriodBreakdown('${periodBreakdownId}')"
                                         class="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 w-full" style="font-size:9px;">
                                     <i class="fas ${isPeriodExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
                                     <span>${isPeriodExpanded ? 'Hide' : 'View'} Periods (${periodKeys.length}, ${periodFullyPaidCount} paid)</span>
@@ -64341,12 +64355,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             </div>
                         `;
                     }
-                    
+
                     // ========== BUILD PAYMENT HISTORY ==========
                     var isExpanded = window.expandedItems && window.expandedItems[safeItemId] || false;
                     var uniqueHistories = deduplicateHistories(itemData.paymentHistories || []);
                     var historyCount = uniqueHistories.length;
-                    
+
                     var historyHtml = '';
                     if (historyCount > 0) {
                         var historyItemsHtml = '';
@@ -64354,12 +64368,12 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             var ph = uniqueHistories[h];
                             var date = new Date(ph.date).toLocaleDateString();
                             var time = ph.time || new Date(ph.date).toLocaleTimeString();
-                            var typeDisplay = ph.type === 'cash' ? '💵 Cash' : 
+                            var typeDisplay = ph.type === 'cash' ? '💵 Cash' :
                                                ph.type === 'item' ? '📦 Brought' : 'Unknown';
                             var amountDisplay = ph.type === 'cash' ? 'UGX ' + formatMoney(ph.amount) :
                                                 ph.type === 'item' ? ph.quantity + ' item(s)' : '—';
                             var methodDisplay = ph.method && ph.method !== 'cash' ? ' (' + ph.method.toUpperCase() + ')' : '';
-                            
+
                             historyItemsHtml += `
                                 <div class="flex justify-between items-center py-0.5 border-b border-gray-100 last:border-0 text-[9px] hover:bg-gray-50 px-1 rounded" style="font-size:8px;">
                                     <span class="text-gray-500">${date} ${time}</span>
@@ -64370,10 +64384,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                 </div>
                             `;
                         }
-                        
+
                         historyHtml = `
                             <div class="mt-1 pt-1 border-t border-dashed">
-                                <button onclick="toggleItemHistory('${safeItemId}')" 
+                                <button onclick="toggleItemHistory('${safeItemId}')"
                                         class="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 w-full" style="font-size:9px;">
                                     <i class="fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
                                     <span>${isExpanded ? 'Hide' : 'View'} History (${historyCount})</span>
@@ -64384,7 +64398,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             </div>
                         `;
                     }
-                    
+
                     var cellContent = `
                         <div class="font-medium ${isFullyPaid ? 'text-green-600' : hasPayment ? 'text-yellow-600' : 'text-red-600'}">
                             ${statusIcon} ${collectedDisplay}
@@ -64395,7 +64409,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         ${oneTimeBadge}
                         ${customReasonDisplay}
                     `;
-                    
+
                     row += `
                         <td class="p-2 text-center border text-xs ${statusColor} ${customClass}" ${customTooltip}>
                             <div class="cursor-pointer hover:bg-gray-100 rounded p-1 transition">
@@ -64416,6 +64430,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         </td>
                     `;
                 } else {
+                    // 🔧 FIX (v23): itemData missing OR the item has zero applicable
+                    // periods for this student (removed / not applicable to them) —
+                    // both cases render as a plain dash, never a false "Fully Paid".
                     row += `
                         <td class="p-2 text-center border text-xs text-gray-400" colspan="2">
                             <span class="text-gray-300">—</span>
@@ -64424,22 +64441,22 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 }
             }
         }
-        
+
         row += '</tr>';
         bodyRows += row;
     }
-    
+
     // ========== BUILD TOTALS ROW ==========
     var totalRow = `
         <tr class="bg-gray-200 font-bold border-t-2 border-gray-400">
             <td colspan="4" class="p-2 text-right border">TOTALS:</td>
     `;
-    
+
     if (includeTuition) {
         var tuitionExpectedTotal = 0;
         var tuitionPaidTotal = 0;
         var tuitionBalanceTotal = 0;
-        
+
         for (var s = 0; s < students.length; s++) {
             var stu = students[s];
             if (stu.tuition) {
@@ -64449,7 +64466,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             }
         }
         var tuitionRate = tuitionExpectedTotal > 0 ? ((tuitionPaidTotal / tuitionExpectedTotal) * 100) : 0;
-        
+
         totalRow += `
             <td class="p-2 text-right border">UGX ${formatMoney(tuitionExpectedTotal)}</td>
             <td class="p-2 text-right border text-green-600">UGX ${formatMoney(tuitionPaidTotal)}</td>
@@ -64460,17 +64477,17 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             <td class="p-2 text-center border text-xs">—</td>
         `;
     }
-    
+
     // ========== TOTALS ROW WITH FIXED ITEM_ONLY (unchanged — still the correct
     // group-wide aggregate across every filtered student) ==========
     for (var sgIdx = 0; sgIdx < statusGroupsToRender.length; sgIdx++) {
         var groupName = statusGroupsToRender[sgIdx];
         var items = statusGroupItems[groupName] || [];
-        
+
         for (var i = 0; i < items.length; i++) {
             var itemName = items[i];
             var itemCustom = itemCustomizationMap[groupName] && itemCustomizationMap[groupName][itemName];
-            
+
             if (itemCustom) {
                 var paymentOption = itemCustom.paymentOption || 'either';
                 var totalCashExpected = 0;
@@ -64482,7 +64499,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 var isOneTime = itemCustom.isOneTime || false;
                 var totalPeriods = itemCustom.totalPeriods || 0;
                 var fullyPaidPeriods = itemCustom.fullyPaidPeriods || 0;
-                
+
                 if (paymentOption === 'item_only') {
                     totalCashExpected = 0;
                     totalCashPaid = 0;
@@ -64496,7 +64513,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     totalCashPaid = itemCustom.totalCashPaid || 0;
                     totalCashRemaining = itemCustom.totalCashRemaining || 0;
                 }
-                
+
                 var isFullyPaid = false;
                 if (paymentOption === 'cash_only') {
                     isFullyPaid = totalCashPaid >= totalCashExpected;
@@ -64507,7 +64524,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     var itemsCoverAll = totalItemsCollected >= totalItemsRequired;
                     isFullyPaid = cashCoversAll || itemsCoverAll;
                 }
-                
+
                 var collectedDisplay = '';
                 if (paymentOption === 'cash_only') {
                     collectedDisplay = totalCashPaid > 0 ? '💵 UGX ' + formatMoney(totalCashPaid) : '—';
@@ -64519,7 +64536,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     if (totalItemsCollected > 0) parts.push('📦 ' + totalItemsCollected + ' items');
                     collectedDisplay = parts.length > 0 ? parts.join(' + ') : '—';
                 }
-                
+
                 var remainingDisplay = '';
                 if (isFullyPaid) {
                     if (paymentOption === 'cash_only' || (paymentOption === 'either' && totalCashPaid >= totalCashExpected)) {
@@ -64539,11 +64556,21 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     if (totalItemsRemaining > 0) remParts.push('📦 ' + totalItemsRemaining + ' items');
                     remainingDisplay = remParts.length > 0 ? remParts.join(' <span class="text-orange-500 font-bold">OR</span> ') : '✅ Paid';
                 }
-                
-                var rate = (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) > 0 ? 
-                    ((totalCashPaid + (totalItemsCollected * (itemCustom.unitPrice || 0))) / 
+
+                var rate = (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) > 0 ?
+                    ((totalCashPaid + (totalItemsCollected * (itemCustom.unitPrice || 0))) /
                      (totalCashExpected + (totalItemsRequired * (itemCustom.unitPrice || 0))) * 100).toFixed(0) : 0;
-                
+
+                // 🔧 FIX (v23): this used to be a SINGLE-QUOTED string containing a
+                // literal, un-evaluated `${totalCashPaid > 0 ? 'Cash' : 'Items'}` —
+                // that's why the report printed the raw template-literal syntax
+                // instead of "Cash Used" / "Items Used". Compute the label first,
+                // then splice it into the (real, backtick) totalRow template below.
+                var eitherUsedLabel = totalCashPaid > 0 ? 'Cash' : 'Items';
+                var eitherUsedBadge = (paymentOption === 'either' && isFullyPaid)
+                    ? '<div class="text-[8px] text-purple-400">🔄 ' + eitherUsedLabel + ' Used</div>'
+                    : '';
+
                 totalRow += `
                     <td class="p-2 text-center border text-xs ${isFullyPaid ? 'text-green-600' : totalCashPaid > 0 || totalItemsCollected > 0 ? 'text-yellow-600' : 'text-red-600'}">
                         ${collectedDisplay}
@@ -64552,7 +64579,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         ${isOneTime ? '<div class="text-[8px] text-purple-400">⭐ One-Time</div>' : ''}
                         ${paymentOption === 'cash_only' ? '<div class="text-[8px] text-blue-400">💵 Cash Only</div>' : ''}
                         ${paymentOption === 'item_only' ? '<div class="text-[8px] text-green-400">📦 Item Only</div>' : ''}
-                        ${paymentOption === 'either' && isFullyPaid ? '<div class="text-[8px] text-purple-400">🔄 ${totalCashPaid > 0 ? \'Cash\' : \'Items\'} Used</div>' : ''}
+                        ${eitherUsedBadge}
                     </td>
                     <td class="p-2 text-center border text-xs ${isFullyPaid ? 'text-green-600' : 'text-red-600'}">
                         ${remainingDisplay}
@@ -64565,15 +64592,15 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             }
         }
     }
-    
+
     totalRow += '</tr>';
-    
+
     var overallRate = totals.overallCollectionRate || 0;
     var totalCustomized = totals.totalStudentsWithCustomizations || 0;
     var totalCustomizedItems = totals.totalCustomizedItems || 0;
     var periodsCount = allPeriodKeys.length;
     var currentPeriodLabel = getTermName(currentTerm) + ' ' + currentYear + ' ⭐ Current';
-    
+
     var rateRow = `
         <tr class="bg-gray-100">
             <td colspan="${colspan}" class="p-2 text-center border font-semibold">
@@ -64600,7 +64627,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             </td>
         </tr>
     `;
-    
+
     var tableHtml = `
         <div class="overflow-x-auto" id="reportTableWrapper">
             <table class="w-full text-sm border-collapse" id="reportTable">
@@ -64613,14 +64640,15 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             </table>
         </div>
     `;
-    
-    console.log('✅ Report table built with PER-STUDENT TOTALS FIXED v22.0');
-    console.log('   🔧 Each student row now reads its OWN totals/periods, not the group-wide sum');
+
+    console.log('✅ Report table built with v23.0 fixes applied');
+    console.log('   🔧 Items with 0 applicable periods for a student now show "—", not "Fully Paid"');
+    console.log('   🔧 TOTALS row "Cash/Items Used" badge now interpolates correctly');
     console.log('   ⭐ One-Time items ONLY in oldest period: ' + oldestPeriodKey);
     console.log('   📆 Yearly items ONLY in latest term of each year');
     console.log('   📋 Periods: ' + allPeriodKeys.join(', '));
     console.log('   📊 Max term per year: ' + JSON.stringify(maxTermByYear));
-    
+
     return tableHtml;
 }
 // ==================== HELPER FUNCTIONS ====================
