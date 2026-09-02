@@ -2745,6 +2745,12 @@ app.post('/api/students/register', async (req, res) => {
         const nextNumber = String(students.length + 1).padStart(4, '0');
         const admissionNumber = `STU${currentYear}${nextNumber}`;
 
+        // ========== COMPUTE BILLING PERIOD FROM ENROLLMENT DATE ==========
+        const effectiveEnrollmentDate = enrollmentDate || new Date().toISOString().split('T')[0];
+        const computedTerm = getTermForDate(effectiveEnrollmentDate) || (currentAcademicSettings.currentTerm || 1);
+        const computedYear = getAcademicYearForDate(effectiveEnrollmentDate) || parseInt(currentYear);
+        console.log(`📅 Enrollment ${effectiveEnrollmentDate} → billing period: ${computedYear} Term ${computedTerm}`);
+
         // ========== FETCH THE FEE STRUCTURE ONCE (shared by overrides + removed items) ==========
         const feeStructures = readFile(files.feeStructures);
         const feeStructure = feeStructures.find(f => f && f.id === feeStructureId);
@@ -2920,7 +2926,7 @@ app.post('/api/students/register', async (req, res) => {
             address: address || '',
             previousSchool: previousSchool || '',
             admissionType: admissionType || 'New',
-            enrollmentDate: enrollmentDate || new Date().toISOString().split('T')[0],
+            enrollmentDate: effectiveEnrollmentDate,
             status: 'Active',
             currentClassId: enrollmentClass,
             enrolledAt: new Date().toISOString(),
@@ -2949,6 +2955,7 @@ app.post('/api/students/register', async (req, res) => {
         console.log('📝 Creating student with:', {
             name: `${firstName} ${lastName}`,
             admissionNumber: admissionNumber,
+            billingPeriod: `${computedYear} Term ${computedTerm}`,
             customBursary: !!customBursary,
             customTransportation: !!customTransportationData,
             customItemOverrides: customItemOverridesData ? Object.keys(customItemOverridesData).length : 0,
@@ -2974,7 +2981,8 @@ app.post('/api/students/register', async (req, res) => {
             id: uuidv4(),
             studentId: newStudent.id,
             classId: enrollmentClass,
-            academicYear: parseInt(currentYear),
+            academicYear: computedYear,
+            term: computedTerm,
             isCurrent: true,
             enrolledAt: new Date().toISOString()
         });
@@ -2996,11 +3004,12 @@ app.post('/api/students/register', async (req, res) => {
                 feeStructureId: feeStructureId,
                 bursaryId: finalBursaryId,
                 customBursaryAmount: parsedCustomBursaryAmount > 0 ? parsedCustomBursaryAmount : null,
-                academicYear: parseInt(currentYear),
+                academicYear: computedYear,
+                term: computedTerm,
                 assignedAt: new Date().toISOString()
             });
             saveFile(files.studentFeeAssignments, assignments);
-            console.log(`💰 Fee assignment saved for academic year ${currentYear}`);
+            console.log(`💰 Fee assignment saved for ${computedYear} Term ${computedTerm}`);
         }
 
         console.log('✅✅✅ Registration complete!');
@@ -3009,6 +3018,8 @@ app.post('/api/students/register', async (req, res) => {
             student: newStudent,
             message: 'Student registered successfully',
             summary: {
+                billingYear: computedYear,
+                billingTerm: computedTerm,
                 customizations: newStudent.customizationCount || 0,
                 removedItems: newStudent.removedItemsCount || 0,
                 hasBursary: !!customBursary,
@@ -3022,7 +3033,6 @@ app.post('/api/students/register', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 // ==================== UPDATED STUDENT UPDATE WITH CUSTOMIZATIONS ====================
 
 // ==================== HELPER: DELETE PAYMENTS FOR REMOVED ITEMS (PERIOD‑AWARE) ====================
