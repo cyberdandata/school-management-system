@@ -63724,11 +63724,11 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var subHeaders = [];
     var colspan = 4;
 
-    // First four columns: sticky on both axes
-    headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:0; z-index:40; width:40px; min-width:40px;">#</th>');
-    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:40px; z-index:40; width:110px; min-width:110px;">Admission</th>');
-    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:150px; z-index:40; width:150px; min-width:150px;">Student</th>');
-    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:300px; z-index:40; width:90px; min-width:90px; border-right:2px solid #9ca3af;">Class</th>');
+    // First four columns: sticky on both axes with solid backgrounds
+    headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:0; z-index:40; width:40px; min-width:40px; background:#f3f4f6;">#</th>');
+    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:40px; z-index:40; width:110px; min-width:110px; background:#f3f4f6;">Admission</th>');
+    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:150px; z-index:40; width:150px; min-width:150px; background:#f3f4f6;">Student</th>');
+    headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:300px; z-index:40; width:90px; min-width:90px; border-right:2px solid #9ca3af; background:#f3f4f6; box-shadow: 2px 0 5px rgba(0,0,0,0.1);">Class</th>');
 
     if (includeTuition) {
         var tuitionPeriodCount = allPeriodKeys.length || 1;
@@ -63849,14 +63849,15 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         else if (student.overallStatus === 'Fully Paid') rowClass = 'bg-green-50';
         else if (student.hasCustomizations) rowClass = 'bg-orange-50/20';
 
-        var frozenBg = rowClass ? rowClass.split(' ')[0] : 'bg-white';
+        // For the sticky columns we use a solid white background to avoid transparency
+        var frozenBg = 'bg-white';
 
         row += `
             <tr class="border-b hover:bg-gray-50 ${rowClass}" data-student-id="${student.id}">
-                <td class="p-2 text-center text-gray-400 text-xs ${frozenBg}" style="position:sticky; left:0; z-index:10; width:40px; min-width:40px;">${s + 1}</td>
-                <td class="p-2 font-mono text-xs font-semibold ${frozenBg}" style="position:sticky; left:40px; z-index:10; width:110px; min-width:110px;">${escapeHtml(student.admissionNumber)}</td>
-                <td class="p-2 font-medium ${frozenBg}" style="position:sticky; left:150px; z-index:10; width:150px; min-width:150px;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
-                <td class="p-2 ${frozenBg}" style="position:sticky; left:300px; z-index:10; width:90px; min-width:90px; border-right:2px solid #d1d5db;"><span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">${escapeHtml(student.currentClass)}</span></td>
+                <td class="p-2 text-center text-gray-400 text-xs ${frozenBg}" style="position:sticky; left:0; z-index:10; width:40px; min-width:40px; background:white;">${s + 1}</td>
+                <td class="p-2 font-mono text-xs font-semibold ${frozenBg}" style="position:sticky; left:40px; z-index:10; width:110px; min-width:110px; background:white;">${escapeHtml(student.admissionNumber)}</td>
+                <td class="p-2 font-medium ${frozenBg}" style="position:sticky; left:150px; z-index:10; width:150px; min-width:150px; background:white;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
+                <td class="p-2 ${frozenBg}" style="position:sticky; left:300px; z-index:10; width:90px; min-width:90px; border-right:2px solid #d1d5db; background:white; box-shadow: 2px 0 5px rgba(0,0,0,0.1);"><span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">${escapeHtml(student.currentClass)}</span></td>
         `;
 
         // ========== TUITION ==========
@@ -64386,7 +64387,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     // ========== BUILD TOTALS ROW ==========
     var totalRow = `
         <tr class="bg-gray-200 font-bold border-t-2 border-gray-400">
-            <td colspan="4" class="p-2 text-right border bg-gray-200" style="position:sticky; left:0; z-index:10; width:390px; min-width:390px; border-right:2px solid #9ca3af;">TOTALS:</td>
+            <td colspan="4" class="p-2 text-right border bg-gray-200" style="position:sticky; left:0; z-index:10; width:390px; min-width:390px; border-right:2px solid #9ca3af; background:#e5e7eb;">TOTALS:</td>
     `;
 
     if (includeTuition) {
@@ -64560,7 +64561,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
     // ========================================================================
     // WRAP THE TABLE IN A SCROLLABLE CONTAINER WITH FIXED HEIGHT
-    // This enables the sticky header and left columns to work together.
+    // The sticky columns now have solid backgrounds and a shadow to separate.
     // ========================================================================
     var tableHtml = `
         <div class="overflow-auto" id="reportTableWrapper" style="max-height: 70vh; border: 1px solid #e5e7eb; border-radius: 8px;">
