@@ -70288,7 +70288,7 @@ function updateMetricDisplay(cardId) {
 
 // Per-card toggle
 function toggleMetricVisibility(cardId) {
-         let metricVisibilityState={};
+       
     if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = false;
     metricVisibilityState[cardId] = !metricVisibilityState[cardId];
     updateMetricDisplay(cardId);
@@ -70637,7 +70637,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 // 7. METRIC CARD — with eye toggle for financial values
 // ---------------------------------------------------------------------------
 function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial) {
-    const metricVisibilityState={};
+  window.metricVisibilityState={};
     const colorMap = {
         blue: 'from-blue-500 to-blue-600 border-blue-500', green: 'from-green-500 to-green-600 border-green-500',
         red: 'from-red-500 to-red-600 border-red-500', yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
