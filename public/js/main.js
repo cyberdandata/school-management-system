@@ -70075,7 +70075,55 @@ function injectDashboardDesignSystem() {
 }
 .db-metric:hover .tap-hint {
     color: #4F5FE8;
-}  `;
+} 
+/* Flex row for metric cards */
+.metric-flex-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow: visible;
+}
+
+/* Each metric card becomes a flex item */
+.metric-flex-row .db-metric {
+    flex: 1 1 0;       /* grow equally, shrink to fit, basis 0 */
+    min-width: 0;      /* allow shrinking below content width */
+    transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s ease,
+                transform 0.25s ease;
+    will-change: flex;
+}
+
+/* On hover, the card takes twice the space of others */
+.metric-flex-row .db-metric:hover {
+    flex: 2 1 0;
+    z-index: 10;
+    box-shadow: 0 20px 40px -18px rgba(15, 23, 42, 0.35);
+}
+
+/* Text inside the card – normally truncated */
+.metric-flex-row .db-metric .truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+/* On hover – show full text without truncation */
+.metric-flex-row .db-metric:hover .truncate {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+/* Make the "Tap for details" hint subtle */
+.metric-flex-row .db-metric .tap-hint {
+    transition: color 0.2s ease;
+}
+.metric-flex-row .db-metric:hover .tap-hint {
+    color: #4F5FE8;
+}    
+`;
     document.head.appendChild(style);
 }
 
