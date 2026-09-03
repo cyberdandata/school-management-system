@@ -71,9 +71,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-// const aiRoutes = require('./ai/routes');
-// app.use('/api/ai', aiRoutes);
-// console.log('🧠 AI routes mounted at /api/ai');
+const aiRoutes = require('./ai/routes');
+app.use('/api/ai', aiRoutes);
+console.log('🧠 AI routes mounted at /api/ai');
 // ==================== TRANSACTION MIDDLEWARE ====================
 // This middleware wraps each request in an atomic transaction.
 // All saveFile calls within the request will write to temporary files.
