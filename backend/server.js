@@ -9,7 +9,9 @@ const { AsyncLocalStorage } = require('async_hooks'); // ✅ For atomic transact
 const app = express();
 const PORT = process.env.PORT || 3000;
 const configuredDataDir = process.env.SCHOOL_DATA_DIR;
-
+const aiRoutes = require('./ai/routes');
+app.use('/api/ai', aiRoutes);
+console.log('🧠 AI routes mounted at /api/ai');
 // ==================== ATOMIC TRANSACTION SYSTEM ====================
 const transactionStorage = new AsyncLocalStorage();
 const TEMP_DIR = path.join(configuredDataDir || path.join(__dirname, 'data'), '.tmp');

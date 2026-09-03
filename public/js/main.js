@@ -85677,3 +85677,318 @@ window.addEventListener('beforeunload', function() {
 });
 
 console.log('✅ Chat/Contact UI loaded');
+// ================================================================
+// AI ASSISTANT PAGE
+// ================================================================
+
+let aiChatHistory = []; // Store messages for the session
+
+async function showAIAssistant() {
+    console.log('🤖 Opening AI Assistant...');
+
+    // Update page title
+    const pageTitle = document.getElementById('pageTitle');
+    if (pageTitle) pageTitle.innerHTML = '<i class="fas fa-robot mr-2 text-purple-500"></i>AI Assistant';
+
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+
+    // Show loading state
+    mainContent.innerHTML = `
+        <div class="flex justify-center items-center h-64">
+            <div class="loading-spinner"></div>
+            <span class="ml-3 text-gray-500">Loading AI Assistant...</span>
+        </div>
+    `;
+
+    try {
+        // Check AI status
+        const statusRes = await fetch('/api/ai/status');
+        const status = statusRes.ok ? await statusRes.json() : { status: 'offline' };
+        const isReady = status.status === 'ready' || status.initialized === true;
+
+        // Render the AI assistant page
+        mainContent.innerHTML = renderAIAssistantPage(isReady);
+
+        // If ready, initialize chat functionality
+        if (isReady) {
+            initializeAIChat();
+        } else {
+            // Show a notice that the AI is not available
+            document.getElementById('aiChatMessages').innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-3"></i>
+                    <p class="font-semibold">AI Assistant is not available</p>
+                    <p class="text-sm text-gray-400">Please ensure Ollama is running and the model is loaded.</p>
+                    <button onclick="showAIAssistant()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-sync-alt"></i> Retry
+                    </button>
+                </div>
+            `;
+            // Still allow input but show a warning
+            const input = document.getElementById('aiChatInput');
+            if (input) input.disabled = true;
+            const sendBtn = document.getElementById('aiChatSend');
+            if (sendBtn) sendBtn.disabled = true;
+        }
+
+    } catch (error) {
+        console.error('Error loading AI Assistant:', error);
+        mainContent.innerHTML = `
+            <div class="bg-red-50 p-6 text-center rounded-lg border border-red-200">
+                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-3"></i>
+                <p class="text-red-600 font-semibold">Error loading AI Assistant</p>
+                <p class="text-red-500 text-sm mt-1">${escapeHtml(error.message)}</p>
+                <button onclick="showAIAssistant()" class="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                    <i class="fas fa-sync-alt"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+// ================================================================
+// RENDER AI ASSISTANT PAGE
+// ================================================================
+
+function renderAIAssistantPage(isReady) {
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[calc(100vh-200px)] flex flex-col">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-robot text-2xl"></i>
+                    <div>
+                        <h3 class="font-bold text-lg">AI Assistant</h3>
+                        <p class="text-xs opacity-80">Local AI – Data stays on your computer</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs bg-white/20 px-3 py-1 rounded-full flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full ${isReady ? 'bg-green-400' : 'bg-yellow-400'} animate-pulse"></span>
+                        ${isReady ? 'Ready' : 'Offline'}
+                    </span>
+                    <button onclick="clearAIChat()" class="text-white/70 hover:text-white text-sm flex items-center gap-1">
+                        <i class="fas fa-trash-alt"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex flex-wrap gap-2">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="📊 Financial summary">
+                    📊 Summary
+                </button>
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="⚠️ Show overdue students">
+                    ⚠️ Overdue
+                </button>
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="👥 List all students">
+                    👥 Students
+                </button>
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="📚 Class statistics">
+                    📚 Classes
+                </button>
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="💰 Fee structures">
+                    💰 Fees
+                </button>
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="📋 Today's payments">
+                    📋 Today
+                </button>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="aiChatMessages" class="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-3">
+                <div class="text-center text-xs text-gray-400 py-2">
+                    <i class="fas fa-robot mr-1"></i> Ask me anything about your school data
+                </div>
+                <div class="flex justify-start">
+                    <div class="bg-blue-100 text-blue-800 rounded-lg p-3 max-w-[80%] shadow-sm">
+                        👋 Hello! I'm your School Management AI Assistant.<br>
+                        I can help with:
+                        <ul class="list-disc list-inside text-sm mt-1 space-y-0.5">
+                            <li>Student information and records</li>
+                            <li>Payment analysis and summaries</li>
+                            <li>Fee structures and balances</li>
+                            <li>Class statistics and reports</li>
+                            <li>Overdue payments tracking</li>
+                        </ul>
+                        What would you like to know?
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-4 bg-white border-t border-gray-200">
+                <div class="flex gap-2">
+                    <input type="text" id="aiChatInput" placeholder="Ask a question..." 
+                           class="flex-1 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                           ${!isReady ? 'disabled' : ''}
+                           onkeydown="if(event.key==='Enter') sendAIChatMessage()">
+                    <button id="aiChatSend" onclick="sendAIChatMessage()" 
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            ${!isReady ? 'disabled' : ''}>
+                        <i class="fas fa-paper-plane"></i> Send
+                    </button>
+                </div>
+                <div class="text-xs text-gray-400 mt-2 flex justify-between">
+                    <span>💡 Try: "Financial summary" or "List students in P.5"</span>
+                    <span>🔒 All data stays local</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ================================================================
+// AI CHAT FUNCTIONALITY
+// ================================================================
+
+function initializeAIChat() {
+    // Quick action buttons
+    document.querySelectorAll('.ai-quick-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const query = this.dataset.query;
+            const input = document.getElementById('aiChatInput');
+            if (input) {
+                input.value = query;
+                sendAIChatMessage();
+            }
+        });
+    });
+
+    // Focus input
+    const input = document.getElementById('aiChatInput');
+    if (input) input.focus();
+}
+
+async function sendAIChatMessage() {
+    const input = document.getElementById('aiChatInput');
+    const messagesContainer = document.getElementById('aiChatMessages');
+    const sendBtn = document.getElementById('aiChatSend');
+
+    const message = input.value.trim();
+    if (!message) return;
+
+    // Disable input and button
+    input.disabled = true;
+    sendBtn.disabled = true;
+
+    // Add user message
+    appendAIMessage(message, 'user');
+    input.value = '';
+
+    // Show loading indicator
+    const loadingId = 'ai-loading-' + Date.now();
+    appendAIMessage('Thinking...', 'loading', loadingId);
+
+    try {
+        const response = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+
+        // Remove loading indicator
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+
+        if (response.ok && data.response) {
+            appendAIMessage(data.response, 'assistant');
+            // If there's additional data, we could display it as a collapsible or table
+            if (data.data) {
+                // Optionally show a small data preview
+                console.log('Additional data:', data.data);
+            }
+        } else {
+            appendAIMessage('❌ Error: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        appendAIMessage('❌ Network error: ' + error.message, 'error');
+    }
+
+    // Re-enable input and button
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+}
+
+function appendAIMessage(text, role, id) {
+    const container = document.getElementById('aiChatMessages');
+    if (!container) return;
+
+    const div = document.createElement('div');
+    if (id) div.id = id;
+    div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`;
+
+    const bubble = document.createElement('div');
+    if (role === 'user') {
+        bubble.className = 'bg-indigo-600 text-white rounded-lg px-4 py-2 max-w-[80%] shadow-sm';
+        bubble.textContent = text;
+    } else if (role === 'loading') {
+        bubble.className = 'bg-gray-200 text-gray-500 rounded-lg px-4 py-2 flex items-center gap-2';
+        bubble.innerHTML = '<span class="w-4 h-4 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></span> Thinking...';
+    } else if (role === 'error') {
+        bubble.className = 'bg-red-100 text-red-700 rounded-lg px-4 py-2 max-w-[80%] shadow-sm';
+        bubble.textContent = text;
+    } else {
+        // assistant
+        bubble.className = 'bg-gray-100 text-gray-800 rounded-lg px-4 py-2 max-w-[80%] shadow-sm whitespace-pre-wrap';
+        // Convert newlines to <br> for better formatting
+        bubble.innerHTML = text.replace(/\n/g, '<br>');
+    }
+
+    div.appendChild(bubble);
+    container.appendChild(div);
+
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
+
+async function clearAIChat() {
+    if (!confirm('Clear the chat history?')) return;
+    const container = document.getElementById('aiChatMessages');
+    if (!container) return;
+    // Keep only the initial greeting
+    container.innerHTML = `
+        <div class="text-center text-xs text-gray-400 py-2">
+            <i class="fas fa-robot mr-1"></i> Chat cleared
+        </div>
+        <div class="flex justify-start">
+            <div class="bg-blue-100 text-blue-800 rounded-lg p-3 max-w-[80%] shadow-sm">
+                👋 Hello! I'm your School Management AI Assistant.<br>
+                How can I help you today?
+            </div>
+        </div>
+    `;
+    // Also clear any stored history if we had it
+    aiChatHistory = [];
+}
+
+// Add animation CSS (if not already present)
+function addAIChatStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+addAIChatStyles();
+
+// ================================================================
+// EXPOSE TO GLOBAL SCOPE
+// ================================================================
+
+window.showAIAssistant = showAIAssistant;
+window.sendAIChatMessage = sendAIChatMessage;
+window.clearAIChat = clearAIChat;
+window.appendAIMessage = appendAIMessage;
