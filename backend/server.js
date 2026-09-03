@@ -9120,9 +9120,24 @@ function dashGetStatusGroupColor(name) {
 // ---------------------------------------------------------------------------
 // THE CORRECTED ROUTE
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// FIXED: one-time removals are permanent waivers, not per-period ones.
+// Only termly/yearly removals should be scoped to the stamped period.
+// Replace the existing dashIsItemRemoved definition with this one.
+// ---------------------------------------------------------------------------
+function dashIsItemRemoved(student, itemId, year, term, periodType) {
+    if (!student || !student.removedItems) return false;
+    const removed = student.removedItems[itemId];
+    if (!removed || removed.isActive === false) return false;
+    // A one-time fee's removal is a permanent waiver — it has no "this term
+    // only" meaning, so don't gate it against the current settings period.
+    if (periodType === 'one_time') return true;
+    if (removed.academicYear === undefined || removed.term === undefined) return true;
+    return parseInt(removed.academicYear) === parseInt(year) && parseInt(removed.term) === parseInt(term);
+}
 
 app.get('/api/dashboard/stats', async (req, res) => {
-    console.log('=== DASHBOARD STATS (v2.0 - ALL STATUS GROUPS, PERIOD-AWARE) ===');
+    console.log('=== DASHBOARD STATS (v3.0 - FIXED: one-time removal scoping + cash-only rate) ===');
 
     try {
         const settings = readFile(files.settings);
@@ -9218,7 +9233,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             // regardless of which term the school is currently in. A yearly fee is
             // owed for the whole academic year. Only the PAYMENT LOOKUP scope
             // (dashGetPaidAmountsForItem) differs by period type — not whether the
-            // group/item is displayed at all.
+            // group/item is displayed at all, and not whether it's "expected."
             let studentCashExpectedAcrossAll = 0;
             let studentCashPaidAcrossAll = 0;
             let studentItemsRequired = 0;
@@ -9236,7 +9251,10 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     for (const item of (comp.items || [])) {
                         if (!item) continue;
                         const itemId = item.id || item.name;
-                        if (dashIsItemRemoved(student, itemId, currentYear, currentTerm)) continue;
+
+                        // FIX: pass periodType through so one-time removals are
+                        // treated as permanent waivers, not gated to the current term.
+                        if (dashIsItemRemoved(student, itemId, currentYear, currentTerm, periodType)) continue;
 
                         const defaultAmount = item.totalAmount || 0;
                         const defaultQuantity = item.quantity || 1;
@@ -9336,7 +9354,19 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
         // ---- Finalize status group output ----
         const statusGroupsOut = Object.values(statusGroupsMap).map(g => {
-            const rate = g.totalRequired > 0 ? (g.totalCollected / g.totalRequired * 100) : 0;
+            // FIX: rate% must not permanently pin at 0 for cash-only-dominated
+            // groups (totalRequired stays 0 by design for cash_only items —
+            // that's an item-COUNT metric, not a cash metric). Fall back to
+            // the cash collection rate whenever there's nothing to count in
+            // items but real cash is expected.
+            let rate;
+            if (g.totalRequired > 0) {
+                rate = (g.totalCollected / g.totalRequired) * 100;
+            } else if (g.cashExpected > 0) {
+                rate = (g.cashCollected / g.cashExpected) * 100;
+            } else {
+                rate = 0;
+            }
             return {
                 name: g.name,
                 periodType: g.periodType,
