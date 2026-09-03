@@ -65293,7 +65293,24 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                                 </div>`,
                                 'One term, or the whole history — your call')}
 
-                            <div class="rpt-field flex flex-wrap gap-2 items-end" style="animation-delay:360ms">
+                            ${field(8, '📊 Excel Export Sections',
+                                `<div class="space-y-2 mt-1 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeMainTable" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Main report table
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludePeriodBreakdown" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Period breakdown summary
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeSummaryStats" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Summary statistics
+                                    </label>
+                                </div>`,
+                                'Choose which sections appear in the exported Excel file — all on by default')}
+
+                            <div class="rpt-field flex flex-wrap gap-2 items-end" style="animation-delay:405ms">
                                 <button type="submit" id="rptGenerateBtn" class="rpt-generate-btn rpt-btn-press bg-teal-600 text-white px-4 py-2.5 rounded-xl hover:bg-teal-700 font-semibold flex-1 flex items-center justify-center gap-2">
                                     <i class="fas fa-magnifying-glass-chart"></i> <span>Generate</span>
                                 </button>
