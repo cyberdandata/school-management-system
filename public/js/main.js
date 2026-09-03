@@ -70620,6 +70620,10 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     const cardId = 'metric_' + label.replace(/[^a-zA-Z0-9]/g, '_');
     const isFin = !!isFinancial;
 
+    // Escape values for tooltip
+    const rawValue = String(value);
+    const rawSubtext = subtext || '';
+
     return `
         <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
              id="${cardId}"
@@ -70627,7 +70631,7 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
             <div class="flex justify-between items-start">
                 <div class="min-w-0 flex-1">
                     <p class="text-xs text-gray-500 truncate flex items-center gap-1">${label}</p>
-                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(String(value))}">
+                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(rawValue)}">
                         ${value}
                     </p>
                     ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtext}</p>` : ''}
@@ -70640,6 +70644,12 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
                 </div>
             </div>
             <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
+
+            <!-- Hover Tooltip -->
+            <div class="db-metric-tooltip">
+                <div>${escapeHtml(rawValue)}</div>
+                ${rawSubtext ? `<div class="sub">${escapeHtml(rawSubtext)}</div>` : ''}
+            </div>
         </div>
     `;
 }
