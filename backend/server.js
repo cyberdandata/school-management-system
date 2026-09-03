@@ -8926,538 +8926,466 @@ app.post('/api/uniform/reset', (req, res) => {
 // ==================== COMPLETE REBUILT DASHBOARD STATS ENDPOINT ====================
 // Version: 3.0 - Tuition-Only Financial Cards + Complete Statistics
 
-app.get('/api/dashboard/stats', async (req, res) => {
-    console.log('=== DASHBOARD STATS REQUESTED ===');
-    console.log('📍 Starting dashboard statistics generation...');
-    
-    try {
-        // ========== STEP 1: READ SETTINGS ==========
-        let currentYear = new Date().getFullYear();
-        let currentTerm = 1;
-        
-        try {
-            const settingsPath = path.join(dataDir, 'settings.json');
-            if (fs.existsSync(settingsPath)) {
-                const settingsData = fs.readFileSync(settingsPath, 'utf8');
-                const settings = JSON.parse(settingsData);
-                if (settings.currentAcademicYear) currentYear = settings.currentAcademicYear;
-                if (settings.currentTerm) currentTerm = settings.currentTerm;
-                console.log(`📅 Settings: Year ${currentYear}, Term ${currentTerm}`);
-            }
-        } catch (e) {
-            console.warn('Could not read settings:', e.message);
+// ============================================================================
+// DASHBOARD STATS FIX
+// Replace your existing `app.get('/api/dashboard/stats', ...)` handler (and
+// its two local `getStatusGroupColor` / `getTermName` duplicates further
+// down the file, if they conflict) with everything below.
+//
+// WHY THE OLD NUMBERS WERE WRONG (vs. /api/reports/comprehensive):
+//   1. customItemOverrides were never applied (amount/qty/paymentOption)
+//   2. removedItems were never skipped
+//   3. cash-vs-items OR logic was approximated instead of using the same
+//      branch-by-paymentOption logic the report uses
+//   4. cash_only items were being counted into "items required/collected"
+//      quantities, which they should never be
+//   5. there was no separate "cash-only items" rollup (tuition-style card)
+//
+// This file gives every student's item the SAME treatment the report gives
+// it, then aggregates into: tuition-only card, cash-only-items card,
+// status-group table, item table, and payment-status counts.
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// SHARED HELPERS (mirrors the logic inside /api/reports/comprehensive)
+// ---------------------------------------------------------------------------
+
+function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
+    if (!student || !student.customItemOverrides || !student.customItemOverrides[itemId]) {
+        return {
+            amount: defaultAmount || 0,
+            quantity: defaultQuantity || 1,
+            paymentOption: defaultPaymentOption || 'either',
+            unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)),
+            isCustomized: false
+        };
+    }
+    const custom = student.customItemOverrides[itemId];
+    if (custom.isActive === false) {
+        return {
+            amount: defaultAmount || 0,
+            quantity: defaultQuantity || 1,
+            paymentOption: defaultPaymentOption || 'either',
+            unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)),
+            isCustomized: false
+        };
+    }
+    const amount = (custom.customAmount !== null && custom.customAmount !== undefined) ? custom.customAmount : defaultAmount;
+    const quantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) ? custom.customQuantity : defaultQuantity;
+    const paymentOption = custom.paymentOption || defaultPaymentOption || 'either';
+    let unitPrice = defaultUnitPrice;
+    if (quantity > 0 && amount > 0) unitPrice = amount / quantity;
+    return { amount, quantity, paymentOption, unitPrice, isCustomized: true };
+}
+
+// Period-aware removal check (falls back to "removed everywhere" for legacy
+// removedItems entries that predate the per-period stamp).
+function dashIsItemRemoved(student, itemId, year, term) {
+    if (!student || !student.removedItems) return false;
+    const removed = student.removedItems[itemId];
+    if (!removed || removed.isActive === false) return false;
+    if (removed.academicYear === undefined || removed.term === undefined) return true;
+    return parseInt(removed.academicYear) === parseInt(year) && parseInt(removed.term) === parseInt(term);
+}
+
+// Same OR-logic branch the report uses: cash_only / item_only / either.
+function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
+    const finalItemsBrought = Math.min(itemsBrought || 0, qtyRequired || 0);
+    let cashExpected = 0;
+    let finalCashPaid = 0;
+
+    if (paymentOption === 'cash_only') {
+        cashExpected = amountExpected;
+        finalCashPaid = Math.min(cashPaid || 0, amountExpected);
+    } else if (paymentOption === 'item_only') {
+        cashExpected = 0;
+        finalCashPaid = 0;
+    } else {
+        // 'either': items fully cover it -> no cash owed; otherwise cash
+        // owed only for the remaining (unfilled) quantity.
+        if (finalItemsBrought >= qtyRequired && qtyRequired > 0) {
+            cashExpected = 0;
+            finalCashPaid = 0;
+        } else {
+            const unitPrice = qtyRequired > 0 ? (amountExpected / qtyRequired) : 0;
+            const remainingQty = Math.max(0, qtyRequired - finalItemsBrought);
+            cashExpected = Math.min(amountExpected, remainingQty * unitPrice);
+            finalCashPaid = Math.min(cashPaid || 0, cashExpected);
         }
-        
+    }
+
+    const cashRemaining = Math.max(0, cashExpected - finalCashPaid);
+    const itemsRemaining = Math.max(0, qtyRequired - finalItemsBrought);
+    const isFullyPaid = cashRemaining <= 0 && itemsRemaining <= 0;
+
+    return {
+        cashExpected, cashPaid: finalCashPaid, cashRemaining,
+        itemsBrought: finalItemsBrought, itemsRequired: qtyRequired || 0, itemsRemaining,
+        isFullyPaid
+    };
+}
+
+// Pulls cashPaid/itemsBrought for one item, for ONE student, in ONE period,
+// deduplicated by receipt — same matching approach as the report.
+function dashGetPaidAmountsForItem(studentId, componentName, itemName, year, term, allPaymentsData) {
+    const scoped = allPaymentsData.filter(p =>
+        p && p.studentId === studentId &&
+        p.term === term &&
+        p.academicYear === year.toString()
+    );
+
+    let cashPaid = 0;
+    let itemsBrought = 0;
+    const seen = new Set();
+
+    function consider(paidItem, paymentId) {
+        if (!paidItem || !paidItem.componentName || !paidItem.itemName) return;
+        if (paidItem.componentName.toLowerCase() !== componentName.toLowerCase()) return;
+        if (paidItem.itemName.toLowerCase() !== itemName.toLowerCase()) return;
+        const key = `${paymentId}_${paidItem.itemName}_${paidItem.componentName}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        if (paidItem.paymentType === 'paid_cash') {
+            cashPaid += (paidItem.amountPaid || 0);
+        } else if (paidItem.paymentType === 'brought_item') {
+            const qty = paidItem.itemsBrought || 0;
+            if (qty === 0 && (paidItem.amountPaid || 0) > 0) {
+                cashPaid += paidItem.amountPaid;
+            } else {
+                itemsBrought += qty;
+                cashPaid += (paidItem.cashEquivalent || qty * (paidItem.unitPrice || 0));
+            }
+        }
+    }
+
+    for (const payment of scoped) {
+        if (!payment || !payment.id) continue;
+        if (Array.isArray(payment.activityItemPayments)) {
+            for (const item of payment.activityItemPayments) consider(item, payment.id);
+        }
+        if (payment.paymentsByPeriodType) {
+            for (const pt of ['one_time', 'termly', 'yearly']) {
+                for (const item of (payment.paymentsByPeriodType[pt] || [])) consider(item, payment.id);
+            }
+        }
+    }
+
+    return { cashPaid, itemsBrought };
+}
+
+function dashGetStatusGroupColor(name) {
+    if (!name) return 'bg-gray-100 text-gray-800 border-gray-200';
+    const colorMap = {
+        'transportation': 'bg-orange-100 text-orange-800 border-orange-200',
+        'admission': 'bg-purple-100 text-purple-800 border-purple-200',
+        'scholastic': 'bg-green-100 text-green-800 border-green-200',
+        'sports': 'bg-blue-100 text-blue-800 border-blue-200',
+        'development': 'bg-red-100 text-red-800 border-red-200',
+        'tuition': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+        'uniform': 'bg-pink-100 text-pink-800 border-pink-200'
+    };
+    const lower = name.toLowerCase();
+    for (const [key, color] of Object.entries(colorMap)) {
+        if (lower.includes(key)) return color;
+    }
+    return 'bg-gray-100 text-gray-800 border-gray-200';
+}
+
+// ---------------------------------------------------------------------------
+// THE CORRECTED ROUTE
+// ---------------------------------------------------------------------------
+
+app.get('/api/dashboard/stats', async (req, res) => {
+    console.log('=== DASHBOARD STATS (CORRECTED) ===');
+
+    try {
+        const settings = readFile(files.settings);
+        const currentYear = settings.currentAcademicYear || new Date().getFullYear();
+        const currentTerm = settings.currentTerm || 1;
         const isFirstTerm = currentTerm === 1;
         const termName = getTermName(currentTerm);
-        
-        // ========== STEP 2: READ ALL DATA FILES ==========
-        console.log('📂 Reading data files...');
-        
-        let students = [];
-        let feeStructures = [];
-        let feeAssignments = [];
-        let feePayments = [];
-        let termRecords = {};
-        let classes = [];
-        let feeBursaries = [];
-        let school = [];
-        let statusGroupsFromFile = [];
-        
-        try { students = readFile(files.students) || []; } catch(e) { console.warn('Students read error:', e.message); }
-        try { feeStructures = readFile(files.feeStructures) || []; } catch(e) { console.warn('Fee structures read error:', e.message); }
-        try { feeAssignments = readFile(files.studentFeeAssignments) || []; } catch(e) { console.warn('Fee assignments read error:', e.message); }
-        try { feePayments = readFile(files.feePayments) || []; } catch(e) { console.warn('Fee payments read error:', e.message); }
-        try { termRecords = readFile(files.studentTermRecords) || {}; } catch(e) { console.warn('Term records read error:', e.message); }
-        try { classes = readFile(files.classes) || []; } catch(e) { console.warn('Classes read error:', e.message); }
-        try { feeBursaries = readFile(files.feeBursaries) || []; } catch(e) { console.warn('Fee bursaries read error:', e.message); }
-        try { school = readFile(files.schools) || []; } catch(e) { console.warn('School read error:', e.message); }
-        try { statusGroupsFromFile = readFile(files.statusGroups) || []; } catch(e) { console.warn('Status groups read error:', e.message); }
-        
-        console.log(`📊 Data loaded: ${students.length} students, ${feeStructures.length} fee structures, ${feePayments.length} payments`);
-        
-        // ========== STEP 3: BUILD MAPS FOR QUICK LOOKUP ==========
-        console.log('🔍 Building lookup maps...');
-        
+
+        const students = readFile(files.students) || [];
+        const feeStructures = readFile(files.feeStructures) || [];
+        const feeAssignments = readFile(files.studentFeeAssignments) || [];
+        const feePayments = readFile(files.feePayments) || [];
+        const classes = readFile(files.classes) || [];
+        const feeBursaries = readFile(files.feeBursaries) || [];
+        const school = readFile(files.schools) || [];
+
         const assignmentsMap = {};
-        feeAssignments.forEach(a => { 
-            if (a && a.studentId) assignmentsMap[a.studentId] = a; 
-        });
-        
+        feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
         const classesMap = {};
-        classes.forEach(c => { 
-            if (c && c.id) classesMap[c.id] = c; 
-        });
-        
+        classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
         const bursariesMap = {};
-        feeBursaries.forEach(b => { 
-            if (b && b.id) bursariesMap[b.id] = b; 
-        });
-        
+        feeBursaries.forEach(b => { if (b && b.id) bursariesMap[b.id] = b; });
         const feeStructuresMap = {};
-        feeStructures.forEach(fs => { 
-            if (fs && fs.id) feeStructuresMap[fs.id] = fs; 
-        });
-        
-        // ========== STEP 4: FILTER PAYMENTS FOR CURRENT TERM ==========
-        const currentTermPayments = feePayments.filter(p => 
+        feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
+
+        const currentTermPayments = feePayments.filter(p =>
             p && p.term === currentTerm && p.academicYear === currentYear.toString()
         );
-        
-        // ========== STEP 5: PROCESS STUDENTS ==========
-        console.log('👨‍🎓 Processing students...');
-        
+
+        // ---- Aggregation buckets ----
         let totalStudents = students.length;
-        let activeStudents = students.filter(s => s && s.status === 'Active').length;
-        let maleCount = 0;
-        let femaleCount = 0;
-        
-        // TUITION-ONLY STATS
-        let tuitionExpected = 0;
-        let tuitionCollected = 0;
-        let tuitionFullyPaidCount = 0;
-        let tuitionPaymentDueCount = 0;
-        let tuitionNoPaymentCount = 0;
-        let tuitionCreditBalanceCount = 0;
-        
-        // STATUS GROUP STATS
-        const statusGroupsMap = {};
-        const allItemsMap = {};
-        const allStatusGroupNames = new Set();
-        
-        // First, extract all status groups and items from fee structures
-        feeStructures.forEach(fs => {
-            if (!fs || !fs.activityComponents) return;
-            
-            fs.activityComponents.forEach(comp => {
-                if (!comp) return;
-                
-                let sgName = comp.statusGroupName || comp.name || 'Ungrouped';
-                if (sgName === 'schoolastic requirement') sgName = 'Scholastic';
-                if (sgName.toLowerCase().includes('transport')) sgName = 'Transportation';
-                if (sgName.toLowerCase().includes('admission')) sgName = 'Admission';
-                
-                const sgId = comp.statusGroupId || 'sg_' + sgName.replace(/[^a-zA-Z0-9]/g, '_');
-                
-                if (!statusGroupsMap[sgId]) {
-                    statusGroupsMap[sgId] = {
-                        id: sgId,
-                        name: sgName,
-                        periodType: comp.periodType || 'termly',
-                        totalRequired: 0,
-                        totalCollected: 0,
-                        totalRemaining: 0,
-                        studentCount: 0,
-                        items: {},
-                        classBreakdown: {},
-                        color: getStatusGroupColor(sgName),
-                        components: []
-                    };
-                    allStatusGroupNames.add(sgName);
-                }
-                
-                // Process items
-                (comp.items || []).forEach(item => {
-                    if (!item) return;
-                    const itemName = item.name || 'Unnamed Item';
-                    const quantityRequired = item.quantity || 1;
-                    const totalAmount = item.totalAmount || 0;
-                    const unitPrice = item.unitPrice || (totalAmount / quantityRequired);
-                    
-                    if (!statusGroupsMap[sgId].items[itemName]) {
-                        statusGroupsMap[sgId].items[itemName] = {
-                            name: itemName,
-                            required: 0,
-                            collected: 0,
-                            remaining: 0,
-                            unitPrice: unitPrice,
-                            paymentOption: item.paymentOption || 'either',
-                            totalAmount: 0,
-                            studentsCount: 0
-                        };
-                    }
-                    statusGroupsMap[sgId].items[itemName].required += quantityRequired;
-                    statusGroupsMap[sgId].items[itemName].totalAmount += totalAmount;
-                    
-                    // Global items map
-                    if (!allItemsMap[itemName]) {
-                        allItemsMap[itemName] = {
-                            name: itemName,
-                            statusGroup: sgName,
-                            required: 0,
-                            collected: 0,
-                            remaining: 0,
-                            students: 0,
-                            totalAmount: 0,
-                            unitPrice: unitPrice
-                        };
-                    }
-                    allItemsMap[itemName].required += quantityRequired;
-                    allItemsMap[itemName].totalAmount += totalAmount;
-                });
-            });
-        });
-        
-        // Process each student for status groups and tuition
+        let activeStudents = 0, maleCount = 0, femaleCount = 0;
+
+        let tuitionExpected = 0, tuitionCollected = 0;
+        let cashItemsExpected = 0, cashItemsCollected = 0, cashItemsRemaining = 0; // paymentOption === 'cash_only', ALL groups combined
+
+        let fullyPaidCount = 0, paymentDueCount = 0, noPaymentCount = 0, creditBalanceCount = 0;
+
+        const statusGroupsMap = {};   // keyed by group name
+        const itemTotalsMap = {};     // keyed by item name (+ group, since names can repeat across groups)
+        const classPerformance = {};  // { groupName: { className: {required, collected} } }
+
+        function getGroup(name, periodType) {
+            if (!statusGroupsMap[name]) {
+                statusGroupsMap[name] = {
+                    name, periodType: periodType || 'termly',
+                    totalRequired: 0, totalCollected: 0, totalRemaining: 0,
+                    cashExpected: 0, cashCollected: 0, cashRemaining: 0,
+                    studentIds: new Set(),
+                    items: {}
+                };
+            }
+            return statusGroupsMap[name];
+        }
+
         for (const student of students) {
             if (!student) continue;
-            
-            // Count gender
+            if (student.status === 'Active') activeStudents++;
             if (student.gender === 'Male') maleCount++;
             else if (student.gender === 'Female') femaleCount++;
-            
-            // ========== CALCULATE TUITION ==========
+
             const assignment = assignmentsMap[student.id] || {};
             const feeStructure = feeStructuresMap[assignment.feeStructureId];
-            
-            if (feeStructure) {
-                let expectedTuition = feeStructure.tuition || 0;
-                
-                // Apply custom bursary from student record first
-                if (student.customBursary && student.customBursary.amount > 0) {
-                    expectedTuition = Math.max(0, expectedTuition - student.customBursary.amount);
-                } else if (assignment.bursaryId && bursariesMap[assignment.bursaryId]) {
-                    const bursary = bursariesMap[assignment.bursaryId];
-                    if (bursary) {
-                        if (bursary.type === 'percentage') {
-                            expectedTuition = Math.max(0, expectedTuition - (expectedTuition * bursary.value / 100));
-                        } else {
-                            expectedTuition = Math.max(0, expectedTuition - bursary.value);
-                        }
-                    }
-                }
-                
-                tuitionExpected += expectedTuition;
-                
-                // Get tuition payments for this student
-                const studentPayments = currentTermPayments.filter(p => 
-                    p && p.studentId === student.id
-                );
-                
-                const tuitionPaid = studentPayments.reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
-                tuitionCollected += tuitionPaid;
-                
-                // Track tuition status
-                const tuitionBalance = expectedTuition - tuitionPaid;
-                if (Math.abs(tuitionBalance) <= 10 && tuitionPaid > 0) {
-                    tuitionFullyPaidCount++;
-                } else if (tuitionBalance < -10) {
-                    tuitionCreditBalanceCount++;
-                } else if (tuitionPaid === 0 && expectedTuition > 0) {
-                    tuitionNoPaymentCount++;
-                } else if (tuitionBalance > 0 && tuitionPaid > 0) {
-                    tuitionPaymentDueCount++;
-                }
-            }
-            
-            // ========== PROCESS STATUS GROUPS FOR THIS STUDENT ==========
-            const studentAssignment = assignmentsMap[student.id] || {};
-            const studentFeeStructure = feeStructuresMap[studentAssignment.feeStructureId];
-            
-            if (!studentFeeStructure) continue;
-            
-            // Get student's class
+            if (!feeStructure) continue;
+
             let currentClass = 'Not Assigned';
-            let classLevel = 'Unknown';
             if (student.currentClassId && classesMap[student.currentClassId]) {
                 currentClass = classesMap[student.currentClassId].name;
-                classLevel = classesMap[student.currentClassId].level || 'Unknown';
             } else if (student.currentClass) {
                 currentClass = student.currentClass;
             }
-            
-            // Get student's term record
-            const termRecordKey = student.id + '_' + currentYear + '_' + currentTerm;
-            const termRecord = termRecords[termRecordKey] || { 
-                activityItemsPaid: { one_time: [], termly: [], yearly: [] },
-                tuitionTotalPaid: 0,
-                activityTotalPaid: 0
-            };
-            
-            // Get student payments for this term
-            const studentPayments = currentTermPayments.filter(p => 
-                p && p.studentId === student.id
-            );
-            
-            // Process each component in the fee structure
-            if (studentFeeStructure.activityComponents) {
-                for (const comp of studentFeeStructure.activityComponents) {
+
+            // ---------- TUITION ----------
+            let expectedTuition = feeStructure.tuition || 0;
+            if (student.customBursary && student.customBursary.amount > 0) {
+                expectedTuition = Math.max(0, expectedTuition - student.customBursary.amount);
+            } else if (assignment.bursaryId && bursariesMap[assignment.bursaryId]) {
+                const bursary = bursariesMap[assignment.bursaryId];
+                expectedTuition = bursary.type === 'percentage'
+                    ? Math.max(0, expectedTuition - (expectedTuition * bursary.value / 100))
+                    : Math.max(0, expectedTuition - bursary.value);
+            }
+            const studentTuitionPaid = currentTermPayments
+                .filter(p => p.studentId === student.id)
+                .reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
+
+            tuitionExpected += expectedTuition;
+            tuitionCollected += studentTuitionPaid;
+
+            // ---------- ACTIVITY ITEMS ----------
+            let studentCashExpectedAcrossAll = 0;
+            let studentCashPaidAcrossAll = 0;
+            let studentItemsRequired = 0;
+            let studentItemsRemaining = 0;
+            let studentHasAnyPayment = studentTuitionPaid > 0;
+
+            if (feeStructure.activityComponents) {
+                for (const comp of feeStructure.activityComponents) {
                     if (!comp) continue;
-                    
                     const periodType = comp.periodType || 'termly';
-                    const shouldInclude = (periodType === 'termly') || 
-                                         (periodType === 'one_time' && isFirstTerm) ||
-                                         (periodType === 'yearly' && isFirstTerm);
-                    
-                    if (!shouldInclude) continue;
-                    
-                    let sgName = comp.statusGroupName || comp.name || 'Ungrouped';
-                    if (sgName === 'schoolastic requirement') sgName = 'Scholastic';
-                    if (sgName.toLowerCase().includes('transport')) sgName = 'Transportation';
-                    if (sgName.toLowerCase().includes('admission')) sgName = 'Admission';
-                    
-                    const sgId = comp.statusGroupId || 'sg_' + sgName.replace(/[^a-zA-Z0-9]/g, '_');
-                    
-                    if (!statusGroupsMap[sgId]) {
-                        statusGroupsMap[sgId] = {
-                            id: sgId,
-                            name: sgName,
-                            periodType: periodType,
-                            totalRequired: 0,
-                            totalCollected: 0,
-                            totalRemaining: 0,
-                            studentCount: 0,
-                            items: {},
-                            classBreakdown: {},
-                            color: getStatusGroupColor(sgName),
-                            components: []
-                        };
-                    }
-                    
-                    // Process each item in the component
+                    const include = (periodType === 'termly') ||
+                                     (periodType === 'one_time' && isFirstTerm) ||
+                                     (periodType === 'yearly' && isFirstTerm);
+                    if (!include) continue;
+
+                    let groupName = comp.statusGroupName || comp.name || 'Other';
+                    if (groupName === 'schoolastic requirement') groupName = 'Scholastic Requirements';
+
                     for (const item of (comp.items || [])) {
                         if (!item) continue;
-                        const itemName = item.name || 'Unnamed Item';
-                        const quantityRequired = item.quantity || 1;
-                        const totalAmount = item.totalAmount || 0;
-                        const unitPrice = item.unitPrice || (totalAmount / quantityRequired);
-                        const paymentOption = item.paymentOption || 'either';
-                        
-                        // Calculate what's been paid for this item
-                        let cashPaid = 0;
-                        let itemsBrought = 0;
-                        
-                        // Check payments
-                        for (const payment of studentPayments) {
-                            if (!payment) continue;
-                            
-                            // Check activityItemPayments
-                            if (payment.activityItemPayments) {
-                                for (const paidItem of payment.activityItemPayments) {
-                                    if (!paidItem) continue;
-                                    if (paidItem.itemName === itemName && 
-                                        paidItem.componentName === comp.name &&
-                                        paidItem.periodType === periodType) {
-                                        if (paidItem.paymentType === 'paid_cash') {
-                                            cashPaid += paidItem.amountPaid || 0;
-                                        } else if (paidItem.paymentType === 'brought_item') {
-                                            itemsBrought += paidItem.itemsBrought || 0;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Check paymentsByPeriodType
-                            if (payment.paymentsByPeriodType) {
-                                const periodItems = payment.paymentsByPeriodType[periodType] || [];
-                                for (const paidItem of periodItems) {
-                                    if (!paidItem) continue;
-                                    if (paidItem.itemName === itemName && 
-                                        paidItem.componentName === comp.name) {
-                                        if (paidItem.paymentType === 'paid_cash') {
-                                            cashPaid += paidItem.amountPaid || 0;
-                                        } else if (paidItem.paymentType === 'brought_item') {
-                                            itemsBrought += paidItem.itemsBrought || 0;
-                                        }
-                                    }
-                                }
-                            }
+                        const itemId = item.id || item.name;
+                        if (dashIsItemRemoved(student, itemId, currentYear, currentTerm)) continue;
+
+                        const defaultAmount = item.totalAmount || 0;
+                        const defaultQuantity = item.quantity || 1;
+                        const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
+                        const defaultPaymentOption = item.paymentOption || 'either';
+
+                        const cv = dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
+
+                        const { cashPaid, itemsBrought } = dashGetPaidAmountsForItem(
+                            student.id, comp.name, item.name, currentYear, currentTerm, feePayments
+                        );
+
+                        const totals = dashCalcItemTotals(cv.quantity, cv.amount, cv.paymentOption, cashPaid, itemsBrought);
+
+                        if (totals.cashPaid > 0 || totals.itemsBrought > 0) studentHasAnyPayment = true;
+
+                        // ---- Status group rollup ----
+                        const group = getGroup(groupName, periodType);
+                        group.studentIds.add(student.id);
+                        group.cashExpected += totals.cashExpected;
+                        group.cashCollected += totals.cashPaid;
+                        group.cashRemaining += totals.cashRemaining;
+
+                        // "Required/Collected/Remaining" for item_only and either items
+                        // is a QUANTITY metric; cash_only items contribute 0 to it
+                        // (matches the report: cash_only never becomes an item count).
+                        if (cv.paymentOption !== 'cash_only') {
+                            group.totalRequired += totals.itemsRequired;
+                            group.totalCollected += totals.itemsBrought;
+                            group.totalRemaining += totals.itemsRemaining;
+                            studentItemsRequired += totals.itemsRequired;
+                            studentItemsRemaining += totals.itemsRemaining;
                         }
-                        
-                        // Also check term record
-                        const periodItems = termRecord.activityItemsPaid?.[periodType] || [];
-                        const paidRecord = periodItems.find(p => p && p.itemName === itemName);
-                        if (paidRecord) {
-                            cashPaid = Math.max(cashPaid, paidRecord.amountPaid || 0);
-                            itemsBrought = Math.max(itemsBrought, paidRecord.itemsBrought || 0);
+
+                        if (!group.items[item.name]) {
+                            group.items[item.name] = { name: item.name, required: 0, collected: 0, remaining: 0, studentsCount: 0, paymentOption: cv.paymentOption };
                         }
-                        
-                        // Calculate collected quantity (cap at required)
-                        const cashCoversItems = unitPrice > 0 ? Math.floor(cashPaid / unitPrice) : 0;
-                        const totalCollected = Math.min(itemsBrought + cashCoversItems, quantityRequired);
-                        const remaining = Math.max(0, quantityRequired - totalCollected);
-                        
-                        // Update status group totals
-                        if (statusGroupsMap[sgId]) {
-                            statusGroupsMap[sgId].totalRequired += quantityRequired;
-                            statusGroupsMap[sgId].totalCollected += totalCollected;
-                            statusGroupsMap[sgId].totalRemaining += remaining;
-                            statusGroupsMap[sgId].studentCount = (statusGroupsMap[sgId].studentCount || 0) + 1;
-                            
-                            // Update item totals
-                            if (statusGroupsMap[sgId].items[itemName]) {
-                                statusGroupsMap[sgId].items[itemName].collected += totalCollected;
-                                statusGroupsMap[sgId].items[itemName].remaining += remaining;
-                                statusGroupsMap[sgId].items[itemName].studentsCount++;
-                            }
-                            
-                            // Update class breakdown
-                            if (!statusGroupsMap[sgId].classBreakdown[currentClass]) {
-                                statusGroupsMap[sgId].classBreakdown[currentClass] = { 
-                                    required: 0, 
-                                    collected: 0, 
-                                    remaining: 0 
-                                };
-                            }
-                            statusGroupsMap[sgId].classBreakdown[currentClass].required += quantityRequired;
-                            statusGroupsMap[sgId].classBreakdown[currentClass].collected += totalCollected;
-                            statusGroupsMap[sgId].classBreakdown[currentClass].remaining += remaining;
+                        const gi = group.items[item.name];
+                        if (cv.paymentOption !== 'cash_only') {
+                            gi.required += totals.itemsRequired;
+                            gi.collected += totals.itemsBrought;
+                            gi.remaining += totals.itemsRemaining;
                         }
-                        
-                        // Update global items map
-                        if (allItemsMap[itemName]) {
-                            allItemsMap[itemName].collected += totalCollected;
-                            allItemsMap[itemName].remaining += remaining;
-                            allItemsMap[itemName].students++;
+                        gi.studentsCount++;
+
+                        // ---- Global item table ----
+                        const itemKey = `${groupName}::${item.name}`;
+                        if (!itemTotalsMap[itemKey]) {
+                            itemTotalsMap[itemKey] = { name: item.name, statusGroup: groupName, required: 0, collected: 0, remaining: 0, students: 0, paymentOption: cv.paymentOption };
                         }
+                        const gt = itemTotalsMap[itemKey];
+                        if (cv.paymentOption !== 'cash_only') {
+                            gt.required += totals.itemsRequired;
+                            gt.collected += totals.itemsBrought;
+                            gt.remaining += totals.itemsRemaining;
+                        }
+                        gt.students++;
+
+                        // ---- Class performance matrix ----
+                        if (!classPerformance[groupName]) classPerformance[groupName] = {};
+                        if (!classPerformance[groupName][currentClass]) {
+                            classPerformance[groupName][currentClass] = { required: 0, collected: 0 };
+                        }
+                        if (cv.paymentOption !== 'cash_only') {
+                            classPerformance[groupName][currentClass].required += totals.itemsRequired;
+                            classPerformance[groupName][currentClass].collected += totals.itemsBrought;
+                        }
+
+                        // ---- Dedicated "cash only items" card (ALL groups combined) ----
+                        if (cv.paymentOption === 'cash_only') {
+                            cashItemsExpected += totals.cashExpected;
+                            cashItemsCollected += totals.cashPaid;
+                            cashItemsRemaining += totals.cashRemaining;
+                        }
+
+                        studentCashExpectedAcrossAll += totals.cashExpected;
+                        studentCashPaidAcrossAll += totals.cashPaid;
                     }
                 }
             }
+
+            // ---------- PER-STUDENT OVERALL STATUS ----------
+            const studentTotalExpected = expectedTuition + studentCashExpectedAcrossAll;
+            const studentTotalPaid = studentTuitionPaid + studentCashPaidAcrossAll;
+            const studentBalance = studentTotalExpected - studentTotalPaid;
+            const itemsFullyBrought = studentItemsRequired === 0 || studentItemsRemaining === 0;
+
+            if (studentBalance < -10) {
+                creditBalanceCount++;
+            } else if (Math.abs(studentBalance) <= 10 && itemsFullyBrought && studentTotalPaid > 0) {
+                fullyPaidCount++;
+            } else if (!studentHasAnyPayment && studentTotalExpected > 0) {
+                noPaymentCount++;
+            } else {
+                paymentDueCount++;
+            }
         }
-        
-        // ========== CALCULATE TOTALS ==========
+
+        // ---- Finalize status group output ----
+        const statusGroupsOut = Object.values(statusGroupsMap).map(g => {
+            const rate = g.totalRequired > 0 ? (g.totalCollected / g.totalRequired * 100) : 0;
+            return {
+                name: g.name,
+                periodType: g.periodType,
+                totalRequired: g.totalRequired,
+                totalCollected: g.totalCollected,
+                totalRemaining: g.totalRemaining,
+                cashExpected: g.cashExpected,
+                cashCollected: g.cashCollected,
+                cashRemaining: g.cashRemaining,
+                studentCount: g.studentIds.size,
+                rate: rate,
+                color: dashGetStatusGroupColor(g.name),
+                items: Object.values(g.items).sort((a, b) => a.name.localeCompare(b.name))
+            };
+        }).sort((a, b) => b.studentCount - a.studentCount);
+
+        const statusGroupHealth = statusGroupsOut.map(g => ({
+            name: g.name,
+            rate: g.rate,
+            status: g.rate >= 85 ? 'Excellent' : g.rate >= 70 ? 'Good' : g.rate >= 50 ? 'Needs Attention' : 'Critical',
+            color: g.color
+        })).sort((a, b) => b.rate - a.rate);
+
+        const itemsList = Object.values(itemTotalsMap).sort((a, b) => a.name.localeCompare(b.name));
+
         const tuitionOutstanding = Math.max(0, tuitionExpected - tuitionCollected);
         const tuitionRate = tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0;
-        
-        // ========== BUILD STATUS GROUP HEALTH ==========
-        const statusGroupHealth = [];
-        for (const sgId in statusGroupsMap) {
-            const sg = statusGroupsMap[sgId];
-            const rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
-            let health = 'Excellent';
-            if (rate < 50) health = 'Critical';
-            else if (rate < 70) health = 'Needs Attention';
-            else if (rate < 85) health = 'Good';
-            
-            statusGroupHealth.push({
-                id: sgId,
-                name: sg.name,
-                rate: rate,
-                status: health,
-                color: sg.color || 'bg-gray-100 text-gray-800 border-gray-200'
-            });
-        }
-        statusGroupHealth.sort((a, b) => b.rate - a.rate);
-        
-        // ========== BUILD ITEMS LIST ==========
-        const itemsList = [];
-        for (const itemName in allItemsMap) {
-            const item = allItemsMap[itemName];
-            itemsList.push({
-                name: itemName,
-                statusGroup: item.statusGroup,
-                required: item.required,
-                collected: item.collected,
-                remaining: item.remaining,
-                students: item.students,
-                totalAmount: item.totalAmount
-            });
-        }
-        itemsList.sort((a, b) => a.name.localeCompare(b.name));
-        
-        // ========== BUILD RECENT PAYMENTS ==========
-        const sortedPayments = [...currentTermPayments]
-            .filter(p => p && p.date)
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .slice(0, 10);
-        
-        const recentPayments = [];
-        for (const payment of sortedPayments) {
-            if (!payment) continue;
-            const student = students.find(s => s && s.id === payment.studentId);
-            let itemNames = [];
-            
-            if (payment.activityItemPayments) {
-                itemNames = payment.activityItemPayments
-                    .filter(i => i && i.itemName)
-                    .map(i => i.itemName);
-            }
-            
-            const totalAmount = payment.totalAmount || payment.amount || 0;
-            
-            // Only include payments with amount > 0 or items
-            if (totalAmount > 0 || itemNames.length > 0) {
-                recentPayments.push({
-                    date: payment.date,
-                    receiptNumber: payment.receiptNumber || 'N/A',
-                    studentName: payment.studentName || (student ? (student.firstName || '') + ' ' + (student.lastName || '') : 'Unknown'),
-                    amount: totalAmount,
-                    method: payment.method || 'cash',
-                    items: itemNames.slice(0, 3).join(', ') + (itemNames.length > 3 ? ' +' + (itemNames.length - 3) + ' more' : ''),
-                    itemCount: itemNames.length
-                });
-            }
-        }
-        
-        // ========== CALCULATE STATUS GROUP COUNT ==========
-        const statusGroupsCount = Object.keys(statusGroupsMap).length;
-        const totalItemsCount = Object.keys(allItemsMap).length;
-        
-        // ========== BUILD RESPONSE ==========
-        const responseData = {
+        const cashItemsRate = cashItemsExpected > 0 ? (cashItemsCollected / cashItemsExpected * 100) : 0;
+
+        res.json({
             success: true,
             data: {
-                school: school && school.length > 0 && school[0] ? school[0] : { 
-                    schoolName: 'School Name', 
-                    motto: 'Quality Education for All' 
-                },
-                currentPeriod: {
-                    year: currentYear,
-                    term: currentTerm,
-                    termName: termName,
-                    isFirstTerm: isFirstTerm
-                },
+                school: (school && school[0]) || { schoolName: 'School Name', motto: 'Quality Education for All' },
+                currentPeriod: { year: currentYear, term: currentTerm, termName, isFirstTerm },
                 studentStats: {
                     total: totalStudents,
                     active: activeStudents,
                     male: maleCount,
                     female: femaleCount,
                     paymentStatus: {
-                        fullyPaid: tuitionFullyPaidCount,
-                        paymentDue: tuitionPaymentDueCount,
+                        fullyPaid: fullyPaidCount,
+                        paymentDue: paymentDueCount,
                         criticalOverdue: 0,
-                        noPayment: tuitionNoPaymentCount,
-                        creditBalance: tuitionCreditBalanceCount
+                        noPayment: noPaymentCount,
+                        creditBalance: creditBalanceCount
                     }
                 },
-                // ===== TUITION-ONLY FINANCIAL STATS =====
                 tuitionStats: {
                     expected: tuitionExpected,
                     collected: tuitionCollected,
                     outstanding: tuitionOutstanding,
                     collectionRate: tuitionRate,
-                    fullyPaid: tuitionFullyPaidCount,
-                    withBalance: tuitionPaymentDueCount
+                    fullyPaid: fullyPaidCount,
+                    withBalance: paymentDueCount
                 },
-                // ===== STATUS GROUP STATS =====
-                statusGroups: Object.values(statusGroupsMap),
+                // NEW: dedicated cash-only-items card (sum of every paymentOption === 'cash_only' item, across all status groups)
+                cashItemsStats: {
+                    expected: cashItemsExpected,
+                    collected: cashItemsCollected,
+                    outstanding: cashItemsRemaining,
+                    collectionRate: cashItemsRate
+                },
+                statusGroups: statusGroupsOut,
                 statusGroupHealth: statusGroupHealth,
+                classPerformance: classPerformance,
                 items: itemsList,
-                recentPayments: recentPayments,
-                statusGroupsCount: statusGroupsCount,
-                totalItemsCount: totalItemsCount,
+                statusGroupsCount: statusGroupsOut.length,
+                totalItemsCount: itemsList.length,
                 timestamp: new Date().toISOString()
             }
-        };
-        
-        console.log(`✅ Dashboard stats generated successfully!`);
-        console.log(`   📊 ${responseData.data.studentStats.total} students`);
-        console.log(`   🏷️ ${responseData.data.statusGroupsCount} status groups`);
-        console.log(`   📦 ${responseData.data.totalItemsCount} items`);
-        console.log(`   💰 Tuition Collected: UGX ${tuitionCollected.toLocaleString()}`);
-        console.log(`   💰 Tuition Expected: UGX ${tuitionExpected.toLocaleString()}`);
-        console.log(`   💰 Tuition Rate: ${tuitionRate.toFixed(1)}%`);
-        
-        res.json(responseData);
-        
+        });
+
     } catch (error) {
         console.error('❌ Error generating dashboard stats:', error);
-        console.error('Stack trace:', error.stack);
-        res.status(500).json({ 
-            success: false,
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        res.status(500).json({ success: false, error: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
     }
 });
 
