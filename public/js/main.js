@@ -70031,6 +70031,44 @@ function injectDashboardDesignSystem() {
         @media (prefers-reduced-motion: reduce){
             .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
         }
+
+        .db-metric {
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.db-metric-details {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.25s ease, margin 0.3s ease;
+    margin-top: 0;
+    border-top: 1px solid transparent;
+    padding: 0 16px;
+}
+.db-metric:hover .db-metric-details {
+    max-height: 200px; /* enough to show content */
+    opacity: 1;
+    margin-top: 12px;
+    border-top-color: var(--line);
+    padding-top: 12px;
+}
+.db-metric-details .full-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+.db-metric-details .full-sub {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-top: 4px;
+}
+.db-metric-details .extra-stats {
+    font-size: 0.75rem;
+    color: #94A3B8;
+    margin-top: 6px;
+}
     `;
     document.head.appendChild(style);
 }
@@ -70115,6 +70153,8 @@ async function showDashboard() {
         const { currentYear, currentTerm } = currentAcademicSettings;
         const termName = getTermName(currentTerm);
 
+        // Fetch core dashboard stats + uniform + general stock in parallel.
+        // Uniform / stock endpoints are optional — dashboard still renders if they fail.
         const [statsRes, uniformRes, stockRes] = await Promise.allSettled([
             fetch('/api/dashboard/stats'),
             fetch('/api/uniform/summary'),
@@ -70161,6 +70201,7 @@ async function showDashboard() {
         }
     }
 }
+
 // ---------------------------------------------------------------------------
 // 3. SCHOOL DATA INIT (unchanged behaviour)
 // ---------------------------------------------------------------------------
@@ -70617,9 +70658,30 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     const cardId = 'metric_' + label.replace(/[^a-zA-Z0-9]/g, '_');
     const isFin = !!isFinancial;
 
-    // Escape values for tooltip
+    // Prepare full display values (untouched)
     const rawValue = String(value);
     const rawSubtext = subtext || '';
+    // Extra stats – you can optionally pass more details; here we use label specific logic
+    let extra = '';
+    if (label.toLowerCase().includes('students')) {
+        extra = `Total enrolled: ${rawValue}`;
+    } else if (label.toLowerCase().includes('collection rate')) {
+        extra = `Collected: ${rawSubtext}`;
+    } else if (label.toLowerCase().includes('expected')) {
+        extra = `Expected amount: ${rawValue}`;
+    } else if (label.toLowerCase().includes('collected')) {
+        extra = `Amount collected: ${rawValue}`;
+    } else if (label.toLowerCase().includes('outstanding')) {
+        extra = `Balance due: ${rawValue}`;
+    } else if (label.toLowerCase().includes('fully paid')) {
+        extra = `Students fully paid: ${rawValue}`;
+    } else if (label.toLowerCase().includes('status groups')) {
+        extra = `Active groups: ${rawValue}`;
+    } else if (label.toLowerCase().includes('total items')) {
+        extra = `Total inventory items: ${rawValue}`;
+    } else {
+        extra = rawSubtext;
+    }
 
     return `
         <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
@@ -70642,10 +70704,11 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
             </div>
             <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
 
-            <!-- Hover Tooltip -->
-            <div class="db-metric-tooltip">
-                <div>${escapeHtml(rawValue)}</div>
-                ${rawSubtext ? `<div class="sub">${escapeHtml(rawSubtext)}</div>` : ''}
+            <!-- Expandable Details Container -->
+            <div class="db-metric-details">
+                <div class="full-value">${escapeHtml(rawValue)}</div>
+                ${rawSubtext ? `<div class="full-sub">${escapeHtml(rawSubtext)}</div>` : ''}
+                ${extra ? `<div class="extra-stats">${escapeHtml(extra)}</div>` : ''}
             </div>
         </div>
     `;
