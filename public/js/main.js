@@ -70093,8 +70093,9 @@ function getTermName(term) {
 // duplicate amounts/labels never collide.
 // ---------------------------------------------------------------------------
 let dbMaskCounter = 0;
-window._dbMaskCounter = 0;
+
 function renderMaskedMoney(amount, extraClass) {
+    let _dbMaskCounter = 0;
     _dbMaskCounter++;
     const id = 'dbmask_' + _dbMaskCounter;
     const real = 'UGX ' + formatMoney(amount);
@@ -70136,6 +70137,7 @@ window.toggleAllMaskedMoney = toggleAllMaskedMoney;
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
 async function showDashboard() {
+    let _dbMaskCounter = 0;
     console.log('showDashboard() — v14.0 (masked money + filtered report nav, no SchoolPay)');
     injectDashboardDesignSystem();
 
