@@ -70093,6 +70093,7 @@ function getTermName(term) {
 // duplicate amounts/labels never collide.
 // ---------------------------------------------------------------------------
 let dbMaskCounter = 0;
+window._dbMaskCounter = 0;
 function renderMaskedMoney(amount, extraClass) {
     _dbMaskCounter++;
     const id = 'dbmask_' + _dbMaskCounter;
