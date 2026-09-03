@@ -70696,6 +70696,29 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     const rawValue = String(value);
     const rawSubtext = subtext || '';
 
+    // Build a context‑aware extra line (optional)
+    let extraLine = '';
+    const lowerLabel = label.toLowerCase();
+    if (lowerLabel.includes('students')) {
+        extraLine = `Total enrolled: ${rawValue}`;
+    } else if (lowerLabel.includes('collection rate')) {
+        extraLine = `Collected: ${rawSubtext}`;
+    } else if (lowerLabel.includes('expected')) {
+        extraLine = `Expected amount: ${rawValue}`;
+    } else if (lowerLabel.includes('collected')) {
+        extraLine = `Amount collected: ${rawValue}`;
+    } else if (lowerLabel.includes('outstanding')) {
+        extraLine = `Balance due: ${rawValue}`;
+    } else if (lowerLabel.includes('fully paid')) {
+        extraLine = `Fully paid students: ${rawValue}`;
+    } else if (lowerLabel.includes('status groups')) {
+        extraLine = `Active groups: ${rawValue}`;
+    } else if (lowerLabel.includes('total items')) {
+        extraLine = `Total inventory items: ${rawValue}`;
+    } else {
+        extraLine = rawSubtext;
+    }
+
     return `
         <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
              id="${cardId}"
@@ -70717,10 +70740,11 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
             </div>
             <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
 
-            <!-- Expandable Details Area (replaces the tooltip) -->
+            <!-- Expandable Details Area (appears on hover) -->
             <div class="db-metric-details">
                 <div class="full-value">${escapeHtml(rawValue)}</div>
                 ${rawSubtext ? `<div class="full-sub">${escapeHtml(rawSubtext)}</div>` : ''}
+                ${extraLine ? `<div class="extra-stat">${escapeHtml(extraLine)}</div>` : ''}
             </div>
         </div>
     `;
