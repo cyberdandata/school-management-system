@@ -70310,6 +70310,7 @@ function toggleMetricVisibility(cardId) {
 // 6. RENDER DASHBOARD
 // ---------------------------------------------------------------------------
 function renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm) {
+      const metricVisibilityState={};
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
 
