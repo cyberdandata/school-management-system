@@ -67279,20 +67279,20 @@ function exportReportToCSV() {
         html += '<head><meta charset="UTF-8">';
         html += '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Comprehensive Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorkbook></xml><![endif]-->';
         html += '<style>';
-        html += 'body { font-family: "Calibri", "Segoe UI", Arial, sans-serif; font-size: 13px; line-height: 1.4; }';
-        html += 'table { border-collapse: collapse; font-size: 12px; width: 100%; }';
-        html += 'th, td { border: 1px solid #999; padding: 9px 12px; vertical-align: middle; line-height: 1.4; }';
-        html += 'th { background-color: #1a3a5c; color: white; font-weight: bold; text-align: center; font-size: 12.5px; padding: 12px 12px; height: 28px; }';
-        html += '.header-title { font-size: 26px; font-weight: bold; text-align: center; border: none; color: #1a3a5c; padding: 10px 0; }';
-        html += '.header-sub { font-size: 15px; text-align: center; border: none; color: #6b7280; padding: 6px 0; }';
-        html += '.header-motto { font-size: 13px; text-align: center; border: none; color: #9ca3af; font-style: italic; padding: 4px 0; }';
-        html += '.header-meta { font-size: 12px; text-align: center; border: none; color: #6b7280; padding: 4px 0; }';
-        html += '.filter-info { font-size: 12px; text-align: center; border: none; color: #4b5563; background: #f3f4f6; padding: 8px; }';
-        html += '.tuition-aggregated { font-size: 12px; text-align: center; border: none; color: #2563eb; background: #eff6ff; padding: 7px; font-weight: bold; }';
-        html += '.or-logic-note { font-size: 12px; text-align: center; border: none; color: #d97706; background: #fffbeb; padding: 7px; }';
-        html += '.status-legend { font-size: 12px; text-align: center; border: none; color: #6b7280; background: #f9fafb; padding: 7px; }';
-        html += '.verification-note { font-size: 12px; text-align: center; border: none; color: #059669; background: #ecfdf5; padding: 8px; font-weight: bold; }';
-        html += '.data-source-note { font-size: 12px; text-align: center; border: none; color: #7c3aed; background: #f5f3ff; padding: 7px; }';
+        html += 'body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10px; }';
+        html += 'table { border-collapse: collapse; font-size: 9px; width: 100%; }';
+        html += 'th, td { border: 1px solid #999; padding: 4px 6px; vertical-align: middle; }';
+        html += 'th { background-color: #1a3a5c; color: white; font-weight: bold; text-align: center; font-size: 9px; }';
+        html += '.header-title { font-size: 20px; font-weight: bold; text-align: center; border: none; color: #1a3a5c; }';
+        html += '.header-sub { font-size: 11px; text-align: center; border: none; color: #6b7280; }';
+        html += '.header-motto { font-size: 10px; text-align: center; border: none; color: #9ca3af; font-style: italic; }';
+        html += '.header-meta { font-size: 9px; text-align: center; border: none; color: #6b7280; }';
+        html += '.filter-info { font-size: 8px; text-align: center; border: none; color: #4b5563; background: #f3f4f6; padding: 4px; }';
+        html += '.tuition-aggregated { font-size: 8px; text-align: center; border: none; color: #2563eb; background: #eff6ff; padding: 2px; font-weight: bold; }';
+        html += '.or-logic-note { font-size: 8px; text-align: center; border: none; color: #d97706; background: #fffbeb; padding: 2px; }';
+        html += '.status-legend { font-size: 8px; text-align: center; border: none; color: #6b7280; background: #f9fafb; padding: 3px; }';
+        html += '.verification-note { font-size: 8px; text-align: center; border: none; color: #059669; background: #ecfdf5; padding: 3px; font-weight: bold; }';
+        html += '.data-source-note { font-size: 8px; text-align: center; border: none; color: #7c3aed; background: #f5f3ff; padding: 3px; }';
         html += '.text-center { text-align: center; }';
         html += '.text-right { text-align: right; }';
         html += '.text-left { text-align: left; }';
@@ -67304,19 +67304,18 @@ function exportReportToCSV() {
         html += '.status-unpaid { color: #dc2626; font-weight: bold; }';
         html += '.status-credit { color: #2563eb; font-weight: bold; }';
         html += '.status-na { color: #9ca3af; font-style: italic; }';
-        html += '.total-row { background-color: #e5e7eb; font-weight: bold; border-top: 3px solid #1a3a5c; font-size: 12.5px; }';
-        html += '.total-row td { padding: 11px 12px; }';
+        html += '.total-row { background-color: #e5e7eb; font-weight: bold; border-top: 2px solid #1a3a5c; }';
+        html += '.total-row td { padding: 5px 6px; }';
         html += '.even-row { background-color: #f9fafb; }';
         html += '.odd-row { background-color: #ffffff; }';
         html += '.current-period { background-color: #eff6ff; }';
-        html += '.section-title { font-size: 19px; font-weight: bold; text-align: center; border: none; color: #1a3a5c; padding: 16px 0 6px 0; }';
-        html += '.section-sub { font-size: 13px; text-align: center; border: none; color: #6b7280; padding-bottom: 10px; }';
-        html += '.divider { border: none; height: 6px; }';
-        html += 'td { word-wrap: break-word; max-width: 280px; }';
+        html += '.section-title { font-size: 14px; font-weight: bold; text-align: center; border: none; color: #1a3a5c; padding: 10px 0 4px 0; }';
+        html += '.section-sub { font-size: 10px; text-align: center; border: none; color: #6b7280; padding-bottom: 6px; }';
+        html += '.divider { border: none; height: 4px; }';
+        html += 'td { word-wrap: break-word; max-width: 200px; }';
         html += 'th { word-wrap: break-word; }';
         html += '.wrap-text { word-wrap: break-word; white-space: normal; }';
         html += '.nowrap { white-space: nowrap; }';
-        html += 'tr { mso-height-source: auto; height: 24px; }';
         html += '</style></head><body>';
 
         // ================================================================
@@ -67361,13 +67360,13 @@ function exportReportToCSV() {
         for (var h = 0; h < headers.length; h++) {
             var headerText = headers[h];
             var width = '';
-            if (headerText.includes('(Status)')) width = ' style="width:140px;"';
-            else if (headerText.includes('(Detail)')) width = ' style="width:240px;"';
-            else if (headerText.includes('(Periods)')) width = ' style="width:360px;"';
-            else if (headerText.includes('Tuition') && headerText.includes('All Periods')) width = ' style="width:160px;"';
-            else if (headerText.includes('Tuition Periods Breakdown')) width = ' style="width:380px;"';
-            else if (headerText === 'Student Name') width = ' style="width:200px;"';
-            else if (headerText === 'Admission') width = ' style="width:130px;"';
+            if (headerText.includes('(Status)')) width = ' style="width:100px;"';
+            else if (headerText.includes('(Detail)')) width = ' style="width:180px;"';
+            else if (headerText.includes('(Periods)')) width = ' style="width:280px;"';
+            else if (headerText.includes('Tuition') && headerText.includes('All Periods')) width = ' style="width:120px;"';
+            else if (headerText.includes('Tuition Periods Breakdown')) width = ' style="width:300px;"';
+            else if (headerText === 'Student Name') width = ' style="width:150px;"';
+            else if (headerText === 'Admission') width = ' style="width:100px;"';
             html += '<th' + width + '>' + escapeHtml(headerText) + '</th>';
         }
         html += '</tr></thead>';
@@ -67413,13 +67412,13 @@ function exportReportToCSV() {
         html += '<tr><td colspan="7" class="section-sub">Detailed period-by-period breakdown - Direct from payment data</td></tr>';
         html += '<tr><td colspan="7" class="divider"></td></tr>';
         html += '<thead><tr>';
-        html += '<th style="width:17%;">Student</th>';
-        html += '<th style="width:14%;">Status Group</th>';
-        html += '<th style="width:14%;">Item</th>';
-        html += '<th style="width:13%;">Period</th>';
+        html += '<th style="width:15%;">Student</th>';
+        html += '<th style="width:15%;">Status Group</th>';
+        html += '<th style="width:15%;">Item</th>';
+        html += '<th style="width:15%;">Period</th>';
         html += '<th style="width:20%;">Collected/Required</th>';
-        html += '<th style="width:11%;">Status</th>';
-        html += '<th style="width:11%;">Remaining</th>';
+        html += '<th style="width:10%;">Status</th>';
+        html += '<th style="width:10%;">Remaining</th>';
         html += '</tr></thead><tbody>';
 
         var periodRowCount = 0;
@@ -67565,7 +67564,7 @@ function exportReportToCSV() {
         html += '<tr><td colspan="2" class="section-title">📊 SUMMARY STATISTICS</td></tr>';
         html += '<tr><td colspan="2" class="section-sub">Key metrics and totals - VERIFIED against source data</td></tr>';
         html += '<tr><td colspan="2" class="divider"></td></tr>';
-        html += '<thead><tr><th style="width:55%;">Metric</th><th style="width:45%;">Value</th></tr></thead><tbody>';
+        html += '<thead><tr><th style="width:60%;">Metric</th><th style="width:40%;">Value</th></tr></thead><tbody>';
 
         var totalCustomizedStudents = 0;
         var totalCustomizedItems = 0;
@@ -67661,6 +67660,51 @@ function exportReportToCSV() {
         }
         html += '</tbody></table>';
         } // end includeSummaryStatsSheet
+
+        // ================================================================
+        // SHEET 4: CUSTOMIZATION TRACKING (if any)
+        // ================================================================
+        // if (totalCustomizedStudents > 0) {
+        //     html += '<br><br><br>';
+        //     html += '<table>';
+        //     html += '<tr><td colspan="4" class="section-title">⚡ CUSTOMIZATION TRACKING</td></tr>';
+        //     html += '<tr><td colspan="4" class="section-sub">Students with custom overrides and their reasons</td></tr>';
+        //     html += '<tr><td colspan="4" class="divider"></td></tr>';
+        //     html += '<thead><tr><th style="width:20%;">Student</th><th style="width:25%;">Item</th><th style="width:15%;">Override</th><th style="width:40%;">Reason</th></tr></thead><tbody>';
+
+        //     var customRowCount = 0;
+        //     for (var s6 = 0; s6 < students.length; s6++) {
+        //         var student6 = students[s6];
+        //         if (!student6 || !student6.customItemOverrides || Object.keys(student6.customItemOverrides).length === 0) continue;
+        //         var studentName6 = ((student6.firstName || '') + ' ' + (student6.lastName || '')).trim();
+        //         for (var itemId6 in student6.customItemOverrides) {
+        //             if (student6.customItemOverrides.hasOwnProperty(itemId6)) {
+        //                 var custom6 = student6.customItemOverrides[itemId6];
+        //                 if (!custom6 || !custom6.isActive) continue;
+        //                 customRowCount++;
+        //                 var rowClass8 = customRowCount % 2 === 0 ? 'even-row' : 'odd-row';
+        //                 var overrideText6 = [];
+        //                 if (custom6.customAmount !== null && custom6.customAmount !== undefined) {
+        //                     overrideText6.push('Amount: UGX ' + formatMoney(custom6.customAmount));
+        //                 }
+        //                 if (custom6.customQuantity !== null && custom6.customQuantity !== undefined) {
+        //                     overrideText6.push('Qty: ' + custom6.customQuantity);
+        //                 }
+        //                 if (custom6.paymentOption) {
+        //                     overrideText6.push('Payment: ' + custom6.paymentOption);
+        //                 }
+        //                 var overrideDisplay6 = overrideText6.length > 0 ? overrideText6.join(' | ') : 'Customized';
+        //                 html += '<tr class="' + rowClass8 + '">';
+        //                 html += '<td>' + escapeHtml(studentName6) + '</td>';
+        //                 html += '<td>' + escapeHtml(custom6.itemName || itemId6) + '</td>';
+        //                 html += '<td class="text-center">' + escapeHtml(overrideDisplay6) + '</td>';
+        //                 html += '<td>' + escapeHtml(custom6.reason || 'No reason provided') + '</td>';
+        //                 html += '</tr>';
+        //             }
+        //         }
+        //     }
+        //     html += '</tbody></table>';
+        // }
 
         html += '</body></html>';
 
