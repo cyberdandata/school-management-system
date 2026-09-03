@@ -67629,47 +67629,47 @@ function exportReportToCSV() {
         // ================================================================
         // SHEET 4: CUSTOMIZATION TRACKING (if any)
         // ================================================================
-        if (totalCustomizedStudents > 0) {
-            html += '<br><br><br>';
-            html += '<table>';
-            html += '<tr><td colspan="4" class="section-title">⚡ CUSTOMIZATION TRACKING</td></tr>';
-            html += '<tr><td colspan="4" class="section-sub">Students with custom overrides and their reasons</td></tr>';
-            html += '<tr><td colspan="4" class="divider"></td></tr>';
-            html += '<thead><tr><th style="width:20%;">Student</th><th style="width:25%;">Item</th><th style="width:15%;">Override</th><th style="width:40%;">Reason</th></tr></thead><tbody>';
+        // if (totalCustomizedStudents > 0) {
+        //     html += '<br><br><br>';
+        //     html += '<table>';
+        //     html += '<tr><td colspan="4" class="section-title">⚡ CUSTOMIZATION TRACKING</td></tr>';
+        //     html += '<tr><td colspan="4" class="section-sub">Students with custom overrides and their reasons</td></tr>';
+        //     html += '<tr><td colspan="4" class="divider"></td></tr>';
+        //     html += '<thead><tr><th style="width:20%;">Student</th><th style="width:25%;">Item</th><th style="width:15%;">Override</th><th style="width:40%;">Reason</th></tr></thead><tbody>';
 
-            var customRowCount = 0;
-            for (var s6 = 0; s6 < students.length; s6++) {
-                var student6 = students[s6];
-                if (!student6 || !student6.customItemOverrides || Object.keys(student6.customItemOverrides).length === 0) continue;
-                var studentName6 = ((student6.firstName || '') + ' ' + (student6.lastName || '')).trim();
-                for (var itemId6 in student6.customItemOverrides) {
-                    if (student6.customItemOverrides.hasOwnProperty(itemId6)) {
-                        var custom6 = student6.customItemOverrides[itemId6];
-                        if (!custom6 || !custom6.isActive) continue;
-                        customRowCount++;
-                        var rowClass8 = customRowCount % 2 === 0 ? 'even-row' : 'odd-row';
-                        var overrideText6 = [];
-                        if (custom6.customAmount !== null && custom6.customAmount !== undefined) {
-                            overrideText6.push('Amount: UGX ' + formatMoney(custom6.customAmount));
-                        }
-                        if (custom6.customQuantity !== null && custom6.customQuantity !== undefined) {
-                            overrideText6.push('Qty: ' + custom6.customQuantity);
-                        }
-                        if (custom6.paymentOption) {
-                            overrideText6.push('Payment: ' + custom6.paymentOption);
-                        }
-                        var overrideDisplay6 = overrideText6.length > 0 ? overrideText6.join(' | ') : 'Customized';
-                        html += '<tr class="' + rowClass8 + '">';
-                        html += '<td>' + escapeHtml(studentName6) + '</td>';
-                        html += '<td>' + escapeHtml(custom6.itemName || itemId6) + '</td>';
-                        html += '<td class="text-center">' + escapeHtml(overrideDisplay6) + '</td>';
-                        html += '<td>' + escapeHtml(custom6.reason || 'No reason provided') + '</td>';
-                        html += '</tr>';
-                    }
-                }
-            }
-            html += '</tbody></table>';
-        }
+        //     var customRowCount = 0;
+        //     for (var s6 = 0; s6 < students.length; s6++) {
+        //         var student6 = students[s6];
+        //         if (!student6 || !student6.customItemOverrides || Object.keys(student6.customItemOverrides).length === 0) continue;
+        //         var studentName6 = ((student6.firstName || '') + ' ' + (student6.lastName || '')).trim();
+        //         for (var itemId6 in student6.customItemOverrides) {
+        //             if (student6.customItemOverrides.hasOwnProperty(itemId6)) {
+        //                 var custom6 = student6.customItemOverrides[itemId6];
+        //                 if (!custom6 || !custom6.isActive) continue;
+        //                 customRowCount++;
+        //                 var rowClass8 = customRowCount % 2 === 0 ? 'even-row' : 'odd-row';
+        //                 var overrideText6 = [];
+        //                 if (custom6.customAmount !== null && custom6.customAmount !== undefined) {
+        //                     overrideText6.push('Amount: UGX ' + formatMoney(custom6.customAmount));
+        //                 }
+        //                 if (custom6.customQuantity !== null && custom6.customQuantity !== undefined) {
+        //                     overrideText6.push('Qty: ' + custom6.customQuantity);
+        //                 }
+        //                 if (custom6.paymentOption) {
+        //                     overrideText6.push('Payment: ' + custom6.paymentOption);
+        //                 }
+        //                 var overrideDisplay6 = overrideText6.length > 0 ? overrideText6.join(' | ') : 'Customized';
+        //                 html += '<tr class="' + rowClass8 + '">';
+        //                 html += '<td>' + escapeHtml(studentName6) + '</td>';
+        //                 html += '<td>' + escapeHtml(custom6.itemName || itemId6) + '</td>';
+        //                 html += '<td class="text-center">' + escapeHtml(overrideDisplay6) + '</td>';
+        //                 html += '<td>' + escapeHtml(custom6.reason || 'No reason provided') + '</td>';
+        //                 html += '</tr>';
+        //             }
+        //         }
+        //     }
+        //     html += '</tbody></table>';
+        // }
 
         html += '</body></html>';
 
