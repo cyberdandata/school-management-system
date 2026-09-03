@@ -69907,6 +69907,8 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // ============================================================================
 
 // ---------------------------------------------------------------------------
+// DASHBOARD v13.0 — Uniform stats, general stock, drill-down nav, SchoolPay
+// ---------------------------------------------------------------------------
 function injectDashboardDesignSystem() {
     if (document.getElementById('dashboard-modern-fonts')) return;
 
@@ -69923,7 +69925,7 @@ function injectDashboardDesignSystem() {
             --ink:#0B1324; --ink-soft:#475569; --line:#E7ECF3;
             --surface:#FFFFFF; --app-bg:#F3F6FB;
             --teal:#0E9C8E; --teal-dark:#0B7A70; --indigo:#4F5FE8;
-            --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0;
+            --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0; --pink:#DB2C7A;
         }
         .font-display{font-family:'Sora',ui-sans-serif,system-ui,sans-serif;}
         .font-body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
@@ -69937,7 +69939,6 @@ function injectDashboardDesignSystem() {
               var(--app-bg);
         }
 
-        /* ---- Hero banner with torn-receipt edge (signature element) ---- */
         .db-hero{
             position:relative;
             background:linear-gradient(115deg,#0B7A70 0%, #0E9C8E 42%, #4F5FE8 100%);
@@ -69963,7 +69964,6 @@ function injectDashboardDesignSystem() {
         .db-chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); }
         .db-chip:hover{ background:rgba(255,255,255,.26); }
 
-        /* ---- Metric / KPI cards ---- */
         .db-metric{
             background:var(--surface); border:1px solid var(--line); border-radius:18px;
             padding:16px; position:relative; overflow:hidden;
@@ -69976,20 +69976,17 @@ function injectDashboardDesignSystem() {
         }
         .db-metric-value{ font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:-.01em; }
 
-        /* ---- Section headers ---- */
         .db-eyebrow{
             font-family:'Sora',sans-serif; font-weight:700; font-size:11px; letter-spacing:.14em;
             text-transform:uppercase; color:var(--teal-dark);
         }
         .db-section-title{ font-family:'Sora',sans-serif; font-weight:700; color:var(--ink); }
 
-        /* ---- Status group cards ---- */
         .db-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; }
         .db-card-hd{ border-bottom:1px solid var(--line); }
         .db-progress-track{ background:#EEF1F6; border-radius:999px; overflow:hidden; }
         .db-progress-fill{ border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
 
-        /* ---- Table ---- */
         .db-table thead th{
             font-family:'Sora',sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
             color:#7A879C; background:#F8FAFC; position:sticky; top:0; z-index:1;
@@ -69997,22 +69994,18 @@ function injectDashboardDesignSystem() {
         .db-table tbody tr{ transition:background .12s ease; }
         .db-table tbody tr:hover{ background:#F7FAFC; }
 
-        /* ---- Badges ---- */
         .db-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.01em; }
 
-        /* ---- Scrollbars ---- */
         .db-scroll::-webkit-scrollbar{ width:8px; height:8px; }
         .db-scroll::-webkit-scrollbar-thumb{ background:#D6DEE9; border-radius:99px; }
         .db-scroll::-webkit-scrollbar-track{ background:transparent; }
 
-        /* ---- Skeleton ---- */
         @keyframes db-shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
         .db-skeleton{
             background:linear-gradient(90deg,#EEF1F6 25%,#F7F9FC 37%,#EEF1F6 63%);
             background-size:400px 100%; animation:db-shimmer 1.4s ease-in-out infinite; border-radius:12px;
         }
 
-        /* ---- Quick action tiles ---- */
         .db-action{
             background:var(--surface); border:1px solid var(--line); border-radius:16px;
             transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
@@ -70021,6 +70014,15 @@ function injectDashboardDesignSystem() {
 
         .db-fade-in{ animation:db-fadeIn .4s ease both; }
         @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+        .db-schoolpay-frame{
+            border-radius:18px; overflow:hidden; border:1px solid var(--line);
+            box-shadow:0 12px 26px -18px rgba(15,23,42,.3); background:#fff;
+        }
+        .db-schoolpay-bar{
+            background:linear-gradient(90deg,#0B7A70,#4F5FE8); color:#fff; padding:12px 18px;
+            display:flex; align-items:center; justify-content:space-between; font-family:'Sora',sans-serif; font-weight:700;
+        }
 
         @media (prefers-reduced-motion: reduce){
             .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
@@ -70038,31 +70040,25 @@ function getStatusColor(rate) {
     if (rate >= 50) return 'text-orange-600';
     return 'text-rose-600';
 }
-
 function getStatusBarColor(rate) {
     if (rate >= 85) return 'bg-emerald-500';
     if (rate >= 70) return 'bg-amber-500';
     if (rate >= 50) return 'bg-orange-500';
     return 'bg-rose-500';
 }
-
 function getStatusBadge(rate) {
     if (rate >= 85) return '<span class="db-badge bg-emerald-50 text-emerald-700 border border-emerald-200">Excellent</span>';
     if (rate >= 70) return '<span class="db-badge bg-amber-50 text-amber-700 border border-amber-200">Good</span>';
     if (rate >= 50) return '<span class="db-badge bg-orange-50 text-orange-700 border border-orange-200">Needs Attention</span>';
     return '<span class="db-badge bg-rose-50 text-rose-700 border border-rose-200">Critical</span>';
 }
-
 function getStatusGroupColor(name) {
     if (!name) return 'border-slate-300';
     const colors = {
-        'Transportation': 'border-orange-400',
-        'Admission Fee': 'border-purple-400',
-        'schoolastic requirement': 'border-emerald-400',
-        'Scholastic': 'border-emerald-400',
-        'Sports': 'border-sky-400',
-        'Development': 'border-rose-400',
-        'Tuition': 'border-indigo-400'
+        'Transportation': 'border-orange-400', 'Admission Fee': 'border-purple-400',
+        'schoolastic requirement': 'border-emerald-400', 'Scholastic': 'border-emerald-400',
+        'Sports': 'border-sky-400', 'Development': 'border-rose-400', 'Tuition': 'border-indigo-400',
+        'Uniform': 'border-pink-400'
     };
     const lowerName = (name || '').toLowerCase();
     for (const [key, color] of Object.entries(colors)) {
@@ -70070,19 +70066,16 @@ function getStatusGroupColor(name) {
     }
     return 'border-slate-300';
 }
-
 function formatMoney(amount) {
     const num = Math.round(amount || 0);
     return num.toLocaleString('en-US');
 }
-
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
-
 function getTermName(term) {
     const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
     return names[term] || `Term ${term}`;
@@ -70092,7 +70085,7 @@ function getTermName(term) {
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
 async function showDashboard() {
-    console.log('showDashboard() — modern edition v12.0');
+    console.log('showDashboard() — v13.0 (uniform + stock + drilldown + schoolpay)');
     injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -70118,15 +70111,35 @@ async function showDashboard() {
         const { currentYear, currentTerm } = currentAcademicSettings;
         const termName = getTermName(currentTerm);
 
-        const response = await fetch('/api/dashboard/stats');
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        // Fetch core dashboard stats + uniform + general stock in parallel.
+        // Uniform / stock endpoints are optional — dashboard still renders if they fail.
+        const [statsRes, uniformRes, stockRes] = await Promise.allSettled([
+            fetch('/api/dashboard/stats'),
+            fetch('/api/uniform/summary'),
+            fetch('/api/school-stock/summary')
+        ]);
 
-        const result = await response.json();
+        if (statsRes.status !== 'fulfilled' || !statsRes.value.ok) {
+            throw new Error(`Server returned ${statsRes.value ? statsRes.value.status : 'no response'}`);
+        }
+        const result = await statsRes.value.json();
         if (!result.success) throw new Error(result.error || 'Failed to load dashboard data');
-
         const data = result.data;
         window.dashboardData = data;
-        renderDashboard(data, termName, currentYear, currentTerm);
+
+        let uniformData = null;
+        if (uniformRes.status === 'fulfilled' && uniformRes.value.ok) {
+            try { const j = await uniformRes.value.json(); if (j.success) uniformData = j.data; } catch (e) {}
+        }
+        window.dashboardUniformData = uniformData;
+
+        let stockData = null;
+        if (stockRes.status === 'fulfilled' && stockRes.value.ok) {
+            try { const j = await stockRes.value.json(); if (j.success) stockData = j.summary; } catch (e) {}
+        }
+        window.dashboardStockData = stockData;
+
+        renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm);
 
     } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -70178,59 +70191,92 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ---------------------------------------------------------------------------
-// 4. RENDER DASHBOARD
+// 4. NAVIGATION HELPERS — every stat card drills into a real page
 // ---------------------------------------------------------------------------
-function renderDashboard(data, termName, currentYear, currentTerm) {
+function navigateToStatusGroupReport(statusGroupName) {
+    if (typeof showReports !== 'function') return;
+    showReports();
+    setTimeout(() => {
+        const filterSelect = document.getElementById('reportStatusGroupFilter');
+        if (filterSelect) {
+            for (let i = 0; i < filterSelect.options.length; i++) {
+                if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
+            }
+            setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
+        }
+    }, 300);
+}
+function navigateToItemReport(itemName, statusGroupName) {
+    if (typeof showReports !== 'function') return;
+    showReports();
+    setTimeout(() => {
+        const groupSelect = document.getElementById('reportStatusGroupFilter');
+        if (groupSelect && statusGroupName) {
+            for (let i = 0; i < groupSelect.options.length; i++) {
+                if (groupSelect.options[i].value === statusGroupName) { groupSelect.value = statusGroupName; break; }
+            }
+        }
+        const itemSelect = document.getElementById('reportItemFilter');
+        if (itemSelect) {
+            for (let i = 0; i < itemSelect.options.length; i++) {
+                if (itemSelect.options[i].value === itemName) { itemSelect.value = itemName; break; }
+            }
+        }
+        setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
+    }, 300);
+}
+function navigateToTuitionReport() {
+    if (typeof showReports !== 'function') return;
+    showReports();
+}
+function navigateToUniformSection() {
+    if (typeof showUniformManagement === 'function') showUniformManagement();
+}
+function navigateToInventorySection() {
+    if (typeof showInventory === 'function') showInventory();
+}
+function navigateToStockCategory(categoryId) {
+    if (typeof showInventory === 'function') showInventory();
+    // If the inventory page exposes a category filter, try to apply it shortly after render.
+    setTimeout(() => {
+        const sel = document.getElementById('schoolStockCategoryFilter');
+        if (sel && categoryId) { sel.value = categoryId; sel.dispatchEvent(new Event('change')); }
+    }, 300);
+}
+function navigateToStudentList() {
+    if (typeof showStudentList === 'function') showStudentList();
+}
+function openSchoolPayFullscreen() {
+    window.open('https://www.schoolpay.co.ug/login', '_blank', 'noopener');
+}
+
+// ---------------------------------------------------------------------------
+// 5. RENDER DASHBOARD
+// ---------------------------------------------------------------------------
+function renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm) {
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
 
     const {
-        school, studentStats, financialStats, statusGroups,
-        statusGroupHealth, items, recentPayments,
+        school, studentStats, tuitionStats, cashItemsStats,
+        statusGroups, statusGroupHealth, items,
         statusGroupsCount, totalItemsCount, timestamp
     } = data;
 
     const schoolName = school?.schoolName || 'School Name';
     const schoolMotto = school?.motto || 'Quality Education for All';
 
-    // ---- Tuition-only stats (same logic as before) ----
-    var tuitionExpected = 0, tuitionCollected = 0, tuitionFullyPaidCount = 0;
+    const tuitionExpected = tuitionStats?.expected || 0;
+    const tuitionCollected = tuitionStats?.collected || 0;
+    const tuitionOutstanding = tuitionStats?.outstanding || Math.max(0, tuitionExpected - tuitionCollected);
+    const tuitionRate = tuitionStats?.collectionRate || (tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0);
 
-    if (data.tuitionStats) {
-        tuitionExpected = data.tuitionStats.expected || 0;
-        tuitionCollected = data.tuitionStats.collected || 0;
-        tuitionFullyPaidCount = data.tuitionStats.fullyPaid || 0;
-    } else if (financialStats) {
-        tuitionExpected = financialStats.totalExpected || 0;
-        tuitionCollected = financialStats.totalCollected || 0;
-    }
-
-    if (tuitionExpected === 0 && window.dashboardStudents && window.dashboardStudents.length > 0) {
-        var students = window.dashboardStudents;
-        for (var i = 0; i < students.length; i++) {
-            tuitionExpected += students[i].expectedTuition || 0;
-            tuitionCollected += students[i].tuitionPaid || 0;
-        }
-        tuitionFullyPaidCount = studentStats?.paymentStatus?.fullyPaid || 0;
-    }
-
-    if (tuitionExpected === 0 && data.studentStats && data.studentStats.students) {
-        var allStudents = data.studentStats.students || [];
-        for (var j = 0; j < allStudents.length; j++) {
-            tuitionExpected += allStudents[j].expectedTuition || 0;
-            tuitionCollected += allStudents[j].tuitionPaid || 0;
-        }
-    }
-
-    var tuitionOutstanding = Math.max(0, tuitionExpected - tuitionCollected);
-    var tuitionRate = tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0;
-
-    var tuitionRateColor = 'emerald';
+    let tuitionRateColor = 'emerald';
     if (tuitionRate < 50) tuitionRateColor = 'rose';
     else if (tuitionRate < 70) tuitionRateColor = 'amber';
 
-    var fullyPaidCount = tuitionFullyPaidCount || studentStats?.paymentStatus?.fullyPaid || 0;
-    var totalStudents = studentStats?.total || 0;
+    const fullyPaidCount = studentStats?.paymentStatus?.fullyPaid || 0;
+    const totalStudents = studentStats?.total || 0;
 
     var html = '';
 
@@ -70254,25 +70300,35 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     html += '    </div>';
     html += '    <div class="flex flex-wrap gap-2">';
     html += '      <button onclick="showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
+    html += '      <button onclick="document.getElementById(\'schoolpaySection\').scrollIntoView({behavior:\'smooth\'})" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-credit-card"></i> SchoolPay</button>';
     html += '      <button onclick="printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
     html += '      <button onclick="refreshDashboard()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-arrows-rotate"></i> Refresh</button>';
     html += '    </div>';
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 1: KPI CARDS =======================
+    // ======================= SECTION 1: KPI CARDS (each drills down) =======================
     html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
-    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F');
-    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (Object.keys(statusGroupHealth || {}).length) + ' active');
-    html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items');
-    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected');
-    html += renderMetricCardEnhanced('Total Expected', 'UGX ' + formatMoney(tuitionExpected), 'fa-file-invoice', 'indigo', 'Tuition only');
-    html += renderMetricCardEnhanced('Total Collected', 'UGX ' + formatMoney(tuitionCollected), 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate');
-    html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance');
-    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students');
+    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()');
+    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()');
+    html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()');
+    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected', 'navigateToTuitionReport()', true);
+    html += renderMetricCardEnhanced('Tuition Expected', 'UGX ' + formatMoney(tuitionExpected), 'fa-file-invoice', 'indigo', 'Tuition only', 'navigateToTuitionReport()', true);
+    html += renderMetricCardEnhanced('Tuition Collected', 'UGX ' + formatMoney(tuitionCollected), 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
+    html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToTuitionReport()', true);
+    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToTuitionReport()');
     html += '</div>';
 
-    // ======================= SECTION 2: STATUS GROUP CARDS =======================
+    if (cashItemsStats && (cashItemsStats.expected > 0 || cashItemsStats.collected > 0)) {
+        html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">';
+        html += renderMetricCardEnhanced('Cash-Only Items Expected', 'UGX ' + formatMoney(cashItemsStats.expected), 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true);
+        html += renderMetricCardEnhanced('Cash-Only Items Collected', 'UGX ' + formatMoney(cashItemsStats.collected), 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
+        html += renderMetricCardEnhanced('Cash-Only Outstanding', 'UGX ' + formatMoney(cashItemsStats.outstanding), 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToTuitionReport()', true);
+        html += renderMetricCardEnhanced('Uniform &amp; Stock', 'View', 'fa-shirt', 'pink', 'Scroll to details below', "document.getElementById('uniformSection').scrollIntoView({behavior:'smooth'})");
+        html += '</div>';
+    }
+
+    // ======================= SECTION 2: STATUS GROUP CARDS (all groups, unfiltered) =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
@@ -70291,7 +70347,7 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 3: PAYMENT STATUS + CLASS PERFORMANCE =======================
+    // ======================= SECTION 3: PAYMENT STATUS + STATUS GROUP HEALTH =======================
     html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
 
     html += '  <div class="db-card overflow-hidden">';
@@ -70318,7 +70374,7 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     for (var si = 0; si < statusLabels.length; si++) {
         var sl = statusLabels[si];
         var val = ps[sl.key] || 0;
-        html += '<div class="text-center p-2.5 rounded-xl ' + chipColorMap[sl.color] + '">';
+        html += '<div class="text-center p-2.5 rounded-xl cursor-pointer ' + chipColorMap[sl.color] + '" onclick="navigateToTuitionReport()">';
         html += '  <i class="fas ' + sl.icon + ' text-xs mb-1 opacity-70"></i>';
         html += '  <p class="text-[11px] font-semibold">' + sl.label + '</p>';
         html += '  <p class="text-xl font-bold font-mono-num">' + val + '</p>';
@@ -70328,19 +70384,47 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     html += '    </div>';
     html += '  </div>';
 
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
-    html += '      <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
-    html += '      <h3 class="font-display font-bold text-slate-800">Class Performance</h3>';
-    html += '    </div>';
-    html += '    <div class="p-4 max-h-80 overflow-y-auto db-scroll">';
-    html += renderClassPerformanceTable(statusGroups || []);
-    html += '    </div>';
+    html += '  <div class="db-card p-4">';
+    html += '    <div class="mb-3"><p class="db-eyebrow">Diagnostics</p><h3 class="db-section-title text-lg mt-0.5">Status Group Health</h3></div>';
+    if (statusGroupHealth && statusGroupHealth.length > 0) {
+        for (var sh = 0; sh < statusGroupHealth.length; sh++) {
+            var sg = statusGroupHealth[sh];
+            var rate = sg.rate || 0;
+            var rateColor = getStatusColor(rate);
+            var barColor = getStatusBarColor(rate);
+            var badge = getStatusBadge(rate);
+
+            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')">';
+            html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor + '"></div>';
+            html += '  <div class="flex-1 min-w-0">';
+            html += '    <div class="flex justify-between items-center">';
+            html += '      <span class="font-semibold text-sm text-slate-700 truncate">' + escapeHtml(sg.name) + '</span>';
+            html += '      <span class="text-sm font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
+            html += '    </div>';
+            html += '    <div class="db-progress-track h-1.5 mt-1.5"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
+            html += '  </div>';
+            html += '  <div class="flex-shrink-0">' + badge + '</div>';
+            html += '</div>';
+        }
+    } else {
+        html += '<div class="text-center py-10 text-slate-400">No status groups found</div>';
+    }
     html += '  </div>';
 
     html += '</div>';
 
-    // ======================= SECTION 4: ITEM COLLECTION TABLE =======================
+    // ======================= SECTION 3.5: CLASS PERFORMANCE (bar-style matrix) =======================
+    html += '<div class="db-card overflow-hidden">';
+    html += '  <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '    <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
+    html += '    <h3 class="font-display font-bold text-slate-800">Class Performance</h3>';
+    html += '  </div>';
+    html += '  <div class="p-4 max-h-96 overflow-y-auto db-scroll">';
+    html += renderClassPerformanceTable(data.classPerformance || {});
+    html += '  </div>';
+    html += '</div>';
+
+    // ======================= SECTION 4: ITEM COLLECTION TABLE (drill-down per row) =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
@@ -70385,13 +70469,14 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
             var rateColor = getStatusColor(rate);
             var barColor = getStatusBarColor(rate);
 
-            html += '<tr class="item-row"';
+            html += '<tr class="item-row cursor-pointer"';
             html += ' data-name="' + escapeHtml(item.name).toLowerCase() + '"';
             html += ' data-group="' + escapeHtml(item.statusGroup) + '"';
             html += ' data-required="' + required + '"';
             html += ' data-collected="' + collected + '"';
             html += ' data-remaining="' + (item.remaining || 0) + '"';
-            html += ' data-rate="' + rate + '">';
+            html += ' data-rate="' + rate + '"';
+            html += ' onclick="navigateToItemReport(\'' + escapeHtml(item.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(item.statusGroup).replace(/'/g, "\\'") + '\')">';
             html += '<td class="p-3 font-medium text-slate-700"><i class="fas fa-box-open text-slate-300 mr-2"></i>' + escapeHtml(item.name) + '</td>';
             html += '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + escapeHtml(item.statusGroup) + '</span></td>';
             html += '<td class="p-3 text-right font-mono-num font-semibold text-slate-600">' + required + '</td>';
@@ -70426,41 +70511,13 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 5: RECENT PAYMENTS =======================
-    html += '<div>';
-    html += '  <div class="mb-4"><p class="db-eyebrow">Cash Flow</p><h2 class="db-section-title text-xl mt-0.5">Recent Payments</h2></div>';
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="overflow-x-auto max-h-72 overflow-y-auto db-scroll">';
-    html += '      <table class="w-full text-sm">';
-    html += '        <thead class="db-table"><tr>';
-    html += '          <th class="p-3 text-left">Date</th><th class="p-3 text-left">Receipt</th><th class="p-3 text-left">Student</th>';
-    html += '          <th class="p-3 text-right">Amount</th><th class="p-3 text-left">Method</th><th class="p-3 text-left">Items</th><th class="p-3 text-center">Action</th>';
-    html += '        </tr></thead><tbody class="divide-y divide-slate-100">';
+    // ======================= SECTION 5: UNIFORM STATISTICS =======================
+    html += renderUniformSection(uniformData);
 
-    var methodChip = { cash: 'bg-emerald-50 text-emerald-700', bank: 'bg-sky-50 text-sky-700', mobile: 'bg-indigo-50 text-indigo-700' };
-    if (recentPayments && recentPayments.length > 0) {
-        for (var rp = 0; rp < recentPayments.length; rp++) {
-            var p = recentPayments[rp];
-            var methodClass = methodChip[p.method] || 'bg-slate-100 text-slate-600';
-            html += '<tr class="cursor-pointer" onclick="viewPaymentReceipt(\'' + p.receiptNumber + '\')">';
-            html += '<td class="p-3 whitespace-nowrap text-slate-500">' + new Date(p.date).toLocaleDateString() + '</td>';
-            html += '<td class="p-3 font-mono-num text-xs font-semibold text-indigo-600">' + escapeHtml(p.receiptNumber) + '</td>';
-            html += '<td class="p-3 font-medium text-slate-700">' + escapeHtml(p.studentName) + '</td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">UGX ' + formatMoney(p.amount) + '</td>';
-            html += '<td class="p-3"><span class="db-badge ' + methodClass + '">' + (p.method || 'cash').toUpperCase() + '</span></td>';
-            html += '<td class="p-3 text-sm text-slate-500">' + escapeHtml(p.items || '-') + '</td>';
-            html += '<td class="p-3 text-center"><button onclick="event.stopPropagation(); printReceipt(\'' + p.receiptNumber + '\')" class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition" title="Print Receipt"><i class="fas fa-print"></i></button></td>';
-            html += '</tr>';
-        }
-    } else {
-        html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No recent payments</td></tr>';
-    }
-    html += '        </tbody></table>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
+    // ======================= SECTION 6: GENERAL SCHOOL STOCK =======================
+    html += renderGeneralStockSection(stockData);
 
-    // ======================= SECTION 6: QUICK ACTIONS =======================
+    // ======================= SECTION 7: QUICK ACTIONS =======================
     html += '<div class="db-card overflow-hidden">';
     html += '  <div class="px-5 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center gap-2">';
     html += '    <i class="fas fa-bolt text-amber-400"></i><h3 class="font-display font-bold">Quick Actions</h3>';
@@ -70492,35 +70549,20 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 7: STATUS GROUP HEALTH =======================
-    html += '<div>';
-    html += '  <div class="mb-4"><p class="db-eyebrow">Diagnostics</p><h2 class="db-section-title text-xl mt-0.5">Status Group Health</h2></div>';
-    html += '  <div class="db-card p-4">';
-
-    if (statusGroupHealth && statusGroupHealth.length > 0) {
-        for (var sh = 0; sh < statusGroupHealth.length; sh++) {
-            var sg = statusGroupHealth[sh];
-            var rate = sg.rate || 0;
-            var rateColor = getStatusColor(rate);
-            var barColor = getStatusBarColor(rate);
-            var badge = getStatusBadge(rate);
-
-            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')">';
-            html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor + '"></div>';
-            html += '  <div class="flex-1 min-w-0">';
-            html += '    <div class="flex justify-between items-center">';
-            html += '      <span class="font-semibold text-sm text-slate-700 truncate">' + escapeHtml(sg.name) + '</span>';
-            html += '      <span class="text-sm font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
-            html += '    </div>';
-            html += '    <div class="db-progress-track h-1.5 mt-1.5"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
-            html += '  </div>';
-            html += '  <div class="flex-shrink-0">' + badge + '</div>';
-            html += '</div>';
-        }
-    } else {
-        html += '<div class="text-center py-10 text-slate-400">No status groups found</div>';
-    }
+    // ======================= SECTION 8: SCHOOLPAY EMBED =======================
+    html += '<div id="schoolpaySection">';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Online Payments</p><h2 class="db-section-title text-xl mt-0.5">SchoolPay Portal</h2></div>';
+    html += '    <button onclick="openSchoolPayFullscreen()" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"><i class="fas fa-up-right-from-square"></i> Open in new tab</button>';
     html += '  </div>';
+    html += '  <div class="db-schoolpay-frame">';
+    html += '    <div class="db-schoolpay-bar">';
+    html += '      <span><i class="fas fa-credit-card mr-2"></i>schoolpay.co.ug</span>';
+    html += '      <span class="text-xs font-normal opacity-80">Embedded &mdash; log in with your SchoolPay account</span>';
+    html += '    </div>';
+    html += '    <iframe src="https://www.schoolpay.co.ug/login" style="width:100%;height:640px;border:0;display:block;" loading="lazy" title="SchoolPay Login" referrerpolicy="no-referrer-when-downgrade"></iframe>';
+    html += '  </div>';
+    html += '  <p class="text-xs text-slate-400 mt-2">If the portal doesn\'t load inside the frame (some sites block embedding), use "Open in new tab" above.</p>';
     html += '</div>';
 
     // ======================= FOOTER =======================
@@ -70528,7 +70570,7 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
     html += '  <div class="flex flex-wrap justify-center gap-4">';
     html += '    <span><i class="fas fa-rotate text-emerald-500 mr-1"></i>Live data</span>';
     html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
-    html += '    <span>Dashboard v12.0</span>';
+    html += '    <span>Dashboard v13.0</span>';
     html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + (statusGroupsCount || 0) + ' status groups</span>';
     html += '  </div>';
     html += '</div>';
@@ -70537,72 +70579,57 @@ function renderDashboard(data, termName, currentYear, currentTerm) {
 
     mainContent.innerHTML = html;
 
-    setTimeout(function () { initializePaymentStatusChart(studentStats?.paymentStatus || {}); }, 150);
+    setTimeout(function () {
+        initializePaymentStatusChart(studentStats?.paymentStatus || {});
+        initializeUniformPieChart(uniformData);
+    }, 150);
     initializeItemFilters();
 
-    console.log('✅ Dashboard v12.0 rendered — modern edition');
+    console.log('✅ Dashboard v13.0 rendered');
 }
 
 // ---------------------------------------------------------------------------
-// 5. METRIC CARD
+// 6. METRIC CARD — click drills into a page; small eye toggles hide/show
 // ---------------------------------------------------------------------------
-function renderMetricCardEnhanced(label, value, icon, color, subtext) {
+function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial) {
     const colorMap = {
-        blue: 'from-blue-500 to-blue-600 border-blue-500',
-        green: 'from-green-500 to-green-600 border-green-500',
-        red: 'from-red-500 to-red-600 border-red-500',
-        yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
-        purple: 'from-purple-500 to-purple-600 border-purple-500',
-        indigo: 'from-indigo-500 to-indigo-600 border-indigo-500',
-        pink: 'from-pink-500 to-pink-600 border-pink-500',
-        emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
-        orange: 'from-orange-500 to-orange-600 border-orange-500',
-        teal: 'from-teal-500 to-teal-600 border-teal-500'
+        blue: 'from-blue-500 to-blue-600 border-blue-500', green: 'from-green-500 to-green-600 border-green-500',
+        red: 'from-red-500 to-red-600 border-red-500', yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
+        purple: 'from-purple-500 to-purple-600 border-purple-500', indigo: 'from-indigo-500 to-indigo-600 border-indigo-500',
+        pink: 'from-pink-500 to-pink-600 border-pink-500', emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
+        orange: 'from-orange-500 to-orange-600 border-orange-500', teal: 'from-teal-500 to-teal-600 border-teal-500',
+        gold: 'from-amber-500 to-amber-600 border-amber-500', sky: 'from-sky-500 to-sky-600 border-sky-500'
     };
-    
+    const bgLightMap = {
+        blue: 'bg-blue-100', green: 'bg-green-100', red: 'bg-red-100', yellow: 'bg-yellow-100', purple: 'bg-purple-100',
+        indigo: 'bg-indigo-100', pink: 'bg-pink-100', emerald: 'bg-emerald-100', orange: 'bg-orange-100',
+        teal: 'bg-teal-100', gold: 'bg-amber-100', sky: 'bg-sky-100'
+    };
     const gradient = colorMap[color] || 'from-gray-500 to-gray-600 border-gray-500';
-    const bgLight = color === 'blue' ? 'bg-blue-100' : 
-                    color === 'green' ? 'bg-green-100' : 
-                    color === 'red' ? 'bg-red-100' : 
-                    color === 'yellow' ? 'bg-yellow-100' : 
-                    color === 'purple' ? 'bg-purple-100' : 
-                    color === 'indigo' ? 'bg-indigo-100' : 
-                    color === 'pink' ? 'bg-pink-100' : 
-                    color === 'emerald' ? 'bg-emerald-100' : 
-                    color === 'orange' ? 'bg-orange-100' : 
-                    color === 'teal' ? 'bg-teal-100' : 'bg-gray-100';
-    
-    // Determine if this is a financial card
-    const isFinancial = label.includes('Expected') || label.includes('Collected') || label.includes('Outstanding') || label.includes('Collection Rate');
-    const cardId = 'metric_' + label.replace(/\s/g, '_');
-    
+    const bgLight = bgLightMap[color] || 'bg-gray-100';
+    const cardId = 'metric_' + label.replace(/[^a-zA-Z0-9]/g, '_');
+    const isFin = !!isFinancial;
+
     return `
-        <div class="bg-white rounded-xl shadow-sm border-l-4 ${gradient} p-3 transition-all duration-300 hover:shadow-lg hover:scale-105 hover:z-10 group relative cursor-pointer" 
+        <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
              id="${cardId}"
-             onclick="toggleMetricVisibility('${cardId}')">
+             onclick="${navAction}">
             <div class="flex justify-between items-start">
                 <div class="min-w-0 flex-1">
-                    <p class="text-xs text-gray-500 truncate flex items-center gap-1">
-                        ${label}
-                        ${isFinancial ? `<span class="text-gray-300 text-[10px]">👁️</span>` : ''}
-                    </p>
-                    <p class="text-lg font-bold truncate metric-value" id="${cardId}_value">
-                        ${isFinancial ? '••••••••••' : value}
+                    <p class="text-xs text-gray-500 truncate flex items-center gap-1">${label}</p>
+                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(String(value))}">
+                        ${value}
                     </p>
                     ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtext}</p>` : ''}
                 </div>
-                <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110">
-                    <i class="fas ${icon} text-sm"></i>
+                <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
+                        <i class="fas ${icon} text-sm"></i>
+                    </div>
+                    ${isFin ? `<button onclick="event.stopPropagation(); toggleMetricVisibility('${cardId}')" class="text-gray-300 hover:text-gray-500 text-[10px]" title="Hide/show value"><i class="fas fa-eye"></i></button>` : ''}
                 </div>
             </div>
-            <!-- Hover tooltip with full details -->
-            <div class="absolute hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 z-50 -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full w-64 shadow-xl">
-                <p class="font-bold">${label}</p>
-                <p class="text-lg font-mono">${value}</p>
-                ${subtext ? `<p class="text-gray-300 text-xs mt-1">${subtext}</p>` : ''}
-                <div class="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                <p class="text-[10px] text-gray-400 mt-1">Click to toggle visibility</p>
-            </div>
+            <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
         </div>
     `;
 }
@@ -70613,46 +70640,39 @@ function toggleMetricVisibility(cardId) {
     const subEl = document.getElementById(cardId + '_sub');
     if (!valueEl) return;
 
-    if (!metricVisibilityState[cardId]) metricVisibilityState[cardId] = false;
+    if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = true; // start visible
     metricVisibilityState[cardId] = !metricVisibilityState[cardId];
     const isVisible = metricVisibilityState[cardId];
 
-    const card = document.getElementById(cardId);
-    const originalValue = card?.dataset.originalValue || valueEl.textContent;
-    const originalSub = card?.dataset.originalSub || (subEl ? subEl.textContent : '');
-
+    const realValue = valueEl.getAttribute('data-real-value') || valueEl.textContent;
     if (isVisible) {
-        valueEl.textContent = originalValue;
-        if (subEl && originalSub) subEl.textContent = originalSub;
-        valueEl.className = 'db-metric-value text-lg font-bold text-emerald-600 truncate mt-1';
+        valueEl.textContent = realValue;
     } else {
-        const isFinancial = cardId.includes('Expected') || cardId.includes('Collected') || cardId.includes('Outstanding') || cardId.includes('Collection_Rate');
-        if (isFinancial) {
-            valueEl.textContent = '••••••••';
-            valueEl.className = 'db-metric-value text-lg font-bold text-slate-300 truncate mt-1';
-            if (subEl) subEl.textContent = '••••••••';
-        }
+        valueEl.textContent = '••••••••';
+        if (subEl) subEl.textContent = '••••••••';
     }
 }
 
 // ---------------------------------------------------------------------------
-// 6. STATUS GROUP CARD
+// 7. STATUS GROUP CARD
 // ---------------------------------------------------------------------------
 function renderStatusGroupCard(sg) {
-    const rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
+    const rate = sg.rate !== undefined ? sg.rate : (sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0);
     const rateColor = getStatusColor(rate);
     const barColor = getStatusBarColor(rate);
     const badge = getStatusBadge(rate);
 
-    const items = Object.values(sg.items || {});
+    const items = Array.isArray(sg.items) ? sg.items : Object.values(sg.items || {});
     const topItems = items
-        .sort((a, b) => (b.collected / b.required || 0) - (a.collected / a.required || 0))
+        .slice()
+        .sort((a, b) => ((b.collected / (b.required || 1)) || 0) - ((a.collected / (a.required || 1)) || 0))
         .slice(0, 4);
 
     const borderClass = getStatusGroupColor(sg.name);
+    const cashOnly = sg.paymentOption === 'cash_only';
 
     return `
-        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow">
+        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
             <div class="p-4">
                 <div class="flex justify-between items-start mb-3">
                     <div>
@@ -70661,17 +70681,24 @@ function renderStatusGroupCard(sg) {
                             <h4 class="font-display font-bold text-slate-800">${escapeHtml(sg.name)}</h4>
                             ${badge}
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'termly' ? 'Termly' : 'Yearly'}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'yearly' ? 'Yearly' : 'Termly'}</p>
                     </div>
                     <p class="text-2xl font-bold font-mono-num ${rateColor}">${rate.toFixed(1)}%</p>
                 </div>
 
                 <div class="grid grid-cols-4 gap-2 mb-3">
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Required</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.totalRequired}</p></div>
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collected</p><p class="text-base font-bold font-mono-num text-emerald-600">${sg.totalCollected}</p></div>
-                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p><p class="text-base font-bold font-mono-num text-rose-500">${sg.totalRemaining}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Required</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.totalRequired || 0}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collected</p><p class="text-base font-bold font-mono-num text-emerald-600">${sg.totalCollected || 0}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p><p class="text-base font-bold font-mono-num text-rose-500">${sg.totalRemaining || 0}</p></div>
                     <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Students</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.studentCount || 0}</p></div>
                 </div>
+
+                ${sg.cashExpected ? `
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <div class="bg-indigo-50 rounded-xl p-2 text-center"><p class="text-[10px] text-indigo-400 font-semibold uppercase">Cash Expected</p><p class="text-sm font-bold font-mono-num text-indigo-700">UGX ${formatMoney(sg.cashExpected)}</p></div>
+                    <div class="bg-emerald-50 rounded-xl p-2 text-center"><p class="text-[10px] text-emerald-400 font-semibold uppercase">Cash Collected</p><p class="text-sm font-bold font-mono-num text-emerald-700">UGX ${formatMoney(sg.cashCollected)}</p></div>
+                    <div class="bg-rose-50 rounded-xl p-2 text-center"><p class="text-[10px] text-rose-400 font-semibold uppercase">Cash Balance</p><p class="text-sm font-bold font-mono-num text-rose-600">UGX ${formatMoney(sg.cashRemaining)}</p></div>
+                </div>` : ''}
 
                 <div class="db-progress-track h-2 mb-3"><div class="db-progress-fill ${barColor} h-2" style="width:${Math.min(100, rate)}%"></div></div>
 
@@ -70684,19 +70711,19 @@ function renderStatusGroupCard(sg) {
                                 const itemColor = getStatusColor(itemRate);
                                 const itemBar = getStatusBarColor(itemRate);
                                 return `
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xs font-medium text-slate-600 flex-1 truncate">${escapeHtml(item.name)}</span>
+                                    <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${escapeHtml(item.name).replace(/'/g, "\\'")}', '${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+                                        <span class="text-xs font-medium text-slate-600 flex-1 truncate hover:text-indigo-600">${escapeHtml(item.name)}</span>
                                         <span class="text-xs font-bold font-mono-num ${itemColor}">${item.collected}/${item.required}</span>
                                         <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
                                     </div>
                                 `;
                             }).join('')}
-                            ${Object.values(sg.items || {}).length > 4 ? `<p class="text-xs text-slate-400 text-center pt-1">+${Object.values(sg.items || {}).length - 4} more items</p>` : ''}
+                            ${items.length > 4 ? `<p class="text-xs text-slate-400 text-center pt-1">+${items.length - 4} more items</p>` : ''}
                         </div>
                     </div>
                 ` : ''}
 
-                <button onclick="navigateToStatusGroupReport('${escapeHtml(sg.name)}')"
+                <button onclick="event.stopPropagation(); navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')"
                         class="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm py-2 rounded-xl transition font-semibold">
                     <i class="fas fa-eye mr-1.5"></i>View Details
                 </button>
@@ -70706,14 +70733,11 @@ function renderStatusGroupCard(sg) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. CLASS PERFORMANCE TABLE
+// 8. CLASS PERFORMANCE TABLE (built from data.classPerformance: {group:{class:{required,collected}}})
 // ---------------------------------------------------------------------------
-function renderClassPerformanceTable(statusGroups) {
-    const classSet = new Set();
-    statusGroups.forEach(sg => Object.keys(sg.classBreakdown || {}).forEach(cls => classSet.add(cls)));
-    const classes = Array.from(classSet).sort();
-
-    if (classes.length === 0) {
+function renderClassPerformanceTable(classPerformance) {
+    const groupNames = Object.keys(classPerformance || {});
+    if (groupNames.length === 0) {
         return `<div class="text-center py-10 text-slate-400">
             <i class="fas fa-chalkboard text-3xl mb-2 text-slate-300"></i>
             <p class="font-medium">No class performance data available</p>
@@ -70721,10 +70745,9 @@ function renderClassPerformanceTable(statusGroups) {
         </div>`;
     }
 
-    const groupsWithData = statusGroups.filter(sg => Object.keys(sg.classBreakdown || {}).length > 0);
-    if (groupsWithData.length === 0) {
-        return `<div class="text-center py-10 text-slate-400"><i class="fas fa-tags text-3xl mb-2 text-slate-300"></i><p>No status group data by class</p></div>`;
-    }
+    const classSet = new Set();
+    groupNames.forEach(g => Object.keys(classPerformance[g] || {}).forEach(cls => classSet.add(cls)));
+    const classes = Array.from(classSet).sort();
 
     let html = `<table class="w-full text-xs">
         <thead class="db-table"><tr>
@@ -70732,13 +70755,15 @@ function renderClassPerformanceTable(statusGroups) {
             ${classes.map(cls => `<th class="p-2 text-center min-w-12">${escapeHtml(cls)}</th>`).join('')}
         </tr></thead><tbody class="divide-y divide-slate-100">`;
 
-    for (const sg of groupsWithData) {
-        const breakdown = sg.classBreakdown || {};
-        const rate = sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0;
+    for (const groupName of groupNames) {
+        const breakdown = classPerformance[groupName] || {};
+        let totalReq = 0, totalCol = 0;
+        Object.values(breakdown).forEach(d => { totalReq += d.required || 0; totalCol += d.collected || 0; });
+        const rate = totalReq > 0 ? (totalCol / totalReq * 100) : 0;
         const rowTint = rate >= 85 ? 'bg-emerald-50/40' : rate >= 70 ? 'bg-amber-50/40' : rate >= 50 ? 'bg-orange-50/40' : 'bg-rose-50/40';
 
-        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(sg.name)}')">
-            <td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">${escapeHtml(sg.name)}</td>`;
+        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(groupName).replace(/'/g, "\\'")}')">
+            <td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">${escapeHtml(groupName)}</td>`;
 
         for (const cls of classes) {
             const dataC = breakdown[cls] || { required: 0, collected: 0 };
@@ -70767,54 +70792,37 @@ function renderClassPerformanceTable(statusGroups) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. PAYMENT STATUS CHART
+// 9. PAYMENT STATUS CHART
 // ---------------------------------------------------------------------------
 function initializePaymentStatusChart(paymentStatus) {
     const canvas = document.getElementById('paymentStatusChart');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
     const ctx = canvas.getContext('2d');
 
-    const data = {
+    const chartData = {
         labels: ['Fully Paid', 'Payment Due', 'Critical Overdue', 'No Payment', 'Credit Balance'],
         datasets: [{
             data: [
-                paymentStatus.fullyPaid || 0,
-                paymentStatus.paymentDue || 0,
-                paymentStatus.criticalOverdue || 0,
-                paymentStatus.noPayment || 0,
-                paymentStatus.creditBalance || 0
+                paymentStatus.fullyPaid || 0, paymentStatus.paymentDue || 0, paymentStatus.criticalOverdue || 0,
+                paymentStatus.noPayment || 0, paymentStatus.creditBalance || 0
             ],
             backgroundColor: ['#12A66B', '#DB9A2C', '#E45B6B', '#94A3B8', '#2F8FE0'],
-            borderWidth: 3,
-            borderColor: '#ffffff',
-            hoverOffset: 6
+            borderWidth: 3, borderColor: '#ffffff', hoverOffset: 6
         }]
     };
+    const total = chartData.datasets[0].data.reduce((a, b) => a + b, 0);
 
-    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
-
-    if (window._paymentStatusChartInstance) {
-        try { window._paymentStatusChartInstance.destroy(); } catch (e) {}
-    }
+    if (window._paymentStatusChartInstance) { try { window._paymentStatusChartInstance.destroy(); } catch (e) {} }
 
     window._paymentStatusChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: data,
+        type: 'doughnut', data: chartData,
         options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '68%',
+            responsive: true, maintainAspectRatio: true, cutout: '68%',
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' }
-                },
+                legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' } },
                 tooltip: {
-                    backgroundColor: '#0B1324',
-                    padding: 10,
-                    cornerRadius: 10,
-                    titleFont: { family: 'Sora', weight: '700' },
-                    bodyFont: { family: 'Inter' },
+                    backgroundColor: '#0B1324', padding: 10, cornerRadius: 10,
+                    titleFont: { family: 'Sora', weight: '700' }, bodyFont: { family: 'Inter' },
                     callbacks: {
                         label: function (context) {
                             const value = context.raw;
@@ -70829,7 +70837,214 @@ function initializePaymentStatusChart(paymentStatus) {
 }
 
 // ---------------------------------------------------------------------------
-// 9. ITEM FILTERS
+// 10. UNIFORM SECTION — pie chart of paid status + stock table
+// ---------------------------------------------------------------------------
+function renderUniformSection(uniformData) {
+    let html = '<div id="uniformSection">';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Uniform</p><h2 class="db-section-title text-xl mt-0.5">Uniform Statistics</h2></div>';
+    html += '    <button onclick="showUniformManagement()" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Manage Uniforms &rarr;</button>';
+    html += '  </div>';
+
+    if (!uniformData) {
+        html += '<div class="db-card p-10 text-center border-dashed">';
+        html += '<i class="fas fa-shirt text-slate-300 text-4xl mb-3"></i>';
+        html += '<p class="text-slate-500 font-medium">Uniform data unavailable</p>';
+        html += '<p class="text-sm text-slate-400 mt-1">Could not load /api/uniform/summary — check the Uniform Management page directly.</p>';
+        html += '</div></div>';
+        return html;
+    }
+
+    const studentDetails = uniformData.studentDetails || {};
+    const studentList = Object.values(studentDetails);
+
+    let fullyPaidCount = 0, halfPaidCount = 0, notPaidCount = 0, totalStudentsWithUniform = studentList.length;
+    for (const s of studentList) {
+        const total = s.totalRequired || 0;
+        const collected = s.totalCollected || 0;
+        if (total === 0) continue;
+        if (collected >= total) fullyPaidCount++;
+        else if (collected > 0) halfPaidCount++;
+        else notPaidCount++;
+    }
+
+    const itemTotals = uniformData.itemTotals || {};
+    const itemRows = Object.values(itemTotals);
+    const stock = uniformData.stock || {};
+    const stockRows = Object.keys(stock).map(k => stock[k]).filter(Boolean);
+
+    html += '  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">';
+
+    // Pie chart card
+    html += '    <div class="db-card overflow-hidden">';
+    html += '      <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '        <div class="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center"><i class="fas fa-shirt text-sm"></i></div>';
+    html += '        <h3 class="font-display font-bold text-slate-800">Uniform Payment Status</h3>';
+    html += '      </div>';
+    html += '      <div class="p-5">';
+    html += '        <div class="h-60"><canvas id="uniformPieChart"></canvas></div>';
+    html += '        <div class="grid grid-cols-3 gap-2 mt-5">';
+    html += '          <div class="text-center p-2.5 rounded-xl bg-emerald-50 text-emerald-700 cursor-pointer" onclick="showUniformManagement()"><p class="text-[11px] font-semibold">Fully Paid</p><p class="text-xl font-bold font-mono-num">' + fullyPaidCount + '</p></div>';
+    html += '          <div class="text-center p-2.5 rounded-xl bg-amber-50 text-amber-700 cursor-pointer" onclick="showUniformManagement()"><p class="text-[11px] font-semibold">Partly Paid</p><p class="text-xl font-bold font-mono-num">' + halfPaidCount + '</p></div>';
+    html += '          <div class="text-center p-2.5 rounded-xl bg-rose-50 text-rose-700 cursor-pointer" onclick="showUniformManagement()"><p class="text-[11px] font-semibold">Not Paid</p><p class="text-xl font-bold font-mono-num">' + notPaidCount + '</p></div>';
+    html += '        </div>';
+    html += '        <p class="text-xs text-slate-400 text-center mt-3">' + totalStudentsWithUniform + ' students with uniform requirements</p>';
+    html += '      </div>';
+    html += '    </div>';
+
+    // Item stock summary card
+    html += '    <div class="db-card overflow-hidden">';
+    html += '      <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-warehouse text-sm"></i></div>';
+    html += '        <h3 class="font-display font-bold text-slate-800">Uniform Item Stock</h3>';
+    html += '      </div>';
+    html += '      <div class="p-4 max-h-72 overflow-y-auto db-scroll">';
+    if (stockRows.length > 0) {
+        html += '<table class="w-full text-sm"><thead class="db-table"><tr><th class="p-2 text-left">Item</th><th class="p-2 text-right">Received</th><th class="p-2 text-right">Issued</th><th class="p-2 text-right">Available</th></tr></thead><tbody class="divide-y divide-slate-100">';
+        for (const row of stockRows) {
+            const low = (row.available || 0) <= 5;
+            html += '<tr class="cursor-pointer hover:bg-slate-50" onclick="showUniformManagement()">';
+            html += '<td class="p-2 font-medium text-slate-700">' + escapeHtml(row.name || '') + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-slate-500">' + (row.totalReceived || 0) + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-slate-500">' + (row.issued || 0) + '</td>';
+            html += '<td class="p-2 text-right font-mono-num font-bold ' + (low ? 'text-rose-600' : 'text-emerald-600') + '">' + (row.available || 0) + (low ? ' <i class="fas fa-triangle-exclamation text-[10px]"></i>' : '') + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+    } else {
+        html += '<div class="text-center py-8 text-slate-400"><i class="fas fa-box-open text-2xl mb-2 text-slate-300"></i><p class="text-sm">No uniform stock recorded yet</p></div>';
+    }
+    html += '      </div>';
+    html += '    </div>';
+
+    html += '  </div>';
+
+    // Item collection (required vs collected) table
+    if (itemRows.length > 0) {
+        html += '  <div class="db-card overflow-hidden">';
+        html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+        html += '      <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-list-check text-sm"></i></div>';
+        html += '      <h3 class="font-display font-bold text-slate-800">Uniform Item Collection</h3>';
+        html += '    </div>';
+        html += '    <div class="p-4 max-h-80 overflow-y-auto db-scroll">';
+        html += '      <table class="w-full text-sm"><thead class="db-table"><tr><th class="p-2 text-left">Item</th><th class="p-2 text-right">Required</th><th class="p-2 text-right">Collected</th><th class="p-2 text-right">Remaining</th><th class="p-2 text-center">Rate</th><th class="p-2 text-right">Students</th></tr></thead><tbody class="divide-y divide-slate-100">';
+        for (const item of itemRows) {
+            const required = item.totalRequired || 0;
+            const collected = item.totalCollected || 0;
+            const rate = required > 0 ? (collected / required * 100) : 0;
+            html += '<tr class="cursor-pointer hover:bg-slate-50" onclick="showUniformManagement()">';
+            html += '<td class="p-2 font-medium text-slate-700">' + escapeHtml(item.name || '') + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-slate-600">' + required + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-emerald-600">' + collected + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-rose-500">' + (item.totalRemaining || 0) + '</td>';
+            html += '<td class="p-2 text-center font-bold font-mono-num ' + getStatusColor(rate) + '">' + rate.toFixed(1) + '%</td>';
+            html += '<td class="p-2 text-right text-slate-500">' + (item.studentsCount || 0) + '</td>';
+            html += '</tr>';
+        }
+        html += '      </tbody></table>';
+        html += '    </div>';
+        html += '  </div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function initializeUniformPieChart(uniformData) {
+    const canvas = document.getElementById('uniformPieChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    let fullyPaidCount = 0, halfPaidCount = 0, notPaidCount = 0;
+    if (uniformData && uniformData.studentDetails) {
+        const list = Object.values(uniformData.studentDetails);
+        for (const s of list) {
+            const total = s.totalRequired || 0;
+            const collected = s.totalCollected || 0;
+            if (total === 0) continue;
+            if (collected >= total) fullyPaidCount++;
+            else if (collected > 0) halfPaidCount++;
+            else notPaidCount++;
+        }
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (window._uniformPieChartInstance) { try { window._uniformPieChartInstance.destroy(); } catch (e) {} }
+
+    window._uniformPieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Fully Paid', 'Partly Paid', 'Not Paid'],
+            datasets: [{
+                data: [fullyPaidCount, halfPaidCount, notPaidCount],
+                backgroundColor: ['#12A66B', '#DB9A2C', '#E45B6B'],
+                borderWidth: 3, borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' } }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 11. GENERAL SCHOOL STOCK SECTION (food/cleaning/office/etc.)
+// ---------------------------------------------------------------------------
+function renderGeneralStockSection(stockData) {
+    let html = '<div id="generalStockSection">';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Supplies</p><h2 class="db-section-title text-xl mt-0.5">General School Stock</h2></div>';
+    html += '    <button onclick="showInventory()" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Manage Stock &rarr;</button>';
+    html += '  </div>';
+
+    if (!stockData) {
+        html += '<div class="db-card p-10 text-center border-dashed">';
+        html += '<i class="fas fa-boxes-stacked text-slate-300 text-4xl mb-3"></i>';
+        html += '<p class="text-slate-500 font-medium">General stock data unavailable</p>';
+        html += '<p class="text-sm text-slate-400 mt-1">Could not load /api/school-stock/summary — check the Inventory page directly.</p>';
+        html += '</div></div>';
+        return html;
+    }
+
+    const categories = stockData.categories || {};
+    const catKeys = Object.keys(categories);
+
+    html += '  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">';
+    html += '    <div class="db-metric border-l-4 border-slate-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Total Items</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalItems || 0) + '</p></div>';
+    html += '    <div class="db-metric border-l-4 border-emerald-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Available</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalAvailable || 0) + '</p></div>';
+    html += '    <div class="db-metric border-l-4 border-indigo-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Received</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalReceived || 0) + '</p></div>';
+    html += '    <div class="db-metric border-l-4 border-amber-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Issued</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalIssued || 0) + '</p></div>';
+    html += '  </div>';
+
+    if (catKeys.length > 0) {
+        html += '  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+        for (const key of catKeys) {
+            const cat = categories[key];
+            html += '<div class="db-card p-4 cursor-pointer hover:shadow-lg transition-shadow" onclick="navigateToStockCategory(\'' + escapeHtml(key) + '\')">';
+            html += '  <div class="flex items-center justify-between mb-2">';
+            html += '    <span class="font-display font-bold text-slate-800 text-sm">' + escapeHtml(cat.name || key) + '</span>';
+            html += '    <span class="db-badge bg-slate-100 text-slate-600">' + (cat.items || 0) + ' items</span>';
+            html += '  </div>';
+            html += '  <div class="grid grid-cols-3 gap-2 text-center">';
+            html += '    <div><p class="text-[10px] text-slate-400 uppercase">Avail.</p><p class="font-mono-num font-bold text-emerald-600">' + (cat.totalAvailable || 0) + '</p></div>';
+            html += '    <div><p class="text-[10px] text-slate-400 uppercase">Recv.</p><p class="font-mono-num font-bold text-indigo-600">' + (cat.totalReceived || 0) + '</p></div>';
+            html += '    <div><p class="text-[10px] text-slate-400 uppercase">Issued</p><p class="font-mono-num font-bold text-amber-600">' + (cat.totalIssued || 0) + '</p></div>';
+            html += '  </div>';
+            html += '</div>';
+        }
+        html += '  </div>';
+    } else {
+        html += '<div class="db-card p-8 text-center border-dashed"><p class="text-slate-400 text-sm">No general stock categories set up yet</p></div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// ---------------------------------------------------------------------------
+// 12. ITEM FILTERS
 // ---------------------------------------------------------------------------
 function initializeItemFilters() {
     const searchInput = document.getElementById('itemSearchInput');
@@ -70856,7 +71071,7 @@ function filterItemsTable() {
         if (searchTerm) matchesSearch = name.includes(searchTerm);
 
         let matchesGroup = true;
-        if (groupValue) matchesGroup = group === groupValue.toLowerCase();
+        if (groupValue) matchesGroup = group === groupValue;
 
         const isVisible = matchesSearch && matchesGroup;
         row.style.display = isVisible ? '' : 'none';
@@ -70907,30 +71122,13 @@ function sortItemsTable(column) {
 }
 
 // ---------------------------------------------------------------------------
-// 10. NAVIGATION
-// ---------------------------------------------------------------------------
-function navigateToStatusGroupReport(statusGroupName) {
-    showReports();
-    setTimeout(() => {
-        const filterSelect = document.getElementById('reportStatusGroupFilter');
-        if (filterSelect) {
-            for (let i = 0; i < filterSelect.options.length; i++) {
-                if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
-            }
-            setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
-        }
-    }, 300);
-}
-
-// ---------------------------------------------------------------------------
-// 11. RECEIPT PRINTING (visual refresh, same data flow)
+// 13. RECEIPT PRINTING (unchanged data flow)
 // ---------------------------------------------------------------------------
 async function printReceipt(receiptNumber) {
     if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
         alert('Invalid receipt number. Cannot print receipt.');
         return;
     }
-
     try {
         const response = await fetch('/api/fee/payments');
         if (!response.ok) throw new Error('Failed to fetch payments');
@@ -70940,7 +71138,6 @@ async function printReceipt(receiptNumber) {
         if (!payment) payment = payments.find(p => p.receiptNumber?.toLowerCase() === receiptNumber.toLowerCase());
         if (!payment) payment = payments.find(p => p.receiptNumber?.includes(receiptNumber) || receiptNumber.includes(p.receiptNumber));
         if (!payment) payment = payments.find(p => p.id === receiptNumber);
-
         if (!payment) { alert('Payment record not found for receipt: ' + receiptNumber); return; }
 
         const schoolRes = await fetch('/api/school');
@@ -71023,7 +71220,6 @@ async function printReceipt(receiptNumber) {
             </body></html>
         `);
         printWindow.document.close();
-
     } catch (error) {
         console.error('Error printing receipt:', error);
         alert('Error printing receipt: ' + error.message);
@@ -71048,7 +71244,7 @@ async function refreshDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 12. PRINT DASHBOARD SUMMARY REPORT
+// 14. PRINT DASHBOARD SUMMARY REPORT (unchanged)
 // ---------------------------------------------------------------------------
 async function printDashboardReport() {
     const { currentYear, currentTerm } = currentAcademicSettings;
@@ -71126,7 +71322,7 @@ async function printDashboardReport() {
 }
 
 // ---------------------------------------------------------------------------
-// 13. SIDEBAR LOGO
+// 15. SIDEBAR LOGO
 // ---------------------------------------------------------------------------
 async function updateSidebarLogo() {
     try {
@@ -71156,7 +71352,7 @@ async function updateSidebarLogo() {
 updateSidebarLogo();
 
 // ---------------------------------------------------------------------------
-// 14. GLOBAL EXPORTS
+// 16. GLOBAL EXPORTS
 // ---------------------------------------------------------------------------
 window.showDashboard = showDashboard;
 window.refreshDashboard = refreshDashboard;
@@ -71165,6 +71361,13 @@ window.printDashboardReport = printDashboardReport;
 window.printReceipt = printReceipt;
 window.viewPaymentReceipt = viewPaymentReceipt;
 window.navigateToStatusGroupReport = navigateToStatusGroupReport;
+window.navigateToItemReport = navigateToItemReport;
+window.navigateToTuitionReport = navigateToTuitionReport;
+window.navigateToUniformSection = navigateToUniformSection;
+window.navigateToInventorySection = navigateToInventorySection;
+window.navigateToStockCategory = navigateToStockCategory;
+window.navigateToStudentList = navigateToStudentList;
+window.openSchoolPayFullscreen = openSchoolPayFullscreen;
 window.filterItemsTable = filterItemsTable;
 window.resetItemFilters = resetItemFilters;
 window.sortItemsTable = sortItemsTable;
@@ -71173,7 +71376,7 @@ window.getTermName = getTermName;
 window.toggleMetricVisibility = toggleMetricVisibility;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
 
-console.log('✅ Dashboard v12.0 (Modern Edition) loaded — teal/indigo ledger design system');
+console.log('✅ Dashboard v13.0 loaded — uniform + general stock + drill-down + SchoolPay embed');
 // ==================== RENDER FEE STRUCTURE STATISTICS PAGE ====================
 
 // ==================== COMPLETELY REBUILT FEE STRUCTURE STATISTICS PAGE ====================
