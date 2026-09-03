@@ -85678,11 +85678,13 @@ window.addEventListener('beforeunload', function() {
 
 console.log('✅ Chat/Contact UI loaded');
 // ================================================================
-// AI ASSISTANT PAGE
+// ================================================================
+// AI ASSISTANT - FULLY WORKING FRONTEND
 // ================================================================
 
-let aiChatHistory = []; // Store messages for the session
-
+// ================================================================
+// SHOW AI ASSISTANT PAGE
+// ================================================================
 async function showAIAssistant() {
     console.log('🤖 Opening AI Assistant...');
 
@@ -85704,33 +85706,38 @@ async function showAIAssistant() {
     try {
         // Check AI status
         const statusRes = await fetch('/api/ai/status');
-        const status = statusRes.ok ? await statusRes.json() : { status: 'offline' };
-        const isReady = status.status === 'ready' || status.initialized === true;
+        const status = statusRes.ok ? await statusRes.json() : { initialized: false };
+        const isReady = status.initialized === true;
 
-        // Render the AI assistant page
+        // Render the page
         mainContent.innerHTML = renderAIAssistantPage(isReady);
 
-        // If ready, initialize chat functionality
-        if (isReady) {
-            initializeAIChat();
-        } else {
-            // Show a notice that the AI is not available
-            document.getElementById('aiChatMessages').innerHTML = `
-                <div class="text-center text-gray-500 py-8">
-                    <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-3"></i>
-                    <p class="font-semibold">AI Assistant is not available</p>
-                    <p class="text-sm text-gray-400">Please ensure Ollama is running and the model is loaded.</p>
-                    <button onclick="showAIAssistant()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-sync-alt"></i> Retry
-                    </button>
-                </div>
-            `;
-            // Still allow input but show a warning
-            const input = document.getElementById('aiChatInput');
-            if (input) input.disabled = true;
-            const sendBtn = document.getElementById('aiChatSend');
-            if (sendBtn) sendBtn.disabled = true;
+        // Initialize chat functionality
+        initializeAIChat();
+
+        // If not ready, show message
+        if (!isReady) {
+            const messages = document.getElementById('aiChatMessages');
+            if (messages) {
+                messages.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-3"></i>
+                        <p class="font-semibold">AI Assistant is not available</p>
+                        <p class="text-sm text-gray-400">Please ensure Ollama is running and the model is loaded.</p>
+                        <button onclick="showAIAssistant()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-sync-alt"></i> Retry
+                        </button>
+                    </div>
+                `;
+                const input = document.getElementById('aiChatInput');
+                if (input) input.disabled = true;
+                const sendBtn = document.getElementById('aiChatSend');
+                if (sendBtn) sendBtn.disabled = true;
+            }
         }
+
+        // Scroll to top
+        mainContent.scrollTop = 0;
 
     } catch (error) {
         console.error('Error loading AI Assistant:', error);
@@ -85750,12 +85757,11 @@ async function showAIAssistant() {
 // ================================================================
 // RENDER AI ASSISTANT PAGE
 // ================================================================
-
 function renderAIAssistantPage(isReady) {
     return `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[calc(100vh-200px)] flex flex-col">
+        <div id="aiAssistantPage" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[calc(100vh-200px)] flex flex-col">
             <!-- Header -->
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex justify-between items-center">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex justify-between items-center flex-wrap gap-2">
                 <div class="flex items-center gap-3">
                     <i class="fas fa-robot text-2xl"></i>
                     <div>
@@ -85763,12 +85769,12 @@ function renderAIAssistantPage(isReady) {
                         <p class="text-xs opacity-80">Local AI – Data stays on your computer</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3 flex-wrap">
                     <span class="text-xs bg-white/20 px-3 py-1 rounded-full flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full ${isReady ? 'bg-green-400' : 'bg-yellow-400'} animate-pulse"></span>
+                        <span class="w-2 h-2 rounded-full ${isReady ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}"></span>
                         ${isReady ? 'Ready' : 'Offline'}
                     </span>
-                    <button onclick="clearAIChat()" class="text-white/70 hover:text-white text-sm flex items-center gap-1">
+                    <button onclick="clearAIChat()" class="text-white/70 hover:text-white text-sm flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full hover:bg-white/20 transition">
                         <i class="fas fa-trash-alt"></i> Clear
                     </button>
                 </div>
@@ -85776,22 +85782,22 @@ function renderAIAssistantPage(isReady) {
 
             <!-- Quick Actions -->
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex flex-wrap gap-2">
-                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="📊 Financial summary">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100 hover:border-gray-400 transition" data-query="📊 Financial summary">
                     📊 Summary
                 </button>
-                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="⚠️ Show overdue students">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100 hover:border-gray-400 transition" data-query="⚠️ Show overdue students">
                     ⚠️ Overdue
                 </button>
-                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="👥 List all students">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100 hover:border-gray-400 transition" data-query="👥 List all students">
                     👥 Students
                 </button>
-                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="📚 Class statistics">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100 hover:border-gray-400 transition" data-query="📚 Class statistics">
                     📚 Classes
                 </button>
-                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="💰 Fee structures">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100 hover:border-gray-400 transition" data-query="💰 Fee structures">
                     💰 Fees
                 </button>
-                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100" data-query="📋 Today's payments">
+                <button class="ai-quick-btn text-xs bg-white border border-gray-300 rounded-full px-3 py-1 hover:bg-gray-100 hover:border-gray-400 transition" data-query="📋 Today's payments">
                     📋 Today
                 </button>
             </div>
@@ -85825,7 +85831,7 @@ function renderAIAssistantPage(isReady) {
                            ${!isReady ? 'disabled' : ''}
                            onkeydown="if(event.key==='Enter') sendAIChatMessage()">
                     <button id="aiChatSend" onclick="sendAIChatMessage()" 
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             ${!isReady ? 'disabled' : ''}>
                         <i class="fas fa-paper-plane"></i> Send
                     </button>
@@ -85840,10 +85846,11 @@ function renderAIAssistantPage(isReady) {
 }
 
 // ================================================================
-// AI CHAT FUNCTIONALITY
+// INITIALIZE AI CHAT
 // ================================================================
-
 function initializeAIChat() {
+    console.log('🔧 Initializing AI Chat...');
+
     // Quick action buttons
     document.querySelectorAll('.ai-quick-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -85858,16 +85865,30 @@ function initializeAIChat() {
 
     // Focus input
     const input = document.getElementById('aiChatInput');
-    if (input) input.focus();
+    if (input) {
+        setTimeout(() => input.focus(), 500);
+    }
+
+    console.log('✅ AI Chat initialized');
 }
 
+// ================================================================
+// SEND AI CHAT MESSAGE (FIXED)
+// ================================================================
 async function sendAIChatMessage() {
     const input = document.getElementById('aiChatInput');
     const messagesContainer = document.getElementById('aiChatMessages');
     const sendBtn = document.getElementById('aiChatSend');
 
+    if (!input || !messagesContainer) {
+        console.error('❌ AI Chat elements not found');
+        return;
+    }
+
     const message = input.value.trim();
     if (!message) return;
+
+    console.log(`📤 Sending message: "${message}"`);
 
     // Disable input and button
     input.disabled = true;
@@ -85882,32 +85903,48 @@ async function sendAIChatMessage() {
     appendAIMessage('Thinking...', 'loading', loadingId);
 
     try {
+        const startTime = Date.now();
         const response = await fetch('/api/ai/chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
             body: JSON.stringify({ message })
         });
 
-        const data = await response.json();
+        const duration = Date.now() - startTime;
+        console.log(`📡 Response received in ${duration}ms`);
 
         // Remove loading indicator
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
 
-        if (response.ok && data.response) {
-            appendAIMessage(data.response, 'assistant');
-            // If there's additional data, we could display it as a collapsible or table
-            if (data.data) {
-                // Optionally show a small data preview
-                console.log('Additional data:', data.data);
-            }
-        } else {
-            appendAIMessage('❌ Error: ' + (data.error || 'Unknown error'), 'error');
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ HTTP ${response.status}:`, errorText);
+            appendAIMessage(`❌ Error: ${response.status} - ${errorText}`, 'error');
+            return;
         }
+
+        const data = await response.json();
+        console.log('📥 Response data:', data);
+
+        // Handle different response formats
+        let responseText = data.result || data.response || data.message || 'No response from AI.';
+
+        // If response is an object with more data, format nicely
+        if (typeof responseText === 'object') {
+            responseText = JSON.stringify(responseText, null, 2);
+        }
+
+        appendAIMessage(responseText, 'assistant');
+
     } catch (error) {
+        console.error('❌ Network error:', error);
         const loadingEl = document.getElementById(loadingId);
         if (loadingEl) loadingEl.remove();
-        appendAIMessage('❌ Network error: ' + error.message, 'error');
+        appendAIMessage(`❌ Network error: ${error.message}`, 'error');
     }
 
     // Re-enable input and button
@@ -85916,29 +85953,33 @@ async function sendAIChatMessage() {
     input.focus();
 }
 
+// ================================================================
+// APPEND AI MESSAGE
+// ================================================================
 function appendAIMessage(text, role, id) {
     const container = document.getElementById('aiChatMessages');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ Messages container not found');
+        return;
+    }
 
     const div = document.createElement('div');
     if (id) div.id = id;
-    div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`;
+    div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn mb-2`;
 
     const bubble = document.createElement('div');
-    if (role === 'user') {
-        bubble.className = 'bg-indigo-600 text-white rounded-lg px-4 py-2 max-w-[80%] shadow-sm';
-        bubble.textContent = text;
-    } else if (role === 'loading') {
-        bubble.className = 'bg-gray-200 text-gray-500 rounded-lg px-4 py-2 flex items-center gap-2';
+    bubble.className = `rounded-lg px-4 py-2 max-w-[80%] shadow-sm whitespace-pre-wrap ${
+        role === 'user' ? 'bg-indigo-600 text-white' :
+        role === 'error' ? 'bg-red-100 text-red-700 border border-red-200' :
+        role === 'loading' ? 'bg-gray-200 text-gray-500 flex items-center gap-2' :
+        'bg-gray-100 text-gray-800'
+    }`;
+
+    if (role === 'loading') {
         bubble.innerHTML = '<span class="w-4 h-4 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></span> Thinking...';
-    } else if (role === 'error') {
-        bubble.className = 'bg-red-100 text-red-700 rounded-lg px-4 py-2 max-w-[80%] shadow-sm';
-        bubble.textContent = text;
     } else {
-        // assistant
-        bubble.className = 'bg-gray-100 text-gray-800 rounded-lg px-4 py-2 max-w-[80%] shadow-sm whitespace-pre-wrap';
         // Convert newlines to <br> for better formatting
-        bubble.innerHTML = text.replace(/\n/g, '<br>');
+        bubble.innerHTML = String(text).replace(/\n/g, '<br>');
     }
 
     div.appendChild(bubble);
@@ -85948,29 +85989,46 @@ function appendAIMessage(text, role, id) {
     container.scrollTop = container.scrollHeight;
 }
 
+// ================================================================
+// CLEAR AI CHAT
+// ================================================================
 async function clearAIChat() {
     if (!confirm('Clear the chat history?')) return;
+
     const container = document.getElementById('aiChatMessages');
     if (!container) return;
-    // Keep only the initial greeting
+
+    // Clear on server
+    try {
+        await fetch('/api/ai/clear', { method: 'POST' });
+    } catch (e) {
+        console.warn('Could not clear server history:', e);
+    }
+
+    // Reset UI
     container.innerHTML = `
         <div class="text-center text-xs text-gray-400 py-2">
             <i class="fas fa-robot mr-1"></i> Chat cleared
         </div>
         <div class="flex justify-start">
             <div class="bg-blue-100 text-blue-800 rounded-lg p-3 max-w-[80%] shadow-sm">
-                👋 Hello! I'm your School Management AI Assistant.<br>
-                How can I help you today?
+                👋 Chat cleared. How can I help you today?
             </div>
         </div>
     `;
-    // Also clear any stored history if we had it
-    aiChatHistory = [];
+
+    // Focus input
+    const input = document.getElementById('aiChatInput');
+    if (input) input.focus();
 }
 
-// Add animation CSS (if not already present)
-function addAIChatStyles() {
+// ================================================================
+// ADD CSS ANIMATIONS
+// ================================================================
+(function addAIChatStyles() {
+    if (document.getElementById('aiChatStyles')) return;
     const style = document.createElement('style');
+    style.id = 'aiChatStyles';
     style.textContent = `
         .animate-fadeIn {
             animation: fadeIn 0.3s ease-in-out;
@@ -85979,16 +86037,34 @@ function addAIChatStyles() {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        #aiChatMessages::-webkit-scrollbar {
+            width: 6px;
+        }
+        #aiChatMessages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 8px;
+        }
+        #aiChatMessages::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 8px;
+        }
+        #aiChatMessages::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        .ai-quick-btn:hover {
+            transform: scale(1.02);
+        }
     `;
     document.head.appendChild(style);
-}
-addAIChatStyles();
+})();
 
 // ================================================================
 // EXPOSE TO GLOBAL SCOPE
 // ================================================================
-
 window.showAIAssistant = showAIAssistant;
 window.sendAIChatMessage = sendAIChatMessage;
 window.clearAIChat = clearAIChat;
 window.appendAIMessage = appendAIMessage;
+window.initializeAIChat = initializeAIChat;
+
+console.log('🤖 AI Assistant frontend loaded successfully!');
