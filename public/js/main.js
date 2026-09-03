@@ -70647,16 +70647,23 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 // ---------------------------------------------------------------------------
 function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial) {
     const colorMap = {
-        blue: 'from-blue-500 to-blue-600 border-blue-500', green: 'from-green-500 to-green-600 border-green-500',
-        red: 'from-red-500 to-red-600 border-red-500', yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
-        purple: 'from-purple-500 to-purple-600 border-purple-500', indigo: 'from-indigo-500 to-indigo-600 border-indigo-500',
-        pink: 'from-pink-500 to-pink-600 border-pink-500', emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
-        orange: 'from-orange-500 to-orange-600 border-orange-500', teal: 'from-teal-500 to-teal-600 border-teal-500',
-        gold: 'from-amber-500 to-amber-600 border-amber-500', sky: 'from-sky-500 to-sky-600 border-sky-500'
+        blue: 'from-blue-500 to-blue-600 border-blue-500',
+        green: 'from-green-500 to-green-600 border-green-500',
+        red: 'from-red-500 to-red-600 border-red-500',
+        yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
+        purple: 'from-purple-500 to-purple-600 border-purple-500',
+        indigo: 'from-indigo-500 to-indigo-600 border-indigo-500',
+        pink: 'from-pink-500 to-pink-600 border-pink-500',
+        emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
+        orange: 'from-orange-500 to-orange-600 border-orange-500',
+        teal: 'from-teal-500 to-teal-600 border-teal-500',
+        gold: 'from-amber-500 to-amber-600 border-amber-500',
+        sky: 'from-sky-500 to-sky-600 border-sky-500'
     };
     const bgLightMap = {
-        blue: 'bg-blue-100', green: 'bg-green-100', red: 'bg-red-100', yellow: 'bg-yellow-100', purple: 'bg-purple-100',
-        indigo: 'bg-indigo-100', pink: 'bg-pink-100', emerald: 'bg-emerald-100', orange: 'bg-orange-100',
+        blue: 'bg-blue-100', green: 'bg-green-100', red: 'bg-red-100',
+        yellow: 'bg-yellow-100', purple: 'bg-purple-100', indigo: 'bg-indigo-100',
+        pink: 'bg-pink-100', emerald: 'bg-emerald-100', orange: 'bg-orange-100',
         teal: 'bg-teal-100', gold: 'bg-amber-100', sky: 'bg-sky-100'
     };
     const gradient = colorMap[color] || 'from-gray-500 to-gray-600 border-gray-500';
@@ -70667,40 +70674,19 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     const rawValue = String(value);
     const rawSubtext = subtext || '';
 
-    // Build a context‑aware extra line (optional)
-    let extraLine = '';
-    const lowerLabel = label.toLowerCase();
-    if (lowerLabel.includes('students')) {
-        extraLine = `Total enrolled: ${rawValue}`;
-    } else if (lowerLabel.includes('collection rate')) {
-        extraLine = `Collected: ${rawSubtext}`;
-    } else if (lowerLabel.includes('expected')) {
-        extraLine = `Expected amount: ${rawValue}`;
-    } else if (lowerLabel.includes('collected')) {
-        extraLine = `Amount collected: ${rawValue}`;
-    } else if (lowerLabel.includes('outstanding')) {
-        extraLine = `Balance due: ${rawValue}`;
-    } else if (lowerLabel.includes('fully paid')) {
-        extraLine = `Fully paid students: ${rawValue}`;
-    } else if (lowerLabel.includes('status groups')) {
-        extraLine = `Active groups: ${rawValue}`;
-    } else if (lowerLabel.includes('total items')) {
-        extraLine = `Total inventory items: ${rawValue}`;
-    } else {
-        extraLine = rawSubtext;
-    }
-
     return `
         <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
              id="${cardId}"
              onclick="${navAction}">
             <div class="flex justify-between items-start">
                 <div class="min-w-0 flex-1">
-                    <p class="text-xs text-gray-500 truncate flex items-center gap-1">${label}</p>
-                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(rawValue)}">
+                    <p class="text-xs text-gray-500 flex items-center gap-1">${label}</p>
+                    <p class="text-lg font-bold metric-value db-metric-value" 
+                       id="${cardId}_value" 
+                       data-real-value="${escapeHtml(rawValue)}">
                         ${value}
                     </p>
-                    ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtext}</p>` : ''}
+                    ${subtext ? `<p class="text-xs text-gray-400 metric-sub" id="${cardId}_sub">${subtext}</p>` : ''}
                 </div>
                 <div class="flex flex-col items-end gap-1 flex-shrink-0">
                     <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
@@ -70709,14 +70695,9 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
                     ${isFin ? `<button onclick="event.stopPropagation(); toggleMetricVisibility('${cardId}')" class="text-gray-300 hover:text-gray-500 text-[10px]" title="Hide/show value"><i class="fas fa-eye"></i></button>` : ''}
                 </div>
             </div>
-            <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
-
-            <!-- Expandable Details Area (appears on hover) -->
-            <div class="db-metric-details">
-                <div class="full-value">${escapeHtml(rawValue)}</div>
-                ${rawSubtext ? `<div class="full-sub">${escapeHtml(rawSubtext)}</div>` : ''}
-                ${extraLine ? `<div class="extra-stat">${escapeHtml(extraLine)}</div>` : ''}
-            </div>
+            <p class="text-[10px] text-slate-300 mt-1 tap-hint">
+                <i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details
+            </p>
         </div>
     `;
 }
