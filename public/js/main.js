@@ -70069,6 +70069,41 @@ function injectDashboardDesignSystem() {
     color: #94A3B8;
     margin-top: 6px;
 }
+    .db-metric {
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.db-metric-details {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.3s ease, 
+                margin 0.3s ease,
+                padding 0.3s ease;
+    margin-top: 0;
+    border-top: 1px solid transparent;
+    padding: 0 16px;
+}
+.db-metric:hover .db-metric-details {
+    max-height: 200px;  /* enough to show content */
+    opacity: 1;
+    margin-top: 12px;
+    border-top-color: var(--line);
+    padding-top: 14px;
+}
+.db-metric-details .full-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+.db-metric-details .full-sub {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-top: 4px;
+}
     `;
     document.head.appendChild(style);
 }
