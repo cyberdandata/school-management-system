@@ -69907,131 +69907,6 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // ============================================================================
 
 // ---------------------------------------------------------------------------
-// DASHBOARD v13.0 — Uniform stats, general stock, drill-down nav, SchoolPay
-// ---------------------------------------------------------------------------
-function injectDashboardDesignSystem() {
-    if (document.getElementById('dashboard-modern-fonts')) return;
-
-    const fontLink = document.createElement('link');
-    fontLink.id = 'dashboard-modern-fonts';
-    fontLink.rel = 'stylesheet';
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap';
-    document.head.appendChild(fontLink);
-
-    const style = document.createElement('style');
-    style.id = 'dashboard-modern-styles';
-    style.textContent = `
-        :root{
-            --ink:#0B1324; --ink-soft:#475569; --line:#E7ECF3;
-            --surface:#FFFFFF; --app-bg:#F3F6FB;
-            --teal:#0E9C8E; --teal-dark:#0B7A70; --indigo:#4F5FE8;
-            --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0; --pink:#DB2C7A;
-        }
-        .font-display{font-family:'Sora',ui-sans-serif,system-ui,sans-serif;}
-        .font-body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
-        .font-mono-num{font-family:'JetBrains Mono',ui-monospace,monospace;}
-        #mainContent{ font-family:'Inter',ui-sans-serif,system-ui,sans-serif; color:var(--ink); }
-
-        .db-app-bg{
-            background:
-              radial-gradient(1200px 500px at 100% -10%, rgba(79,95,232,.10), transparent 60%),
-              radial-gradient(1000px 460px at -10% 0%, rgba(14,156,142,.10), transparent 55%),
-              var(--app-bg);
-        }
-
-        .db-hero{
-            position:relative;
-            background:linear-gradient(115deg,#0B7A70 0%, #0E9C8E 42%, #4F5FE8 100%);
-            border-radius:26px; padding:34px 34px 46px 34px; color:#fff;
-            box-shadow:0 20px 45px -18px rgba(15,23,42,.35);
-            overflow:hidden;
-        }
-        .db-hero::before{
-            content:''; position:absolute; inset:0; opacity:.14; pointer-events:none;
-            background-image:
-              radial-gradient(circle at 18% 22%, #fff 0 1.5px, transparent 1.6px),
-              radial-gradient(circle at 78% 62%, #fff 0 1.5px, transparent 1.6px),
-              radial-gradient(circle at 46% 82%, #fff 0 1.5px, transparent 1.6px);
-            background-size:120px 120px;
-        }
-        .db-hero-edge{
-            position:absolute; left:0; right:0; bottom:-1px; height:16px;
-            background:
-              linear-gradient(135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px,
-              linear-gradient(-135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px;
-            background-repeat:repeat-x;
-        }
-        .db-chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); }
-        .db-chip:hover{ background:rgba(255,255,255,.26); }
-
-        .db-metric{
-            background:var(--surface); border:1px solid var(--line); border-radius:18px;
-            padding:16px; position:relative; overflow:hidden;
-            transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-        }
-        .db-metric:hover{ transform:translateY(-3px); box-shadow:0 16px 30px -18px rgba(15,23,42,.28); border-color:transparent; }
-        .db-metric-icon{
-            width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-            font-size:15px; flex-shrink:0;
-        }
-        .db-metric-value{ font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:-.01em; }
-
-        .db-eyebrow{
-            font-family:'Sora',sans-serif; font-weight:700; font-size:11px; letter-spacing:.14em;
-            text-transform:uppercase; color:var(--teal-dark);
-        }
-        .db-section-title{ font-family:'Sora',sans-serif; font-weight:700; color:var(--ink); }
-
-        .db-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; }
-        .db-card-hd{ border-bottom:1px solid var(--line); }
-        .db-progress-track{ background:#EEF1F6; border-radius:999px; overflow:hidden; }
-        .db-progress-fill{ border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
-
-        .db-table thead th{
-            font-family:'Sora',sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
-            color:#7A879C; background:#F8FAFC; position:sticky; top:0; z-index:1;
-        }
-        .db-table tbody tr{ transition:background .12s ease; }
-        .db-table tbody tr:hover{ background:#F7FAFC; }
-
-        .db-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.01em; }
-
-        .db-scroll::-webkit-scrollbar{ width:8px; height:8px; }
-        .db-scroll::-webkit-scrollbar-thumb{ background:#D6DEE9; border-radius:99px; }
-        .db-scroll::-webkit-scrollbar-track{ background:transparent; }
-
-        @keyframes db-shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
-        .db-skeleton{
-            background:linear-gradient(90deg,#EEF1F6 25%,#F7F9FC 37%,#EEF1F6 63%);
-            background-size:400px 100%; animation:db-shimmer 1.4s ease-in-out infinite; border-radius:12px;
-        }
-
-        .db-action{
-            background:var(--surface); border:1px solid var(--line); border-radius:16px;
-            transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-        }
-        .db-action:hover{ transform:translateY(-2px); box-shadow:0 14px 26px -16px rgba(15,23,42,.25); border-color:transparent; }
-
-        .db-fade-in{ animation:db-fadeIn .4s ease both; }
-        @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
-
-        .db-schoolpay-frame{
-            border-radius:18px; overflow:hidden; border:1px solid var(--line);
-            box-shadow:0 12px 26px -18px rgba(15,23,42,.3); background:#fff;
-        }
-        .db-schoolpay-bar{
-            background:linear-gradient(90deg,#0B7A70,#4F5FE8); color:#fff; padding:12px 18px;
-            display:flex; align-items:center; justify-content:space-between; font-family:'Sora',sans-serif; font-weight:700;
-        }
-
-        @media (prefers-reduced-motion: reduce){
-            .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// ---------------------------------------------------------------------------
 // 1. HELPERS
 // ---------------------------------------------------------------------------
 function getStatusColor(rate) {
@@ -70085,7 +69960,7 @@ function getTermName(term) {
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
 async function showDashboard() {
-    console.log('showDashboard() — v13.0 (uniform + stock + drilldown + schoolpay)');
+    console.log('showDashboard() — v13.1 (money hidden, global eye, no SchoolPay)');
     injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -70112,7 +69987,6 @@ async function showDashboard() {
         const termName = getTermName(currentTerm);
 
         // Fetch core dashboard stats + uniform + general stock in parallel.
-        // Uniform / stock endpoints are optional — dashboard still renders if they fail.
         const [statsRes, uniformRes, stockRes] = await Promise.allSettled([
             fetch('/api/dashboard/stats'),
             fetch('/api/uniform/summary'),
@@ -70139,6 +70013,9 @@ async function showDashboard() {
         }
         window.dashboardStockData = stockData;
 
+        // Debug: log status groups received from API
+        console.log('📊 Status groups from API:', data.statusGroups ? data.statusGroups.map(g => g.name) : 'none');
+
         renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm);
 
     } catch (error) {
@@ -70161,7 +70038,7 @@ async function showDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 3. SCHOOL DATA INIT (unchanged behaviour)
+// 3. SCHOOL DATA INIT (unchanged)
 // ---------------------------------------------------------------------------
 function initializeSchoolData() {
     let school = null;
@@ -70191,7 +70068,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ---------------------------------------------------------------------------
-// 4. NAVIGATION HELPERS — every stat card drills into a real page
+// 4. NAVIGATION HELPERS
 // ---------------------------------------------------------------------------
 function navigateToStatusGroupReport(statusGroupName) {
     if (typeof showReports !== 'function') return;
@@ -70237,7 +70114,6 @@ function navigateToInventorySection() {
 }
 function navigateToStockCategory(categoryId) {
     if (typeof showInventory === 'function') showInventory();
-    // If the inventory page exposes a category filter, try to apply it shortly after render.
     setTimeout(() => {
         const sel = document.getElementById('schoolStockCategoryFilter');
         if (sel && categoryId) { sel.value = categoryId; sel.dispatchEvent(new Event('change')); }
@@ -70246,12 +70122,73 @@ function navigateToStockCategory(categoryId) {
 function navigateToStudentList() {
     if (typeof showStudentList === 'function') showStudentList();
 }
-function openSchoolPayFullscreen() {
-    window.open('https://www.schoolpay.co.ug/login', '_blank', 'noopener');
+
+// ---------------------------------------------------------------------------
+// 5. GLOBAL TOGGLE FOR ALL FINANCIAL METRICS
+// ---------------------------------------------------------------------------
+let allMetricsVisible = false; // track global state
+
+function toggleAllMetrics() {
+    allMetricsVisible = !allMetricsVisible;
+    const cardIds = Object.keys(metricVisibilityState);
+    cardIds.forEach(id => {
+        // Force each financial card to the new state
+        metricVisibilityState[id] = allMetricsVisible;
+        updateMetricDisplay(id);
+    });
+    // Update the global button icon/text
+    const btn = document.getElementById('globalEyeToggle');
+    if (btn) {
+        btn.innerHTML = allMetricsVisible
+            ? '<i class="fas fa-eye-slash mr-1.5"></i> Hide Amounts'
+            : '<i class="fas fa-eye mr-1.5"></i> Show Amounts';
+    }
+}
+
+function updateMetricDisplay(cardId) {
+    const valueEl = document.getElementById(cardId + '_value');
+    const subEl = document.getElementById(cardId + '_sub');
+    if (!valueEl) return;
+    const isVisible = metricVisibilityState[cardId] !== undefined ? metricVisibilityState[cardId] : false;
+    const realValue = valueEl.getAttribute('data-real-value') || valueEl.textContent;
+    if (isVisible) {
+        valueEl.textContent = realValue;
+        if (subEl) {
+            const realSub = subEl.getAttribute('data-real-sub') || subEl.textContent;
+            subEl.textContent = realSub;
+        }
+    } else {
+        valueEl.textContent = '••••••••';
+        if (subEl) subEl.textContent = '••••••••';
+    }
+}
+
+// Per-card toggle
+function toggleMetricVisibility(cardId) {
+    if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = false;
+    metricVisibilityState[cardId] = !metricVisibilityState[cardId];
+    updateMetricDisplay(cardId);
+
+    // Check if all are now visible or all hidden to update global button
+    const allIds = Object.keys(metricVisibilityState);
+    const allVisible = allIds.every(id => metricVisibilityState[id] === true);
+    const allHidden = allIds.every(id => metricVisibilityState[id] === false);
+    const btn = document.getElementById('globalEyeToggle');
+    if (btn) {
+        if (allVisible) {
+            btn.innerHTML = '<i class="fas fa-eye-slash mr-1.5"></i> Hide Amounts';
+            allMetricsVisible = true;
+        } else if (allHidden) {
+            btn.innerHTML = '<i class="fas fa-eye mr-1.5"></i> Show Amounts';
+            allMetricsVisible = false;
+        }
+        // else mixed state: keep button as is, but we might set a neutral icon
+        // We'll keep the current text but we can add a mixed state indicator
+    }
 }
 
 // ---------------------------------------------------------------------------
-// 5. RENDER DASHBOARD
+// 6. RENDER DASHBOARD
 // ---------------------------------------------------------------------------
 function renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm) {
     const mainContent = document.getElementById('mainContent');
@@ -70300,23 +70237,24 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '    </div>';
     html += '    <div class="flex flex-wrap gap-2">';
     html += '      <button onclick="showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
-    html += '      <button onclick="document.getElementById(\'schoolpaySection\').scrollIntoView({behavior:\'smooth\'})" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-credit-card"></i> SchoolPay</button>';
+    // Global eye toggle button
+    html += '      <button id="globalEyeToggle" onclick="toggleAllMetrics()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-eye mr-1.5"></i> Show Amounts</button>';
     html += '      <button onclick="printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
     html += '      <button onclick="refreshDashboard()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-arrows-rotate"></i> Refresh</button>';
     html += '    </div>';
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 1: KPI CARDS (each drills down) =======================
+    // ======================= SECTION 1: KPI CARDS =======================
     html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
-    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()');
-    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()');
-    html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()');
+    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()', false);
+    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()', false);
+    html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()', false);
     html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected', 'navigateToTuitionReport()', true);
     html += renderMetricCardEnhanced('Tuition Expected', 'UGX ' + formatMoney(tuitionExpected), 'fa-file-invoice', 'indigo', 'Tuition only', 'navigateToTuitionReport()', true);
     html += renderMetricCardEnhanced('Tuition Collected', 'UGX ' + formatMoney(tuitionCollected), 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
     html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToTuitionReport()');
+    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToTuitionReport()', false);
     html += '</div>';
 
     if (cashItemsStats && (cashItemsStats.expected > 0 || cashItemsStats.collected > 0)) {
@@ -70324,11 +70262,11 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
         html += renderMetricCardEnhanced('Cash-Only Items Expected', 'UGX ' + formatMoney(cashItemsStats.expected), 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true);
         html += renderMetricCardEnhanced('Cash-Only Items Collected', 'UGX ' + formatMoney(cashItemsStats.collected), 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
         html += renderMetricCardEnhanced('Cash-Only Outstanding', 'UGX ' + formatMoney(cashItemsStats.outstanding), 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToTuitionReport()', true);
-        html += renderMetricCardEnhanced('Uniform &amp; Stock', 'View', 'fa-shirt', 'pink', 'Scroll to details below', "document.getElementById('uniformSection').scrollIntoView({behavior:'smooth'})");
+        html += renderMetricCardEnhanced('Uniform &amp; Stock', 'View', 'fa-shirt', 'pink', 'Scroll to details below', "document.getElementById('uniformSection').scrollIntoView({behavior:'smooth'})", false);
         html += '</div>';
     }
 
-    // ======================= SECTION 2: STATUS GROUP CARDS (all groups, unfiltered) =======================
+    // ======================= SECTION 2: STATUS GROUP CARDS =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
@@ -70413,7 +70351,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
     html += '</div>';
 
-    // ======================= SECTION 3.5: CLASS PERFORMANCE (bar-style matrix) =======================
+    // ======================= SECTION 3.5: CLASS PERFORMANCE =======================
     html += '<div class="db-card overflow-hidden">';
     html += '  <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
     html += '    <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
@@ -70424,7 +70362,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 4: ITEM COLLECTION TABLE (drill-down per row) =======================
+    // ======================= SECTION 4: ITEM COLLECTION TABLE =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
@@ -70549,34 +70487,12 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 8: SCHOOLPAY LINK-OUT =======================
-    // NOTE: schoolpay.co.ug blocks being embedded in an <iframe> (it sends
-    // X-Frame-Options / frame-ancestors headers), so it can never actually
-    // load inside this page — we link out instead rather than show a broken frame.
-    html += '<div id="schoolpaySection">';
-    html += '  <div class="flex justify-between items-center mb-4">';
-    html += '    <div><p class="db-eyebrow">Online Payments</p><h2 class="db-section-title text-xl mt-0.5">SchoolPay Portal</h2></div>';
-    html += '  </div>';
-    html += '  <div class="db-card overflow-hidden">';
-    html += '    <div class="p-6 flex flex-col md:flex-row items-center justify-between gap-4" style="background:linear-gradient(115deg,#0B7A70 0%, #4F5FE8 100%); color:#fff; border-radius:18px;">';
-    html += '      <div class="flex items-center gap-4">';
-    html += '        <div class="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center text-2xl"><i class="fas fa-credit-card"></i></div>';
-    html += '        <div>';
-    html += '          <p class="font-display font-bold text-lg">SchoolPay</p>';
-    html += '          <p class="text-sm text-white/80">schoolpay.co.ug does not allow embedding, so it opens in its own secure tab.</p>';
-    html += '        </div>';
-    html += '      </div>';
-    html += '      <button onclick="openSchoolPayFullscreen()" class="bg-white text-teal-700 hover:bg-slate-50 px-5 py-3 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md flex-shrink-0"><i class="fas fa-up-right-from-square"></i> Open SchoolPay</button>';
-    html += '    </div>';
-    html += '  </div>';
-    html += '</div>';
-
     // ======================= FOOTER =======================
     html += '<div class="text-center text-xs text-slate-400 py-4 border-t border-slate-200">';
     html += '  <div class="flex flex-wrap justify-center gap-4">';
     html += '    <span><i class="fas fa-rotate text-emerald-500 mr-1"></i>Live data</span>';
     html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
-    html += '    <span>Dashboard v13.0</span>';
+    html += '    <span>Dashboard v13.1</span>';
     html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + (statusGroupsCount || 0) + ' status groups</span>';
     html += '  </div>';
     html += '</div>';
@@ -70591,11 +70507,11 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     }, 150);
     initializeItemFilters();
 
-    console.log('✅ Dashboard v13.0 rendered');
+    console.log('✅ Dashboard v13.1 rendered');
 }
 
 // ---------------------------------------------------------------------------
-// 6. METRIC CARD — click drills into a page; small eye toggles hide/show
+// 7. METRIC CARD — with eye toggle for financial values
 // ---------------------------------------------------------------------------
 function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial) {
     const colorMap = {
@@ -70614,7 +70530,20 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     const gradient = colorMap[color] || 'from-gray-500 to-gray-600 border-gray-500';
     const bgLight = bgLightMap[color] || 'bg-gray-100';
     const cardId = 'metric_' + label.replace(/[^a-zA-Z0-9]/g, '_');
-    const isFin = !!isFinancial;
+
+    // Store real value and subtext for toggling
+    const realValue = String(value);
+    const realSub = subtext || '';
+
+    // For financial cards, initially hidden (metricVisibilityState will be set later)
+    if (isFinancial && metricVisibilityState[cardId] === undefined) {
+        metricVisibilityState[cardId] = false; // hidden by default
+    } else if (!isFinancial) {
+        metricVisibilityState[cardId] = true; // non-financial always visible
+    }
+
+    const displayValue = isFinancial && !metricVisibilityState[cardId] ? '••••••••' : realValue;
+    const displaySub = isFinancial && !metricVisibilityState[cardId] ? '••••••••' : realSub;
 
     return `
         <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
@@ -70623,16 +70552,16 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
             <div class="flex justify-between items-start">
                 <div class="min-w-0 flex-1">
                     <p class="text-xs text-gray-500 truncate flex items-center gap-1">${label}</p>
-                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(String(value))}">
-                        ${value}
+                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(realValue)}">
+                        ${displayValue}
                     </p>
-                    ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtext}</p>` : ''}
+                    ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub" data-real-sub="${escapeHtml(realSub)}">${displaySub}</p>` : ''}
                 </div>
                 <div class="flex flex-col items-end gap-1 flex-shrink-0">
                     <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
                         <i class="fas ${icon} text-sm"></i>
                     </div>
-                    ${isFin ? `<button onclick="event.stopPropagation(); toggleMetricVisibility('${cardId}')" class="text-gray-300 hover:text-gray-500 text-[10px]" title="Hide/show value"><i class="fas fa-eye"></i></button>` : ''}
+                    ${isFinancial ? `<button onclick="event.stopPropagation(); toggleMetricVisibility('${cardId}')" class="text-gray-300 hover:text-gray-500 text-[10px]" title="Hide/show value"><i class="fas ${metricVisibilityState[cardId] ? 'fa-eye' : 'fa-eye-slash'}"></i></button>` : ''}
                 </div>
             </div>
             <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
@@ -70640,27 +70569,8 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     `;
 }
 
-let metricVisibilityState = {};
-function toggleMetricVisibility(cardId) {
-    const valueEl = document.getElementById(cardId + '_value');
-    const subEl = document.getElementById(cardId + '_sub');
-    if (!valueEl) return;
-
-    if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = true; // start visible
-    metricVisibilityState[cardId] = !metricVisibilityState[cardId];
-    const isVisible = metricVisibilityState[cardId];
-
-    const realValue = valueEl.getAttribute('data-real-value') || valueEl.textContent;
-    if (isVisible) {
-        valueEl.textContent = realValue;
-    } else {
-        valueEl.textContent = '••••••••';
-        if (subEl) subEl.textContent = '••••••••';
-    }
-}
-
 // ---------------------------------------------------------------------------
-// 7. STATUS GROUP CARD
+// 8. STATUS GROUP CARD (unchanged)
 // ---------------------------------------------------------------------------
 function renderStatusGroupCard(sg) {
     const rate = sg.rate !== undefined ? sg.rate : (sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0);
@@ -70739,7 +70649,7 @@ function renderStatusGroupCard(sg) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. CLASS PERFORMANCE TABLE (built from data.classPerformance: {group:{class:{required,collected}}})
+// 9. CLASS PERFORMANCE TABLE (unchanged)
 // ---------------------------------------------------------------------------
 function renderClassPerformanceTable(classPerformance) {
     const groupNames = Object.keys(classPerformance || {});
@@ -70798,7 +70708,7 @@ function renderClassPerformanceTable(classPerformance) {
 }
 
 // ---------------------------------------------------------------------------
-// 9. PAYMENT STATUS CHART
+// 10. PAYMENT STATUS CHART (unchanged)
 // ---------------------------------------------------------------------------
 function initializePaymentStatusChart(paymentStatus) {
     const canvas = document.getElementById('paymentStatusChart');
@@ -70843,7 +70753,7 @@ function initializePaymentStatusChart(paymentStatus) {
 }
 
 // ---------------------------------------------------------------------------
-// 10. UNIFORM SECTION — pie chart of paid status + stock table
+// 11. UNIFORM SECTION (unchanged)
 // ---------------------------------------------------------------------------
 function renderUniformSection(uniformData) {
     let html = '<div id="uniformSection">';
@@ -70996,7 +70906,7 @@ function initializeUniformPieChart(uniformData) {
 }
 
 // ---------------------------------------------------------------------------
-// 11. GENERAL SCHOOL STOCK SECTION (food/cleaning/office/etc.)
+// 12. GENERAL SCHOOL STOCK SECTION (unchanged)
 // ---------------------------------------------------------------------------
 function renderGeneralStockSection(stockData) {
     let html = '<div id="generalStockSection">';
@@ -71050,7 +70960,7 @@ function renderGeneralStockSection(stockData) {
 }
 
 // ---------------------------------------------------------------------------
-// 12. ITEM FILTERS
+// 13. ITEM FILTERS (unchanged)
 // ---------------------------------------------------------------------------
 function initializeItemFilters() {
     const searchInput = document.getElementById('itemSearchInput');
@@ -71128,7 +71038,7 @@ function sortItemsTable(column) {
 }
 
 // ---------------------------------------------------------------------------
-// 13. RECEIPT PRINTING (unchanged data flow)
+// 14. RECEIPT PRINTING (unchanged)
 // ---------------------------------------------------------------------------
 async function printReceipt(receiptNumber) {
     if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
@@ -71250,7 +71160,7 @@ async function refreshDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 14. PRINT DASHBOARD SUMMARY REPORT (unchanged)
+// 15. PRINT DASHBOARD SUMMARY REPORT (unchanged)
 // ---------------------------------------------------------------------------
 async function printDashboardReport() {
     const { currentYear, currentTerm } = currentAcademicSettings;
@@ -71328,7 +71238,7 @@ async function printDashboardReport() {
 }
 
 // ---------------------------------------------------------------------------
-// 15. SIDEBAR LOGO
+// 16. SIDEBAR LOGO (unchanged)
 // ---------------------------------------------------------------------------
 async function updateSidebarLogo() {
     try {
@@ -71358,7 +71268,7 @@ async function updateSidebarLogo() {
 updateSidebarLogo();
 
 // ---------------------------------------------------------------------------
-// 16. GLOBAL EXPORTS
+// 17. GLOBAL EXPORTS
 // ---------------------------------------------------------------------------
 window.showDashboard = showDashboard;
 window.refreshDashboard = refreshDashboard;
@@ -71373,16 +71283,16 @@ window.navigateToUniformSection = navigateToUniformSection;
 window.navigateToInventorySection = navigateToInventorySection;
 window.navigateToStockCategory = navigateToStockCategory;
 window.navigateToStudentList = navigateToStudentList;
-window.openSchoolPayFullscreen = openSchoolPayFullscreen;
 window.filterItemsTable = filterItemsTable;
 window.resetItemFilters = resetItemFilters;
 window.sortItemsTable = sortItemsTable;
 window.escapeHtml = escapeHtml;
 window.getTermName = getTermName;
 window.toggleMetricVisibility = toggleMetricVisibility;
+window.toggleAllMetrics = toggleAllMetrics;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
 
-console.log('✅ Dashboard v13.0 loaded — uniform + general stock + drill-down + SchoolPay embed');
+console.log('✅ Dashboard v13.1 loaded — money hidden by default, global eye toggle, no SchoolPay, status groups debug log');
 // ==================== RENDER FEE STRUCTURE STATISTICS PAGE ====================
 
 // ==================== COMPLETELY REBUILT FEE STRUCTURE STATISTICS PAGE ====================
