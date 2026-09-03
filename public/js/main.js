@@ -70288,7 +70288,7 @@ function updateMetricDisplay(cardId) {
 
 // Per-card toggle
 function toggleMetricVisibility(cardId) {
-     
+         let metricVisibilityState={};
     if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = false;
     metricVisibilityState[cardId] = !metricVisibilityState[cardId];
     updateMetricDisplay(cardId);
