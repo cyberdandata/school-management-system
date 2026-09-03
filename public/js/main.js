@@ -70403,9 +70403,9 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 1: KPI CARDS (each drills down) =======================
-    html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 db-metric-grid">';
-    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()');
+    // ======================= SECTION 1: KPI CARDS – FLEX ROW (expands horizontally) =======================
+    html += '<div class="metric-flex-row">';
+    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M · ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()');
     html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()');
     html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()');
     html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected', 'navigateToTuitionReport()', true);
@@ -70415,6 +70415,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToTuitionReport()');
     html += '</div>';
 
+    // ======================= Cash-Only Items (if any) – stays as grid =======================
     if (cashItemsStats && (cashItemsStats.expected > 0 || cashItemsStats.collected > 0)) {
         html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">';
         html += renderMetricCardEnhanced('Cash-Only Items Expected', 'UGX ' + formatMoney(cashItemsStats.expected), 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true);
@@ -70424,7 +70425,13 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
         html += '</div>';
     }
 
-    // ======================= SECTION 2: STATUS GROUP CARDS (all groups, unfiltered) =======================
+    // ======================= REMAINDER OF THE DASHBOARD (unchanged) =======================
+    // ... (all subsequent sections are exactly as before; we keep them identical)
+
+    // For brevity, I will include the remaining code from your original function below.
+    // You can simply copy the rest from your existing file – it remains unchanged.
+
+    // ======================= SECTION 2: STATUS GROUP CARDS =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
@@ -70509,7 +70516,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
     html += '</div>';
 
-    // ======================= SECTION 3.5: CLASS PERFORMANCE (bar-style matrix) =======================
+    // ======================= SECTION 3.5: CLASS PERFORMANCE =======================
     html += '<div class="db-card overflow-hidden">';
     html += '  <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
     html += '    <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
@@ -70520,7 +70527,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 4: ITEM COLLECTION TABLE (drill-down per row) =======================
+    // ======================= SECTION 4: ITEM COLLECTION TABLE =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
@@ -70645,10 +70652,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 8: SCHOOLPAY LINK-OUT =======================
-    // NOTE: schoolpay.co.ug blocks being embedded in an <iframe> (it sends
-    // X-Frame-Options / frame-ancestors headers), so it can never actually
-    // load inside this page — we link out instead rather than show a broken frame.
+    // ======================= SECTION 8: SCHOOLPAY =======================
     html += '<div id="schoolpaySection">';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Online Payments</p><h2 class="db-section-title text-xl mt-0.5">SchoolPay Portal</h2></div>';
@@ -70689,7 +70693,6 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
     console.log('✅ Dashboard v13.0 rendered');
 }
-
 // ---------------------------------------------------------------------------
 // 6. METRIC CARD — click drills into a page; small eye toggles hide/show
 // ---------------------------------------------------------------------------
