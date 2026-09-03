@@ -70549,20 +70549,26 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 8: SCHOOLPAY EMBED =======================
+    // ======================= SECTION 8: SCHOOLPAY LINK-OUT =======================
+    // NOTE: schoolpay.co.ug blocks being embedded in an <iframe> (it sends
+    // X-Frame-Options / frame-ancestors headers), so it can never actually
+    // load inside this page — we link out instead rather than show a broken frame.
     html += '<div id="schoolpaySection">';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Online Payments</p><h2 class="db-section-title text-xl mt-0.5">SchoolPay Portal</h2></div>';
-    html += '    <button onclick="openSchoolPayFullscreen()" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"><i class="fas fa-up-right-from-square"></i> Open in new tab</button>';
     html += '  </div>';
-    html += '  <div class="db-schoolpay-frame">';
-    html += '    <div class="db-schoolpay-bar">';
-    html += '      <span><i class="fas fa-credit-card mr-2"></i>schoolpay.co.ug</span>';
-    html += '      <span class="text-xs font-normal opacity-80">Embedded &mdash; log in with your SchoolPay account</span>';
+    html += '  <div class="db-card overflow-hidden">';
+    html += '    <div class="p-6 flex flex-col md:flex-row items-center justify-between gap-4" style="background:linear-gradient(115deg,#0B7A70 0%, #4F5FE8 100%); color:#fff; border-radius:18px;">';
+    html += '      <div class="flex items-center gap-4">';
+    html += '        <div class="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center text-2xl"><i class="fas fa-credit-card"></i></div>';
+    html += '        <div>';
+    html += '          <p class="font-display font-bold text-lg">SchoolPay</p>';
+    html += '          <p class="text-sm text-white/80">schoolpay.co.ug does not allow embedding, so it opens in its own secure tab.</p>';
+    html += '        </div>';
+    html += '      </div>';
+    html += '      <button onclick="openSchoolPayFullscreen()" class="bg-white text-teal-700 hover:bg-slate-50 px-5 py-3 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md flex-shrink-0"><i class="fas fa-up-right-from-square"></i> Open SchoolPay</button>';
     html += '    </div>';
-    html += '    <iframe src="https://www.schoolpay.co.ug/login" style="width:100%;height:640px;border:0;display:block;" loading="lazy" title="SchoolPay Login" referrerpolicy="no-referrer-when-downgrade"></iframe>';
     html += '  </div>';
-    html += '  <p class="text-xs text-slate-400 mt-2">If the portal doesn\'t load inside the frame (some sites block embedding), use "Open in new tab" above.</p>';
     html += '</div>';
 
     // ======================= FOOTER =======================
