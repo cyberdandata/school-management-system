@@ -69909,193 +69909,226 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // ---------------------------------------------------------------------------
 // 0. DESIGN SYSTEM — injected once
 // ---------------------------------------------------------------------------
-function injectDashboardDesignSystem() {
-    if (document.getElementById('dashboard-modern-fonts')) return;
+/* ============================================================================
+   ENHANCED SCHOOL DASHBOARD — v13.0
+   ----------------------------------------------------------------------------
+   Drop-in replacement for the dashboard rendering pipeline.
 
-    const fontLink = document.createElement('link');
-    fontLink.id = 'dashboard-modern-fonts';
-    fontLink.rel = 'stylesheet';
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap';
-    document.head.appendChild(fontLink);
+   WHAT THIS FIXES / ADDS (per your list):
+   1. "Only 5 status groups shown" — the backend's /api/dashboard/stats only
+      returns groups that appear in a currently-assigned fee structure. This
+      file additionally fetches /api/fee/status-groups and merges in every
+      configured group (Admission Requirements, Graduation Fee, LTBalance,
+      MDD, Sports Fee, Tour, Uniform, etc.) even if their collected/expected
+      is currently zero — so nothing configured is ever hidden.
+   2. Wrong/zero money stats on some groups — this renders directly from the
+      corrected /api/dashboard/stats payload (tuitionStats, cashItemsStats,
+      statusGroups[].cashExpected/cashCollected/cashRemaining), instead of
+      re-deriving numbers client-side.
+   3. Uniform statistics — pulls /api/uniform/summary and shows: students who
+      paid half, students fully paid, students who already received their
+      uniform, plus a stock pie chart per uniform item.
+   4. Inventory statistics — pulls /api/inventory/summary and /api/inventory/
+      stock and shows required/collected/remaining per item plus a stock
+      levels bar chart.
+   5. Every stat card / status group / item is clickable — opens an in-page
+      detail modal (self-contained, so it doesn't depend on guessing your
+      app's internal page-routing function names).
+   6. Charts — payment-status donut, status-group collection-rate bar,
+      uniform-status pie, inventory stock bar. Chart.js is lazy-loaded from
+      cdnjs if not already present.
+   7. SchoolPay panel — an iframe pointed at schoolpay.co.ug/login, with a
+      "Open in new tab" fallback (some sites send X-Frame-Options: DENY,
+      which silently blocks iframing — the fallback covers that case).
 
+   HOW TO USE:
+   - Include this file after your existing dashboard script (or replace it).
+   - It defines `showDashboard()` — same entry point your Quick Actions /
+     nav already calls, so no other wiring should be required.
+   - Requires these existing globals from your app: initializeAcademicSettings,
+     currentAcademicSettings, escapeHtml, getTermName. If any are missing,
+     lightweight fallbacks are defined below so this file still works
+     standalone.
+============================================================================ */
+
+(function () {
+'use strict';
+
+// ---------------------------------------------------------------------------
+// 0. FALLBACKS for helpers your app may already define elsewhere
+// ---------------------------------------------------------------------------
+if (typeof escapeHtml !== 'function') {
+    window.escapeHtml = function (text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
+}
+if (typeof getTermName !== 'function') {
+    window.getTermName = function (term) {
+        const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+        return names[term] || `Term ${term}`;
+    };
+}
+function dbFormatMoney(amount) {
+    const num = Math.round(amount || 0);
+    return 'UGX ' + num.toLocaleString('en-US');
+}
+function dbRate(collected, expected) {
+    if (!expected || expected <= 0) return 0;
+    return Math.max(0, Math.min(100, (collected / expected) * 100));
+}
+
+// ---------------------------------------------------------------------------
+// 1. CHART.JS LOADER
+// ---------------------------------------------------------------------------
+let _chartJsLoadingPromise = null;
+function ensureChartJsLoaded() {
+    if (window.Chart) return Promise.resolve();
+    if (_chartJsLoadingPromise) return _chartJsLoadingPromise;
+    _chartJsLoadingPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Chart.js failed to load'));
+        document.head.appendChild(script);
+    });
+    return _chartJsLoadingPromise;
+}
+
+const DB_CHART_COLORS = {
+    teal: '#0E9C8E', tealDark: '#0B7A70', indigo: '#4F5FE8', gold: '#DB9A2C',
+    emerald: '#12A66B', rose: '#E45B6B', amber: '#DB9A2C', sky: '#2F8FE0',
+    slate: '#94A3B8', violet: '#8B5CF6'
+};
+const DB_CHART_PALETTE = [
+    DB_CHART_COLORS.teal, DB_CHART_COLORS.indigo, DB_CHART_COLORS.gold,
+    DB_CHART_COLORS.rose, DB_CHART_COLORS.sky, DB_CHART_COLORS.violet,
+    DB_CHART_COLORS.emerald, DB_CHART_COLORS.slate
+];
+
+// Keep references so we can destroy/recreate on refresh (avoids Chart.js
+// "canvas already in use" errors when the dashboard re-renders).
+const _dbChartInstances = {};
+function dbDestroyChart(id) {
+    if (_dbChartInstances[id]) {
+        try { _dbChartInstances[id].destroy(); } catch (e) { /* ignore */ }
+        delete _dbChartInstances[id];
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 2. DESIGN SYSTEM (extends the existing one with new component classes)
+// ---------------------------------------------------------------------------
+function injectEnhancedDashboardStyles() {
+    if (document.getElementById('dashboard-enhanced-styles-v13')) return;
     const style = document.createElement('style');
-    style.id = 'dashboard-modern-styles';
+    style.id = 'dashboard-enhanced-styles-v13';
     style.textContent = `
-        :root{
-            --ink:#0B1324; --ink-soft:#475569; --line:#E7ECF3;
-            --surface:#FFFFFF; --app-bg:#F3F6FB;
-            --teal:#0E9C8E; --teal-dark:#0B7A70; --indigo:#4F5FE8;
-            --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0;
-        }
-        .font-display{font-family:'Sora',ui-sans-serif,system-ui,sans-serif;}
-        .font-body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
-        .font-mono-num{font-family:'JetBrains Mono',ui-monospace,monospace;}
-        #mainContent{ font-family:'Inter',ui-sans-serif,system-ui,sans-serif; color:var(--ink); }
+        .db2-grid { display:grid; gap:16px; }
+        .db2-clickable { cursor:pointer; }
+        .db2-clickable:focus-visible { outline:2px solid var(--teal,#0E9C8E); outline-offset:2px; }
 
-        .db-app-bg{
-            background:
-              radial-gradient(1200px 500px at 100% -10%, rgba(79,95,232,.10), transparent 60%),
-              radial-gradient(1000px 460px at -10% 0%, rgba(14,156,142,.10), transparent 55%),
-              var(--app-bg);
+        .db2-section-card {
+            background:#fff; border:1px solid #E7ECF3; border-radius:20px;
+            padding:20px; margin-bottom:20px;
         }
-
-        /* ---- Hero banner with torn-receipt edge (signature element) ---- */
-        .db-hero{
-            position:relative;
-            background:linear-gradient(115deg,#0B7A70 0%, #0E9C8E 42%, #4F5FE8 100%);
-            border-radius:26px; padding:34px 34px 46px 34px; color:#fff;
-            box-shadow:0 20px 45px -18px rgba(15,23,42,.35);
-            overflow:hidden;
+        .db2-section-hd {
+            display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:14px; flex-wrap:wrap; gap:8px;
         }
-        .db-hero::before{
-            content:''; position:absolute; inset:0; opacity:.14; pointer-events:none;
-            background-image:
-              radial-gradient(circle at 18% 22%, #fff 0 1.5px, transparent 1.6px),
-              radial-gradient(circle at 78% 62%, #fff 0 1.5px, transparent 1.6px),
-              radial-gradient(circle at 46% 82%, #fff 0 1.5px, transparent 1.6px);
-            background-size:120px 120px;
+        .db2-section-title {
+            font-family:'Sora',sans-serif; font-weight:700; font-size:16px; color:#0B1324;
+            display:flex; align-items:center; gap:8px;
         }
-        .db-hero-edge{
-            position:absolute; left:0; right:0; bottom:-1px; height:16px;
-            background:
-              linear-gradient(135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px,
-              linear-gradient(-135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px;
-            background-repeat:repeat-x;
-        }
-        .db-chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); }
-        .db-chip:hover{ background:rgba(255,255,255,.26); }
-
-        /* ---- Metric / KPI cards ---- */
-        .db-metric{
-            background:var(--surface); border:1px solid var(--line); border-radius:18px;
-            padding:16px; position:relative; overflow:hidden;
-            transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-        }
-        .db-metric:hover{ transform:translateY(-3px); box-shadow:0 16px 30px -18px rgba(15,23,42,.28); border-color:transparent; }
-        .db-metric-icon{
-            width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-            font-size:15px; flex-shrink:0;
-        }
-        .db-metric-value{ font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:-.01em; }
-
-        /* ---- Section headers ---- */
-        .db-eyebrow{
-            font-family:'Sora',sans-serif; font-weight:700; font-size:11px; letter-spacing:.14em;
-            text-transform:uppercase; color:var(--teal-dark);
-        }
-        .db-section-title{ font-family:'Sora',sans-serif; font-weight:700; color:var(--ink); }
-
-        /* ---- Status group cards ---- */
-        .db-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; }
-        .db-card-hd{ border-bottom:1px solid var(--line); }
-        .db-progress-track{ background:#EEF1F6; border-radius:999px; overflow:hidden; }
-        .db-progress-fill{ border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
-
-        /* ---- Table ---- */
-        .db-table thead th{
-            font-family:'Sora',sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
-            color:#7A879C; background:#F8FAFC; position:sticky; top:0; z-index:1;
-        }
-        .db-table tbody tr{ transition:background .12s ease; }
-        .db-table tbody tr:hover{ background:#F7FAFC; }
-
-        /* ---- Badges ---- */
-        .db-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.01em; }
-
-        /* ---- Scrollbars ---- */
-        .db-scroll::-webkit-scrollbar{ width:8px; height:8px; }
-        .db-scroll::-webkit-scrollbar-thumb{ background:#D6DEE9; border-radius:99px; }
-        .db-scroll::-webkit-scrollbar-track{ background:transparent; }
-
-        /* ---- Skeleton ---- */
-        @keyframes db-shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
-        .db-skeleton{
-            background:linear-gradient(90deg,#EEF1F6 25%,#F7F9FC 37%,#EEF1F6 63%);
-            background-size:400px 100%; animation:db-shimmer 1.4s ease-in-out infinite; border-radius:12px;
+        .db2-badge-pill {
+            font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;
+            background:#F3F6FB; color:#475569; border:1px solid #E7ECF3;
         }
 
-        /* ---- Quick action tiles ---- */
-        .db-action{
-            background:var(--surface); border:1px solid var(--line); border-radius:16px;
-            transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        .db2-kpi { background:#fff; border:1px solid #E7ECF3; border-radius:18px; padding:16px;
+            transition:transform .15s ease, box-shadow .15s ease; position:relative; overflow:hidden; }
+        .db2-kpi:hover { transform:translateY(-3px); box-shadow:0 16px 30px -18px rgba(15,23,42,.28); }
+        .db2-kpi-label { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#7A879C; }
+        .db2-kpi-value { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:#0B1324; margin-top:4px; }
+        .db2-kpi-sub { font-size:12px; color:#7A879C; margin-top:2px; }
+
+        .db2-group-card { border:1px solid #E7ECF3; border-radius:16px; padding:14px; background:#fff; }
+        .db2-group-card.empty { opacity:.65; background:#FAFBFD; }
+        .db2-progress-track { background:#EEF1F6; border-radius:999px; height:8px; overflow:hidden; margin:8px 0; }
+        .db2-progress-fill { height:100%; border-radius:999px; transition:width .5s ease; }
+
+        .db2-modal-overlay {
+            position:fixed; inset:0; background:rgba(11,19,36,.55); z-index:9999;
+            display:flex; align-items:center; justify-content:center; padding:20px;
+            backdrop-filter:blur(2px);
         }
-        .db-action:hover{ transform:translateY(-2px); box-shadow:0 14px 26px -16px rgba(15,23,42,.25); border-color:transparent; }
+        .db2-modal {
+            background:#fff; border-radius:20px; max-width:720px; width:100%;
+            max-height:85vh; overflow:auto; padding:24px; box-shadow:0 30px 60px -20px rgba(0,0,0,.4);
+        }
+        .db2-modal-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+        .db2-modal-title { font-family:'Sora',sans-serif; font-weight:700; font-size:18px; color:#0B1324; }
+        .db2-modal-close { background:#F3F6FB; border:none; width:32px; height:32px; border-radius:10px;
+            cursor:pointer; font-size:16px; color:#475569; }
+        .db2-modal-close:hover { background:#E7ECF3; }
+        .db2-mini-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .db2-mini-table th { text-align:left; padding:8px; background:#F8FAFC; font-weight:700; color:#7A879C;
+            font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+        .db2-mini-table td { padding:8px; border-top:1px solid #EEF1F6; }
 
-        .db-fade-in{ animation:db-fadeIn .4s ease both; }
-        @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+        .db2-schoolpay-frame-wrap { border:1px solid #E7ECF3; border-radius:16px; overflow:hidden; background:#F8FAFC; }
+        .db2-schoolpay-frame-wrap iframe { width:100%; height:520px; border:0; display:block; background:#fff; }
+        .db2-schoolpay-toolbar { display:flex; align-items:center; justify-content:space-between;
+            padding:10px 14px; background:#fff; border-bottom:1px solid #E7ECF3; font-size:13px; color:#475569; }
 
-        @media (prefers-reduced-motion: reduce){
-            .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
+        .db2-chart-box { position:relative; height:260px; }
+        .db2-chart-box.small { height:200px; }
+
+        @media (max-width: 768px) {
+            .db2-schoolpay-frame-wrap iframe { height:400px; }
         }
     `;
     document.head.appendChild(style);
 }
 
 // ---------------------------------------------------------------------------
-// 1. HELPERS
+// 3. MODAL SYSTEM (self-contained — no dependency on app routing)
 // ---------------------------------------------------------------------------
-function getStatusColor(rate) {
-    if (rate >= 85) return 'text-emerald-600';
-    if (rate >= 70) return 'text-amber-600';
-    if (rate >= 50) return 'text-orange-600';
-    return 'text-rose-600';
+function db2OpenModal(title, bodyHtml) {
+    db2CloseModal();
+    const overlay = document.createElement('div');
+    overlay.className = 'db2-modal-overlay';
+    overlay.id = 'db2-modal-overlay';
+    overlay.innerHTML = `
+        <div class="db2-modal" role="dialog" aria-modal="true">
+            <div class="db2-modal-hd">
+                <div class="db2-modal-title">${escapeHtml(title)}</div>
+                <button class="db2-modal-close" onclick="db2CloseModal()" aria-label="Close">✕</button>
+            </div>
+            <div>${bodyHtml}</div>
+        </div>
+    `;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) db2CloseModal(); });
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', db2EscHandler);
 }
-
-function getStatusBarColor(rate) {
-    if (rate >= 85) return 'bg-emerald-500';
-    if (rate >= 70) return 'bg-amber-500';
-    if (rate >= 50) return 'bg-orange-500';
-    return 'bg-rose-500';
+function db2EscHandler(e) { if (e.key === 'Escape') db2CloseModal(); }
+function db2CloseModal() {
+    const el = document.getElementById('db2-modal-overlay');
+    if (el) el.remove();
+    document.removeEventListener('keydown', db2EscHandler);
 }
-
-function getStatusBadge(rate) {
-    if (rate >= 85) return '<span class="db-badge bg-emerald-50 text-emerald-700 border border-emerald-200">Excellent</span>';
-    if (rate >= 70) return '<span class="db-badge bg-amber-50 text-amber-700 border border-amber-200">Good</span>';
-    if (rate >= 50) return '<span class="db-badge bg-orange-50 text-orange-700 border border-orange-200">Needs Attention</span>';
-    return '<span class="db-badge bg-rose-50 text-rose-700 border border-rose-200">Critical</span>';
-}
-
-function getStatusGroupColor(name) {
-    if (!name) return 'border-slate-300';
-    const colors = {
-        'Transportation': 'border-orange-400',
-        'Admission Fee': 'border-purple-400',
-        'schoolastic requirement': 'border-emerald-400',
-        'Scholastic': 'border-emerald-400',
-        'Sports': 'border-sky-400',
-        'Development': 'border-rose-400',
-        'Tuition': 'border-indigo-400'
-    };
-    const lowerName = (name || '').toLowerCase();
-    for (const [key, color] of Object.entries(colors)) {
-        if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) return color;
-    }
-    return 'border-slate-300';
-}
-
-function formatMoney(amount) {
-    const num = Math.round(amount || 0);
-    return num.toLocaleString('en-US');
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function getTermName(term) {
-    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
-    return names[term] || `Term ${term}`;
-}
+window.db2CloseModal = db2CloseModal;
 
 // ---------------------------------------------------------------------------
-// 2. MAIN DASHBOARD FUNCTION
+// 4. MAIN ENTRY POINT
 // ---------------------------------------------------------------------------
 async function showDashboard() {
-    console.log('showDashboard() — modern edition v12.0');
-    injectDashboardDesignSystem();
+    console.log('showDashboard() — enhanced edition v13.0');
+    if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
+    injectEnhancedDashboardStyles();
 
     const pageTitle = document.getElementById('pageTitle');
     if (pageTitle) pageTitle.innerHTML = '<i class="fas fa-chart-pie mr-2"></i>Dashboard';
@@ -70116,19 +70149,39 @@ async function showDashboard() {
     }
 
     try {
-        await initializeAcademicSettings();
-        const { currentYear, currentTerm } = currentAcademicSettings;
+        if (typeof initializeAcademicSettings === 'function') await initializeAcademicSettings();
+        const settings = (typeof currentAcademicSettings !== 'undefined') ? currentAcademicSettings
+            : { currentYear: new Date().getFullYear(), currentTerm: 1 };
+        const { currentYear, currentTerm } = settings;
         const termName = getTermName(currentTerm);
 
-        const response = await fetch('/api/dashboard/stats');
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        // Fetch everything in parallel. Each call is defensive — a failing
+        // endpoint degrades that one section instead of killing the page.
+        const [statsRes, groupsRes, uniformRes, inventoryRes, stockRes] = await Promise.allSettled([
+            fetch('/api/dashboard/stats').then(r => r.json()),
+            fetch('/api/fee/status-groups').then(r => r.json()),
+            fetch('/api/uniform/summary').then(r => r.json()),
+            fetch('/api/inventory/summary').then(r => r.json()),
+            fetch('/api/inventory/stock').then(r => r.json())
+        ]);
 
-        const result = await response.json();
-        if (!result.success) throw new Error(result.error || 'Failed to load dashboard data');
-
-        const data = result.data;
+        const statsResult = statsRes.status === 'fulfilled' ? statsRes.value : null;
+        if (!statsResult || !statsResult.success) {
+            throw new Error((statsResult && statsResult.error) || 'Failed to load dashboard stats');
+        }
+        const data = statsResult.data;
         window.dashboardData = data;
-        renderDashboard(data, termName, currentYear, currentTerm);
+
+        const allStatusGroups = groupsRes.status === 'fulfilled' ? (groupsRes.value || []) : [];
+        const uniformData = (uniformRes.status === 'fulfilled' && uniformRes.value && uniformRes.value.success)
+            ? uniformRes.value.data : null;
+        const inventoryData = (inventoryRes.status === 'fulfilled' && inventoryRes.value && inventoryRes.value.success)
+            ? inventoryRes.value.data : null;
+        const inventoryStock = stockRes.status === 'fulfilled' ? (stockRes.value || {}) : {};
+
+        renderDashboard(data, termName, currentYear, currentTerm, {
+            allStatusGroups, uniformData, inventoryData, inventoryStock
+        });
 
     } catch (error) {
         console.error('Error loading dashboard:', error);
@@ -70149,6 +70202,761 @@ async function showDashboard() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 5. RENDER ORCHESTRATOR
+// ---------------------------------------------------------------------------
+function renderDashboard(data, termName, currentYear, currentTerm, extras) {
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+
+    const school = data.school || {};
+    const studentStats = data.studentStats || {};
+    const tuitionStats = data.tuitionStats || {};
+    const cashItemsStats = data.cashItemsStats || {};
+    const statusGroups = data.statusGroups || [];
+    const statusGroupHealth = data.statusGroupHealth || [];
+
+    // ---- Merge in EVERY configured status group, even ones with zero data ----
+    const mergedGroups = mergeAllStatusGroups(statusGroups, extras.allStatusGroups);
+
+    // ---- Overall totals (tuition + cash items, matches the report logic) ----
+    const totalExpected = (tuitionStats.expected || 0) + (cashItemsStats.expected || 0)
+        + mergedGroups.reduce((s, g) => s + (g.totalRequired > 0 ? 0 : 0), 0); // item-quantity groups don't add UGX beyond cashExpected
+    const totalCollected = (tuitionStats.collected || 0) + (cashItemsStats.collected || 0);
+    const totalOutstanding = Math.max(0, totalExpected - totalCollected);
+    const overallRate = dbRate(totalCollected, totalExpected);
+
+    mainContent.innerHTML = `
+        <div class="db-app-bg -m-4 p-4 min-h-[70vh] rounded-2xl db-fade-in">
+            ${renderHero(school, termName, currentYear, currentTerm)}
+            ${renderKPIStrip(studentStats, tuitionStats, cashItemsStats, totalExpected, totalCollected, totalOutstanding, overallRate)}
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-2">
+                <div class="lg:col-span-2">
+                    ${renderStatusGroupsSection(mergedGroups)}
+                </div>
+                <div>
+                    ${renderPaymentStatusCard(studentStats)}
+                </div>
+            </div>
+
+            ${renderItemsTableSection(data.items || [])}
+            ${renderUniformSection(extras.uniformData)}
+            ${renderInventorySection(extras.inventoryData, extras.inventoryStock)}
+            ${renderSchoolPaySection()}
+            ${renderQuickActions()}
+        </div>
+    `;
+
+    // Charts need the canvases to exist in the DOM first.
+    ensureChartJsLoaded().then(() => {
+        renderPaymentStatusChart(studentStats);
+        renderStatusGroupRateChart(mergedGroups);
+        if (extras.uniformData) renderUniformChart(extras.uniformData);
+        if (extras.inventoryStock) renderInventoryChart(extras.inventoryStock);
+    }).catch(err => console.warn('Chart.js could not be loaded — charts skipped:', err.message));
+
+    // Wire up click handlers (event delegation keeps this safe against
+    // group/item names containing quotes, parentheses, etc.)
+    wireDashboardClicks(mergedGroups, data.items || [], extras);
+}
+
+// ---------------------------------------------------------------------------
+// 6. SECTION RENDERERS
+// ---------------------------------------------------------------------------
+function renderHero(school, termName, currentYear, currentTerm) {
+    return `
+        <div class="db-hero mb-6">
+            <div class="flex items-start justify-between flex-wrap gap-4">
+                <div>
+                    <div class="text-xs uppercase tracking-widest opacity-80 font-semibold mb-1">${escapeHtml(termName)} · ${currentYear}</div>
+                    <h1 class="font-display text-2xl md:text-3xl font-bold">${escapeHtml(school.schoolName || 'School Dashboard')}</h1>
+                    <p class="opacity-85 text-sm mt-1">${escapeHtml(school.motto || 'Quality Education for All')}</p>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="showDashboard()" class="db-chip text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                        <i class="fas fa-rotate-right mr-1.5"></i>Refresh
+                    </button>
+                    <button onclick="window.print()" class="db-chip text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                        <i class="fas fa-print mr-1.5"></i>Print
+                    </button>
+                </div>
+            </div>
+            <div class="db-hero-edge"></div>
+        </div>
+    `;
+}
+
+function renderKPIStrip(studentStats, tuitionStats, cashItemsStats, totalExpected, totalCollected, totalOutstanding, overallRate) {
+    const cards = [
+        {
+            id: 'total-students', icon: 'fa-users', color: DB_CHART_COLORS.indigo,
+            label: 'Total Students', value: (studentStats.total || 0).toLocaleString(),
+            sub: `${studentStats.male || 0} M · ${studentStats.female || 0} F`
+        },
+        {
+            id: 'collection-rate', icon: 'fa-gauge-high', color: getRateColor(overallRate),
+            label: 'Collection Rate', value: `${overallRate.toFixed(1)}%`,
+            sub: 'Tuition + fee items'
+        },
+        {
+            id: 'total-expected', icon: 'fa-file-invoice', color: DB_CHART_COLORS.slate,
+            label: 'Total Expected', value: dbFormatMoney(totalExpected), sub: 'This term'
+        },
+        {
+            id: 'total-collected', icon: 'fa-sack-dollar', color: DB_CHART_COLORS.emerald,
+            label: 'Total Collected', value: dbFormatMoney(totalCollected), sub: `${overallRate.toFixed(1)}% of expected`
+        },
+        {
+            id: 'total-outstanding', icon: 'fa-triangle-exclamation', color: DB_CHART_COLORS.rose,
+            label: 'Outstanding', value: dbFormatMoney(totalOutstanding), sub: 'Balance due'
+        },
+        {
+            id: 'fully-paid', icon: 'fa-circle-check', color: DB_CHART_COLORS.teal,
+            label: 'Fully Paid', value: (studentStats.paymentStatus?.fullyPaid || 0).toLocaleString(),
+            sub: `of ${studentStats.total || 0} students`
+        },
+        {
+            id: 'payment-due', icon: 'fa-clock', color: DB_CHART_COLORS.amber,
+            label: 'Payment Due', value: (studentStats.paymentStatus?.paymentDue || 0).toLocaleString(),
+            sub: 'Needs follow-up'
+        },
+        {
+            id: 'no-payment', icon: 'fa-ban', color: DB_CHART_COLORS.slate,
+            label: 'No Payment', value: (studentStats.paymentStatus?.noPayment || 0).toLocaleString(),
+            sub: 'Nothing recorded yet'
+        }
+    ];
+
+    return `
+        <div class="db2-grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 mb-6">
+            ${cards.map(c => `
+                <div class="db2-kpi db2-clickable" data-kpi="${c.id}" tabindex="0" role="button">
+                    <div class="db-metric-icon mb-2" style="background:${c.color}1A; color:${c.color};">
+                        <i class="fas ${c.icon}"></i>
+                    </div>
+                    <div class="db2-kpi-label">${c.label}</div>
+                    <div class="db2-kpi-value" style="font-size:${c.value.length > 10 ? '15px' : '20px'}">${c.value}</div>
+                    <div class="db2-kpi-sub">${c.sub}</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function getRateColor(rate) {
+    if (rate >= 85) return DB_CHART_COLORS.emerald;
+    if (rate >= 70) return DB_CHART_COLORS.gold;
+    if (rate >= 50) return '#F97316';
+    return DB_CHART_COLORS.rose;
+}
+
+function renderStatusGroupsSection(mergedGroups) {
+    if (mergedGroups.length === 0) {
+        return `
+            <div class="db2-section-card">
+                <div class="db2-section-title mb-2"><i class="fas fa-layer-group"></i> Fee & Status Groups</div>
+                <p class="text-sm text-slate-500">No status groups are configured yet.</p>
+            </div>
+        `;
+    }
+    return `
+        <div class="db2-section-card">
+            <div class="db2-section-hd">
+                <div class="db2-section-title"><i class="fas fa-layer-group"></i> Fee & Status Groups</div>
+                <span class="db2-badge-pill">${mergedGroups.length} groups</span>
+            </div>
+            <div class="mb-4">
+                <div class="db2-chart-box small"><canvas id="db2-group-rate-chart"></canvas></div>
+            </div>
+            <div class="db2-grid grid-cols-1 sm:grid-cols-2">
+                ${mergedGroups.map(g => renderStatusGroupCard(g)).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderStatusGroupCard(g) {
+    const rate = g.hasData ? g.rate : 0;
+    const barColor = getRateColor(rate);
+    const cashLine = g.cashExpected > 0
+        ? `<div class="text-xs text-slate-500 mt-1">${dbFormatMoney(g.cashCollected)} of ${dbFormatMoney(g.cashExpected)}</div>`
+        : '';
+    const itemsLine = g.totalRequired > 0
+        ? `<div class="text-xs text-slate-500">${g.totalCollected}/${g.totalRequired} items collected</div>`
+        : '';
+    return `
+        <div class="db2-group-card db2-clickable ${g.hasData ? '' : 'empty'}" data-group="${escapeHtml(g.name)}" tabindex="0" role="button">
+            <div class="flex items-center justify-between">
+                <div class="font-semibold text-sm text-slate-800">${escapeHtml(g.name)}</div>
+                ${g.hasData ? getStatusBadgeHtml(rate) : '<span class="db-badge bg-slate-100 text-slate-500 border border-slate-200">Not in use</span>'}
+            </div>
+            <div class="db2-progress-track"><div class="db2-progress-fill" style="width:${rate}%; background:${barColor};"></div></div>
+            <div class="flex items-center justify-between">
+                <div>${cashLine}${itemsLine}</div>
+                <div class="text-xs font-mono-num font-semibold" style="color:${barColor}">${g.hasData ? rate.toFixed(0) + '%' : '—'}</div>
+            </div>
+        </div>
+    `;
+}
+
+function getStatusBadgeHtml(rate) {
+    if (rate >= 85) return '<span class="db-badge bg-emerald-50 text-emerald-700 border border-emerald-200">Excellent</span>';
+    if (rate >= 70) return '<span class="db-badge bg-amber-50 text-amber-700 border border-amber-200">Good</span>';
+    if (rate >= 50) return '<span class="db-badge bg-orange-50 text-orange-700 border border-orange-200">Needs Attention</span>';
+    return '<span class="db-badge bg-rose-50 text-rose-700 border border-rose-200">Critical</span>';
+}
+
+function renderPaymentStatusCard(studentStats) {
+    const ps = studentStats.paymentStatus || {};
+    const rows = [
+        { label: 'Fully Paid', value: ps.fullyPaid || 0, color: DB_CHART_COLORS.emerald },
+        { label: 'Payment Due', value: ps.paymentDue || 0, color: DB_CHART_COLORS.gold },
+        { label: 'No Payment', value: ps.noPayment || 0, color: DB_CHART_COLORS.slate },
+        { label: 'Credit Balance', value: ps.creditBalance || 0, color: DB_CHART_COLORS.sky }
+    ];
+    return `
+        <div class="db2-section-card h-full">
+            <div class="db2-section-title mb-3"><i class="fas fa-chart-pie"></i> Payment Status</div>
+            <div class="db2-chart-box"><canvas id="db2-payment-status-chart"></canvas></div>
+            <div class="mt-3 space-y-2">
+                ${rows.map(r => `
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2"><span style="width:10px;height:10px;border-radius:3px;background:${r.color};display:inline-block;"></span>${r.label}</span>
+                        <span class="font-mono-num font-semibold">${r.value}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderItemsTableSection(items) {
+    if (!items || items.length === 0) return '';
+    const sorted = [...items].sort((a, b) => (b.remaining || 0) - (a.remaining || 0));
+    return `
+        <div class="db2-section-card">
+            <div class="db2-section-hd">
+                <div class="db2-section-title"><i class="fas fa-boxes-stacked"></i> Scholastic / Fee Items</div>
+                <span class="db2-badge-pill">${items.length} items</span>
+            </div>
+            <div class="overflow-x-auto db-scroll">
+                <table class="db-table db2-mini-table w-full">
+                    <thead><tr>
+                        <th>Item</th><th>Status Group</th><th>Required</th><th>Collected</th><th>Remaining</th><th>Rate</th>
+                    </tr></thead>
+                    <tbody>
+                        ${sorted.slice(0, 25).map(i => {
+                            const rate = dbRate(i.collected, i.required);
+                            return `
+                            <tr class="db2-clickable" data-item="${escapeHtml(i.name)}" data-item-group="${escapeHtml(i.statusGroup || '')}">
+                                <td class="font-semibold">${escapeHtml(i.name)}</td>
+                                <td class="text-slate-500">${escapeHtml(i.statusGroup || '—')}</td>
+                                <td class="font-mono-num">${i.required || 0}</td>
+                                <td class="font-mono-num">${i.collected || 0}</td>
+                                <td class="font-mono-num" style="color:${(i.remaining || 0) > 0 ? DB_CHART_COLORS.rose : DB_CHART_COLORS.emerald}">${i.remaining || 0}</td>
+                                <td>${getStatusBadgeHtml(rate)}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            ${items.length > 25 ? `<div class="text-xs text-slate-400 mt-2">Showing 25 of ${items.length} items</div>` : ''}
+        </div>
+    `;
+}
+
+// ---- Uniform section -------------------------------------------------------
+function renderUniformSection(uniformData) {
+    const students = uniformData ? Object.values(uniformData.studentDetails || {}) : [];
+    let fullyPaidCount = 0, halfPaidCount = 0, notStartedCount = 0, issuedCount = 0;
+
+    students.forEach(s => {
+        const collectedRatio = s.totalRequired > 0 ? (s.totalCollected / s.totalRequired) : 0;
+        if (s.totalRequired > 0 && s.totalCollected >= s.totalRequired) fullyPaidCount++;
+        else if (collectedRatio >= 0.5) halfPaidCount++;
+        else if (collectedRatio > 0) halfPaidCount++;
+        else notStartedCount++;
+
+        const anyIssued = Object.values(s.items || {}).some(it => it.isIssued);
+        if (anyIssued) issuedCount++;
+    });
+
+    const stock = uniformData ? (uniformData.stock || {}) : {};
+    const stockRows = Object.values(stock).filter(s => s && s.name);
+
+    return `
+        <div class="db2-section-card">
+            <div class="db2-section-hd">
+                <div class="db2-section-title"><i class="fas fa-shirt"></i> Uniform Management</div>
+                <span class="db2-badge-pill">${students.length} students tracked</span>
+            </div>
+            ${!uniformData ? `<p class="text-sm text-slate-500">Uniform data isn't available right now.</p>` : `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="db2-kpi db2-clickable" data-uniform-stat="fullyPaid">
+                    <div class="db2-kpi-label">Fully Paid</div>
+                    <div class="db2-kpi-value" style="color:${DB_CHART_COLORS.emerald}">${fullyPaidCount}</div>
+                    <div class="db2-kpi-sub">Complete uniform payment</div>
+                </div>
+                <div class="db2-kpi db2-clickable" data-uniform-stat="halfPaid">
+                    <div class="db2-kpi-label">Partially Paid</div>
+                    <div class="db2-kpi-value" style="color:${DB_CHART_COLORS.gold}">${halfPaidCount}</div>
+                    <div class="db2-kpi-sub">Some items/cash paid</div>
+                </div>
+                <div class="db2-kpi db2-clickable" data-uniform-stat="notStarted">
+                    <div class="db2-kpi-label">Not Started</div>
+                    <div class="db2-kpi-value" style="color:${DB_CHART_COLORS.slate}">${notStartedCount}</div>
+                    <div class="db2-kpi-sub">No payment yet</div>
+                </div>
+                <div class="db2-kpi db2-clickable" data-uniform-stat="issued">
+                    <div class="db2-kpi-label">Uniform Received</div>
+                    <div class="db2-kpi-value" style="color:${DB_CHART_COLORS.indigo}">${issuedCount}</div>
+                    <div class="db2-kpi-sub">Already issued to student</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="db2-chart-box"><canvas id="db2-uniform-status-chart"></canvas></div>
+                <div class="overflow-x-auto db-scroll">
+                    <table class="db-table db2-mini-table w-full">
+                        <thead><tr><th>Item</th><th>Received</th><th>Issued</th><th>Available</th></tr></thead>
+                        <tbody>
+                            ${stockRows.length === 0 ? `<tr><td colspan="4" class="text-slate-400 text-center py-4">No uniform stock recorded yet</td></tr>` :
+                              stockRows.map(s => `
+                                <tr>
+                                    <td class="font-semibold">${escapeHtml(s.name)}</td>
+                                    <td class="font-mono-num">${s.totalReceived || 0}</td>
+                                    <td class="font-mono-num">${s.issued || 0}</td>
+                                    <td class="font-mono-num" style="color:${(s.available || 0) <= 0 ? DB_CHART_COLORS.rose : DB_CHART_COLORS.emerald}">${s.available || 0}</td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            `}
+        </div>
+    `;
+}
+
+// ---- Inventory section ------------------------------------------------------
+function renderInventorySection(inventoryData, inventoryStock) {
+    const items = inventoryData ? Object.values(inventoryData.itemTotals || {}) : [];
+    const stockRows = Object.values(inventoryStock || {}).filter(s => s && s.name);
+
+    return `
+        <div class="db2-section-card">
+            <div class="db2-section-hd">
+                <div class="db2-section-title"><i class="fas fa-warehouse"></i> Inventory Overview</div>
+                <span class="db2-badge-pill">${stockRows.length} stocked items</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="db2-chart-box"><canvas id="db2-inventory-chart"></canvas></div>
+                <div class="overflow-x-auto db-scroll">
+                    <table class="db-table db2-mini-table w-full">
+                        <thead><tr><th>Item</th><th>Required</th><th>Collected</th><th>Remaining</th></tr></thead>
+                        <tbody>
+                            ${items.length === 0 ? `<tr><td colspan="4" class="text-slate-400 text-center py-4">No scholastic inventory data for this term yet</td></tr>` :
+                              items.slice(0, 15).map(i => `
+                                <tr class="db2-clickable" data-inv-item="${escapeHtml(i.name)}">
+                                    <td class="font-semibold">${escapeHtml(i.name)}</td>
+                                    <td class="font-mono-num">${i.totalItemsRequired || 0}</td>
+                                    <td class="font-mono-num">${i.totalBrought || 0}</td>
+                                    <td class="font-mono-num" style="color:${((i.totalItemsRequired||0) - (i.totalBrought||0)) > 0 ? DB_CHART_COLORS.rose : DB_CHART_COLORS.emerald}">
+                                        ${Math.max(0, (i.totalItemsRequired || 0) - (i.totalBrought || 0))}
+                                    </td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ---- SchoolPay section ------------------------------------------------------
+function renderSchoolPaySection() {
+    return `
+        <div class="db2-section-card">
+            <div class="db2-section-hd">
+                <div class="db2-section-title"><i class="fas fa-credit-card"></i> SchoolPay</div>
+                <a href="https://www.schoolpay.co.ug/login" target="_blank" rel="noopener noreferrer"
+                   class="text-xs font-semibold text-teal-700 hover:underline">
+                   Open in new tab <i class="fas fa-arrow-up-right-from-square ml-1"></i>
+                </a>
+            </div>
+            <div class="db2-schoolpay-frame-wrap">
+                <div class="db2-schoolpay-toolbar">
+                    <span><i class="fas fa-lock mr-1.5 text-slate-400"></i>schoolpay.co.ug</span>
+                    <span class="text-xs text-slate-400">If this stays blank, SchoolPay is blocking embedding — use "Open in new tab" above.</span>
+                </div>
+                <iframe src="https://www.schoolpay.co.ug/login" title="SchoolPay Login"
+                        sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+                        loading="lazy" referrerpolicy="no-referrer"></iframe>
+            </div>
+        </div>
+    `;
+}
+
+// ---- Quick actions (kept, in case your prior markup relied on it) ---------
+function renderQuickActions() {
+    const actions = [
+        { label: 'Register', icon: 'fa-user-plus', fn: 'showRegister' },
+        { label: 'Collect Fees', icon: 'fa-hand-holding-dollar', fn: 'showCollectFees' },
+        { label: 'Reports', icon: 'fa-chart-line', fn: 'showReports' },
+        { label: 'Inventory', icon: 'fa-boxes-stacked', fn: 'showInventory' },
+        { label: 'Uniform', icon: 'fa-shirt', fn: 'showUniformManagement' },
+        { label: 'Students', icon: 'fa-users', fn: 'showStudents' },
+        { label: 'Settings', icon: 'fa-gear', fn: 'showSettings' },
+        { label: 'Backup', icon: 'fa-database', fn: 'showBackup' }
+    ];
+    return `
+        <div class="db2-section-card">
+            <div class="db2-section-title mb-3"><i class="fas fa-bolt"></i> Quick Actions</div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                ${actions.map(a => `
+                    <button class="db-action p-4 text-left" onclick="if(typeof ${a.fn}==='function'){${a.fn}()}else{console.warn('${a.fn} is not defined in this app')}">
+                        <i class="fas ${a.icon} text-teal-600 mb-2 text-lg"></i>
+                        <div class="text-sm font-semibold text-slate-700">${a.label}</div>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// 7. STATUS GROUP MERGING (fixes the "only 5 groups" bug)
+// ---------------------------------------------------------------------------
+function mergeAllStatusGroups(backendGroups, configuredGroups) {
+    const byName = {};
+    (backendGroups || []).forEach(g => {
+        byName[g.name] = {
+            name: g.name,
+            hasData: true,
+            rate: g.rate || 0,
+            totalRequired: g.totalRequired || 0,
+            totalCollected: g.totalCollected || 0,
+            totalRemaining: g.totalRemaining || 0,
+            cashExpected: g.cashExpected || 0,
+            cashCollected: g.cashCollected || 0,
+            cashRemaining: g.cashRemaining || 0,
+            studentCount: g.studentCount || 0,
+            items: g.items || []
+        };
+    });
+    (configuredGroups || []).forEach(cg => {
+        const name = cg.name || 'Unnamed Group';
+        if (!byName[name]) {
+            byName[name] = {
+                name, hasData: false, rate: 0, totalRequired: 0, totalCollected: 0,
+                totalRemaining: 0, cashExpected: 0, cashCollected: 0, cashRemaining: 0,
+                studentCount: 0, items: []
+            };
+        }
+    });
+    return Object.values(byName).sort((a, b) => {
+        if (a.hasData !== b.hasData) return a.hasData ? -1 : 1;
+        return b.studentCount - a.studentCount;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 8. CHARTS
+// ---------------------------------------------------------------------------
+function renderPaymentStatusChart(studentStats) {
+    const ctx = document.getElementById('db2-payment-status-chart');
+    if (!ctx) return;
+    dbDestroyChart('paymentStatus');
+    const ps = studentStats.paymentStatus || {};
+    _dbChartInstances.paymentStatus = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Fully Paid', 'Payment Due', 'No Payment', 'Credit Balance'],
+            datasets: [{
+                data: [ps.fullyPaid || 0, ps.paymentDue || 0, ps.noPayment || 0, ps.creditBalance || 0],
+                backgroundColor: [DB_CHART_COLORS.emerald, DB_CHART_COLORS.gold, DB_CHART_COLORS.slate, DB_CHART_COLORS.sky],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '65%',
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderStatusGroupRateChart(mergedGroups) {
+    const ctx = document.getElementById('db2-group-rate-chart');
+    if (!ctx) return;
+    dbDestroyChart('groupRate');
+    const withData = mergedGroups.filter(g => g.hasData);
+    _dbChartInstances.groupRate = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: withData.map(g => g.name),
+            datasets: [{
+                label: 'Collection Rate (%)',
+                data: withData.map(g => Number(g.rate.toFixed(1))),
+                backgroundColor: withData.map(g => getRateColor(g.rate)),
+                borderRadius: 6, maxBarThickness: 28
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+        }
+    });
+}
+
+function renderUniformChart(uniformData) {
+    const ctx = document.getElementById('db2-uniform-status-chart');
+    if (!ctx) return;
+    dbDestroyChart('uniform');
+    const students = Object.values(uniformData.studentDetails || {});
+    let fullyPaid = 0, partial = 0, none = 0;
+    students.forEach(s => {
+        if (s.totalRequired > 0 && s.totalCollected >= s.totalRequired) fullyPaid++;
+        else if (s.totalCollected > 0) partial++;
+        else none++;
+    });
+    _dbChartInstances.uniform = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Fully Paid', 'Partially Paid', 'Not Started'],
+            datasets: [{
+                data: [fullyPaid, partial, none],
+                backgroundColor: [DB_CHART_COLORS.emerald, DB_CHART_COLORS.gold, DB_CHART_COLORS.slate],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderInventoryChart(inventoryStock) {
+    const ctx = document.getElementById('db2-inventory-chart');
+    if (!ctx) return;
+    dbDestroyChart('inventory');
+    const rows = Object.values(inventoryStock || {})
+        .filter(s => s && s.name)
+        .sort((a, b) => (b.available || 0) - (a.available || 0))
+        .slice(0, 10);
+    _dbChartInstances.inventory = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: rows.map(r => r.name),
+            datasets: [{
+                label: 'Available Stock',
+                data: rows.map(r => r.available || 0),
+                backgroundColor: DB_CHART_COLORS.indigo,
+                borderRadius: 6, maxBarThickness: 24
+            }]
+        },
+        options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 9. CLICK WIRING → DETAIL MODALS
+// ---------------------------------------------------------------------------
+function wireDashboardClicks(mergedGroups, items, extras) {
+    const root = document.getElementById('mainContent');
+    if (!root) return;
+
+    root.querySelectorAll('[data-kpi]').forEach(el => {
+        el.addEventListener('click', () => openKpiModal(el.getAttribute('data-kpi')));
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') el.click(); });
+    });
+
+    root.querySelectorAll('[data-group]').forEach(el => {
+        el.addEventListener('click', () => {
+            const name = el.getAttribute('data-group');
+            const g = mergedGroups.find(x => x.name === name);
+            openGroupModal(g);
+        });
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') el.click(); });
+    });
+
+    root.querySelectorAll('[data-item]').forEach(el => {
+        el.addEventListener('click', () => {
+            const name = el.getAttribute('data-item');
+            const item = items.find(i => i.name === name);
+            openItemModal(item);
+        });
+    });
+
+    root.querySelectorAll('[data-uniform-stat]').forEach(el => {
+        el.addEventListener('click', () => openUniformStatModal(el.getAttribute('data-uniform-stat'), extras.uniformData));
+    });
+
+    root.querySelectorAll('[data-inv-item]').forEach(el => {
+        el.addEventListener('click', () => {
+            const name = el.getAttribute('data-inv-item');
+            const itemTotals = extras.inventoryData ? (extras.inventoryData.itemTotals || {}) : {};
+            openInventoryItemModal(name, itemTotals[name]);
+        });
+    });
+}
+
+function openKpiModal(kpiId) {
+    const data = window.dashboardData || {};
+    const studentStats = data.studentStats || {};
+    const tuitionStats = data.tuitionStats || {};
+    const cashItemsStats = data.cashItemsStats || {};
+
+    const bodies = {
+        'total-students': `
+            <p class="text-sm text-slate-600 mb-3">Breakdown of all registered students this period.</p>
+            <table class="db2-mini-table w-full">
+                <tr><td>Total</td><td class="text-right font-mono-num">${studentStats.total || 0}</td></tr>
+                <tr><td>Active</td><td class="text-right font-mono-num">${studentStats.active || 0}</td></tr>
+                <tr><td>Male</td><td class="text-right font-mono-num">${studentStats.male || 0}</td></tr>
+                <tr><td>Female</td><td class="text-right font-mono-num">${studentStats.female || 0}</td></tr>
+            </table>`,
+        'collection-rate': `
+            <p class="text-sm text-slate-600 mb-3">How the overall rate is composed.</p>
+            <table class="db2-mini-table w-full">
+                <tr><td>Tuition rate</td><td class="text-right font-mono-num">${dbRate(tuitionStats.collected, tuitionStats.expected).toFixed(1)}%</td></tr>
+                <tr><td>Fee items rate</td><td class="text-right font-mono-num">${dbRate(cashItemsStats.collected, cashItemsStats.expected).toFixed(1)}%</td></tr>
+            </table>`,
+        'total-expected': `
+            <table class="db2-mini-table w-full">
+                <tr><td>Tuition expected</td><td class="text-right font-mono-num">${dbFormatMoney(tuitionStats.expected)}</td></tr>
+                <tr><td>Fee items expected</td><td class="text-right font-mono-num">${dbFormatMoney(cashItemsStats.expected)}</td></tr>
+            </table>`,
+        'total-collected': `
+            <table class="db2-mini-table w-full">
+                <tr><td>Tuition collected</td><td class="text-right font-mono-num">${dbFormatMoney(tuitionStats.collected)}</td></tr>
+                <tr><td>Fee items collected</td><td class="text-right font-mono-num">${dbFormatMoney(cashItemsStats.collected)}</td></tr>
+            </table>`,
+        'total-outstanding': `
+            <table class="db2-mini-table w-full">
+                <tr><td>Tuition outstanding</td><td class="text-right font-mono-num">${dbFormatMoney(tuitionStats.outstanding)}</td></tr>
+                <tr><td>Fee items outstanding</td><td class="text-right font-mono-num">${dbFormatMoney(cashItemsStats.outstanding)}</td></tr>
+            </table>
+            <p class="text-xs text-slate-400 mt-3">Open <strong>Reports</strong> for a per-student balance list.</p>`,
+        'fully-paid': `<p class="text-sm text-slate-600">${studentStats.paymentStatus?.fullyPaid || 0} students have no outstanding balance this term.</p>`,
+        'payment-due': `<p class="text-sm text-slate-600">${studentStats.paymentStatus?.paymentDue || 0} students have made a partial payment and still owe a balance.</p>`,
+        'no-payment': `<p class="text-sm text-slate-600">${studentStats.paymentStatus?.noPayment || 0} students have no payment recorded yet this term.</p>`
+    };
+
+    const titles = {
+        'total-students': 'Total Students', 'collection-rate': 'Collection Rate',
+        'total-expected': 'Total Expected', 'total-collected': 'Total Collected',
+        'total-outstanding': 'Outstanding Balance', 'fully-paid': 'Fully Paid Students',
+        'payment-due': 'Payment Due', 'no-payment': 'No Payment Recorded'
+    };
+
+    db2OpenModal(titles[kpiId] || 'Details', bodies[kpiId] || '<p class="text-sm text-slate-500">No details available.</p>');
+}
+
+function openGroupModal(g) {
+    if (!g) return;
+    const itemRows = (g.items || []).map(it => `
+        <tr>
+            <td class="font-semibold">${escapeHtml(it.name)}</td>
+            <td class="text-right font-mono-num">${it.required || 0}</td>
+            <td class="text-right font-mono-num">${it.collected || 0}</td>
+            <td class="text-right font-mono-num">${it.remaining || 0}</td>
+        </tr>
+    `).join('');
+
+    const body = `
+        ${!g.hasData ? `<p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+            This group is configured but isn't part of any currently-assigned fee structure, so it has no data yet.
+        </p>` : ''}
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="db2-kpi"><div class="db2-kpi-label">Cash Expected</div><div class="db2-kpi-value" style="font-size:16px">${dbFormatMoney(g.cashExpected)}</div></div>
+            <div class="db2-kpi"><div class="db2-kpi-label">Cash Collected</div><div class="db2-kpi-value" style="font-size:16px">${dbFormatMoney(g.cashCollected)}</div></div>
+            <div class="db2-kpi"><div class="db2-kpi-label">Cash Remaining</div><div class="db2-kpi-value" style="font-size:16px">${dbFormatMoney(g.cashRemaining)}</div></div>
+            <div class="db2-kpi"><div class="db2-kpi-label">Students</div><div class="db2-kpi-value" style="font-size:16px">${g.studentCount}</div></div>
+        </div>
+        ${(g.items || []).length > 0 ? `
+        <table class="db2-mini-table w-full">
+            <thead><tr><th>Item</th><th class="text-right">Required</th><th class="text-right">Collected</th><th class="text-right">Remaining</th></tr></thead>
+            <tbody>${itemRows}</tbody>
+        </table>` : '<p class="text-sm text-slate-500">No item-level breakdown for this group.</p>'}
+    `;
+    db2OpenModal(g.name, body);
+}
+
+function openItemModal(item) {
+    if (!item) return;
+    const rate = dbRate(item.collected, item.required);
+    db2OpenModal(item.name, `
+        <table class="db2-mini-table w-full mb-3">
+            <tr><td>Status group</td><td class="text-right">${escapeHtml(item.statusGroup || '—')}</td></tr>
+            <tr><td>Required</td><td class="text-right font-mono-num">${item.required || 0}</td></tr>
+            <tr><td>Collected</td><td class="text-right font-mono-num">${item.collected || 0}</td></tr>
+            <tr><td>Remaining</td><td class="text-right font-mono-num">${item.remaining || 0}</td></tr>
+            <tr><td>Students</td><td class="text-right font-mono-num">${item.students || 0}</td></tr>
+        </table>
+        <div class="db2-progress-track"><div class="db2-progress-fill" style="width:${rate}%; background:${getRateColor(rate)}"></div></div>
+        <div class="text-xs text-slate-400 mt-2 text-right">${rate.toFixed(1)}% collected</div>
+    `);
+}
+
+function openUniformStatModal(statKey, uniformData) {
+    if (!uniformData) return;
+    const students = Object.values(uniformData.studentDetails || {});
+    let filtered = [];
+    let title = '';
+
+    if (statKey === 'fullyPaid') {
+        title = 'Fully Paid — Uniform';
+        filtered = students.filter(s => s.totalRequired > 0 && s.totalCollected >= s.totalRequired);
+    } else if (statKey === 'halfPaid') {
+        title = 'Partially Paid — Uniform';
+        filtered = students.filter(s => s.totalCollected > 0 && s.totalCollected < s.totalRequired);
+    } else if (statKey === 'notStarted') {
+        title = 'Not Started — Uniform';
+        filtered = students.filter(s => (s.totalCollected || 0) === 0);
+    } else if (statKey === 'issued') {
+        title = 'Uniform Already Issued';
+        filtered = students.filter(s => Object.values(s.items || {}).some(it => it.isIssued));
+    }
+
+    const rows = filtered.slice(0, 100).map(s => `
+        <tr>
+            <td>${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
+            <td>${escapeHtml(s.currentClass)}</td>
+            <td class="text-right font-mono-num">${s.totalCollected}/${s.totalRequired}</td>
+        </tr>
+    `).join('');
+
+    db2OpenModal(title, `
+        <p class="text-xs text-slate-400 mb-2">${filtered.length} student(s)${filtered.length > 100 ? ' — showing first 100' : ''}</p>
+        <table class="db2-mini-table w-full">
+            <thead><tr><th>Student</th><th>Class</th><th class="text-right">Collected/Required</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="3" class="text-center text-slate-400 py-4">No students in this group</td></tr>'}</tbody>
+        </table>
+    `);
+}
+
+function openInventoryItemModal(name, itemData) {
+    if (!itemData) { db2OpenModal(name, '<p class="text-sm text-slate-500">No data for this item.</p>'); return; }
+    db2OpenModal(name, `
+        <table class="db2-mini-table w-full">
+            <tr><td>Required</td><td class="text-right font-mono-num">${itemData.totalItemsRequired || 0}</td></tr>
+            <tr><td>Brought / collected</td><td class="text-right font-mono-num">${itemData.totalBrought || 0}</td></tr>
+            <tr><td>Cash-covered items</td><td class="text-right font-mono-num">${itemData.totalCashCoveredItems || 0}</td></tr>
+            <tr><td>Students</td><td class="text-right font-mono-num">${itemData.studentsCount || 0}</td></tr>
+        </table>
+    `);
+}
+
+
+// Expose only the entry point + the one function referenced by inline
+// onclick handlers in the modal markup. Everything else stays private to
+// this closure, so it can never collide with same-named functions
+// elsewhere in main.js (which is what caused the previous error).
+window.showDashboard = showDashboard;
+window.db2CloseModal = db2CloseModal;
+
+})();
 // ---------------------------------------------------------------------------
 // 3. SCHOOL DATA INIT (unchanged behaviour)
 // ---------------------------------------------------------------------------
