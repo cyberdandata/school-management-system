@@ -77119,7 +77119,6 @@ window.updatePeriodOptionsV7 = updatePeriodOptionsV7;
 window.updateMaxQuantityForPeriodV7 = updateMaxQuantityForPeriodV7;
 window.getStockForItemAndPeriod = getStockForItemAndPeriod;
 window.getScholasticItemsOnly = getScholasticItemsOnly;
-window._dbMaskCounter=_dbMaskCounter;
 console.log('✅ Inventory Management System v12.0 - Complete Rebuild with Status Group Filtering Loaded!');
 console.log('📌 Only items with "Scholastic" status group are shown in all inventory views.');
 console.log('🔍 Use getScholasticItemsOnly() to see which items are being filtered.');
