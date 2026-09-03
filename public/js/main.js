@@ -66261,7 +66261,7 @@ function exportReportToCSV() {
         var filterItem = filters.itemName || 'all';
         var isTuitionOnly = filterStatusGroup === 'none';
         var periodsIncluded = metadata.periodsIncluded || [];
-       const isCustomized = item.isCustomized || false;
+        let  isCustomized;
 
         // ================================================================
         // EXCEL EXPORT SECTION TOGGLES (read from the filter panel)
