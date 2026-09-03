@@ -69907,6 +69907,234 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // ============================================================================
 
 // ---------------------------------------------------------------------------
+// DASHBOARD v14.0 — Masked money everywhere, filtered report navigation,
+// SchoolPay removed, all status groups always shown
+// ---------------------------------------------------------------------------
+function injectDashboardDesignSystem() {
+    if (document.getElementById('dashboard-modern-fonts')) return;
+
+    const fontLink = document.createElement('link');
+    fontLink.id = 'dashboard-modern-fonts';
+    fontLink.rel = 'stylesheet';
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap';
+    document.head.appendChild(fontLink);
+
+    const style = document.createElement('style');
+    style.id = 'dashboard-modern-styles';
+    style.textContent = `
+        :root{
+            --ink:#0B1324; --ink-soft:#475569; --line:#E7ECF3;
+            --surface:#FFFFFF; --app-bg:#F3F6FB;
+            --teal:#0E9C8E; --teal-dark:#0B7A70; --indigo:#4F5FE8;
+            --gold:#DB9A2C; --emerald:#12A66B; --rose:#E45B6B; --amber:#DB9A2C; --sky:#2F8FE0; --pink:#DB2C7A;
+        }
+        .font-display{font-family:'Sora',ui-sans-serif,system-ui,sans-serif;}
+        .font-body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;}
+        .font-mono-num{font-family:'JetBrains Mono',ui-monospace,monospace;}
+        #mainContent{ font-family:'Inter',ui-sans-serif,system-ui,sans-serif; color:var(--ink); }
+
+        .db-app-bg{
+            background:
+              radial-gradient(1200px 500px at 100% -10%, rgba(79,95,232,.10), transparent 60%),
+              radial-gradient(1000px 460px at -10% 0%, rgba(14,156,142,.10), transparent 55%),
+              var(--app-bg);
+        }
+
+        .db-hero{
+            position:relative;
+            background:linear-gradient(115deg,#0B7A70 0%, #0E9C8E 42%, #4F5FE8 100%);
+            border-radius:26px; padding:34px 34px 46px 34px; color:#fff;
+            box-shadow:0 20px 45px -18px rgba(15,23,42,.35);
+            overflow:hidden;
+        }
+        .db-hero::before{
+            content:''; position:absolute; inset:0; opacity:.14; pointer-events:none;
+            background-image:
+              radial-gradient(circle at 18% 22%, #fff 0 1.5px, transparent 1.6px),
+              radial-gradient(circle at 78% 62%, #fff 0 1.5px, transparent 1.6px),
+              radial-gradient(circle at 46% 82%, #fff 0 1.5px, transparent 1.6px);
+            background-size:120px 120px;
+        }
+        .db-hero-edge{
+            position:absolute; left:0; right:0; bottom:-1px; height:16px;
+            background:
+              linear-gradient(135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px,
+              linear-gradient(-135deg, transparent 66.6%, var(--app-bg) 33.4%) 0 0/16px 16px;
+            background-repeat:repeat-x;
+        }
+        .db-chip{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); }
+        .db-chip:hover{ background:rgba(255,255,255,.26); }
+
+        .db-metric{
+            background:var(--surface); border:1px solid var(--line); border-radius:18px;
+            padding:16px; position:relative; overflow:hidden;
+            transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        }
+        .db-metric:hover{ transform:translateY(-3px); box-shadow:0 16px 30px -18px rgba(15,23,42,.28); border-color:transparent; }
+        .db-metric-icon{
+            width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+            font-size:15px; flex-shrink:0;
+        }
+        .db-metric-value{ font-family:'JetBrains Mono',ui-monospace,monospace; letter-spacing:-.01em; }
+
+        .db-eyebrow{
+            font-family:'Sora',sans-serif; font-weight:700; font-size:11px; letter-spacing:.14em;
+            text-transform:uppercase; color:var(--teal-dark);
+        }
+        .db-section-title{ font-family:'Sora',sans-serif; font-weight:700; color:var(--ink); }
+
+        .db-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; }
+        .db-card-hd{ border-bottom:1px solid var(--line); }
+        .db-progress-track{ background:#EEF1F6; border-radius:999px; overflow:hidden; }
+        .db-progress-fill{ border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+
+        .db-table thead th{
+            font-family:'Sora',sans-serif; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+            color:#7A879C; background:#F8FAFC; position:sticky; top:0; z-index:1;
+        }
+        .db-table tbody tr{ transition:background .12s ease; }
+        .db-table tbody tr:hover{ background:#F7FAFC; }
+
+        .db-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; letter-spacing:.01em; }
+
+        .db-scroll::-webkit-scrollbar{ width:8px; height:8px; }
+        .db-scroll::-webkit-scrollbar-thumb{ background:#D6DEE9; border-radius:99px; }
+        .db-scroll::-webkit-scrollbar-track{ background:transparent; }
+
+        @keyframes db-shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
+        .db-skeleton{
+            background:linear-gradient(90deg,#EEF1F6 25%,#F7F9FC 37%,#EEF1F6 63%);
+            background-size:400px 100%; animation:db-shimmer 1.4s ease-in-out infinite; border-radius:12px;
+        }
+
+        .db-action{
+            background:var(--surface); border:1px solid var(--line); border-radius:16px;
+            transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        }
+        .db-action:hover{ transform:translateY(-2px); box-shadow:0 14px 26px -16px rgba(15,23,42,.25); border-color:transparent; }
+
+        .db-fade-in{ animation:db-fadeIn .4s ease both; }
+        @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+        /* ---- Masked money ---- */
+        .db-mask-wrap{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+        .db-mask-value{ letter-spacing:1px; }
+        .db-mask-btn{
+            display:inline-flex; align-items:center; justify-content:center;
+            width:20px; height:20px; border-radius:6px; flex-shrink:0;
+            color:#94A3B8; background:transparent; border:none; cursor:pointer;
+            transition:color .15s ease, background .15s ease;
+        }
+        .db-mask-btn:hover{ color:#334155; background:#EEF1F6; }
+
+        @media (prefers-reduced-motion: reduce){
+            .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// 1. HELPERS
+// ---------------------------------------------------------------------------
+function getStatusColor(rate) {
+    if (rate >= 85) return 'text-emerald-600';
+    if (rate >= 70) return 'text-amber-600';
+    if (rate >= 50) return 'text-orange-600';
+    return 'text-rose-600';
+}
+function getStatusBarColor(rate) {
+    if (rate >= 85) return 'bg-emerald-500';
+    if (rate >= 70) return 'bg-amber-500';
+    if (rate >= 50) return 'bg-orange-500';
+    return 'bg-rose-500';
+}
+function getStatusBadge(rate) {
+    if (rate >= 85) return '<span class="db-badge bg-emerald-50 text-emerald-700 border border-emerald-200">Excellent</span>';
+    if (rate >= 70) return '<span class="db-badge bg-amber-50 text-amber-700 border border-amber-200">Good</span>';
+    if (rate >= 50) return '<span class="db-badge bg-orange-50 text-orange-700 border border-orange-200">Needs Attention</span>';
+    return '<span class="db-badge bg-rose-50 text-rose-700 border border-rose-200">Critical</span>';
+}
+function getStatusGroupColor(name) {
+    if (!name) return 'border-slate-300';
+    const colors = {
+        'Transportation': 'border-orange-400', 'Admission Fee': 'border-purple-400',
+        'schoolastic requirement': 'border-emerald-400', 'Scholastic': 'border-emerald-400',
+        'Sports': 'border-sky-400', 'Development': 'border-rose-400', 'Tuition': 'border-indigo-400',
+        'Uniform': 'border-pink-400', 'Medical': 'border-teal-400', 'Graduation': 'border-amber-400',
+        'Holiday': 'border-cyan-400', 'Tour': 'border-lime-400', 'MDD': 'border-fuchsia-400',
+        'LTBalance': 'border-slate-400'
+    };
+    const lowerName = (name || '').toLowerCase();
+    for (const [key, color] of Object.entries(colors)) {
+        if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) return color;
+    }
+    return 'border-slate-300';
+}
+function formatMoney(amount) {
+    const num = Math.round(amount || 0);
+    return num.toLocaleString('en-US');
+}
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+function getTermName(term) {
+    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+    return names[term] || `Term ${term}`;
+}
+
+// ---------------------------------------------------------------------------
+// 1.5 MASKED MONEY — every currency figure on the dashboard renders hidden
+// (••••••) by default and only reveals on tap of its eye icon. Tap again to
+// re-hide. Each masked span gets a unique id via a running counter so
+// duplicate amounts/labels never collide.
+// ---------------------------------------------------------------------------
+let dbMaskCounter = 0;
+function renderMaskedMoney(amount, extraClass) {
+    _dbMaskCounter++;
+    const id = 'dbmask_' + _dbMaskCounter;
+    const real = 'UGX ' + formatMoney(amount);
+    return `<span class="db-mask-wrap ${extraClass || ''}">` +
+        `<span class="db-mask-value font-mono-num" id="${id}" data-real="${escapeHtml(real)}" data-masked="true">••••••</span>` +
+        `<button type="button" onclick="event.stopPropagation(); toggleMaskedMoney('${id}')" class="db-mask-btn" title="Show/hide amount"><i class="fas fa-eye text-[11px]"></i></button>` +
+        `</span>`;
+}
+function toggleMaskedMoney(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isMasked = el.getAttribute('data-masked') === 'true';
+    if (isMasked) {
+        el.textContent = el.getAttribute('data-real');
+        el.setAttribute('data-masked', 'false');
+    } else {
+        el.textContent = '••••••';
+        el.setAttribute('data-masked', 'true');
+    }
+}
+// Reveal/hide every masked amount on the page at once (used by a "show all" toggle if added later)
+let _dbAllRevealed = false;
+function toggleAllMaskedMoney() {
+    _dbAllRevealed = !_dbAllRevealed;
+    document.querySelectorAll('.db-mask-value').forEach(el => {
+        if (_dbAllRevealed) {
+            el.textContent = el.getAttribute('data-real');
+            el.setAttribute('data-masked', 'false');
+        } else {
+            el.textContent = '••••••';
+            el.setAttribute('data-masked', 'true');
+        }
+    });
+}
+window.toggleMaskedMoney = toggleMaskedMoney;
+window.toggleAllMaskedMoney = toggleAllMaskedMoney;
+
+// ---------------------------------------------------------------------------
+// 2. MAIN DASHBOARD FUNCTION
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // 1. HELPERS
 // ---------------------------------------------------------------------------
 function getStatusColor(rate) {
@@ -71293,6 +71521,1251 @@ window.toggleAllMetrics = toggleAllMetrics;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
 
 console.log('✅ Dashboard v13.1 loaded — money hidden by default, global eye toggle, no SchoolPay, status groups debug log');
+// ---------------------------------------------------------------------------
+// 3. SCHOOL DATA INIT (unchanged behaviour)
+// ---------------------------------------------------------------------------
+function initializeSchoolData() {
+    let school = null;
+    try {
+        const saved = localStorage.getItem('schoolData');
+        if (saved) {
+            school = JSON.parse(saved);
+            if (school && school.schoolName) { updateSchoolInfoUI(school); return; }
+        }
+    } catch (e) {}
+
+    fetch('/api/school')
+        .then(res => res.json())
+        .then(data => {
+            if (data.school && data.school.schoolName) {
+                school = data.school;
+                try { localStorage.setItem('schoolData', JSON.stringify(school)); } catch (e) {}
+                updateSchoolInfoUI(school);
+            }
+        })
+        .catch(e => console.warn('Could not fetch school data:', e));
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    initializeSchoolData();
+    initializeSidebar();
+});
+
+// ---------------------------------------------------------------------------
+// 4. NAVIGATION HELPERS — every stat card / row drills into the reports page
+// PRE-FILTERED so the user only has to tap "Generate".
+// ---------------------------------------------------------------------------
+
+// Sets a filter control (select or input) if it exists on the reports page.
+// Returns true if it found and set something. Never throws if the element
+// isn't there — reports UI can evolve without breaking the dashboard.
+function trySetReportFilter(elementId, value) {
+    if (value === undefined || value === null || value === '') return false;
+    const el = document.getElementById(elementId);
+    if (!el) return false;
+
+    if (el.tagName === 'SELECT') {
+        for (let i = 0; i < el.options.length; i++) {
+            if (el.options[i].value === value) {
+                el.value = value;
+                el.dispatchEvent(new Event('change'));
+                return true;
+            }
+        }
+        // fall back to matching visible option text (case-insensitive)
+        for (let i = 0; i < el.options.length; i++) {
+            if (el.options[i].text.trim().toLowerCase() === String(value).trim().toLowerCase()) {
+                el.value = el.options[i].value;
+                el.dispatchEvent(new Event('change'));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    el.value = value;
+    el.dispatchEvent(new Event('input'));
+    return true;
+}
+
+function resetKnownReportFilters() {
+    // Clear filters we're about to (possibly) set, so a stale filter from a
+    // previous visit to Reports doesn't silently narrow this new query.
+    const ids = [
+        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
+        'reportClassFilter', 'reportLevelFilter', 'reportFeeStructureFilter',
+        'reportStudentFilter'
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.tagName === 'SELECT') el.value = '';
+        else if (el) el.value = '';
+    });
+}
+
+function runFilteredReport(filters) {
+    if (typeof showReports !== 'function') return;
+    showReports();
+    setTimeout(() => {
+        resetKnownReportFilters();
+        if (filters.statusGroup) trySetReportFilter('reportStatusGroupFilter', filters.statusGroup);
+        if (filters.itemName) trySetReportFilter('reportItemFilter', filters.itemName);
+        if (filters.paymentStatus) trySetReportFilter('reportPaymentStatusFilter', filters.paymentStatus);
+        if (filters.className) trySetReportFilter('reportClassFilter', filters.className);
+        if (filters.level) trySetReportFilter('reportLevelFilter', filters.level);
+        if (filters.feeStructureId) trySetReportFilter('reportFeeStructureFilter', filters.feeStructureId);
+        setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
+    }, 300);
+}
+
+function navigateToStatusGroupReport(statusGroupName) {
+    runFilteredReport({ statusGroup: statusGroupName });
+}
+function navigateToItemReport(itemName, statusGroupName) {
+    runFilteredReport({ statusGroup: statusGroupName, itemName: itemName });
+}
+function navigateToClassGroupReport(className, statusGroupName) {
+    runFilteredReport({ className: className, statusGroup: statusGroupName });
+}
+function navigateToPaymentStatusReport(status) {
+    runFilteredReport({ paymentStatus: status });
+}
+function navigateToTuitionReport() {
+    runFilteredReport({});
+}
+function navigateToUniformSection() {
+    if (typeof showUniformManagement === 'function') showUniformManagement();
+}
+function navigateToInventorySection() {
+    if (typeof showInventory === 'function') showInventory();
+}
+function navigateToStockCategory(categoryId) {
+    if (typeof showInventory === 'function') showInventory();
+    setTimeout(() => {
+        const sel = document.getElementById('schoolStockCategoryFilter');
+        if (sel && categoryId) { sel.value = categoryId; sel.dispatchEvent(new Event('change')); }
+    }, 300);
+}
+function navigateToStudentList() {
+    if (typeof showStudentList === 'function') showStudentList();
+}
+
+// ---------------------------------------------------------------------------
+// 5. RENDER DASHBOARD
+// ---------------------------------------------------------------------------
+function renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm) {
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+
+    const {
+        school, studentStats, tuitionStats, cashItemsStats,
+        statusGroups, statusGroupHealth, items,
+        statusGroupsCount, totalItemsCount, timestamp
+    } = data;
+
+    const schoolName = school?.schoolName || 'School Name';
+    const schoolMotto = school?.motto || 'Quality Education for All';
+
+    const tuitionExpected = tuitionStats?.expected || 0;
+    const tuitionCollected = tuitionStats?.collected || 0;
+    const tuitionOutstanding = tuitionStats?.outstanding || Math.max(0, tuitionExpected - tuitionCollected);
+    const tuitionRate = tuitionStats?.collectionRate || (tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0);
+
+    let tuitionRateColor = 'emerald';
+    if (tuitionRate < 50) tuitionRateColor = 'rose';
+    else if (tuitionRate < 70) tuitionRateColor = 'amber';
+
+    const fullyPaidCount = studentStats?.paymentStatus?.fullyPaid || 0;
+    const totalStudents = studentStats?.total || 0;
+
+    var html = '';
+
+    // ======================= SECTION 0: WRAPPER + HERO =======================
+    html += '<div class="db-app-bg -m-4 p-4 space-y-6 pb-8 rounded-2xl">';
+
+    html += '<div class="db-hero db-fade-in">';
+    html += '  <div class="db-hero-edge"></div>';
+    html += '  <div class="relative z-10 flex justify-between items-start flex-wrap gap-5">';
+    html += '    <div class="flex items-center gap-4">';
+    if (school?.logo) {
+        html += '<img src="' + escapeHtml(school.logo) + '" class="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-lg">';
+    } else {
+        html += '<div class="w-16 h-16 bg-white/15 border border-white/25 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-graduation-cap"></i></div>';
+    }
+    html += '      <div>';
+    html += '        <p class="db-eyebrow text-white/70" style="color:rgba(255,255,255,.7)">' + termName + ' &middot; ' + currentYear + '</p>';
+    html += '        <h1 class="font-display text-3xl font-bold tracking-tight">' + escapeHtml(schoolName) + '</h1>';
+    html += '        <p class="text-sm text-white/80 italic mt-0.5">' + escapeHtml(schoolMotto) + '</p>';
+    html += '      </div>';
+    html += '    </div>';
+    html += '    <div class="flex flex-wrap gap-2">';
+    html += '      <button onclick="showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
+    html += '      <button onclick="toggleAllMaskedMoney()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-eye"></i> Show/Hide All Amounts</button>';
+    html += '      <button onclick="printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
+    html += '      <button onclick="refreshDashboard()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-arrows-rotate"></i> Refresh</button>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '</div>';
+
+    // ======================= SECTION 1: KPI CARDS (each drills down, money masked) =======================
+    html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
+    html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()', false);
+    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()', false);
+    html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()', false);
+    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, null, 'navigateToTuitionReport()', false, renderMaskedMoney(tuitionCollected) + ' collected');
+    html += renderMetricCardEnhanced('Tuition Expected', null, 'fa-file-invoice', 'indigo', 'Tuition only', 'navigateToTuitionReport()', true, null, tuitionExpected);
+    html += renderMetricCardEnhanced('Tuition Collected', null, 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate', 'navigateToTuitionReport()', true, null, tuitionCollected);
+    html += renderMetricCardEnhanced('Outstanding', null, 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToTuitionReport()', true, null, tuitionOutstanding);
+    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', () => navigateToPaymentStatusReport('Fully Paid'), false);
+    html += '</div>';
+
+    if (cashItemsStats && (cashItemsStats.expected > 0 || cashItemsStats.collected > 0)) {
+        html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">';
+        html += renderMetricCardEnhanced('Cash-Only Items Expected', null, 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true, null, cashItemsStats.expected);
+        html += renderMetricCardEnhanced('Cash-Only Items Collected', null, 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToTuitionReport()', true, null, cashItemsStats.collected);
+        html += renderMetricCardEnhanced('Cash-Only Outstanding', null, 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToTuitionReport()', true, null, cashItemsStats.outstanding);
+        html += renderMetricCardEnhanced('Uniform &amp; Stock', 'View', 'fa-shirt', 'pink', 'Scroll to details below', "document.getElementById('uniformSection').scrollIntoView({behavior:'smooth'})", false);
+        html += '</div>';
+    }
+
+    // ======================= SECTION 2: STATUS GROUP CARDS (ALL groups, unfiltered) =======================
+    html += '<div>';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
+    html += '    <span class="text-sm text-slate-400 font-medium">' + (statusGroups || []).length + ' groups</span>';
+    html += '  </div>';
+    html += '  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">';
+    if (statusGroups && statusGroups.length > 0) {
+        for (var sgIdx = 0; sgIdx < statusGroups.length; sgIdx++) html += renderStatusGroupCard(statusGroups[sgIdx]);
+    } else {
+        html += '<div class="col-span-2 db-card p-10 text-center border-dashed">';
+        html += '<i class="fas fa-tags text-slate-300 text-4xl mb-3"></i>';
+        html += '<p class="text-slate-500 font-medium">No status groups found</p>';
+        html += '<p class="text-sm text-slate-400 mt-1">Status groups appear once fee structures with activity components are created</p>';
+        html += '</div>';
+    }
+    html += '  </div>';
+    html += '</div>';
+
+    // ======================= SECTION 3: PAYMENT STATUS + STATUS GROUP HEALTH =======================
+    html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
+
+    html += '  <div class="db-card overflow-hidden">';
+    html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '      <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-chart-pie text-sm"></i></div>';
+    html += '      <h3 class="font-display font-bold text-slate-800">Payment Status</h3>';
+    html += '    </div>';
+    html += '    <div class="p-5">';
+    html += '      <div class="h-60" id="paymentStatusChartContainer"><canvas id="paymentStatusChart"></canvas></div>';
+    html += '      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-5">';
+
+    var ps = studentStats?.paymentStatus || {};
+    var statusLabels = [
+        { key: 'fullyPaid', label: 'Fully Paid', icon: 'fa-circle-check', color: 'emerald', filterVal: 'Fully Paid' },
+        { key: 'paymentDue', label: 'Payment Due', icon: 'fa-clock', color: 'amber', filterVal: 'Payment Due' },
+        { key: 'criticalOverdue', label: 'Critical', icon: 'fa-fire', color: 'rose', filterVal: 'Payment Due' },
+        { key: 'noPayment', label: 'No Payment', icon: 'fa-file', color: 'slate', filterVal: 'No Payment' },
+        { key: 'creditBalance', label: 'Credit', icon: 'fa-sack-dollar', color: 'sky', filterVal: 'Credit Balance' }
+    ];
+    var chipColorMap = {
+        emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700',
+        rose: 'bg-rose-50 text-rose-700', slate: 'bg-slate-100 text-slate-600', sky: 'bg-sky-50 text-sky-700'
+    };
+    for (var si = 0; si < statusLabels.length; si++) {
+        var sl = statusLabels[si];
+        var val = ps[sl.key] || 0;
+        html += '<div class="text-center p-2.5 rounded-xl cursor-pointer ' + chipColorMap[sl.color] + '" onclick="navigateToPaymentStatusReport(\'' + sl.filterVal + '\')">';
+        html += '  <i class="fas ' + sl.icon + ' text-xs mb-1 opacity-70"></i>';
+        html += '  <p class="text-[11px] font-semibold">' + sl.label + '</p>';
+        html += '  <p class="text-xl font-bold font-mono-num">' + val + '</p>';
+        html += '</div>';
+    }
+    html += '      </div>';
+    html += '    </div>';
+    html += '  </div>';
+
+    html += '  <div class="db-card p-4">';
+    html += '    <div class="mb-3"><p class="db-eyebrow">Diagnostics</p><h3 class="db-section-title text-lg mt-0.5">Status Group Health</h3></div>';
+    if (statusGroupHealth && statusGroupHealth.length > 0) {
+        for (var sh = 0; sh < statusGroupHealth.length; sh++) {
+            var sg = statusGroupHealth[sh];
+            var rate = sg.rate || 0;
+            var rateColor = getStatusColor(rate);
+            var barColor = getStatusBarColor(rate);
+            var badge = getStatusBadge(rate);
+
+            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name).replace(/'/g, "\\'") + '\')">';
+            html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor + '"></div>';
+            html += '  <div class="flex-1 min-w-0">';
+            html += '    <div class="flex justify-between items-center">';
+            html += '      <span class="font-semibold text-sm text-slate-700 truncate">' + escapeHtml(sg.name) + '</span>';
+            html += '      <span class="text-sm font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
+            html += '    </div>';
+            html += '    <div class="db-progress-track h-1.5 mt-1.5"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
+            html += '  </div>';
+            html += '  <div class="flex-shrink-0">' + badge + '</div>';
+            html += '</div>';
+        }
+    } else {
+        html += '<div class="text-center py-10 text-slate-400">No status groups found</div>';
+    }
+    html += '  </div>';
+
+    html += '</div>';
+
+    // ======================= SECTION 3.5: CLASS PERFORMANCE (bar-style matrix) =======================
+    html += '<div class="db-card overflow-hidden">';
+    html += '  <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '    <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
+    html += '    <h3 class="font-display font-bold text-slate-800">Class Performance</h3>';
+    html += '  </div>';
+    html += '  <div class="p-4 max-h-96 overflow-y-auto db-scroll">';
+    html += renderClassPerformanceTable(data.classPerformance || {});
+    html += '  </div>';
+    html += '</div>';
+
+    // ======================= SECTION 4: ITEM COLLECTION TABLE (drill-down per row) =======================
+    html += '<div>';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
+    html += '    <span class="text-sm text-slate-400 font-medium">' + (items || []).length + ' items</span>';
+    html += '  </div>';
+    html += '  <div class="db-card overflow-hidden">';
+    html += '    <div class="p-4">';
+    html += '      <div class="flex flex-wrap gap-3 mb-4">';
+    html += '        <div class="relative flex-1 min-w-[220px]">';
+    html += '          <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>';
+    html += '          <input type="text" id="itemSearchInput" placeholder="Search items..." class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">';
+    html += '        </div>';
+    html += '        <select id="itemStatusGroupFilter" class="border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500/40 outline-none bg-white">';
+    html += '          <option value="">All Status Groups</option>';
+    if (statusGroups) {
+        for (var sg2 = 0; sg2 < statusGroups.length; sg2++) {
+            html += '<option value="' + escapeHtml(statusGroups[sg2].name) + '">' + escapeHtml(statusGroups[sg2].name) + '</option>';
+        }
+    }
+    html += '        </select>';
+    html += '        <button onclick="filterItemsTable()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-filter mr-1.5"></i>Filter</button>';
+    html += '        <button onclick="resetItemFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-rotate-left mr-1.5"></i>Reset</button>';
+    html += '      </div>';
+    html += '      <div class="overflow-x-auto max-h-96 overflow-y-auto db-scroll rounded-xl border border-slate-100" id="itemsTableContainer">';
+    html += '        <table class="w-full text-sm" id="itemsTable">';
+    html += '          <thead class="db-table"><tr>';
+    html += '            <th class="p-3 text-left cursor-pointer" onclick="sortItemsTable(\'name\')">Item Name <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '            <th class="p-3 text-left cursor-pointer" onclick="sortItemsTable(\'statusGroup\')">Status Group <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'required\')">Required <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'collected\')">Collected <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'remaining\')">Remaining <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '            <th class="p-3 text-center cursor-pointer" onclick="sortItemsTable(\'rate\')">Rate <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'students\')">Students <i class="fas fa-sort ml-1 opacity-40"></i></th>';
+    html += '          </tr></thead><tbody class="divide-y divide-slate-100">';
+
+    if (items && items.length > 0) {
+        for (var itm = 0; itm < items.length; itm++) {
+            var item = items[itm];
+            var required = item.required || 0;
+            var collected = item.collected || 0;
+            var rate = required > 0 ? (collected / required * 100) : 0;
+            var rateColor = getStatusColor(rate);
+            var barColor = getStatusBarColor(rate);
+
+            html += '<tr class="item-row cursor-pointer"';
+            html += ' data-name="' + escapeHtml(item.name).toLowerCase() + '"';
+            html += ' data-group="' + escapeHtml(item.statusGroup) + '"';
+            html += ' data-required="' + required + '"';
+            html += ' data-collected="' + collected + '"';
+            html += ' data-remaining="' + (item.remaining || 0) + '"';
+            html += ' data-rate="' + rate + '"';
+            html += ' onclick="navigateToItemReport(\'' + escapeHtml(item.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(item.statusGroup).replace(/'/g, "\\'") + '\')">';
+            html += '<td class="p-3 font-medium text-slate-700"><i class="fas fa-box-open text-slate-300 mr-2"></i>' + escapeHtml(item.name) + '</td>';
+            html += '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + escapeHtml(item.statusGroup) + '</span></td>';
+            html += '<td class="p-3 text-right font-mono-num font-semibold text-slate-600">' + required + '</td>';
+            html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">' + collected + '</td>';
+            html += '<td class="p-3 text-right font-mono-num font-semibold text-rose-500">' + (item.remaining || 0) + '</td>';
+            html += '<td class="p-3 text-center">';
+            html += '  <span class="font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
+            html += '  <div class="db-progress-track h-1.5 mt-1.5 w-24 mx-auto"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
+            html += '</td>';
+            html += '<td class="p-3 text-right text-slate-500">' + (item.students || 0) + '</td>';
+            html += '</tr>';
+        }
+    } else {
+        html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No items found</td></tr>';
+    }
+
+    html += '        </tbody></table>';
+    html += '      </div>';
+    html += '      <div class="mt-4 flex justify-between items-center text-sm text-slate-500 border-t border-slate-100 pt-3">';
+
+    var totalRequired = 0, totalCollectedItems = 0;
+    if (items) {
+        for (var itm2 = 0; itm2 < items.length; itm2++) {
+            totalRequired += items[itm2].required || 0;
+            totalCollectedItems += items[itm2].collected || 0;
+        }
+    }
+    html += '        <span>Showing <span id="itemsVisibleCount" class="font-semibold text-slate-700">' + (items || []).length + '</span> of ' + (items || []).length + ' items</span>';
+    html += '        <span class="font-mono-num">Required: <b>' + totalRequired + '</b> &middot; Collected: <b class="text-emerald-600">' + totalCollectedItems + '</b></span>';
+    html += '      </div>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '</div>';
+
+    // ======================= SECTION 5: UNIFORM STATISTICS =======================
+    html += renderUniformSection(uniformData);
+
+    // ======================= SECTION 6: GENERAL SCHOOL STOCK =======================
+    html += renderGeneralStockSection(stockData);
+
+    // ======================= SECTION 7: QUICK ACTIONS =======================
+    html += '<div class="db-card overflow-hidden">';
+    html += '  <div class="px-5 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center gap-2">';
+    html += '    <i class="fas fa-bolt text-amber-400"></i><h3 class="font-display font-bold">Quick Actions</h3>';
+    html += '  </div>';
+    html += '  <div class="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
+
+    var actions = [
+        { onclick: 'showStudentRegistration()', icon: 'fa-user-plus', color: 'indigo', label: 'Register' },
+        { onclick: 'showFeeManagement()', icon: 'fa-money-bill-wave', color: 'emerald', label: 'Collect Fees' },
+        { onclick: 'showReports()', icon: 'fa-file-lines', color: 'sky', label: 'Reports' },
+        { onclick: 'showInventory()', icon: 'fa-boxes-stacked', color: 'teal', label: 'Inventory' },
+        { onclick: 'showUniformManagement()', icon: 'fa-shirt', color: 'purple', label: 'Uniform' },
+        { onclick: 'showStudentList()', icon: 'fa-users', color: 'rose', label: 'Students' },
+        { onclick: 'showSettings()', icon: 'fa-gear', color: 'slate', label: 'Settings' },
+        { onclick: 'showBackup()', icon: 'fa-database', color: 'amber', label: 'Backup' }
+    ];
+    var actionIconBg = {
+        indigo: 'bg-indigo-50 text-indigo-600', emerald: 'bg-emerald-50 text-emerald-600', sky: 'bg-sky-50 text-sky-600',
+        teal: 'bg-teal-50 text-teal-600', purple: 'bg-purple-50 text-purple-600', rose: 'bg-rose-50 text-rose-600',
+        slate: 'bg-slate-100 text-slate-600', amber: 'bg-amber-50 text-amber-600'
+    };
+    for (var a = 0; a < actions.length; a++) {
+        var act = actions[a];
+        html += '<button onclick="' + act.onclick + '" class="db-action p-4 text-center group">';
+        html += '  <div class="w-10 h-10 rounded-xl ' + actionIconBg[act.color] + ' flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform"><i class="fas ' + act.icon + '"></i></div>';
+        html += '  <p class="text-xs font-semibold text-slate-600">' + act.label + '</p>';
+        html += '</button>';
+    }
+    html += '  </div>';
+    html += '</div>';
+
+    // ======================= FOOTER =======================
+    html += '<div class="text-center text-xs text-slate-400 py-4 border-t border-slate-200">';
+    html += '  <div class="flex flex-wrap justify-center gap-4">';
+    html += '    <span><i class="fas fa-rotate text-emerald-500 mr-1"></i>Live data</span>';
+    html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
+    html += '    <span>Dashboard v14.0</span>';
+    html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + (statusGroupsCount || 0) + ' status groups</span>';
+    html += '  </div>';
+    html += '</div>';
+
+    html += '</div>'; // close wrapper
+
+    mainContent.innerHTML = html;
+
+    setTimeout(function () {
+        initializePaymentStatusChart(studentStats?.paymentStatus || {});
+        initializeUniformPieChart(uniformData);
+    }, 150);
+    initializeItemFilters();
+
+    console.log('✅ Dashboard v14.0 rendered');
+}
+
+// ---------------------------------------------------------------------------
+// 6. METRIC CARD — click drills into a filtered report; money masked by default
+// ---------------------------------------------------------------------------
+// `value` is used directly for non-money cards. Pass `moneyAmount` for money
+// cards instead — value stays null and the card renders a masked amount.
+function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial, subtextOverrideHtml, moneyAmount) {
+    const colorMap = {
+        blue: 'from-blue-500 to-blue-600 border-blue-500', green: 'from-green-500 to-green-600 border-green-500',
+        red: 'from-red-500 to-red-600 border-red-500', yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
+        purple: 'from-purple-500 to-purple-600 border-purple-500', indigo: 'from-indigo-500 to-indigo-600 border-indigo-500',
+        pink: 'from-pink-500 to-pink-600 border-pink-500', emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
+        orange: 'from-orange-500 to-orange-600 border-orange-500', teal: 'from-teal-500 to-teal-600 border-teal-500',
+        gold: 'from-amber-500 to-amber-600 border-amber-500', sky: 'from-sky-500 to-sky-600 border-sky-500'
+    };
+    const bgLightMap = {
+        blue: 'bg-blue-100', green: 'bg-green-100', red: 'bg-red-100', yellow: 'bg-yellow-100', purple: 'bg-purple-100',
+        indigo: 'bg-indigo-100', pink: 'bg-pink-100', emerald: 'bg-emerald-100', orange: 'bg-orange-100',
+        teal: 'bg-teal-100', gold: 'bg-amber-100', sky: 'bg-sky-100'
+    };
+    const gradient = colorMap[color] || 'from-gray-500 to-gray-600 border-gray-500';
+    const bgLight = bgLightMap[color] || 'bg-gray-100';
+    const cardId = 'metric_' + label.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // navAction may be a function (payment-status chips) or a string of JS to run
+    const onclickAttr = typeof navAction === 'function'
+        ? `(${navAction.toString()})()`
+        : navAction;
+
+    const displayValue = (moneyAmount !== undefined && moneyAmount !== null)
+        ? renderMaskedMoney(moneyAmount)
+        : value;
+
+    const subtextHtml = subtextOverrideHtml !== undefined && subtextOverrideHtml !== null
+        ? subtextOverrideHtml
+        : (subtext || '');
+
+    return `
+        <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
+             id="${cardId}"
+             onclick="${escapeHtml(onclickAttr)}">
+            <div class="flex justify-between items-start">
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs text-gray-500 truncate flex items-center gap-1">${label}</p>
+                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value">
+                        ${displayValue}
+                    </p>
+                    ${subtextHtml ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtextHtml}</p>` : ''}
+                </div>
+                <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
+                        <i class="fas ${icon} text-sm"></i>
+                    </div>
+                </div>
+            </div>
+            <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
+        </div>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// 7. STATUS GROUP CARD — drills into Reports pre-filtered to this group;
+// every item row also drills into Reports pre-filtered to group + item
+// ---------------------------------------------------------------------------
+function renderStatusGroupCard(sg) {
+    const rate = sg.rate !== undefined ? sg.rate : (sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0);
+    const rateColor = getStatusColor(rate);
+    const barColor = getStatusBarColor(rate);
+    const badge = getStatusBadge(rate);
+
+    const items = Array.isArray(sg.items) ? sg.items : Object.values(sg.items || {});
+    const topItems = items
+        .slice()
+        .sort((a, b) => ((b.collected / (b.required || 1)) || 0) - ((a.collected / (a.required || 1)) || 0))
+        .slice(0, 4);
+
+    const borderClass = getStatusGroupColor(sg.name);
+    const safeName = escapeHtml(sg.name).replace(/'/g, "\\'");
+
+    const periodIcon = sg.periodType === 'one_time' ? '<i class="fas fa-star text-amber-400 text-[10px]" title="One-Time"></i>'
+        : sg.periodType === 'yearly' ? '<i class="fas fa-calendar-days text-indigo-400 text-[10px]" title="Yearly"></i>'
+        : '<i class="fas fa-calendar-week text-slate-400 text-[10px]" title="Termly"></i>';
+
+    return `
+        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${safeName}')">
+            <div class="p-4">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <i class="fas fa-tag text-indigo-400 text-sm"></i>
+                            <h4 class="font-display font-bold text-slate-800">${escapeHtml(sg.name)}</h4>
+                            ${periodIcon}
+                            ${badge}
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'yearly' ? 'Yearly' : 'Termly'}</p>
+                    </div>
+                    <p class="text-2xl font-bold font-mono-num ${rateColor}">${rate.toFixed(1)}%</p>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 mb-3">
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Required</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.totalRequired || 0}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collected</p><p class="text-base font-bold font-mono-num text-emerald-600">${sg.totalCollected || 0}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p><p class="text-base font-bold font-mono-num text-rose-500">${sg.totalRemaining || 0}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Students</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.studentCount || 0}</p></div>
+                </div>
+
+                ${sg.cashExpected ? `
+                <div class="grid grid-cols-3 gap-2 mb-3" onclick="event.stopPropagation()">
+                    <div class="bg-indigo-50 rounded-xl p-2 text-center"><p class="text-[10px] text-indigo-400 font-semibold uppercase">Cash Expected</p><p class="text-sm font-bold font-mono-num text-indigo-700">${renderMaskedMoney(sg.cashExpected)}</p></div>
+                    <div class="bg-emerald-50 rounded-xl p-2 text-center"><p class="text-[10px] text-emerald-400 font-semibold uppercase">Cash Collected</p><p class="text-sm font-bold font-mono-num text-emerald-700">${renderMaskedMoney(sg.cashCollected)}</p></div>
+                    <div class="bg-rose-50 rounded-xl p-2 text-center"><p class="text-[10px] text-rose-400 font-semibold uppercase">Cash Balance</p><p class="text-sm font-bold font-mono-num text-rose-600">${renderMaskedMoney(sg.cashRemaining)}</p></div>
+                </div>` : ''}
+
+                <div class="db-progress-track h-2 mb-3"><div class="db-progress-fill ${barColor} h-2" style="width:${Math.min(100, rate)}%"></div></div>
+
+                ${topItems.length > 0 ? `
+                    <div class="mt-3 pt-3 border-t border-slate-100">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Items</p>
+                        <div class="space-y-1.5">
+                            ${topItems.map(item => {
+                                const itemRate = item.required > 0 ? (item.collected / item.required * 100) : 0;
+                                const itemColor = getStatusColor(itemRate);
+                                const itemBar = getStatusBarColor(itemRate);
+                                const safeItemName = escapeHtml(item.name).replace(/'/g, "\\'");
+                                return `
+                                    <div class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation(); navigateToItemReport('${safeItemName}', '${safeName}')">
+                                        <span class="text-xs font-medium text-slate-600 flex-1 truncate hover:text-indigo-600">${escapeHtml(item.name)}</span>
+                                        <span class="text-xs font-bold font-mono-num ${itemColor}">${item.collected}/${item.required}</span>
+                                        <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
+                                    </div>
+                                `;
+                            }).join('')}
+                            ${items.length > 4 ? `<p class="text-xs text-slate-400 text-center pt-1">+${items.length - 4} more items</p>` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <button onclick="event.stopPropagation(); navigateToStatusGroupReport('${safeName}')"
+                        class="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm py-2 rounded-xl transition font-semibold">
+                    <i class="fas fa-eye mr-1.5"></i>View Details
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// 8. CLASS PERFORMANCE TABLE — clicking a cell drills into Reports
+// pre-filtered to that group AND that class
+// ---------------------------------------------------------------------------
+function renderClassPerformanceTable(classPerformance) {
+    const groupNames = Object.keys(classPerformance || {});
+    if (groupNames.length === 0) {
+        return `<div class="text-center py-10 text-slate-400">
+            <i class="fas fa-chalkboard text-3xl mb-2 text-slate-300"></i>
+            <p class="font-medium">No class performance data available</p>
+            <p class="text-sm text-slate-400 mt-1">Data appears once students are assigned to classes</p>
+        </div>`;
+    }
+
+    const classSet = new Set();
+    groupNames.forEach(g => Object.keys(classPerformance[g] || {}).forEach(cls => classSet.add(cls)));
+    const classes = Array.from(classSet).sort();
+
+    let html = `<table class="w-full text-xs">
+        <thead class="db-table"><tr>
+            <th class="p-2 text-left sticky left-0 bg-slate-50 z-10">Status Group</th>
+            ${classes.map(cls => `<th class="p-2 text-center min-w-12">${escapeHtml(cls)}</th>`).join('')}
+        </tr></thead><tbody class="divide-y divide-slate-100">`;
+
+    for (const groupName of groupNames) {
+        const breakdown = classPerformance[groupName] || {};
+        let totalReq = 0, totalCol = 0;
+        Object.values(breakdown).forEach(d => { totalReq += d.required || 0; totalCol += d.collected || 0; });
+        const rate = totalReq > 0 ? (totalCol / totalReq * 100) : 0;
+        const rowTint = rate >= 85 ? 'bg-emerald-50/40' : rate >= 70 ? 'bg-amber-50/40' : rate >= 50 ? 'bg-orange-50/40' : 'bg-rose-50/40';
+        const safeGroupName = escapeHtml(groupName).replace(/'/g, "\\'");
+
+        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${safeGroupName}')">
+            <td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">${escapeHtml(groupName)}</td>`;
+
+        for (const cls of classes) {
+            const dataC = breakdown[cls] || { required: 0, collected: 0 };
+            const clsRate = dataC.required > 0 ? (dataC.collected / dataC.required * 100) : 0;
+            const clsColor = getStatusColor(clsRate);
+            const clsBg = clsRate >= 85 ? 'bg-emerald-100/70' : clsRate >= 70 ? 'bg-amber-100/70' : clsRate >= 50 ? 'bg-orange-100/70' : 'bg-rose-100/70';
+            const safeClsName = escapeHtml(cls).replace(/'/g, "\\'");
+            html += `<td class="p-2 text-center ${clsBg} rounded-lg cursor-pointer" onclick="event.stopPropagation(); navigateToClassGroupReport('${safeClsName}', '${safeGroupName}')">
+                ${dataC.required > 0 ? `<span class="font-bold font-mono-num ${clsColor}">${clsRate.toFixed(0)}%</span>` : '-'}
+                ${dataC.required > 0 ? `<div class="text-[10px] text-slate-400">${dataC.collected}/${dataC.required}</div>` : ''}
+            </td>`;
+        }
+        html += `</tr>`;
+    }
+
+    html += `</tbody></table>
+        <div class="mt-3 text-[11px] text-slate-400 text-center flex flex-wrap justify-center gap-x-3 gap-y-1">
+            <span><span class="inline-block w-2.5 h-2.5 bg-emerald-400 rounded-sm mr-1"></span>&ge;85%</span>
+            <span><span class="inline-block w-2.5 h-2.5 bg-amber-400 rounded-sm mr-1"></span>70&ndash;84%</span>
+            <span><span class="inline-block w-2.5 h-2.5 bg-orange-400 rounded-sm mr-1"></span>50&ndash;69%</span>
+            <span><span class="inline-block w-2.5 h-2.5 bg-rose-400 rounded-sm mr-1"></span>&lt;50%</span>
+            <span class="text-slate-300">|</span>
+            <span>Click a row for the group, a cell for group + class</span>
+        </div>`;
+
+    return html;
+}
+
+// ---------------------------------------------------------------------------
+// 9. PAYMENT STATUS CHART
+// ---------------------------------------------------------------------------
+function initializePaymentStatusChart(paymentStatus) {
+    const canvas = document.getElementById('paymentStatusChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const ctx = canvas.getContext('2d');
+
+    const chartData = {
+        labels: ['Fully Paid', 'Payment Due', 'Critical Overdue', 'No Payment', 'Credit Balance'],
+        datasets: [{
+            data: [
+                paymentStatus.fullyPaid || 0, paymentStatus.paymentDue || 0, paymentStatus.criticalOverdue || 0,
+                paymentStatus.noPayment || 0, paymentStatus.creditBalance || 0
+            ],
+            backgroundColor: ['#12A66B', '#DB9A2C', '#E45B6B', '#94A3B8', '#2F8FE0'],
+            borderWidth: 3, borderColor: '#ffffff', hoverOffset: 6
+        }]
+    };
+    const total = chartData.datasets[0].data.reduce((a, b) => a + b, 0);
+
+    if (window._paymentStatusChartInstance) { try { window._paymentStatusChartInstance.destroy(); } catch (e) {} }
+
+    window._paymentStatusChartInstance = new Chart(ctx, {
+        type: 'doughnut', data: chartData,
+        options: {
+            responsive: true, maintainAspectRatio: true, cutout: '68%',
+            plugins: {
+                legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' } },
+                tooltip: {
+                    backgroundColor: '#0B1324', padding: 10, cornerRadius: 10,
+                    titleFont: { family: 'Sora', weight: '700' }, bodyFont: { family: 'Inter' },
+                    callbacks: {
+                        label: function (context) {
+                            const value = context.raw;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 10. UNIFORM SECTION — pie chart of paid status + stock table (money masked)
+// ---------------------------------------------------------------------------
+function renderUniformSection(uniformData) {
+    let html = '<div id="uniformSection">';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Uniform</p><h2 class="db-section-title text-xl mt-0.5">Uniform Statistics</h2></div>';
+    html += '    <button onclick="showUniformManagement()" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Manage Uniforms &rarr;</button>';
+    html += '  </div>';
+
+    if (!uniformData) {
+        html += '<div class="db-card p-10 text-center border-dashed">';
+        html += '<i class="fas fa-shirt text-slate-300 text-4xl mb-3"></i>';
+        html += '<p class="text-slate-500 font-medium">Uniform data unavailable</p>';
+        html += '<p class="text-sm text-slate-400 mt-1">Could not load /api/uniform/summary — check the Uniform Management page directly.</p>';
+        html += '</div></div>';
+        return html;
+    }
+
+    const studentDetails = uniformData.studentDetails || {};
+    const studentList = Object.values(studentDetails);
+
+    let fullyPaidCount = 0, halfPaidCount = 0, notPaidCount = 0, totalStudentsWithUniform = studentList.length;
+    for (const s of studentList) {
+        const total = s.totalRequired || 0;
+        const collected = s.totalCollected || 0;
+        if (total === 0) continue;
+        if (collected >= total) fullyPaidCount++;
+        else if (collected > 0) halfPaidCount++;
+        else notPaidCount++;
+    }
+
+    const itemTotals = uniformData.itemTotals || {};
+    const itemRows = Object.values(itemTotals);
+    const stock = uniformData.stock || {};
+    const stockRows = Object.keys(stock).map(k => stock[k]).filter(Boolean);
+
+    html += '  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">';
+
+    // Pie chart card
+    html += '    <div class="db-card overflow-hidden">';
+    html += '      <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '        <div class="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center"><i class="fas fa-shirt text-sm"></i></div>';
+    html += '        <h3 class="font-display font-bold text-slate-800">Uniform Payment Status</h3>';
+    html += '      </div>';
+    html += '      <div class="p-5">';
+    html += '        <div class="h-60"><canvas id="uniformPieChart"></canvas></div>';
+    html += '        <div class="grid grid-cols-3 gap-2 mt-5">';
+    html += '          <div class="text-center p-2.5 rounded-xl bg-emerald-50 text-emerald-700 cursor-pointer" onclick="showUniformManagement()"><p class="text-[11px] font-semibold">Fully Paid</p><p class="text-xl font-bold font-mono-num">' + fullyPaidCount + '</p></div>';
+    html += '          <div class="text-center p-2.5 rounded-xl bg-amber-50 text-amber-700 cursor-pointer" onclick="showUniformManagement()"><p class="text-[11px] font-semibold">Partly Paid</p><p class="text-xl font-bold font-mono-num">' + halfPaidCount + '</p></div>';
+    html += '          <div class="text-center p-2.5 rounded-xl bg-rose-50 text-rose-700 cursor-pointer" onclick="showUniformManagement()"><p class="text-[11px] font-semibold">Not Paid</p><p class="text-xl font-bold font-mono-num">' + notPaidCount + '</p></div>';
+    html += '        </div>';
+    html += '        <p class="text-xs text-slate-400 text-center mt-3">' + totalStudentsWithUniform + ' students with uniform requirements</p>';
+    html += '      </div>';
+    html += '    </div>';
+
+    // Item stock summary card
+    html += '    <div class="db-card overflow-hidden">';
+    html += '      <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+    html += '        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-warehouse text-sm"></i></div>';
+    html += '        <h3 class="font-display font-bold text-slate-800">Uniform Item Stock</h3>';
+    html += '      </div>';
+    html += '      <div class="p-4 max-h-72 overflow-y-auto db-scroll">';
+    if (stockRows.length > 0) {
+        html += '<table class="w-full text-sm"><thead class="db-table"><tr><th class="p-2 text-left">Item</th><th class="p-2 text-right">Received</th><th class="p-2 text-right">Issued</th><th class="p-2 text-right">Available</th></tr></thead><tbody class="divide-y divide-slate-100">';
+        for (const row of stockRows) {
+            const low = (row.available || 0) <= 5;
+            html += '<tr class="cursor-pointer hover:bg-slate-50" onclick="showUniformManagement()">';
+            html += '<td class="p-2 font-medium text-slate-700">' + escapeHtml(row.name || '') + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-slate-500">' + (row.totalReceived || 0) + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-slate-500">' + (row.issued || 0) + '</td>';
+            html += '<td class="p-2 text-right font-mono-num font-bold ' + (low ? 'text-rose-600' : 'text-emerald-600') + '">' + (row.available || 0) + (low ? ' <i class="fas fa-triangle-exclamation text-[10px]"></i>' : '') + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+    } else {
+        html += '<div class="text-center py-8 text-slate-400"><i class="fas fa-box-open text-2xl mb-2 text-slate-300"></i><p class="text-sm">No uniform stock recorded yet</p></div>';
+    }
+    html += '      </div>';
+    html += '    </div>';
+
+    html += '  </div>';
+
+    // Item collection (required vs collected) table
+    if (itemRows.length > 0) {
+        html += '  <div class="db-card overflow-hidden">';
+        html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
+        html += '      <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-list-check text-sm"></i></div>';
+        html += '      <h3 class="font-display font-bold text-slate-800">Uniform Item Collection</h3>';
+        html += '    </div>';
+        html += '    <div class="p-4 max-h-80 overflow-y-auto db-scroll">';
+        html += '      <table class="w-full text-sm"><thead class="db-table"><tr><th class="p-2 text-left">Item</th><th class="p-2 text-right">Required</th><th class="p-2 text-right">Collected</th><th class="p-2 text-right">Remaining</th><th class="p-2 text-center">Rate</th><th class="p-2 text-right">Students</th></tr></thead><tbody class="divide-y divide-slate-100">';
+        for (const item of itemRows) {
+            const required = item.totalRequired || 0;
+            const collected = item.totalCollected || 0;
+            const rate = required > 0 ? (collected / required * 100) : 0;
+            html += '<tr class="cursor-pointer hover:bg-slate-50" onclick="showUniformManagement()">';
+            html += '<td class="p-2 font-medium text-slate-700">' + escapeHtml(item.name || '') + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-slate-600">' + required + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-emerald-600">' + collected + '</td>';
+            html += '<td class="p-2 text-right font-mono-num text-rose-500">' + (item.totalRemaining || 0) + '</td>';
+            html += '<td class="p-2 text-center font-bold font-mono-num ' + getStatusColor(rate) + '">' + rate.toFixed(1) + '%</td>';
+            html += '<td class="p-2 text-right text-slate-500">' + (item.studentsCount || 0) + '</td>';
+            html += '</tr>';
+        }
+        html += '      </tbody></table>';
+        html += '    </div>';
+        html += '  </div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function initializeUniformPieChart(uniformData) {
+    const canvas = document.getElementById('uniformPieChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    let fullyPaidCount = 0, halfPaidCount = 0, notPaidCount = 0;
+    if (uniformData && uniformData.studentDetails) {
+        const list = Object.values(uniformData.studentDetails);
+        for (const s of list) {
+            const total = s.totalRequired || 0;
+            const collected = s.totalCollected || 0;
+            if (total === 0) continue;
+            if (collected >= total) fullyPaidCount++;
+            else if (collected > 0) halfPaidCount++;
+            else notPaidCount++;
+        }
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (window._uniformPieChartInstance) { try { window._uniformPieChartInstance.destroy(); } catch (e) {} }
+
+    window._uniformPieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Fully Paid', 'Partly Paid', 'Not Paid'],
+            datasets: [{
+                data: [fullyPaidCount, halfPaidCount, notPaidCount],
+                backgroundColor: ['#12A66B', '#DB9A2C', '#E45B6B'],
+                borderWidth: 3, borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 11, family: 'Inter' }, color: '#475569' } }
+            }
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 11. GENERAL SCHOOL STOCK SECTION (food/cleaning/office/etc.)
+// ---------------------------------------------------------------------------
+function renderGeneralStockSection(stockData) {
+    let html = '<div id="generalStockSection">';
+    html += '  <div class="flex justify-between items-center mb-4">';
+    html += '    <div><p class="db-eyebrow">Supplies</p><h2 class="db-section-title text-xl mt-0.5">General School Stock</h2></div>';
+    html += '    <button onclick="showInventory()" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Manage Stock &rarr;</button>';
+    html += '  </div>';
+
+    if (!stockData) {
+        html += '<div class="db-card p-10 text-center border-dashed">';
+        html += '<i class="fas fa-boxes-stacked text-slate-300 text-4xl mb-3"></i>';
+        html += '<p class="text-slate-500 font-medium">General stock data unavailable</p>';
+        html += '<p class="text-sm text-slate-400 mt-1">Could not load /api/school-stock/summary — check the Inventory page directly.</p>';
+        html += '</div></div>';
+        return html;
+    }
+
+    const categories = stockData.categories || {};
+    const catKeys = Object.keys(categories);
+
+    html += '  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">';
+    html += '    <div class="db-metric border-l-4 border-slate-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Total Items</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalItems || 0) + '</p></div>';
+    html += '    <div class="db-metric border-l-4 border-emerald-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Available</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalAvailable || 0) + '</p></div>';
+    html += '    <div class="db-metric border-l-4 border-indigo-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Received</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalReceived || 0) + '</p></div>';
+    html += '    <div class="db-metric border-l-4 border-amber-500 cursor-pointer" onclick="showInventory()"><p class="text-xs text-gray-500">Issued</p><p class="text-lg font-bold db-metric-value">' + (stockData.totalIssued || 0) + '</p></div>';
+    html += '  </div>';
+
+    if (catKeys.length > 0) {
+        html += '  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+        for (const key of catKeys) {
+            const cat = categories[key];
+            html += '<div class="db-card p-4 cursor-pointer hover:shadow-lg transition-shadow" onclick="navigateToStockCategory(\'' + escapeHtml(key) + '\')">';
+            html += '  <div class="flex items-center justify-between mb-2">';
+            html += '    <span class="font-display font-bold text-slate-800 text-sm">' + escapeHtml(cat.name || key) + '</span>';
+            html += '    <span class="db-badge bg-slate-100 text-slate-600">' + (cat.items || 0) + ' items</span>';
+            html += '  </div>';
+            html += '  <div class="grid grid-cols-3 gap-2 text-center">';
+            html += '    <div><p class="text-[10px] text-slate-400 uppercase">Avail.</p><p class="font-mono-num font-bold text-emerald-600">' + (cat.totalAvailable || 0) + '</p></div>';
+            html += '    <div><p class="text-[10px] text-slate-400 uppercase">Recv.</p><p class="font-mono-num font-bold text-indigo-600">' + (cat.totalReceived || 0) + '</p></div>';
+            html += '    <div><p class="text-[10px] text-slate-400 uppercase">Issued</p><p class="font-mono-num font-bold text-amber-600">' + (cat.totalIssued || 0) + '</p></div>';
+            html += '  </div>';
+            html += '</div>';
+        }
+        html += '  </div>';
+    } else {
+        html += '<div class="db-card p-8 text-center border-dashed"><p class="text-slate-400 text-sm">No general stock categories set up yet</p></div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// ---------------------------------------------------------------------------
+// 12. ITEM FILTERS
+// ---------------------------------------------------------------------------
+function initializeItemFilters() {
+    const searchInput = document.getElementById('itemSearchInput');
+    const groupFilter = document.getElementById('itemStatusGroupFilter');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', filterItemsTable);
+        searchInput.addEventListener('input', filterItemsTable);
+    }
+    if (groupFilter) groupFilter.addEventListener('change', filterItemsTable);
+}
+
+function filterItemsTable() {
+    const searchTerm = (document.getElementById('itemSearchInput')?.value || '').toLowerCase().trim();
+    const groupValue = document.getElementById('itemStatusGroupFilter')?.value || '';
+
+    const rows = document.querySelectorAll('#itemsTable .item-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const name = row.getAttribute('data-name') || '';
+        const group = row.getAttribute('data-group') || '';
+
+        let matchesSearch = true;
+        if (searchTerm) matchesSearch = name.includes(searchTerm);
+
+        let matchesGroup = true;
+        if (groupValue) matchesGroup = group === groupValue;
+
+        const isVisible = matchesSearch && matchesGroup;
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) visibleCount++;
+    });
+
+    const countSpan = document.getElementById('itemsVisibleCount');
+    if (countSpan) countSpan.innerText = visibleCount;
+}
+
+function resetItemFilters() {
+    const searchInput = document.getElementById('itemSearchInput');
+    const groupFilter = document.getElementById('itemStatusGroupFilter');
+    if (searchInput) searchInput.value = '';
+    if (groupFilter) groupFilter.value = '';
+    filterItemsTable();
+}
+
+let itemsSortDirection = {};
+function sortItemsTable(column) {
+    const rows = document.querySelectorAll('#itemsTable .item-row');
+    const rowArray = Array.from(rows);
+
+    if (!itemsSortDirection[column]) itemsSortDirection[column] = 'asc';
+    else if (itemsSortDirection[column] === 'asc') itemsSortDirection[column] = 'desc';
+    else itemsSortDirection[column] = 'asc';
+
+    const direction = itemsSortDirection[column];
+
+    rowArray.sort((a, b) => {
+        let aVal, bVal;
+        switch (column) {
+            case 'name': aVal = a.getAttribute('data-name') || ''; bVal = b.getAttribute('data-name') || ''; break;
+            case 'statusGroup': aVal = a.getAttribute('data-group') || ''; bVal = b.getAttribute('data-group') || ''; break;
+            case 'required': aVal = parseInt(a.getAttribute('data-required')) || 0; bVal = parseInt(b.getAttribute('data-required')) || 0; break;
+            case 'collected': aVal = parseInt(a.getAttribute('data-collected')) || 0; bVal = parseInt(b.getAttribute('data-collected')) || 0; break;
+            case 'remaining': aVal = parseInt(a.getAttribute('data-remaining')) || 0; bVal = parseInt(b.getAttribute('data-remaining')) || 0; break;
+            case 'rate': aVal = parseFloat(a.getAttribute('data-rate')) || 0; bVal = parseFloat(b.getAttribute('data-rate')) || 0; break;
+            case 'students': aVal = parseInt(a.getAttribute('data-students')) || 0; bVal = parseInt(b.getAttribute('data-students')) || 0; break;
+            default: return 0;
+        }
+        if (typeof aVal === 'string') return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        return direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+
+    const tbody = document.querySelector('#itemsTable tbody');
+    if (tbody) rowArray.forEach(row => tbody.appendChild(row));
+}
+
+// ---------------------------------------------------------------------------
+// 13. RECEIPT PRINTING (unchanged data flow, receipt itself stays unmasked
+// since it's a physical document handed to the parent, not a screen view)
+// ---------------------------------------------------------------------------
+async function printReceipt(receiptNumber) {
+    if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
+        alert('Invalid receipt number. Cannot print receipt.');
+        return;
+    }
+    try {
+        const response = await fetch('/api/fee/payments');
+        if (!response.ok) throw new Error('Failed to fetch payments');
+        const payments = await response.json();
+
+        let payment = payments.find(p => p.receiptNumber === receiptNumber);
+        if (!payment) payment = payments.find(p => p.receiptNumber?.toLowerCase() === receiptNumber.toLowerCase());
+        if (!payment) payment = payments.find(p => p.receiptNumber?.includes(receiptNumber) || receiptNumber.includes(p.receiptNumber));
+        if (!payment) payment = payments.find(p => p.id === receiptNumber);
+        if (!payment) { alert('Payment record not found for receipt: ' + receiptNumber); return; }
+
+        const schoolRes = await fetch('/api/school');
+        const schoolData = await schoolRes.json();
+        const school = schoolData.school || {};
+
+        let oneTimeTotal = 0, termlyTotal = 0, yearlyTotal = 0;
+        if (payment.activityItemPayments) {
+            oneTimeTotal += payment.activityItemPayments.filter(i => i.periodType === 'one_time').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+            termlyTotal += payment.activityItemPayments.filter(i => i.periodType === 'termly').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+            yearlyTotal += payment.activityItemPayments.filter(i => i.periodType === 'yearly').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+        }
+        if (payment.paymentsByPeriodType) {
+            oneTimeTotal += (payment.paymentsByPeriodType.one_time || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+            termlyTotal += (payment.paymentsByPeriodType.termly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+            yearlyTotal += (payment.paymentsByPeriodType.yearly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
+        }
+        const totalPaid = (payment.tuitionPaid || 0) + oneTimeTotal + termlyTotal + yearlyTotal;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) { alert('Please allow popups to print receipts'); return; }
+
+        printWindow.document.write(`
+            <!DOCTYPE html><html><head><title>Payment Receipt - ${payment.receiptNumber}</title>
+            <style>
+                *{margin:0;padding:0;box-sizing:border-box;}
+                body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;padding:40px;background:#F1F5F9;}
+                .receipt{max-width:460px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 20px 45px -20px rgba(15,23,42,.3);}
+                .header{background:linear-gradient(115deg,#0B7A70,#0E9C8E 45%,#4F5FE8);color:#fff;text-align:center;padding:28px;position:relative;}
+                .title{font-size:22px;font-weight:800;letter-spacing:.02em;}
+                .school-name{font-size:15px;font-weight:700;margin-top:6px;}
+                .receipt-no{font-size:11px;margin-top:10px;opacity:.85;font-family:monospace;letter-spacing:.03em;}
+                .content{padding:26px;}
+                .row{display:flex;justify-content:space-between;margin:11px 0;padding:6px 0;border-bottom:1px dashed #E2E8F0;font-size:13.5px;}
+                .total{font-size:18px;font-weight:800;border-top:2px solid #0B1324;padding-top:16px;margin-top:12px;border-bottom:none;}
+                .footer{background:#F8FAFC;text-align:center;padding:16px;font-size:11px;color:#94A3B8;}
+                .highlight{color:#0E9C8E;font-weight:800;}
+                .period-section{background:#F8FAFC;border-radius:12px;padding:14px;margin:12px 0;border:1px solid #EEF1F6;}
+                .period-title{font-weight:700;margin-bottom:8px;color:#0B7A70;font-size:13px;}
+                .items-list{font-size:12px;margin-top:6px;}
+                .items-list div{display:flex;justify-content:space-between;padding:4px 0;color:#475569;}
+                @media print{ body{padding:0;background:#fff;} .no-print{display:none;} }
+            </style></head>
+            <body>
+                <div class="receipt">
+                    <div class="header">
+                        <div class="title">FEE PAYMENT RECEIPT</div>
+                        <div class="school-name">${escapeHtml(school.schoolName || 'School Name')}</div>
+                        <div class="receipt-no">RCT: ${payment.receiptNumber}</div>
+                    </div>
+                    <div class="content">
+                        <div class="row"><strong>Date</strong><span>${new Date(payment.date).toLocaleDateString()}</span></div>
+                        <div class="row"><strong>Student</strong><span>${escapeHtml(payment.studentName)}</span></div>
+                        <div class="row"><strong>Admission No.</strong><span>${payment.admissionNumber}</span></div>
+                        <div class="row"><strong>Period</strong><span>${payment.academicYear} &middot; Term ${payment.term}</span></div>
+                        <div class="row"><strong>Method</strong><span>${payment.method?.toUpperCase() || 'CASH'}</span></div>
+                        ${payment.reference ? `<div class="row"><strong>Reference</strong><span>${payment.reference}</span></div>` : ''}
+                        ${payment.tuitionPaid > 0 ? `<div class="period-section"><div class="period-title">Tuition</div><div class="row" style="margin:0;padding:5px 0"><strong>Amount</strong><span>UGX ${(payment.tuitionPaid || 0).toLocaleString()}</span></div></div>` : ''}
+                        ${termlyTotal > 0 ? `<div class="period-section"><div class="period-title">Termly Items</div><div class="items-list">
+                            ${(payment.activityItemPayments || []).filter(i => i.periodType === 'termly').map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
+                            ${(payment.paymentsByPeriodType?.termly || []).map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
+                        </div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ${termlyTotal.toLocaleString()}</span></div></div>` : ''}
+                        ${oneTimeTotal > 0 ? `<div class="period-section"><div class="period-title">One-Time Items</div><div class="items-list">
+                            ${(payment.activityItemPayments || []).filter(i => i.periodType === 'one_time').map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
+                            ${(payment.paymentsByPeriodType?.one_time || []).map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
+                        </div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ${oneTimeTotal.toLocaleString()}</span></div></div>` : ''}
+                        ${yearlyTotal > 0 ? `<div class="period-section"><div class="period-title">Yearly Items</div><div class="items-list">
+                            ${(payment.activityItemPayments || []).filter(i => i.periodType === 'yearly').map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
+                            ${(payment.paymentsByPeriodType?.yearly || []).map(i => `<div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>`).join('')}
+                        </div><div class="row" style="margin-top:8px;border-top:1px solid #E2E8F0"><strong>Total</strong><span>UGX ${yearlyTotal.toLocaleString()}</span></div></div>` : ''}
+                        <div class="row total"><strong>TOTAL PAID</strong><span class="highlight">UGX ${totalPaid.toLocaleString()}</span></div>
+                        ${payment.notes ? `<div class="row"><strong>Notes</strong><span>${payment.notes}</span></div>` : ''}
+                    </div>
+                    <div class="footer">Thank you for your payment &middot; Computer-generated receipt</div>
+                </div>
+                <div class="no-print" style="text-align:center;margin-top:20px;">
+                    <button onclick="window.print()" style="padding:11px 22px;background:#0B1324;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;">Print Receipt</button>
+                    <button onclick="window.close()" style="padding:11px 22px;background:#E2E8F0;color:#334155;border:none;border-radius:10px;cursor:pointer;font-weight:600;margin-left:8px;">Close</button>
+                </div>
+            </body></html>
+        `);
+        printWindow.document.close();
+    } catch (error) {
+        console.error('Error printing receipt:', error);
+        alert('Error printing receipt: ' + error.message);
+    }
+}
+
+function viewPaymentReceipt(receiptNumber) { printReceipt(receiptNumber); }
+function printDashboard() { window.print(); }
+
+async function refreshDashboard() {
+    const btn = document.querySelector('[onclick="refreshDashboard()"]');
+    if (btn) {
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        btn.disabled = true;
+        await showDashboard();
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    } else {
+        await showDashboard();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 14. PRINT DASHBOARD SUMMARY REPORT (unchanged)
+// ---------------------------------------------------------------------------
+async function printDashboardReport() {
+    const { currentYear, currentTerm } = currentAcademicSettings;
+    const termName = getTermName(currentTerm);
+
+    const schoolRes = await fetch('/api/school');
+    const schoolData = await schoolRes.json();
+    const school = schoolData.school || {};
+
+    const students = window.dashboardStudents || [];
+    const totalExpected = students.reduce((sum, s) => sum + s.totalExpected, 0);
+    const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
+    const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected * 100).toFixed(1) : 0;
+
+    const feeStructuresRes = await fetch('/api/fee/structures');
+    const feeStructures = await feeStructuresRes.json();
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { alert('Please allow popups to print the report'); return; }
+
+    printWindow.document.write(`
+        <!DOCTYPE html><html><head><title>Dashboard Report - ${school.schoolName || 'School'}</title>
+        <style>
+            *{margin:0;padding:0;box-sizing:border-box;}
+            body{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;padding:40px;background:#fff;color:#0B1324;}
+            .report{max-width:1100px;margin:0 auto;}
+            .header{text-align:center;margin-bottom:30px;border-bottom:3px solid #0E9C8E;padding-bottom:22px;}
+            .title{font-size:26px;font-weight:800;color:#0B1324;margin-bottom:6px;}
+            .subtitle{font-size:15px;color:#64748B;margin-bottom:4px;}
+            .date{font-size:12px;color:#94A3B8;margin-top:10px;}
+            .section{margin-bottom:30px;}
+            .section-title{font-size:16px;font-weight:800;border-left:4px solid #0E9C8E;padding-left:14px;margin-bottom:18px;}
+            .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;}
+            .stat-card{background:#F8FAFC;border-radius:14px;padding:16px;text-align:center;border:1px solid #EEF1F6;}
+            .stat-label{font-size:11px;color:#94A3B8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+            .stat-value{font-size:22px;font-weight:800;color:#0B7A70;}
+            .footer{text-align:center;margin-top:36px;padding-top:18px;border-top:1px solid #E2E8F0;font-size:11px;color:#94A3B8;}
+            @media print{ body{padding:20px;} .no-print{display:none;} }
+        </style></head>
+        <body>
+            <div class="report">
+                <div class="header">
+                    <div class="title">DASHBOARD SUMMARY REPORT</div>
+                    <div class="subtitle">${escapeHtml(school.schoolName || 'School Name')}</div>
+                    <div class="subtitle">${termName} ${currentYear}</div>
+                    <div class="date">Generated: ${new Date().toLocaleString()}</div>
+                </div>
+                <div class="section">
+                    <div class="section-title">Executive Summary</div>
+                    <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-label">Total Students</div><div class="stat-value">${students.length}</div></div>
+                        <div class="stat-card"><div class="stat-label">Total Expected</div><div class="stat-value">UGX ${(totalExpected / 1000000).toFixed(1)}M</div></div>
+                        <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value">UGX ${(totalCollected / 1000000).toFixed(1)}M</div></div>
+                        <div class="stat-card"><div class="stat-label">Collection Rate</div><div class="stat-value">${collectionRate}%</div></div>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">Fee Structures Overview</div>
+                    <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-label">Total Fee Structures</div><div class="stat-value">${feeStructures.length}</div></div>
+                        <div class="stat-card"><div class="stat-label">Nursery</div><div class="stat-value">${feeStructures.filter(f => f.level === 'Nursery').length}</div></div>
+                        <div class="stat-card"><div class="stat-label">Lower Primary</div><div class="stat-value">${feeStructures.filter(f => f.level === 'LowerPrimary').length}</div></div>
+                        <div class="stat-card"><div class="stat-label">Upper Primary</div><div class="stat-value">${feeStructures.filter(f => f.level === 'UpperPrimary').length}</div></div>
+                    </div>
+                </div>
+                <div class="footer">Computer-generated dashboard report &middot; School Management System</div>
+            </div>
+            <div class="no-print" style="text-align:center;margin-top:20px;">
+                <button onclick="window.print()" style="padding:11px 22px;background:#0B1324;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;">Print</button>
+                <button onclick="window.close()" style="padding:11px 22px;background:#E2E8F0;color:#334155;border:none;border-radius:10px;cursor:pointer;font-weight:600;margin-left:8px;">Close</button>
+            </div>
+        </body></html>
+    `);
+    printWindow.document.close();
+}
+
+// ---------------------------------------------------------------------------
+// 15. SIDEBAR LOGO
+// ---------------------------------------------------------------------------
+async function updateSidebarLogo() {
+    try {
+        const response = await fetch('/api/school');
+        const data = await response.json();
+        const school = data.school;
+
+        if (school && school.logo) {
+            const logoContainer = document.getElementById('schoolLogoContainer');
+            const icon = document.getElementById('sidebarSchoolIcon');
+            if (icon) icon.style.display = 'none';
+
+            const img = document.createElement('img');
+            img.src = school.logo;
+            img.className = 'w-full h-full object-cover rounded-xl';
+            img.id = 'sidebarSchoolLogo';
+
+            const existingImg = document.getElementById('sidebarSchoolLogo');
+            if (existingImg) existingImg.remove();
+
+            if (logoContainer) logoContainer.appendChild(img);
+        }
+    } catch (error) {
+        console.error('Error loading logo:', error);
+    }
+}
+updateSidebarLogo();
+
+// ---------------------------------------------------------------------------
+// 16. GLOBAL EXPORTS
+// ---------------------------------------------------------------------------
+window.showDashboard = showDashboard;
+window.refreshDashboard = refreshDashboard;
+window.printDashboard = printDashboard;
+window.printDashboardReport = printDashboardReport;
+window.printReceipt = printReceipt;
+window.viewPaymentReceipt = viewPaymentReceipt;
+window.navigateToStatusGroupReport = navigateToStatusGroupReport;
+window.navigateToItemReport = navigateToItemReport;
+window.navigateToClassGroupReport = navigateToClassGroupReport;
+window.navigateToPaymentStatusReport = navigateToPaymentStatusReport;
+window.navigateToTuitionReport = navigateToTuitionReport;
+window.navigateToUniformSection = navigateToUniformSection;
+window.navigateToInventorySection = navigateToInventorySection;
+window.navigateToStockCategory = navigateToStockCategory;
+window.navigateToStudentList = navigateToStudentList;
+window.filterItemsTable = filterItemsTable;
+window.resetItemFilters = resetItemFilters;
+window.sortItemsTable = sortItemsTable;
+window.escapeHtml = escapeHtml;
+window.getTermName = getTermName;
+window.injectDashboardDesignSystem = injectDashboardDesignSystem;
+
+console.log('✅ Dashboard v14.0 loaded — masked money, filtered report drilldowns, SchoolPay removed');
 // ==================== RENDER FEE STRUCTURE STATISTICS PAGE ====================
 
 // ==================== COMPLETELY REBUILT FEE STRUCTURE STATISTICS PAGE ====================
