@@ -70115,8 +70115,6 @@ async function showDashboard() {
         const { currentYear, currentTerm } = currentAcademicSettings;
         const termName = getTermName(currentTerm);
 
-        // Fetch core dashboard stats + uniform + general stock in parallel.
-        // Uniform / stock endpoints are optional — dashboard still renders if they fail.
         const [statsRes, uniformRes, stockRes] = await Promise.allSettled([
             fetch('/api/dashboard/stats'),
             fetch('/api/uniform/summary'),
@@ -70163,7 +70161,6 @@ async function showDashboard() {
         }
     }
 }
-
 // ---------------------------------------------------------------------------
 // 3. SCHOOL DATA INIT (unchanged behaviour)
 // ---------------------------------------------------------------------------
