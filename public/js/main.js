@@ -70356,7 +70356,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '</div>';
 
     // ======================= SECTION 1: KPI CARDS (each drills down) =======================
-    html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
+    html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 db-metric-grid">';
     html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()');
     html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()');
     html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()');
