@@ -8950,6 +8950,10 @@ app.post('/api/uniform/reset', (req, res) => {
 // SHARED HELPERS (mirrors the logic inside /api/reports/comprehensive)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// SHARED HELPERS (mirrors the logic inside /api/reports/comprehensive)
+// ---------------------------------------------------------------------------
+
 function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
     if (!student || !student.customItemOverrides || !student.customItemOverrides[itemId]) {
         return {
@@ -9025,14 +9029,28 @@ function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid
     };
 }
 
-// Pulls cashPaid/itemsBrought for one item, for ONE student, in ONE period,
-// deduplicated by receipt — same matching approach as the report.
-function dashGetPaidAmountsForItem(studentId, componentName, itemName, year, term, allPaymentsData) {
-    const scoped = allPaymentsData.filter(p =>
-        p && p.studentId === studentId &&
-        p.term === term &&
-        p.academicYear === year.toString()
-    );
+// Pulls cashPaid/itemsBrought for one item, for ONE student — the SCOPE of
+// "which payments count" depends on the item's periodType:
+//   - termly : only payments made in the CURRENT term/year (resets each term)
+//   - yearly : any payment made anywhere in the CURRENT academic year
+//   - one_time: any payment ever made by this student (follows them forever)
+// This is what lets one-time/yearly fees paid in an earlier term still show
+// as collected in later terms, while termly fees correctly reset.
+function dashGetPaidAmountsForItem(studentId, componentName, itemName, year, term, allPaymentsData, periodType) {
+    let scoped;
+    if (periodType === 'one_time') {
+        scoped = allPaymentsData.filter(p => p && p.studentId === studentId);
+    } else if (periodType === 'yearly') {
+        scoped = allPaymentsData.filter(p =>
+            p && p.studentId === studentId && p.academicYear === year.toString()
+        );
+    } else {
+        scoped = allPaymentsData.filter(p =>
+            p && p.studentId === studentId &&
+            p.term === term &&
+            p.academicYear === year.toString()
+        );
+    }
 
     let cashPaid = 0;
     let itemsBrought = 0;
@@ -9083,7 +9101,12 @@ function dashGetStatusGroupColor(name) {
         'sports': 'bg-blue-100 text-blue-800 border-blue-200',
         'development': 'bg-red-100 text-red-800 border-red-200',
         'tuition': 'bg-indigo-100 text-indigo-800 border-indigo-200',
-        'uniform': 'bg-pink-100 text-pink-800 border-pink-200'
+        'uniform': 'bg-pink-100 text-pink-800 border-pink-200',
+        'medical': 'bg-teal-100 text-teal-800 border-teal-200',
+        'graduation': 'bg-amber-100 text-amber-800 border-amber-200',
+        'holiday': 'bg-cyan-100 text-cyan-800 border-cyan-200',
+        'tour': 'bg-lime-100 text-lime-800 border-lime-200',
+        'mdd': 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200'
     };
     const lower = name.toLowerCase();
     for (const [key, color] of Object.entries(colorMap)) {
@@ -9097,7 +9120,7 @@ function dashGetStatusGroupColor(name) {
 // ---------------------------------------------------------------------------
 
 app.get('/api/dashboard/stats', async (req, res) => {
-    console.log('=== DASHBOARD STATS (CORRECTED) ===');
+    console.log('=== DASHBOARD STATS (v2.0 - ALL STATUS GROUPS, PERIOD-AWARE) ===');
 
     try {
         const settings = readFile(files.settings);
@@ -9137,7 +9160,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         let fullyPaidCount = 0, paymentDueCount = 0, noPaymentCount = 0, creditBalanceCount = 0;
 
         const statusGroupsMap = {};   // keyed by group name
-        const itemTotalsMap = {};     // keyed by item name (+ group, since names can repeat across groups)
+        const itemTotalsMap = {};     // keyed by group::item
         const classPerformance = {};  // { groupName: { className: {required, collected} } }
 
         function getGroup(name, periodType) {
@@ -9170,7 +9193,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 currentClass = student.currentClass;
             }
 
-            // ---------- TUITION ----------
+            // ---------- TUITION (always scoped to the CURRENT term — tuition is inherently termly) ----------
             let expectedTuition = feeStructure.tuition || 0;
             if (student.customBursary && student.customBursary.amount > 0) {
                 expectedTuition = Math.max(0, expectedTuition - student.customBursary.amount);
@@ -9187,7 +9210,13 @@ app.get('/api/dashboard/stats', async (req, res) => {
             tuitionExpected += expectedTuition;
             tuitionCollected += studentTuitionPaid;
 
-            // ---------- ACTIVITY ITEMS ----------
+            // ---------- ACTIVITY ITEMS — ALL status groups, every period type ----------
+            // NOTE: we no longer gate one_time/yearly components behind isFirstTerm.
+            // A one_time fee is owed from the moment it's assigned until it's paid,
+            // regardless of which term the school is currently in. A yearly fee is
+            // owed for the whole academic year. Only the PAYMENT LOOKUP scope
+            // (dashGetPaidAmountsForItem) differs by period type — not whether the
+            // group/item is displayed at all.
             let studentCashExpectedAcrossAll = 0;
             let studentCashPaidAcrossAll = 0;
             let studentItemsRequired = 0;
@@ -9198,10 +9227,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 for (const comp of feeStructure.activityComponents) {
                     if (!comp) continue;
                     const periodType = comp.periodType || 'termly';
-                    const include = (periodType === 'termly') ||
-                                     (periodType === 'one_time' && isFirstTerm) ||
-                                     (periodType === 'yearly' && isFirstTerm);
-                    if (!include) continue;
 
                     let groupName = comp.statusGroupName || comp.name || 'Other';
                     if (groupName === 'schoolastic requirement') groupName = 'Scholastic Requirements';
@@ -9219,7 +9244,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                         const cv = dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
 
                         const { cashPaid, itemsBrought } = dashGetPaidAmountsForItem(
-                            student.id, comp.name, item.name, currentYear, currentTerm, feePayments
+                            student.id, comp.name, item.name, currentYear, currentTerm, feePayments, periodType
                         );
 
                         const totals = dashCalcItemTotals(cv.quantity, cv.amount, cv.paymentOption, cashPaid, itemsBrought);
@@ -9233,9 +9258,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
                         group.cashCollected += totals.cashPaid;
                         group.cashRemaining += totals.cashRemaining;
 
-                        // "Required/Collected/Remaining" for item_only and either items
-                        // is a QUANTITY metric; cash_only items contribute 0 to it
-                        // (matches the report: cash_only never becomes an item count).
+                        // "Required/Collected/Remaining" is a QUANTITY metric; cash_only
+                        // items never contribute to it (matches the report).
                         if (cv.paymentOption !== 'cash_only') {
                             group.totalRequired += totals.itemsRequired;
                             group.totalCollected += totals.itemsBrought;
@@ -9366,7 +9390,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     fullyPaid: fullyPaidCount,
                     withBalance: paymentDueCount
                 },
-                // NEW: dedicated cash-only-items card (sum of every paymentOption === 'cash_only' item, across all status groups)
                 cashItemsStats: {
                     expected: cashItemsExpected,
                     collected: cashItemsCollected,
