@@ -15760,15 +15760,9 @@ app.get('/', (req, res) => {
 
 
 app.get('*', (req, res) => {
-    // If the request looks like a static asset (has a file extension) and
-    // wasn't served by express.static above, it genuinely doesn't exist —
-    // return a real 404 instead of silently serving index.html, which is
-    // what causes "Unexpected token '<'" errors in the browser console.
-    if (path.extname(req.path)) {
-        return res.status(404).send('Not found: ' + req.path);
-    }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 // ==================== ERROR HANDLING ====================
 
 app.use((req, res) => {
