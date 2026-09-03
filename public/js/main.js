@@ -70032,15 +70032,27 @@ function injectDashboardDesignSystem() {
             .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
         }
 
-  .db-metric {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    transform-origin: center center;
+  /* Allow grid items to overflow so cards can stretch */
+.db-metric-grid {
+    overflow: visible !important;
 }
+
+.db-metric {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s ease,
+                z-index 0s;
+    transform-origin: center center;
+    will-change: transform;
+    z-index: 1;
+}
+
 .db-metric:hover {
     transform: scaleX(1.1);
     z-index: 10;
-    box-shadow: 0 20px 40px -18px rgba(15,23,42,0.35);
+    box-shadow: 0 20px 40px -18px rgba(15, 23, 42, 0.35);
 }
+
+/* Text elements inside the card – normally truncated */
 .db-metric .metric-value,
 .db-metric .metric-sub {
     white-space: nowrap;
@@ -70048,11 +70060,21 @@ function injectDashboardDesignSystem() {
     text-overflow: ellipsis;
     transition: all 0.2s ease;
 }
+
+/* On hover – show full text without truncation */
 .db-metric:hover .metric-value,
 .db-metric:hover .metric-sub {
     overflow: visible;
     text-overflow: clip;
-    white-space: nowrap; /* keep nowrap to avoid wrapping */
+    white-space: nowrap;  /* keep on one line */
+}
+
+/* Keep the "Tap for details" subtle */
+.db-metric .tap-hint {
+    transition: color 0.2s ease;
+}
+.db-metric:hover .tap-hint {
+    color: #4F5FE8;
 }  `;
     document.head.appendChild(style);
 }
