@@ -70074,7 +70074,7 @@ function getTermName(term) {
     const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
     return names[term] || `Term ${term}`;
 }
-
+window.metricVisibilityState = {}; 
 // ---------------------------------------------------------------------------
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
