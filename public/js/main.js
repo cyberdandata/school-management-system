@@ -69910,13 +69910,9 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // DASHBOARD v14.0 — Masked money everywhere, filtered report navigation,
 // SchoolPay removed, all status groups always shown
 // ---------------------------------------------------------------------------
-// DASHBOARD v13.1 — Uniform stats, general stock, drill-down, global eye
+// DASHBOARD v14.0 — Masked money everywhere, filtered report navigation,
+// SchoolPay removed, all status groups always shown
 // ---------------------------------------------------------------------------
-
-// ---- GLOBAL STATE (defined early) ----
-let allMetricsVisible = false;
-const metricVisibilityState = {};   // per-card visibility
-
 function injectDashboardDesignSystem() {
     if (document.getElementById('dashboard-modern-fonts')) return;
 
@@ -70023,6 +70019,17 @@ function injectDashboardDesignSystem() {
         .db-fade-in{ animation:db-fadeIn .4s ease both; }
         @keyframes db-fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
 
+        /* ---- Masked money ---- */
+        .db-mask-wrap{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+        .db-mask-value{ letter-spacing:1px; }
+        .db-mask-btn{
+            display:inline-flex; align-items:center; justify-content:center;
+            width:20px; height:20px; border-radius:6px; flex-shrink:0;
+            color:#94A3B8; background:transparent; border:none; cursor:pointer;
+            transition:color .15s ease, background .15s ease;
+        }
+        .db-mask-btn:hover{ color:#334155; background:#EEF1F6; }
+
         @media (prefers-reduced-motion: reduce){
             .db-metric, .db-action, .db-progress-fill, .db-fade-in { transition:none !important; animation:none !important; }
         }
@@ -70057,7 +70064,9 @@ function getStatusGroupColor(name) {
         'Transportation': 'border-orange-400', 'Admission Fee': 'border-purple-400',
         'schoolastic requirement': 'border-emerald-400', 'Scholastic': 'border-emerald-400',
         'Sports': 'border-sky-400', 'Development': 'border-rose-400', 'Tuition': 'border-indigo-400',
-        'Uniform': 'border-pink-400'
+        'Uniform': 'border-pink-400', 'Medical': 'border-teal-400', 'Graduation': 'border-amber-400',
+        'Holiday': 'border-cyan-400', 'Tour': 'border-lime-400', 'MDD': 'border-fuchsia-400',
+        'LTBalance': 'border-slate-400'
     };
     const lowerName = (name || '').toLowerCase();
     for (const [key, color] of Object.entries(colors)) {
@@ -70081,11 +70090,55 @@ function getTermName(term) {
 }
 
 // ---------------------------------------------------------------------------
+// 1.5 MASKED MONEY — every currency figure on the dashboard renders hidden
+// (••••••) by default and only reveals on tap of its eye icon. Tap again to
+// re-hide. Each masked span gets a unique id via a running counter so
+// duplicate amounts/labels never collide.
+// ---------------------------------------------------------------------------
+let _dbMaskCounter = 0;
+function renderMaskedMoney(amount, extraClass) {
+    _dbMaskCounter++;
+    const id = 'dbmask_' + _dbMaskCounter;
+    const real = 'UGX ' + formatMoney(amount);
+    return `<span class="db-mask-wrap ${extraClass || ''}">` +
+        `<span class="db-mask-value font-mono-num" id="${id}" data-real="${escapeHtml(real)}" data-masked="true">••••••</span>` +
+        `<button type="button" onclick="event.stopPropagation(); toggleMaskedMoney('${id}')" class="db-mask-btn" title="Show/hide amount"><i class="fas fa-eye text-[11px]"></i></button>` +
+        `</span>`;
+}
+function toggleMaskedMoney(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isMasked = el.getAttribute('data-masked') === 'true';
+    if (isMasked) {
+        el.textContent = el.getAttribute('data-real');
+        el.setAttribute('data-masked', 'false');
+    } else {
+        el.textContent = '••••••';
+        el.setAttribute('data-masked', 'true');
+    }
+}
+// Reveal/hide every masked amount on the page at once (used by a "show all" toggle if added later)
+let _dbAllRevealed = false;
+function toggleAllMaskedMoney() {
+    _dbAllRevealed = !_dbAllRevealed;
+    document.querySelectorAll('.db-mask-value').forEach(el => {
+        if (_dbAllRevealed) {
+            el.textContent = el.getAttribute('data-real');
+            el.setAttribute('data-masked', 'false');
+        } else {
+            el.textContent = '••••••';
+            el.setAttribute('data-masked', 'true');
+        }
+    });
+}
+window.toggleMaskedMoney = toggleMaskedMoney;
+window.toggleAllMaskedMoney = toggleAllMaskedMoney;
+
+// ---------------------------------------------------------------------------
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
 async function showDashboard() {
-      const metricVisibilityState={};
-    console.log('showDashboard() — v13.1 (money hidden, global eye, no SchoolPay)');
+    console.log('showDashboard() — v14.0 (masked money + filtered report nav, no SchoolPay)');
     injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -70112,6 +70165,7 @@ async function showDashboard() {
         const termName = getTermName(currentTerm);
 
         // Fetch core dashboard stats + uniform + general stock in parallel.
+        // Uniform / stock endpoints are optional — dashboard still renders if they fail.
         const [statsRes, uniformRes, stockRes] = await Promise.allSettled([
             fetch('/api/dashboard/stats'),
             fetch('/api/uniform/summary'),
@@ -70138,9 +70192,6 @@ async function showDashboard() {
         }
         window.dashboardStockData = stockData;
 
-        // Debug: log status groups received from API
-        console.log('📊 Status groups from API:', data.statusGroups ? data.statusGroups.map(g => g.name) : 'none');
-
         renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm);
 
     } catch (error) {
@@ -70163,7 +70214,7 @@ async function showDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 3. SCHOOL DATA INIT (unchanged)
+// 3. SCHOOL DATA INIT (unchanged behaviour)
 // ---------------------------------------------------------------------------
 function initializeSchoolData() {
     let school = null;
@@ -70193,43 +70244,86 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ---------------------------------------------------------------------------
-// 4. NAVIGATION HELPERS
+// 4. NAVIGATION HELPERS — every stat card / row drills into the reports page
+// PRE-FILTERED so the user only has to tap "Generate".
 // ---------------------------------------------------------------------------
-function navigateToStatusGroupReport(statusGroupName) {
-    if (typeof showReports !== 'function') return;
-    showReports();
-    setTimeout(() => {
-        const filterSelect = document.getElementById('reportStatusGroupFilter');
-        if (filterSelect) {
-            for (let i = 0; i < filterSelect.options.length; i++) {
-                if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
+
+// Sets a filter control (select or input) if it exists on the reports page.
+// Returns true if it found and set something. Never throws if the element
+// isn't there — reports UI can evolve without breaking the dashboard.
+function trySetReportFilter(elementId, value) {
+    if (value === undefined || value === null || value === '') return false;
+    const el = document.getElementById(elementId);
+    if (!el) return false;
+
+    if (el.tagName === 'SELECT') {
+        for (let i = 0; i < el.options.length; i++) {
+            if (el.options[i].value === value) {
+                el.value = value;
+                el.dispatchEvent(new Event('change'));
+                return true;
             }
-            setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
         }
-    }, 300);
+        // fall back to matching visible option text (case-insensitive)
+        for (let i = 0; i < el.options.length; i++) {
+            if (el.options[i].text.trim().toLowerCase() === String(value).trim().toLowerCase()) {
+                el.value = el.options[i].value;
+                el.dispatchEvent(new Event('change'));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    el.value = value;
+    el.dispatchEvent(new Event('input'));
+    return true;
 }
-function navigateToItemReport(itemName, statusGroupName) {
+
+function resetKnownReportFilters() {
+    // Clear filters we're about to (possibly) set, so a stale filter from a
+    // previous visit to Reports doesn't silently narrow this new query.
+    const ids = [
+        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
+        'reportClassFilter', 'reportLevelFilter', 'reportFeeStructureFilter',
+        'reportStudentFilter'
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.tagName === 'SELECT') el.value = '';
+        else if (el) el.value = '';
+    });
+}
+
+function runFilteredReport(filters) {
     if (typeof showReports !== 'function') return;
     showReports();
     setTimeout(() => {
-        const groupSelect = document.getElementById('reportStatusGroupFilter');
-        if (groupSelect && statusGroupName) {
-            for (let i = 0; i < groupSelect.options.length; i++) {
-                if (groupSelect.options[i].value === statusGroupName) { groupSelect.value = statusGroupName; break; }
-            }
-        }
-        const itemSelect = document.getElementById('reportItemFilter');
-        if (itemSelect) {
-            for (let i = 0; i < itemSelect.options.length; i++) {
-                if (itemSelect.options[i].value === itemName) { itemSelect.value = itemName; break; }
-            }
-        }
+        resetKnownReportFilters();
+        if (filters.statusGroup) trySetReportFilter('reportStatusGroupFilter', filters.statusGroup);
+        if (filters.itemName) trySetReportFilter('reportItemFilter', filters.itemName);
+        if (filters.paymentStatus) trySetReportFilter('reportPaymentStatusFilter', filters.paymentStatus);
+        if (filters.className) trySetReportFilter('reportClassFilter', filters.className);
+        if (filters.level) trySetReportFilter('reportLevelFilter', filters.level);
+        if (filters.feeStructureId) trySetReportFilter('reportFeeStructureFilter', filters.feeStructureId);
         setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
     }, 300);
 }
+
+function navigateToStatusGroupReport(statusGroupName) {
+    runFilteredReport({ statusGroup: statusGroupName });
+}
+function navigateToItemReport(itemName, statusGroupName) {
+    runFilteredReport({ statusGroup: statusGroupName, itemName: itemName });
+}
+function navigateToClassGroupReport(className, statusGroupName) {
+    runFilteredReport({ className: className, statusGroup: statusGroupName });
+}
+function navigateToPaymentStatusReport(status) {
+    runFilteredReport({ paymentStatus: status });
+}
 function navigateToTuitionReport() {
-    if (typeof showReports !== 'function') return;
-    showReports();
+    runFilteredReport({});
 }
 function navigateToUniformSection() {
     if (typeof showUniformManagement === 'function') showUniformManagement();
@@ -70249,71 +70343,9 @@ function navigateToStudentList() {
 }
 
 // ---------------------------------------------------------------------------
-// 5. GLOBAL TOGGLE FOR ALL FINANCIAL METRICS
-// ---------------------------------------------------------------------------
-function toggleAllMetrics() {
-    allMetricsVisible = !allMetricsVisible;
-    const cardIds = Object.keys(metricVisibilityState);
-    cardIds.forEach(id => {
-        metricVisibilityState[id] = allMetricsVisible;
-        updateMetricDisplay(id);
-    });
-    // Update the global button icon/text
-    const btn = document.getElementById('globalEyeToggle');
-    if (btn) {
-        btn.innerHTML = allMetricsVisible
-            ? '<i class="fas fa-eye-slash mr-1.5"></i> Hide Amounts'
-            : '<i class="fas fa-eye mr-1.5"></i> Show Amounts';
-    }
-}
-
-function updateMetricDisplay(cardId) {
-     const metricVisibilityState={};
-    const valueEl = document.getElementById(cardId + '_value');
-    const subEl = document.getElementById(cardId + '_sub');
-    if (!valueEl) return;
-    const isVisible = metricVisibilityState[cardId] !== undefined ? metricVisibilityState[cardId] : false;
-    const realValue = valueEl.getAttribute('data-real-value') || valueEl.textContent;
-    if (isVisible) {
-        valueEl.textContent = realValue;
-        if (subEl) {
-            const realSub = subEl.getAttribute('data-real-sub') || subEl.textContent;
-            subEl.textContent = realSub;
-        }
-    } else {
-        valueEl.textContent = '••••••••';
-        if (subEl) subEl.textContent = '••••••••';
-    }
-}
-
-// Per-card toggle
-function toggleMetricVisibility(cardId) {
-       
-    if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = false;
-    metricVisibilityState[cardId] = !metricVisibilityState[cardId];
-    updateMetricDisplay(cardId);
-
-    // Check if all are now visible or all hidden to update global button
-    const allIds = Object.keys(metricVisibilityState);
-    const allVisible = allIds.every(id => metricVisibilityState[id] === true);
-    const allHidden = allIds.every(id => metricVisibilityState[id] === false);
-    const btn = document.getElementById('globalEyeToggle');
-    if (btn) {
-        if (allVisible) {
-            btn.innerHTML = '<i class="fas fa-eye-slash mr-1.5"></i> Hide Amounts';
-            allMetricsVisible = true;
-        } else if (allHidden) {
-            btn.innerHTML = '<i class="fas fa-eye mr-1.5"></i> Show Amounts';
-            allMetricsVisible = false;
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// 6. RENDER DASHBOARD
+// 5. RENDER DASHBOARD
 // ---------------------------------------------------------------------------
 function renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm) {
-      const metricVisibilityState={};
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
 
@@ -70360,36 +70392,35 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '    </div>';
     html += '    <div class="flex flex-wrap gap-2">';
     html += '      <button onclick="showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
-    // Global eye toggle button
-    html += '      <button id="globalEyeToggle" onclick="toggleAllMetrics()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-eye mr-1.5"></i> Show Amounts</button>';
+    html += '      <button onclick="toggleAllMaskedMoney()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-eye"></i> Show/Hide All Amounts</button>';
     html += '      <button onclick="printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
     html += '      <button onclick="refreshDashboard()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-arrows-rotate"></i> Refresh</button>';
     html += '    </div>';
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 1: KPI CARDS =======================
+    // ======================= SECTION 1: KPI CARDS (each drills down, money masked) =======================
     html += '<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
     html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M &middot; ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()', false);
     html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()', false);
     html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()', false);
-    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Tuition Expected', 'UGX ' + formatMoney(tuitionExpected), 'fa-file-invoice', 'indigo', 'Tuition only', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Tuition Collected', 'UGX ' + formatMoney(tuitionCollected), 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToTuitionReport()', false);
+    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, null, 'navigateToTuitionReport()', false, renderMaskedMoney(tuitionCollected) + ' collected');
+    html += renderMetricCardEnhanced('Tuition Expected', null, 'fa-file-invoice', 'indigo', 'Tuition only', 'navigateToTuitionReport()', true, null, tuitionExpected);
+    html += renderMetricCardEnhanced('Tuition Collected', null, 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate', 'navigateToTuitionReport()', true, null, tuitionCollected);
+    html += renderMetricCardEnhanced('Outstanding', null, 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToTuitionReport()', true, null, tuitionOutstanding);
+    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', () => navigateToPaymentStatusReport('Fully Paid'), false);
     html += '</div>';
 
     if (cashItemsStats && (cashItemsStats.expected > 0 || cashItemsStats.collected > 0)) {
         html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">';
-        html += renderMetricCardEnhanced('Cash-Only Items Expected', 'UGX ' + formatMoney(cashItemsStats.expected), 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true);
-        html += renderMetricCardEnhanced('Cash-Only Items Collected', 'UGX ' + formatMoney(cashItemsStats.collected), 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
-        html += renderMetricCardEnhanced('Cash-Only Outstanding', 'UGX ' + formatMoney(cashItemsStats.outstanding), 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToTuitionReport()', true);
+        html += renderMetricCardEnhanced('Cash-Only Items Expected', null, 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true, null, cashItemsStats.expected);
+        html += renderMetricCardEnhanced('Cash-Only Items Collected', null, 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToTuitionReport()', true, null, cashItemsStats.collected);
+        html += renderMetricCardEnhanced('Cash-Only Outstanding', null, 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToTuitionReport()', true, null, cashItemsStats.outstanding);
         html += renderMetricCardEnhanced('Uniform &amp; Stock', 'View', 'fa-shirt', 'pink', 'Scroll to details below', "document.getElementById('uniformSection').scrollIntoView({behavior:'smooth'})", false);
         html += '</div>';
     }
 
-    // ======================= SECTION 2: STATUS GROUP CARDS =======================
+    // ======================= SECTION 2: STATUS GROUP CARDS (ALL groups, unfiltered) =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Fee Categories</p><h2 class="db-section-title text-xl mt-0.5">Status Group Performance</h2></div>';
@@ -70422,11 +70453,11 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
     var ps = studentStats?.paymentStatus || {};
     var statusLabels = [
-        { key: 'fullyPaid', label: 'Fully Paid', icon: 'fa-circle-check', color: 'emerald' },
-        { key: 'paymentDue', label: 'Payment Due', icon: 'fa-clock', color: 'amber' },
-        { key: 'criticalOverdue', label: 'Critical', icon: 'fa-fire', color: 'rose' },
-        { key: 'noPayment', label: 'No Payment', icon: 'fa-file', color: 'slate' },
-        { key: 'creditBalance', label: 'Credit', icon: 'fa-sack-dollar', color: 'sky' }
+        { key: 'fullyPaid', label: 'Fully Paid', icon: 'fa-circle-check', color: 'emerald', filterVal: 'Fully Paid' },
+        { key: 'paymentDue', label: 'Payment Due', icon: 'fa-clock', color: 'amber', filterVal: 'Payment Due' },
+        { key: 'criticalOverdue', label: 'Critical', icon: 'fa-fire', color: 'rose', filterVal: 'Payment Due' },
+        { key: 'noPayment', label: 'No Payment', icon: 'fa-file', color: 'slate', filterVal: 'No Payment' },
+        { key: 'creditBalance', label: 'Credit', icon: 'fa-sack-dollar', color: 'sky', filterVal: 'Credit Balance' }
     ];
     var chipColorMap = {
         emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700',
@@ -70435,7 +70466,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     for (var si = 0; si < statusLabels.length; si++) {
         var sl = statusLabels[si];
         var val = ps[sl.key] || 0;
-        html += '<div class="text-center p-2.5 rounded-xl cursor-pointer ' + chipColorMap[sl.color] + '" onclick="navigateToTuitionReport()">';
+        html += '<div class="text-center p-2.5 rounded-xl cursor-pointer ' + chipColorMap[sl.color] + '" onclick="navigateToPaymentStatusReport(\'' + sl.filterVal + '\')">';
         html += '  <i class="fas ' + sl.icon + ' text-xs mb-1 opacity-70"></i>';
         html += '  <p class="text-[11px] font-semibold">' + sl.label + '</p>';
         html += '  <p class="text-xl font-bold font-mono-num">' + val + '</p>';
@@ -70455,7 +70486,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
             var barColor = getStatusBarColor(rate);
             var badge = getStatusBadge(rate);
 
-            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')">';
+            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name).replace(/'/g, "\\'") + '\')">';
             html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor + '"></div>';
             html += '  <div class="flex-1 min-w-0">';
             html += '    <div class="flex justify-between items-center">';
@@ -70474,7 +70505,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
     html += '</div>';
 
-    // ======================= SECTION 3.5: CLASS PERFORMANCE =======================
+    // ======================= SECTION 3.5: CLASS PERFORMANCE (bar-style matrix) =======================
     html += '<div class="db-card overflow-hidden">';
     html += '  <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
     html += '    <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-simple text-sm"></i></div>';
@@ -70485,7 +70516,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 4: ITEM COLLECTION TABLE =======================
+    // ======================= SECTION 4: ITEM COLLECTION TABLE (drill-down per row) =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
     html += '    <div><p class="db-eyebrow">Inventory</p><h2 class="db-section-title text-xl mt-0.5">Item Collection Details</h2></div>';
@@ -70615,7 +70646,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  <div class="flex flex-wrap justify-center gap-4">';
     html += '    <span><i class="fas fa-rotate text-emerald-500 mr-1"></i>Live data</span>';
     html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
-    html += '    <span>Dashboard v13.1</span>';
+    html += '    <span>Dashboard v14.0</span>';
     html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + (statusGroupsCount || 0) + ' status groups</span>';
     html += '  </div>';
     html += '</div>';
@@ -70630,14 +70661,15 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     }, 150);
     initializeItemFilters();
 
-    console.log('✅ Dashboard v13.1 rendered');
+    console.log('✅ Dashboard v14.0 rendered');
 }
 
 // ---------------------------------------------------------------------------
-// 7. METRIC CARD — with eye toggle for financial values
+// 6. METRIC CARD — click drills into a filtered report; money masked by default
 // ---------------------------------------------------------------------------
-function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial) {
-  window.metricVisibilityState;
+// `value` is used directly for non-money cards. Pass `moneyAmount` for money
+// cards instead — value stays null and the card renders a masked amount.
+function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial, subtextOverrideHtml, moneyAmount) {
     const colorMap = {
         blue: 'from-blue-500 to-blue-600 border-blue-500', green: 'from-green-500 to-green-600 border-green-500',
         red: 'from-red-500 to-red-600 border-red-500', yellow: 'from-yellow-500 to-yellow-600 border-yellow-500',
@@ -70655,37 +70687,35 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
     const bgLight = bgLightMap[color] || 'bg-gray-100';
     const cardId = 'metric_' + label.replace(/[^a-zA-Z0-9]/g, '_');
 
-    // Store real value and subtext for toggling
-    const realValue = String(value);
-    const realSub = subtext || '';
+    // navAction may be a function (payment-status chips) or a string of JS to run
+    const onclickAttr = typeof navAction === 'function'
+        ? `(${navAction.toString()})()`
+        : navAction;
 
-    // For financial cards, initially hidden (metricVisibilityState will be set later)
-    if (isFinancial && metricVisibilityState[cardId] === undefined) {
-        metricVisibilityState[cardId] = false; // hidden by default
-    } else if (!isFinancial) {
-        metricVisibilityState[cardId] = true; // non-financial always visible
-    }
+    const displayValue = (moneyAmount !== undefined && moneyAmount !== null)
+        ? renderMaskedMoney(moneyAmount)
+        : value;
 
-    const displayValue = isFinancial && !metricVisibilityState[cardId] ? '••••••••' : realValue;
-    const displaySub = isFinancial && !metricVisibilityState[cardId] ? '••••••••' : realSub;
+    const subtextHtml = subtextOverrideHtml !== undefined && subtextOverrideHtml !== null
+        ? subtextOverrideHtml
+        : (subtext || '');
 
     return `
         <div class="db-metric border-l-4 ${gradient} group relative cursor-pointer"
              id="${cardId}"
-             onclick="${navAction}">
+             onclick="${escapeHtml(onclickAttr)}">
             <div class="flex justify-between items-start">
                 <div class="min-w-0 flex-1">
                     <p class="text-xs text-gray-500 truncate flex items-center gap-1">${label}</p>
-                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value" data-real-value="${escapeHtml(realValue)}">
+                    <p class="text-lg font-bold truncate metric-value db-metric-value" id="${cardId}_value">
                         ${displayValue}
                     </p>
-                    ${subtext ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub" data-real-sub="${escapeHtml(realSub)}">${displaySub}</p>` : ''}
+                    ${subtextHtml ? `<p class="text-xs text-gray-400 truncate metric-sub" id="${cardId}_sub">${subtextHtml}</p>` : ''}
                 </div>
                 <div class="flex flex-col items-end gap-1 flex-shrink-0">
                     <div class="w-8 h-8 ${bgLight} rounded-full flex items-center justify-center transition-transform group-hover:scale-110">
                         <i class="fas ${icon} text-sm"></i>
                     </div>
-                    ${isFinancial ? `<button onclick="event.stopPropagation(); toggleMetricVisibility('${cardId}')" class="text-gray-300 hover:text-gray-500 text-[10px]" title="Hide/show value"><i class="fas ${metricVisibilityState[cardId] ? 'fa-eye' : 'fa-eye-slash'}"></i></button>` : ''}
                 </div>
             </div>
             <p class="text-[10px] text-slate-300 mt-1 group-hover:text-indigo-400 transition-colors"><i class="fas fa-arrow-turn-up fa-rotate-90 mr-1"></i>Tap for details</p>
@@ -70694,7 +70724,8 @@ function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction,
 }
 
 // ---------------------------------------------------------------------------
-// 8. STATUS GROUP CARD (unchanged)
+// 7. STATUS GROUP CARD — drills into Reports pre-filtered to this group;
+// every item row also drills into Reports pre-filtered to group + item
 // ---------------------------------------------------------------------------
 function renderStatusGroupCard(sg) {
     const rate = sg.rate !== undefined ? sg.rate : (sg.totalRequired > 0 ? (sg.totalCollected / sg.totalRequired * 100) : 0);
@@ -70709,15 +70740,21 @@ function renderStatusGroupCard(sg) {
         .slice(0, 4);
 
     const borderClass = getStatusGroupColor(sg.name);
+    const safeName = escapeHtml(sg.name).replace(/'/g, "\\'");
+
+    const periodIcon = sg.periodType === 'one_time' ? '<i class="fas fa-star text-amber-400 text-[10px]" title="One-Time"></i>'
+        : sg.periodType === 'yearly' ? '<i class="fas fa-calendar-days text-indigo-400 text-[10px]" title="Yearly"></i>'
+        : '<i class="fas fa-calendar-week text-slate-400 text-[10px]" title="Termly"></i>';
 
     return `
-        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${safeName}')">
             <div class="p-4">
                 <div class="flex justify-between items-start mb-3">
                     <div>
                         <div class="flex items-center gap-2 flex-wrap">
                             <i class="fas fa-tag text-indigo-400 text-sm"></i>
                             <h4 class="font-display font-bold text-slate-800">${escapeHtml(sg.name)}</h4>
+                            ${periodIcon}
                             ${badge}
                         </div>
                         <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'yearly' ? 'Yearly' : 'Termly'}</p>
@@ -70733,10 +70770,10 @@ function renderStatusGroupCard(sg) {
                 </div>
 
                 ${sg.cashExpected ? `
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                    <div class="bg-indigo-50 rounded-xl p-2 text-center"><p class="text-[10px] text-indigo-400 font-semibold uppercase">Cash Expected</p><p class="text-sm font-bold font-mono-num text-indigo-700">UGX ${formatMoney(sg.cashExpected)}</p></div>
-                    <div class="bg-emerald-50 rounded-xl p-2 text-center"><p class="text-[10px] text-emerald-400 font-semibold uppercase">Cash Collected</p><p class="text-sm font-bold font-mono-num text-emerald-700">UGX ${formatMoney(sg.cashCollected)}</p></div>
-                    <div class="bg-rose-50 rounded-xl p-2 text-center"><p class="text-[10px] text-rose-400 font-semibold uppercase">Cash Balance</p><p class="text-sm font-bold font-mono-num text-rose-600">UGX ${formatMoney(sg.cashRemaining)}</p></div>
+                <div class="grid grid-cols-3 gap-2 mb-3" onclick="event.stopPropagation()">
+                    <div class="bg-indigo-50 rounded-xl p-2 text-center"><p class="text-[10px] text-indigo-400 font-semibold uppercase">Cash Expected</p><p class="text-sm font-bold font-mono-num text-indigo-700">${renderMaskedMoney(sg.cashExpected)}</p></div>
+                    <div class="bg-emerald-50 rounded-xl p-2 text-center"><p class="text-[10px] text-emerald-400 font-semibold uppercase">Cash Collected</p><p class="text-sm font-bold font-mono-num text-emerald-700">${renderMaskedMoney(sg.cashCollected)}</p></div>
+                    <div class="bg-rose-50 rounded-xl p-2 text-center"><p class="text-[10px] text-rose-400 font-semibold uppercase">Cash Balance</p><p class="text-sm font-bold font-mono-num text-rose-600">${renderMaskedMoney(sg.cashRemaining)}</p></div>
                 </div>` : ''}
 
                 <div class="db-progress-track h-2 mb-3"><div class="db-progress-fill ${barColor} h-2" style="width:${Math.min(100, rate)}%"></div></div>
@@ -70749,8 +70786,9 @@ function renderStatusGroupCard(sg) {
                                 const itemRate = item.required > 0 ? (item.collected / item.required * 100) : 0;
                                 const itemColor = getStatusColor(itemRate);
                                 const itemBar = getStatusBarColor(itemRate);
+                                const safeItemName = escapeHtml(item.name).replace(/'/g, "\\'");
                                 return `
-                                    <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${escapeHtml(item.name).replace(/'/g, "\\'")}', '${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+                                    <div class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation(); navigateToItemReport('${safeItemName}', '${safeName}')">
                                         <span class="text-xs font-medium text-slate-600 flex-1 truncate hover:text-indigo-600">${escapeHtml(item.name)}</span>
                                         <span class="text-xs font-bold font-mono-num ${itemColor}">${item.collected}/${item.required}</span>
                                         <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
@@ -70762,7 +70800,7 @@ function renderStatusGroupCard(sg) {
                     </div>
                 ` : ''}
 
-                <button onclick="event.stopPropagation(); navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')"
+                <button onclick="event.stopPropagation(); navigateToStatusGroupReport('${safeName}')"
                         class="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm py-2 rounded-xl transition font-semibold">
                     <i class="fas fa-eye mr-1.5"></i>View Details
                 </button>
@@ -70772,7 +70810,8 @@ function renderStatusGroupCard(sg) {
 }
 
 // ---------------------------------------------------------------------------
-// 9. CLASS PERFORMANCE TABLE (unchanged)
+// 8. CLASS PERFORMANCE TABLE — clicking a cell drills into Reports
+// pre-filtered to that group AND that class
 // ---------------------------------------------------------------------------
 function renderClassPerformanceTable(classPerformance) {
     const groupNames = Object.keys(classPerformance || {});
@@ -70800,8 +70839,9 @@ function renderClassPerformanceTable(classPerformance) {
         Object.values(breakdown).forEach(d => { totalReq += d.required || 0; totalCol += d.collected || 0; });
         const rate = totalReq > 0 ? (totalCol / totalReq * 100) : 0;
         const rowTint = rate >= 85 ? 'bg-emerald-50/40' : rate >= 70 ? 'bg-amber-50/40' : rate >= 50 ? 'bg-orange-50/40' : 'bg-rose-50/40';
+        const safeGroupName = escapeHtml(groupName).replace(/'/g, "\\'");
 
-        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(groupName).replace(/'/g, "\\'")}')">
+        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${safeGroupName}')">
             <td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">${escapeHtml(groupName)}</td>`;
 
         for (const cls of classes) {
@@ -70809,7 +70849,8 @@ function renderClassPerformanceTable(classPerformance) {
             const clsRate = dataC.required > 0 ? (dataC.collected / dataC.required * 100) : 0;
             const clsColor = getStatusColor(clsRate);
             const clsBg = clsRate >= 85 ? 'bg-emerald-100/70' : clsRate >= 70 ? 'bg-amber-100/70' : clsRate >= 50 ? 'bg-orange-100/70' : 'bg-rose-100/70';
-            html += `<td class="p-2 text-center ${clsBg} rounded-lg">
+            const safeClsName = escapeHtml(cls).replace(/'/g, "\\'");
+            html += `<td class="p-2 text-center ${clsBg} rounded-lg cursor-pointer" onclick="event.stopPropagation(); navigateToClassGroupReport('${safeClsName}', '${safeGroupName}')">
                 ${dataC.required > 0 ? `<span class="font-bold font-mono-num ${clsColor}">${clsRate.toFixed(0)}%</span>` : '-'}
                 ${dataC.required > 0 ? `<div class="text-[10px] text-slate-400">${dataC.collected}/${dataC.required}</div>` : ''}
             </td>`;
@@ -70824,14 +70865,14 @@ function renderClassPerformanceTable(classPerformance) {
             <span><span class="inline-block w-2.5 h-2.5 bg-orange-400 rounded-sm mr-1"></span>50&ndash;69%</span>
             <span><span class="inline-block w-2.5 h-2.5 bg-rose-400 rounded-sm mr-1"></span>&lt;50%</span>
             <span class="text-slate-300">|</span>
-            <span>Click a row for details</span>
+            <span>Click a row for the group, a cell for group + class</span>
         </div>`;
 
     return html;
 }
 
 // ---------------------------------------------------------------------------
-// 10. PAYMENT STATUS CHART (unchanged)
+// 9. PAYMENT STATUS CHART
 // ---------------------------------------------------------------------------
 function initializePaymentStatusChart(paymentStatus) {
     const canvas = document.getElementById('paymentStatusChart');
@@ -70876,7 +70917,7 @@ function initializePaymentStatusChart(paymentStatus) {
 }
 
 // ---------------------------------------------------------------------------
-// 11. UNIFORM SECTION (unchanged)
+// 10. UNIFORM SECTION — pie chart of paid status + stock table (money masked)
 // ---------------------------------------------------------------------------
 function renderUniformSection(uniformData) {
     let html = '<div id="uniformSection">';
@@ -71029,7 +71070,7 @@ function initializeUniformPieChart(uniformData) {
 }
 
 // ---------------------------------------------------------------------------
-// 12. GENERAL SCHOOL STOCK SECTION (unchanged)
+// 11. GENERAL SCHOOL STOCK SECTION (food/cleaning/office/etc.)
 // ---------------------------------------------------------------------------
 function renderGeneralStockSection(stockData) {
     let html = '<div id="generalStockSection">';
@@ -71083,7 +71124,7 @@ function renderGeneralStockSection(stockData) {
 }
 
 // ---------------------------------------------------------------------------
-// 13. ITEM FILTERS (unchanged)
+// 12. ITEM FILTERS
 // ---------------------------------------------------------------------------
 function initializeItemFilters() {
     const searchInput = document.getElementById('itemSearchInput');
@@ -71161,7 +71202,8 @@ function sortItemsTable(column) {
 }
 
 // ---------------------------------------------------------------------------
-// 14. RECEIPT PRINTING (unchanged)
+// 13. RECEIPT PRINTING (unchanged data flow, receipt itself stays unmasked
+// since it's a physical document handed to the parent, not a screen view)
 // ---------------------------------------------------------------------------
 async function printReceipt(receiptNumber) {
     if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
@@ -71283,7 +71325,7 @@ async function refreshDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 15. PRINT DASHBOARD SUMMARY REPORT (unchanged)
+// 14. PRINT DASHBOARD SUMMARY REPORT (unchanged)
 // ---------------------------------------------------------------------------
 async function printDashboardReport() {
     const { currentYear, currentTerm } = currentAcademicSettings;
@@ -71361,7 +71403,7 @@ async function printDashboardReport() {
 }
 
 // ---------------------------------------------------------------------------
-// 16. SIDEBAR LOGO (unchanged)
+// 15. SIDEBAR LOGO
 // ---------------------------------------------------------------------------
 async function updateSidebarLogo() {
     try {
@@ -71391,7 +71433,7 @@ async function updateSidebarLogo() {
 updateSidebarLogo();
 
 // ---------------------------------------------------------------------------
-// 17. GLOBAL EXPORTS
+// 16. GLOBAL EXPORTS
 // ---------------------------------------------------------------------------
 window.showDashboard = showDashboard;
 window.refreshDashboard = refreshDashboard;
@@ -71401,6 +71443,8 @@ window.printReceipt = printReceipt;
 window.viewPaymentReceipt = viewPaymentReceipt;
 window.navigateToStatusGroupReport = navigateToStatusGroupReport;
 window.navigateToItemReport = navigateToItemReport;
+window.navigateToClassGroupReport = navigateToClassGroupReport;
+window.navigateToPaymentStatusReport = navigateToPaymentStatusReport;
 window.navigateToTuitionReport = navigateToTuitionReport;
 window.navigateToUniformSection = navigateToUniformSection;
 window.navigateToInventorySection = navigateToInventorySection;
@@ -71411,11 +71455,9 @@ window.resetItemFilters = resetItemFilters;
 window.sortItemsTable = sortItemsTable;
 window.escapeHtml = escapeHtml;
 window.getTermName = getTermName;
-window.toggleMetricVisibility = toggleMetricVisibility;
-window.toggleAllMetrics = toggleAllMetrics;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
 
-console.log('✅ Dashboard v13.1 loaded — money hidden by default, global eye toggle, no SchoolPay, status groups debug log');
+console.log('✅ Dashboard v14.0 loaded — masked money, filtered report drilldowns, SchoolPay removed');
 // ==================== UNIFORM MANAGEMENT SYSTEM v6.1 ====================
 // Complete Rebuild with Persistent Data Across All Academic Periods
 // Uniforms are ONE-TIME items that persist across all academic years/terms
