@@ -66224,8 +66224,26 @@ function buildSummaryCardsV3(totals, studentCount) {
 // - Box File shows ✅ Paid in T3 2026
 // - Van Fee shows all 3 periods
 
+// ==================== exportReportToCSV — FULLY REBUILT (v32.0) ====================
+// FIX APPLIED (per diagnosis): the old fallback logic checked field names that
+// don't exist on the server's item objects (quantityCollected, amountCollected,
+// quantityRemaining, amountRemaining) instead of the real ones the server
+// actually returns (totalCollected, totalRemaining, totalAmountCollected).
+// It also lacked the `isOneTime` fallback that buildReportTable (the HTML
+// table) already has — so a one-time item with zero payments silently
+// contributed UGX 0 to "Expected" instead of its real outstanding amount.
+// This is why Excel/Dashboard totals (18,134,900) were LOWER than the
+// on-screen HTML table (19,450,900): students like Usher Musabe, Jordan
+// Sekyanzi, Yusuf Said etc. dropped out of Excel/Dashboard entirely.
+//
+// FIX: one shared helper — resolveApplicablePeriods() — replaces all three
+// separate (buggy) inline fallback blocks that used to exist in this
+// function. It uses the correct field names AND the isOneTime fallback,
+// so Excel now agrees with the HTML report table.
+// ======================================================================
+
 function exportReportToCSV() {
-    console.log('=== 📊 EXCEL EXPORT v31.0 - SELECTABLE SHEETS ADDED ===');
+    console.log('=== 📊 EXCEL EXPORT v32.0 - FIELD-NAME + ONE-TIME FALLBACK FIXED ===');
 
     if (!reportData || !reportData.students || reportData.students.length === 0) {
         showToast('❌ No data to export. Please generate a report first.', 'error');
@@ -66377,6 +66395,72 @@ function exportReportToCSV() {
             return applicable;
         }
 
+        // ================================================================
+        // ★★★ THE FIX ★★★
+        // resolveApplicablePeriods() is the ONE shared implementation used
+        // everywhere in this export (headers, per-student rows, totals row).
+        // It replaces three separate inline fallback blocks that used to
+        // read the WRONG field names (quantityCollected / amountCollected /
+        // quantityRemaining / amountRemaining — none of which exist on the
+        // server's item objects) and had NO fallback for one-time items
+        // that have never been paid.
+        //
+        // Corrected to match buildReportTable (the HTML report, which was
+        // already right):
+        //   - Reads the REAL server field names: totalCollected,
+        //     totalRemaining, totalAmountCollected.
+        //   - ALWAYS treats a one-time item as having applicable data
+        //     (isOneTime fallback), so an unpaid one-time item still shows
+        //     its real "Expected" amount instead of silently becoming 0.
+        //   - Mirrors the yearly-period fallback-key logic too, for
+        //     consistency with the HTML table.
+        // ================================================================
+        function resolveApplicablePeriods(itemData, periodType, oldestPeriodKey, maxTermByYear, currentYear, currentTerm) {
+            var periodBreakdown = itemData.periodBreakdown || {};
+            var applicablePeriods = getApplicablePeriodsForItem(periodType, periodBreakdown, oldestPeriodKey, maxTermByYear);
+
+            if (applicablePeriods.length === 0) {
+                var isOneTime = itemData.isOneTime || periodType === 'one_time';
+
+                // FIX: correct field names (totalCollected / totalRemaining /
+                // totalAmountCollected) — the old quantityCollected /
+                // amountCollected / quantityRemaining / amountRemaining
+                // never existed on this object, so hasData was always false.
+                var hasDirectData = (itemData.totalCollected > 0) ||
+                                     (itemData.totalRemaining > 0) ||
+                                     (itemData.totalAmountCollected > 0) ||
+                                     isOneTime; // <-- the missing fallback
+
+                if (hasDirectData) {
+                    var fallbackKey = oldestPeriodKey;
+                    if (periodType === 'yearly') {
+                        var currentYearStr = currentYear.toString();
+                        if (maxTermByYear[currentYearStr]) {
+                            fallbackKey = currentYearStr + '_' + maxTermByYear[currentYearStr];
+                        }
+                    }
+                    fallbackKey = fallbackKey || (currentYear + '_' + currentTerm);
+
+                    var amountExpected = itemData.amountExpected || 0;
+                    var totalAmountCollected = itemData.totalAmountCollected || 0;
+
+                    applicablePeriods.push({
+                        periodKey: fallbackKey,
+                        data: {
+                            qtyCollected: itemData.totalCollected || 0,
+                            qtyRemaining: itemData.totalRemaining || 0,
+                            amtCollected: totalAmountCollected,
+                            amtRemaining: Math.max(0, amountExpected - totalAmountCollected),
+                            isFullyPaid: itemData.isFullyPaid || false,
+                            isCurrent: false
+                        }
+                    });
+                }
+            }
+
+            return applicablePeriods;
+        }
+
         // Determine which status groups to show
         var allGroupNames = [];
         for (var s = 0; s < students.length; s++) {
@@ -66444,28 +66528,9 @@ function exportReportToCSV() {
                     var periodType = itemData.periodType || 'termly';
                     var paymentOption = itemData.paymentOption || 'either';
                     var unitPrice = itemData.unitPrice || 0;
-                    var periodBreakdown = itemData.periodBreakdown || {};
 
-                    var applicablePeriods = getApplicablePeriodsForItem(periodType, periodBreakdown, oldestPeriodKey, maxTermByYear);
-
-                    if (applicablePeriods.length === 0) {
-                        var hasData = (itemData.quantityCollected > 0 || itemData.amountCollected > 0 ||
-                                       itemData.quantityRemaining > 0 || itemData.amountRemaining > 0);
-                        if (hasData) {
-                            var fallbackKey = oldestPeriodKey || (currentYear + '_' + currentTerm);
-                            applicablePeriods.push({
-                                periodKey: fallbackKey,
-                                data: {
-                                    qtyCollected: itemData.quantityCollected || 0,
-                                    qtyRemaining: itemData.quantityRemaining || 0,
-                                    amtCollected: itemData.amountCollected || 0,
-                                    amtRemaining: itemData.amountRemaining || 0,
-                                    isFullyPaid: false,
-                                    isCurrent: false
-                                }
-                            });
-                        }
-                    }
+                    // FIX: shared, corrected resolver (was the buggy inline block)
+                    var applicablePeriods = resolveApplicablePeriods(itemData, periodType, oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
 
                     if (applicablePeriods.length === 0) continue;
 
@@ -66560,6 +66625,10 @@ function exportReportToCSV() {
                                                                      (pQtyCollected >= perPeriodQty && perPeriodQty > 0);
                         }
                     }
+
+                    if (isCustomized) {
+                        // (kept for structural parity; isCustomized was read above per item)
+                    }
                 }
             }
 
@@ -66620,7 +66689,7 @@ function exportReportToCSV() {
         var totalItemsRequired = 0;
         var totalItemsBrought = 0;
         var totalItemsRemaining = 0;
-        // NEW: Total scholastic items paid with cash (cash-covered)
+        // Total scholastic items paid with cash (cash-covered)
         var totalCashCoveredScholasticItems = 0;
 
         // Per-student status tallies
@@ -66645,7 +66714,7 @@ function exportReportToCSV() {
             var studentScholasticItemsRequired = 0;
             var studentScholasticItemsBrought = 0;
             var studentScholasticItemsRemaining = 0;
-            var studentCashCoveredItems = 0; // for this student's scholastic OR-logic cash-paid periods
+            var studentCashCoveredItems = 0;
 
             // ---------- Tuition ----------
             if (includeTuition) {
@@ -66719,27 +66788,10 @@ function exportReportToCSV() {
                         var perStudentAmtRemaining = 0;
                         var paymentOption = itemData.paymentOption || 'either';
                         var unitPrice = itemData.unitPrice || 0;
-                        var periodBreakdown = itemData.periodBreakdown || {};
-                        var applicablePeriods = getApplicablePeriodsForItem(itemData.periodType || 'termly', periodBreakdown, oldestPeriodKey, maxTermByYear);
 
-                        if (applicablePeriods.length === 0) {
-                            var hasData = (itemData.quantityCollected > 0 || itemData.amountCollected > 0 ||
-                                           itemData.quantityRemaining > 0 || itemData.amountRemaining > 0);
-                            if (hasData) {
-                                var fallbackKey = oldestPeriodKey || (currentYear + '_' + currentTerm);
-                                applicablePeriods.push({
-                                    periodKey: fallbackKey,
-                                    data: {
-                                        qtyCollected: itemData.quantityCollected || 0,
-                                        qtyRemaining: itemData.quantityRemaining || 0,
-                                        amtCollected: itemData.amountCollected || 0,
-                                        amtRemaining: itemData.amountRemaining || 0,
-                                        isFullyPaid: false,
-                                        isCurrent: false
-                                    }
-                                });
-                            }
-                        }
+                        // FIX: shared, corrected resolver (was the buggy inline block)
+                        var applicablePeriods = resolveApplicablePeriods(itemData, itemData.periodType || 'termly', oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
+                        var periodBreakdown = itemData.periodBreakdown || {};
 
                         var perPeriodQty = itemData.quantityRequired || 1;
                         var perPeriodAmt = itemData.amountExpected || 0;
@@ -66756,7 +66808,7 @@ function exportReportToCSV() {
                             perStudentQtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
                             perStudentAmtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
 
-                            // NEW: Count cash-covered periods for scholastic, OR-logic items
+                            // Count cash-covered periods for scholastic, OR-logic items
                             if (groupIsScholastic && paymentOption === 'either') {
                                 if (pd.amtCollected >= perPeriodAmt && perPeriodAmt > 0) {
                                     studentCashCoveredItems++;
@@ -66765,7 +66817,14 @@ function exportReportToCSV() {
                             }
                         }
 
-                        // Build status, detail, periods strings (unchanged)
+                        if (applicablePeriods.length === 0) {
+                            // Genuinely nothing applies to this student for this item —
+                            // not even a one-time fallback. Show '—' as before.
+                            row.push('—', '—', '—');
+                            continue;
+                        }
+
+                        // Build status, detail, periods strings
                         var statusText = '';
                         var detailParts = [];
 
@@ -66836,7 +66895,7 @@ function exportReportToCSV() {
                         }
                         var detailText = detailParts.join(' | ');
 
-                        // Periods breakdown (unchanged)
+                        // Periods breakdown
                         var periodBreakdownStrings = [];
                         var periodKeys = Object.keys(periodBreakdown).sort();
                         for (var pk = 0; pk < periodKeys.length; pk++) {
@@ -66914,7 +66973,12 @@ function exportReportToCSV() {
                             periodBreakdownStrings.push(termName + ' ' + year + (currentBadge ? ' ' + currentBadge : '') +
                                 ': ' + periodStatus + ' | Collected: ' + collectedDisplay + ' | Remaining: ' + remainingDisplay);
                         }
-                        var periodBreakdownString = periodBreakdownStrings.length > 0 ? periodBreakdownStrings.join('; ') : '—';
+                        // If the item was only shown because of the isOneTime fallback and
+                        // has NO real periodBreakdown entries at all, say so explicitly
+                        // instead of leaving the periods column blank.
+                        var periodBreakdownString = periodBreakdownStrings.length > 0
+                            ? periodBreakdownStrings.join('; ')
+                            : (itemData.isOneTime ? '⭐ One-Time (not yet activated for any period)' : '—');
 
                         row.push(statusText, detailText, periodBreakdownString);
 
@@ -67032,7 +67096,7 @@ function exportReportToCSV() {
             totalsRow.push(tuitionPeriodSummary);
         }
 
-        // Build totals for each item by summing directly from student period breakdowns (using corrected remainings)
+        // Build totals for each item by summing directly from student period breakdowns
         for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
             var groupName = statusGroupsToShow[sgIdx];
             var items = statusGroupItems[groupName] || [];
@@ -67058,24 +67122,10 @@ function exportReportToCSV() {
                     if (itemData3) {
                         var pOption = itemData3.paymentOption || 'either';
                         paymentOption = pOption;
-                        var periodBreakdown = itemData3.periodBreakdown || {};
-                        var applicablePeriods = getApplicablePeriodsForItem(itemData3.periodType || 'termly', periodBreakdown, oldestPeriodKey, maxTermByYear);
-                        if (applicablePeriods.length === 0) {
-                            if (itemData3.quantityCollected > 0 || itemData3.amountCollected > 0 ||
-                                itemData3.quantityRemaining > 0 || itemData3.amountRemaining > 0) {
-                                applicablePeriods.push({
-                                    periodKey: oldestPeriodKey || (currentYear + '_' + currentTerm),
-                                    data: {
-                                        qtyCollected: itemData3.quantityCollected || 0,
-                                        qtyRemaining: itemData3.quantityRemaining || 0,
-                                        amtCollected: itemData3.amountCollected || 0,
-                                        amtRemaining: itemData3.amountRemaining || 0,
-                                        isFullyPaid: false,
-                                        isCurrent: false
-                                    }
-                                });
-                            }
-                        }
+
+                        // FIX: shared, corrected resolver (was the buggy inline block)
+                        var applicablePeriods = resolveApplicablePeriods(itemData3, itemData3.periodType || 'termly', oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
+
                         var perPeriodQtyLocal = itemData3.quantityRequired || 1;
                         var perPeriodAmtLocal = itemData3.amountExpected || 0;
                         perPeriodAmt = perPeriodAmtLocal;
@@ -67106,7 +67156,6 @@ function exportReportToCSV() {
                                 if (periodKeysAgg.indexOf(ap.periodKey) === -1) periodKeysAgg.push(ap.periodKey);
                             }
                             periodBreakdownAgg[ap.periodKey].qtyCollected += pd.qtyCollected || 0;
-                            // Only add remaining if period is NOT fully paid
                             periodBreakdownAgg[ap.periodKey].qtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
                             periodBreakdownAgg[ap.periodKey].amtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
                             periodBreakdownAgg[ap.periodKey].amtCollected += pd.amtCollected || 0;
@@ -67160,7 +67209,6 @@ function exportReportToCSV() {
                     expectedDisplay2 = eParts2.length > 0 ? eParts2.join(' | ') : '—';
                 }
 
-                // Use corrected remainings for remaining display
                 var remainingDisplay2 = '';
                 if (paymentOption === 'cash_only') {
                     remainingDisplay2 = totalAmtRemaining > 0 ? '💵 UGX ' + formatMoney(totalAmtRemaining) : '✅ Fully Paid';
@@ -67201,7 +67249,6 @@ function exportReportToCSV() {
                         }
                         var periodCollectedDisplay5 = periodCollected5.length > 0 ? periodCollected5.join(' + ') : '❌ None';
 
-                        // Recompute isFullyPaid for the aggregated period using OR logic
                         var aggIsFullyPaid = pt5.isFullyPaid;
                         if (!aggIsFullyPaid) {
                             if (paymentOption === 'cash_only') {
@@ -67356,7 +67403,7 @@ function exportReportToCSV() {
         html += '<tr><td colspan="' + totalCols + '" class="tuition-aggregated">💰 TUITION AGGREGATED ACROSS ALL ' + (periodsIncluded.length || 1) + ' PERIOD(S)</td></tr>';
         html += '<tr><td colspan="' + totalCols + '" class="or-logic-note">🔄 OR LOGIC: Cash OR Items (either method covers the requirement) | Items are NEVER converted to cash</td></tr>';
         html += '<tr><td colspan="' + totalCols + '" class="status-legend">📌 STATUS KEY: ✅ Fully Paid = Cash | ✅ Brought = Items | ⚠️ Partial | ❌ Unpaid/Not Brought | 📦 Item totals count Scholastic groups only</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="data-source-note">📊 DATA SOURCE: Direct from payments (matches Student Detail Page)</td></tr>';
+        html += '<tr><td colspan="' + totalCols + '" class="data-source-note">📊 DATA SOURCE: Direct from payments (matches Student Detail Page) — one-time items with zero payments are now included, fixing the previous Excel/Dashboard under-count</td></tr>';
         html += '<tr><td colspan="' + totalCols + '" class="filter-info">' + escapeHtml(filterText) + '</td></tr>';
 
         html += '<tr><td colspan="' + totalCols + '" class="verification-note">';
@@ -67458,21 +67505,24 @@ function exportReportToCSV() {
                     var amountExpected4 = itemData4.amountExpected || 0;
                     var paymentOption4 = itemData4.paymentOption || 'either';
                     var isOneTime4 = itemData4.isOneTime || false;
+
+                    // FIX: use the shared, corrected resolver so this sheet
+                    // shows the same periods (including the one-time fallback)
+                    // as the main table and the totals row.
+                    var resolvedPeriods4 = resolveApplicablePeriods(itemData4, periodType4, oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
                     var periodBreakdown4 = itemData4.periodBreakdown || {};
                     var periodKeys4 = Object.keys(periodBreakdown4);
 
-                    if (periodKeys4.length === 0) {
-                        var defaultKey4 = currentYear + '_' + currentTerm;
-                        periodKeys4 = [defaultKey4];
-                        periodBreakdown4[defaultKey4] = {
-                            qtyCollected: itemData4.quantityCollected || 0,
-                            qtyRemaining: itemData4.quantityRemaining || 0,
-                            amtCollected: itemData4.amountCollected || 0,
-                            amtRemaining: itemData4.amountRemaining || 0,
-                            isFullyPaid: false,
-                            isCurrent: true
-                        };
+                    if (periodKeys4.length === 0 && resolvedPeriods4.length > 0) {
+                        // The item only exists thanks to the resolver's fallback —
+                        // synthesize a periodBreakdown entry so it still shows here.
+                        for (var rp = 0; rp < resolvedPeriods4.length; rp++) {
+                            periodBreakdown4[resolvedPeriods4[rp].periodKey] = resolvedPeriods4[rp].data;
+                        }
+                        periodKeys4 = Object.keys(periodBreakdown4);
                     }
+
+                    if (periodKeys4.length === 0) continue;
                     periodKeys4.sort();
 
                     for (var pk6 = 0; pk6 < periodKeys4.length; pk6++) {
@@ -67655,6 +67705,8 @@ function exportReportToCSV() {
             ['✅ Item Status', 'Matched with viewStudentDetailsList'],
             ['✅ Item Totals Scope', 'Scholastic groups only (matches Student Detail page)'],
             ['✅ Status Counts Source', 'Derived from same per-row totals as Overall Status column'],
+            ['✅ Field-name bug fixed', 'Resolver now reads totalCollected/totalRemaining/totalAmountCollected — the real server field names'],
+            ['✅ One-Time fallback added', 'Unpaid one-time items now surface their Expected amount, same as the HTML report table'],
             ['✅ All Periods Included', '✓'],
             ['✅ Summary Correct (ALL PERIODS SUMMED)', '✓']
         ];
@@ -67676,51 +67728,6 @@ function exportReportToCSV() {
         html += '</tbody></table>';
         } // end includeSummaryStatsSheet
 
-        // ================================================================
-        // SHEET 4: CUSTOMIZATION TRACKING (if any)
-        // ================================================================
-        // if (totalCustomizedStudents > 0) {
-        //     html += '<br><br><br>';
-        //     html += '<table>';
-        //     html += '<tr><td colspan="4" class="section-title">⚡ CUSTOMIZATION TRACKING</td></tr>';
-        //     html += '<tr><td colspan="4" class="section-sub">Students with custom overrides and their reasons</td></tr>';
-        //     html += '<tr><td colspan="4" class="divider"></td></tr>';
-        //     html += '<thead><tr><th style="width:20%;">Student</th><th style="width:25%;">Item</th><th style="width:15%;">Override</th><th style="width:40%;">Reason</th></tr></thead><tbody>';
-
-        //     var customRowCount = 0;
-        //     for (var s6 = 0; s6 < students.length; s6++) {
-        //         var student6 = students[s6];
-        //         if (!student6 || !student6.customItemOverrides || Object.keys(student6.customItemOverrides).length === 0) continue;
-        //         var studentName6 = ((student6.firstName || '') + ' ' + (student6.lastName || '')).trim();
-        //         for (var itemId6 in student6.customItemOverrides) {
-        //             if (student6.customItemOverrides.hasOwnProperty(itemId6)) {
-        //                 var custom6 = student6.customItemOverrides[itemId6];
-        //                 if (!custom6 || !custom6.isActive) continue;
-        //                 customRowCount++;
-        //                 var rowClass8 = customRowCount % 2 === 0 ? 'even-row' : 'odd-row';
-        //                 var overrideText6 = [];
-        //                 if (custom6.customAmount !== null && custom6.customAmount !== undefined) {
-        //                     overrideText6.push('Amount: UGX ' + formatMoney(custom6.customAmount));
-        //                 }
-        //                 if (custom6.customQuantity !== null && custom6.customQuantity !== undefined) {
-        //                     overrideText6.push('Qty: ' + custom6.customQuantity);
-        //                 }
-        //                 if (custom6.paymentOption) {
-        //                     overrideText6.push('Payment: ' + custom6.paymentOption);
-        //                 }
-        //                 var overrideDisplay6 = overrideText6.length > 0 ? overrideText6.join(' | ') : 'Customized';
-        //                 html += '<tr class="' + rowClass8 + '">';
-        //                 html += '<td>' + escapeHtml(studentName6) + '</td>';
-        //                 html += '<td>' + escapeHtml(custom6.itemName || itemId6) + '</td>';
-        //                 html += '<td class="text-center">' + escapeHtml(overrideDisplay6) + '</td>';
-        //                 html += '<td>' + escapeHtml(custom6.reason || 'No reason provided') + '</td>';
-        //                 html += '</tr>';
-        //             }
-        //         }
-        //     }
-        //     html += '</tbody></table>';
-        // }
-
         html += '</body></html>';
 
         // ================================================================
@@ -67740,7 +67747,7 @@ function exportReportToCSV() {
         // ================================================================
         // SUCCESS MESSAGE
         // ================================================================
-        var successMsg = '✅ Export completed successfully!\n\n' +
+        var successMsg = '✅ Export completed successfully! (v32.0 — field-name + one-time fallback fixed)\n\n' +
                          '📊 ' + students.length + ' students exported\n' +
                          '📋 ' + headers.length + ' columns\n' +
                          '📁 ' + filename + '\n\n' +
@@ -67762,6 +67769,15 @@ function exportReportToCSV() {
                          '⚠️ Payment Due: ' + paymentDueCount + '\n' +
                          '❌ No Payment: ' + noPaymentCount + '\n' +
                          '💰 Credit Balance: ' + creditBalanceCount + '\n\n' +
+                         '🔧 BUG FIX APPLIED THIS EXPORT:\n' +
+                         '   • Reads the real server field names (totalCollected /\n' +
+                         '     totalRemaining / totalAmountCollected) instead of the\n' +
+                         '     nonexistent quantityCollected / amountCollected /\n' +
+                         '     quantityRemaining / amountRemaining\n' +
+                         '   • Added the missing one-time-item fallback, so an unpaid\n' +
+                         '     one-time item now shows its real Expected amount instead\n' +
+                         '     of silently dropping to UGX 0\n' +
+                         '   • This should now match the on-screen HTML report table\n\n' +
                          '📋 PERIOD SCOPING:\n' +
                          '   • One-Time: ONLY in the oldest period\n' +
                          '   • Yearly: ONLY in the latest term of each year\n' +
@@ -67772,8 +67788,7 @@ function exportReportToCSV() {
                          '📋 Sheets included:\n' +
                          (includeMainTable ? '   • Main Report: Full data table\n' : '') +
                          (includePeriodBreakdownSheet ? '   • Period Breakdown: Detailed period analysis\n' : '') +
-                         (includeSummaryStatsSheet ? '   • Summary Statistics: Key metrics\n' : '') +
-                         (totalCustomizedStudents > 0 ? '   • Customization Tracking: Custom overrides\n' : '');
+                         (includeSummaryStatsSheet ? '   • Summary Statistics: Key metrics\n' : '');
 
         showToast(successMsg, 'success');
 
@@ -67783,6 +67798,50 @@ function exportReportToCSV() {
         showToast('❌ Error exporting report: ' + error.message, 'error');
     }
 }
+
+// ========== Make sure the function is global ==========
+window.exportReportToCSV = exportReportToCSV;
+
+console.log('✅ exportReportToCSV v32.0 - FIELD-NAME BUG + ONE-TIME FALLBACK FIXED LOADED!');
+console.log('   🔧 FIXED: resolver now reads totalCollected/totalRemaining/totalAmountCollected');
+console.log('   🔧 FIXED: unpaid one-time items no longer silently drop to Expected: UGX 0');
+console.log('   🔧 FIXED: single shared resolveApplicablePeriods() used in headers, rows, AND totals');
+console.log('   📊 Excel export should now match the HTML report table exactly');
+
+// ================================================================
+// HELPER: getItemStatusText (used elsewhere in the report UI)
+// ================================================================
+function getItemStatusText(paymentOption, qtyCollected, qtyRequired, amtCollected, amountExpected) {
+    paymentOption = paymentOption || 'either';
+    qtyRequired = qtyRequired || 0;
+    amountExpected = amountExpected || 0;
+    qtyCollected = qtyCollected || 0;
+    amtCollected = amtCollected || 0;
+
+    if (paymentOption === 'cash_only') {
+        if (amtCollected >= amountExpected && amountExpected > 0) return '✅ Paid';
+        if (amtCollected > 0) return '⚠️ Partial';
+        return '❌ Unpaid';
+    }
+
+    if (paymentOption === 'item_only') {
+        if (qtyCollected >= qtyRequired && qtyRequired > 0) return '✅ Brought';
+        if (qtyCollected > 0) return '⚠️ Partial';
+        return '❌ Unpaid';
+    }
+
+    var isCashFullyPaid = amtCollected >= amountExpected && amountExpected > 0;
+    var isItemFullyPaid = qtyCollected >= qtyRequired && qtyRequired > 0;
+
+    if (isCashFullyPaid && isItemFullyPaid) return '✅ Paid (Cash + Items)';
+    if (isCashFullyPaid) return '✅ Paid (Cash Only)';
+    if (isItemFullyPaid) return '✅ Brought (Items Only)';
+    if (amtCollected > 0 || qtyCollected > 0) return '⚠️ Partial';
+    return '❌ Unpaid';
+}
+
+window.exportReportToCSV = exportReportToCSV;
+window.getItemStatusText = getItemStatusText;
 
 // ========== Make sure the function is global ==========
 window.exportReportToCSV = exportReportToCSV;
