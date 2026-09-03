@@ -70246,7 +70246,7 @@ function navigateToStudentList() {
 // 5. GLOBAL TOGGLE FOR ALL FINANCIAL METRICS
 // ---------------------------------------------------------------------------
 let allMetricsVisible = false; // track global state
-const metricVisibilityState = {}; // per-card visibility
+window.metricVisibilityState = {}; // per-card visibility
 
 function toggleAllMetrics() {
     allMetricsVisible = !allMetricsVisible;
