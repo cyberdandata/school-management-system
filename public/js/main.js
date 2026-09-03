@@ -71409,7 +71409,7 @@ window.getTermName = getTermName;
 window.toggleMetricVisibility = toggleMetricVisibility;
 window.toggleAllMetrics = toggleAllMetrics;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
-
+window.metricVisibilityState=metricVisibilityState;
 console.log('✅ Dashboard v13.1 loaded — money hidden by default, global eye toggle, no SchoolPay, status groups debug log');
 // ==================== UNIFORM MANAGEMENT SYSTEM v6.1 ====================
 // Complete Rebuild with Persistent Data Across All Academic Periods
