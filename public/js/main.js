@@ -70033,50 +70033,26 @@ function injectDashboardDesignSystem() {
         }
 
   .db-metric {
-    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transform-origin: center center;
+}
+.db-metric:hover {
+    transform: scaleX(1.1);
+    z-index: 10;
+    box-shadow: 0 20px 40px -18px rgba(15,23,42,0.35);
+}
+.db-metric .metric-value,
+.db-metric .metric-sub {
+    white-space: nowrap;
     overflow: hidden;
-    transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+    text-overflow: ellipsis;
+    transition: all 0.2s ease;
 }
-.db-metric-details {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.3s ease,
-                margin 0.3s ease,
-                padding 0.3s ease;
-    margin-top: 0;
-    border-top: 1px solid transparent;
-    padding: 0 16px;
-    background: #F8FAFC;
-    border-radius: 0 0 16px 16px;
-}
-.db-metric:hover .db-metric-details {
-    max-height: 200px;
-    opacity: 1;
-    margin-top: 12px;
-    border-top-color: #E2E8F0;
-    padding: 14px 16px 16px 16px;
-}
-.db-metric-details .full-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: #0B1324;
-    letter-spacing: -0.01em;
-}
-.db-metric-details .full-sub {
-    font-size: 0.9rem;
-    color: #475569;
-    margin-top: 4px;
-    font-weight: 500;
-}
-.db-metric-details .extra-stat {
-    font-size: 0.75rem;
-    color: #94A3B8;
-    margin-top: 6px;
-    border-top: 1px dashed #E2E8F0;
-    padding-top: 6px;
+.db-metric:hover .metric-value,
+.db-metric:hover .metric-sub {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap; /* keep nowrap to avoid wrapping */
 }  `;
     document.head.appendChild(style);
 }
