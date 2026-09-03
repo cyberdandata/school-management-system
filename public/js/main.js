@@ -70084,6 +70084,7 @@ function getTermName(term) {
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
 async function showDashboard() {
+      const metricVisibilityState={};
     console.log('showDashboard() — v13.1 (money hidden, global eye, no SchoolPay)');
     injectDashboardDesignSystem();
 
