@@ -70268,6 +70268,7 @@ function toggleAllMetrics() {
 }
 
 function updateMetricDisplay(cardId) {
+     const metricVisibilityState={};
     const valueEl = document.getElementById(cardId + '_value');
     const subEl = document.getElementById(cardId + '_sub');
     if (!valueEl) return;
@@ -70284,10 +70285,10 @@ function updateMetricDisplay(cardId) {
         if (subEl) subEl.textContent = '••••••••';
     }
 }
-
+ const metricVisibilityState={};
 // Per-card toggle
 function toggleMetricVisibility(cardId) {
-      const metricVisibilityState={};
+     
     if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = false;
     metricVisibilityState[cardId] = !metricVisibilityState[cardId];
     updateMetricDisplay(cardId);
