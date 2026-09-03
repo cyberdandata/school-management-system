@@ -70285,7 +70285,7 @@ function updateMetricDisplay(cardId) {
         if (subEl) subEl.textContent = '••••••••';
     }
 }
- const metricVisibilityState={};
+
 // Per-card toggle
 function toggleMetricVisibility(cardId) {
      
