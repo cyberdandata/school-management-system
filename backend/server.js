@@ -8986,18 +8986,14 @@ function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuant
 
 // Period-aware removal check (falls back to "removed everywhere" for legacy
 // removedItems entries that predate the per-period stamp).
-// ---------------------------------------------------------------------------
-// FIXED: one-time removals are permanent waivers, not per-period ones.
-// Only termly/yearly removals should be scoped to the stamped period.
-// ---------------------------------------------------------------------------
-function dashIsItemRemoved(student, itemId, year, term, periodType) {
+function dashIsItemRemoved(student, itemId, year, term) {
     if (!student || !student.removedItems) return false;
     const removed = student.removedItems[itemId];
     if (!removed || removed.isActive === false) return false;
-    if (periodType === 'one_time') return true; // active removal = waived, full stop
     if (removed.academicYear === undefined || removed.term === undefined) return true;
     return parseInt(removed.academicYear) === parseInt(year) && parseInt(removed.term) === parseInt(term);
 }
+
 // Same OR-logic branch the report uses: cash_only / item_only / either.
 function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
     const finalItemsBrought = Math.min(itemsBrought || 0, qtyRequired || 0);
