@@ -66210,7 +66210,7 @@ function buildSummaryCardsV3(totals, studentCount) {
 // - Van Fee shows all 3 periods
 
 function exportReportToCSV() {
-    console.log('=== 📊 EXCEL EXPORT v30.0 - CASH‑COVERED ITEMS ADDED ===');
+    console.log('=== 📊 EXCEL EXPORT v31.0 - SELECTABLE SHEETS ADDED ===');
 
     if (!reportData || !reportData.students || reportData.students.length === 0) {
         showToast('❌ No data to export. Please generate a report first.', 'error');
@@ -66228,6 +66228,18 @@ function exportReportToCSV() {
         var filterItem = filters.itemName || 'all';
         var isTuitionOnly = filterStatusGroup === 'none';
         var periodsIncluded = metadata.periodsIncluded || [];
+
+        // ================================================================
+        // EXCEL EXPORT SECTION TOGGLES (read from the filter panel)
+        // ================================================================
+        var includeMainTable = document.getElementById('reportIncludeMainTable') ? document.getElementById('reportIncludeMainTable').checked : true;
+        var includePeriodBreakdownSheet = document.getElementById('reportIncludePeriodBreakdown') ? document.getElementById('reportIncludePeriodBreakdown').checked : true;
+        var includeSummaryStatsSheet = document.getElementById('reportIncludeSummaryStats') ? document.getElementById('reportIncludeSummaryStats').checked : true;
+
+        if (!includeMainTable && !includePeriodBreakdownSheet && !includeSummaryStatsSheet) {
+            showToast('❌ Select at least one section to export.', 'error');
+            return;
+        }
 
         // Determine oldest period and max term per year (scoping)
         var oldestPeriodKey = null;
@@ -67309,6 +67321,7 @@ function exportReportToCSV() {
         // ================================================================
         // SHEET 1: MAIN REPORT
         // ================================================================
+        if (includeMainTable) {
         html += '<table>';
         html += '<tr><td colspan="' + totalCols + '" class="header-title">' + escapeHtml(schoolName) + '</td></tr>';
         if (schoolMotto) html += '<tr><td colspan="' + totalCols + '" class="header-motto">' + escapeHtml(schoolMotto) + '</td></tr>';
@@ -67387,10 +67400,12 @@ function exportReportToCSV() {
             html += '</tr>';
         }
         html += '</tbody></table>';
+        } // end includeMainTable
 
         // ================================================================
         // SHEET 2: PERIOD BREAKDOWN
         // ================================================================
+        if (includePeriodBreakdownSheet) {
         html += '<br><br><br>';
         html += '<table>';
         html += '<tr><td colspan="7" class="section-title">📅 PERIOD BREAKDOWN SUMMARY</td></tr>';
@@ -67538,10 +67553,12 @@ function exportReportToCSV() {
             }
         }
         html += '</tbody></table>';
+        } // end includePeriodBreakdownSheet
 
         // ================================================================
         // SHEET 3: SUMMARY STATISTICS
         // ================================================================
+        if (includeSummaryStatsSheet) {
         html += '<br><br><br>';
         html += '<table>';
         html += '<tr><td colspan="2" class="section-title">📊 SUMMARY STATISTICS</td></tr>';
@@ -67642,6 +67659,7 @@ function exportReportToCSV() {
             html += '</tr>';
         }
         html += '</tbody></table>';
+        } // end includeSummaryStatsSheet
 
         // ================================================================
         // SHEET 4: CUSTOMIZATION TRACKING (if any)
@@ -67736,10 +67754,10 @@ function exportReportToCSV() {
                          '🔄 OR LOGIC: Cash OR Items (NOT converted)\n' +
                          '📦 Item Only: 0 cash expected, 0 cash paid\n' +
                          '💵 Cash Only: Only money accepted\n\n' +
-                         '📋 Sheets:\n' +
-                         '   • Main Report: Full data table\n' +
-                         '   • Period Breakdown: Detailed period analysis\n' +
-                         '   • Summary Statistics: Key metrics (UNIFIED & FIXED)\n' +
+                         '📋 Sheets included:\n' +
+                         (includeMainTable ? '   • Main Report: Full data table\n' : '') +
+                         (includePeriodBreakdownSheet ? '   • Period Breakdown: Detailed period analysis\n' : '') +
+                         (includeSummaryStatsSheet ? '   • Summary Statistics: Key metrics\n' : '') +
                          (totalCustomizedStudents > 0 ? '   • Customization Tracking: Custom overrides\n' : '');
 
         showToast(successMsg, 'success');
