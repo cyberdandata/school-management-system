@@ -69912,6 +69912,11 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // ---------------------------------------------------------------------------
 // DASHBOARD v13.1 — Uniform stats, general stock, drill-down, global eye
 // ---------------------------------------------------------------------------
+
+// ---- GLOBAL STATE (defined early) ----
+let allMetricsVisible = false;
+const metricVisibilityState = {};   // per-card visibility
+
 function injectDashboardDesignSystem() {
     if (document.getElementById('dashboard-modern-fonts')) return;
 
@@ -70074,7 +70079,7 @@ function getTermName(term) {
     const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
     return names[term] || `Term ${term}`;
 }
-window.metricVisibilityState = {}; 
+
 // ---------------------------------------------------------------------------
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
@@ -70245,9 +70250,6 @@ function navigateToStudentList() {
 // ---------------------------------------------------------------------------
 // 5. GLOBAL TOGGLE FOR ALL FINANCIAL METRICS
 // ---------------------------------------------------------------------------
-let allMetricsVisible = false; // track global state
-window.metricVisibilityState = {}; // per-card visibility
-
 function toggleAllMetrics() {
     allMetricsVisible = !allMetricsVisible;
     const cardIds = Object.keys(metricVisibilityState);
