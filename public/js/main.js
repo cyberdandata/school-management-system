@@ -63063,7 +63063,7 @@ function buildSummaryCardsV3(totals, studentCount) {
 
 
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
-    console.log('=== BUILD REPORT TABLE v23.0 - NOT-APPLICABLE ITEMS FIXED ===');
+    console.log('=== BUILD REPORT TABLE v24.0 - hasDirectData FIELD-NAME BUG FIXED ===');
 
     // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
     function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
@@ -63380,11 +63380,26 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                             }
                         }
 
+                        // ================================================================
+                        // FIXED FALLBACK: read the REAL field names the server actually
+                        // sends (totalCollected / totalRemaining / totalAmountCollected /
+                        // amountExpected) instead of the nonexistent quantityCollected /
+                        // amountCollected / quantityRemaining / amountRemaining.
+                        // This is what was silently zeroing out one-time/yearly items in
+                        // the Excel export and dashboard stats (they had no `|| isOneTime`
+                        // safety net and no correct data to fall back on either).
+                        // ================================================================
                         if (applicablePeriods.length === 0) {
-                            var hasDirectData = itemData.quantityCollected > 0 ||
-                                               itemData.quantityRemaining > 0 ||
-                                               itemData.amountCollected > 0 ||
-                                               itemData.amountRemaining > 0 ||
+                            var directQtyCollected = itemData.totalCollected || 0;
+                            var directQtyRemaining = itemData.totalRemaining || 0;
+                            var directAmtCollected = itemData.totalAmountCollected || 0;
+                            var directAmtExpected = itemData.amountExpected || 0;
+                            var directAmtRemaining = Math.max(0, directAmtExpected - directAmtCollected);
+
+                            var hasDirectData = directQtyCollected > 0 ||
+                                               directQtyRemaining > 0 ||
+                                               directAmtCollected > 0 ||
+                                               directAmtRemaining > 0 ||
                                                isOneTime;
 
                             if (hasDirectData) {
@@ -63402,10 +63417,10 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                         applicablePeriods.push({
                                             periodKey: fallbackPeriodKey,
                                             data: {
-                                                qtyCollected: itemData.quantityCollected || 0,
-                                                qtyRemaining: itemData.quantityRemaining || 0,
-                                                amtCollected: itemData.amountCollected || 0,
-                                                amtRemaining: itemData.amountRemaining || 0,
+                                                qtyCollected: directQtyCollected,
+                                                qtyRemaining: directQtyRemaining,
+                                                amtCollected: directAmtCollected,
+                                                amtRemaining: directAmtRemaining,
                                                 isFullyPaid: itemData.isFullyPaid || false,
                                                 isCurrent: false,
                                                 isNotApplicable: false
@@ -64576,9 +64591,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         </div>
     `;
 
-    console.log('✅ Report table built with v23.0 fixes applied');
-    console.log('   🔧 Items with 0 applicable periods for a student now show "—", not "Fully Paid"');
-    console.log('   🔧 TOTALS row "Cash/Items Used" badge now interpolates correctly');
+    console.log('✅ Report table built with v24.0 fixes applied');
+    console.log('   🔧 hasDirectData now reads totalCollected/totalRemaining/totalAmountCollected (real fields)');
+    console.log('   🔧 No longer relying solely on || isOneTime to keep one-time items visible');
     console.log('   ⭐ One-Time items ONLY in oldest period: ' + oldestPeriodKey);
     console.log('   📆 Yearly items ONLY in latest term of each year');
     console.log('   📋 Periods: ' + allPeriodKeys.join(', '));
