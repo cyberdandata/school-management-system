@@ -9249,8 +9249,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                         const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
                         const defaultPaymentOption = item.paymentOption || 'either';
 
-                        const cv = dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
-
+                      const cv = dashGetCustomizedItemValue(student, itemId, item.name, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
                         const { cashPaid, itemsBrought } = dashGetPaidAmountsForItem(
                             student.id, comp.name, item.name, currentYear, currentTerm, feePayments, periodType
                         );
