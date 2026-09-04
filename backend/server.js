@@ -8919,8 +8919,10 @@ app.post('/api/uniform/reset', (req, res) => {
     }
 });
 
-function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
-    if (!student || !student.customItemOverrides || !student.customItemOverrides[itemId]) {
+
+//dashboard stats
+function dashGetCustomizedItemValue(student, itemId, itemName, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
+    if (!student || !student.customItemOverrides) {
         return {
             amount: defaultAmount || 0,
             quantity: defaultQuantity || 1,
@@ -8929,8 +8931,38 @@ function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuant
             isCustomized: false
         };
     }
-    const custom = student.customItemOverrides[itemId];
-    if (custom.isActive === false) {
+
+    // FIX: override keys aren't guaranteed to equal item.id — LTBalance-style
+    // dynamically generated items in particular are frequently stored under
+    // a different key. Match the same way findCustomOverride() does
+    // elsewhere: exact itemId first, then exact itemName, then a key that
+    // contains the itemName. Without this fallback, any student whose
+    // override key doesn't match item.id silently falls back to the
+    // fee-structure default (0 for an LTBalance template item), which is
+    // exactly what was undercounting the dashboard's LTBalance total.
+    let custom = null;
+
+    if (student.customItemOverrides[itemId] && student.customItemOverrides[itemId].isActive !== false) {
+        custom = student.customItemOverrides[itemId];
+    }
+
+    if (!custom && itemName) {
+        for (const key in student.customItemOverrides) {
+            const c = student.customItemOverrides[key];
+            if (!c || c.isActive === false) continue;
+            if (c.itemName === itemName) { custom = c; break; }
+        }
+    }
+
+    if (!custom && itemName) {
+        for (const key in student.customItemOverrides) {
+            const c = student.customItemOverrides[key];
+            if (!c || c.isActive === false) continue;
+            if (key.includes(itemName)) { custom = c; break; }
+        }
+    }
+
+    if (!custom) {
         return {
             amount: defaultAmount || 0,
             quantity: defaultQuantity || 1,
@@ -8939,6 +8971,7 @@ function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuant
             isCustomized: false
         };
     }
+
     const amount = (custom.customAmount !== null && custom.customAmount !== undefined) ? custom.customAmount : defaultAmount;
     const quantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) ? custom.customQuantity : defaultQuantity;
     const paymentOption = custom.paymentOption || defaultPaymentOption || 'either';
