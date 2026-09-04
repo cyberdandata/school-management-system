@@ -8919,43 +8919,6 @@ app.post('/api/uniform/reset', (req, res) => {
     }
 });
 
-// ==================== DASHBOARD STATISTICS ENDPOINT ====================
-// Version: 3.1 - FIXED: Uses currentAcademicSettings
-
-// ==================== DASHBOARD STATISTICS ENDPOINT ====================
-// Version: 4.0 - COMPLETE REBUILD - Works with any data structure
-
-// ==================== COMPLETE REBUILT DASHBOARD STATS ENDPOINT ====================
-// Version: 3.0 - Tuition-Only Financial Cards + Complete Statistics
-
-// ============================================================================
-// DASHBOARD STATS FIX
-// Replace your existing `app.get('/api/dashboard/stats', ...)` handler (and
-// its two local `getStatusGroupColor` / `getTermName` duplicates further
-// down the file, if they conflict) with everything below.
-//
-// WHY THE OLD NUMBERS WERE WRONG (vs. /api/reports/comprehensive):
-//   1. customItemOverrides were never applied (amount/qty/paymentOption)
-//   2. removedItems were never skipped
-//   3. cash-vs-items OR logic was approximated instead of using the same
-//      branch-by-paymentOption logic the report uses
-//   4. cash_only items were being counted into "items required/collected"
-//      quantities, which they should never be
-//   5. there was no separate "cash-only items" rollup (tuition-style card)
-//
-// This file gives every student's item the SAME treatment the report gives
-// it, then aggregates into: tuition-only card, cash-only-items card,
-// status-group table, item table, and payment-status counts.
-// ============================================================================
-
-// ---------------------------------------------------------------------------
-// SHARED HELPERS (mirrors the logic inside /api/reports/comprehensive)
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// SHARED HELPERS (mirrors the logic inside /api/reports/comprehensive)
-// ---------------------------------------------------------------------------
-
 function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
     if (!student || !student.customItemOverrides || !student.customItemOverrides[itemId]) {
         return {
@@ -8985,37 +8948,25 @@ function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuant
 }
 
 // ---------------------------------------------------------------------------
-// FIXED: Period-aware removal check.
+// Period-aware removal check.
 //
-// Previously: any removedItems[itemId] entry that predated the per-period
-// stamp (no academicYear/term on it) was treated as "removed for every
-// period, forever" — silently zeroing that item's expected amount across a
-// student's entire history, including one-time items like LTBalance. This
-// is what made the dashboard's LTBalance total (and the old Excel export,
-// which had the same class of bug) undercount versus the corrected HTML
-// report table.
-//
-// Now: a properly-stamped entry is checked exactly as before. A legacy,
-// unstamped entry is scoped ONLY to the period it was actually recorded in
-// (derived from its removedAt timestamp via the existing getTermForDate /
-// getAcademicYearForDate helpers already used elsewhere in server.js) —
-// never treated as a blanket removal. If there's no usable stamp at all,
-// the item is NOT assumed removed, so real expected revenue never
-// silently disappears from the totals.
+// A properly-stamped entry is checked exactly against the given period.
+// A legacy, unstamped entry is scoped ONLY to the period it was actually
+// recorded in (derived from removedAt), never treated as a blanket removal
+// across the student's whole enrollment history — that's what was silently
+// zeroing out one-time items like LTBalance for entire cohorts before.
+// With no usable stamp at all, the item is NOT assumed removed, so real
+// expected revenue never silently disappears from the totals.
 // ---------------------------------------------------------------------------
 function dashIsItemRemoved(student, itemId, year, term) {
     if (!student || !student.removedItems) return false;
     const removed = student.removedItems[itemId];
     if (!removed || removed.isActive === false) return false;
 
-    // Properly stamped: check the exact period.
     if (removed.academicYear !== undefined && removed.term !== undefined) {
         return parseInt(removed.academicYear) === parseInt(year) && parseInt(removed.term) === parseInt(term);
     }
 
-    // Legacy, unstamped entry: only honor it for the period it was actually
-    // recorded in (derived from removedAt), never as a blanket removal
-    // across the student's whole enrollment history.
     if (removed.removedAt) {
         const recordedDate = new Date(removed.removedAt);
         if (!isNaN(recordedDate.getTime())) {
@@ -9028,8 +8979,6 @@ function dashIsItemRemoved(student, itemId, year, term) {
         }
     }
 
-    // No usable stamp of any kind — don't guess; assume the item is still
-    // owed rather than silently dropping it from the totals.
     return false;
 }
 
@@ -9046,8 +8995,6 @@ function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid
         cashExpected = 0;
         finalCashPaid = 0;
     } else {
-        // 'either': items fully cover it -> no cash owed; otherwise cash
-        // owed only for the remaining (unfilled) quantity.
         if (finalItemsBrought >= qtyRequired && qtyRequired > 0) {
             cashExpected = 0;
             finalCashPaid = 0;
@@ -9070,13 +9017,6 @@ function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid
     };
 }
 
-// Pulls cashPaid/itemsBrought for one item, for ONE student — the SCOPE of
-// "which payments count" depends on the item's periodType:
-//   - termly : only payments made in the CURRENT term/year (resets each term)
-//   - yearly : any payment made anywhere in the CURRENT academic year
-//   - one_time: any payment ever made by this student (follows them forever)
-// This is what lets one-time/yearly fees paid in an earlier term still show
-// as collected in later terms, while termly fees correctly reset.
 function dashGetPaidAmountsForItem(studentId, componentName, itemName, year, term, allPaymentsData, periodType) {
     let scoped;
     if (periodType === 'one_time') {
@@ -9161,7 +9101,7 @@ function dashGetStatusGroupColor(name) {
 // ---------------------------------------------------------------------------
 
 app.get('/api/dashboard/stats', async (req, res) => {
-    console.log('=== DASHBOARD STATS (v2.1 - ALL STATUS GROUPS, PERIOD-AWARE, REMOVAL FIX) ===');
+    console.log('=== DASHBOARD STATS (v2.2 - ITEM-LEVEL CASH FIELDS + GROUP RATE FALLBACK) ===');
 
     try {
         const settings = readFile(files.settings);
@@ -9252,12 +9192,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
             tuitionCollected += studentTuitionPaid;
 
             // ---------- ACTIVITY ITEMS — ALL status groups, every period type ----------
-            // NOTE: we no longer gate one_time/yearly components behind isFirstTerm.
-            // A one_time fee is owed from the moment it's assigned until it's paid,
-            // regardless of which term the school is currently in. A yearly fee is
-            // owed for the whole academic year. Only the PAYMENT LOOKUP scope
-            // (dashGetPaidAmountsForItem) differs by period type — not whether the
-            // group/item is displayed at all.
             let studentCashExpectedAcrossAll = 0;
             let studentCashPaidAcrossAll = 0;
             let studentItemsRequired = 0;
@@ -9309,44 +9243,47 @@ app.get('/api/dashboard/stats', async (req, res) => {
                             studentItemsRemaining += totals.itemsRemaining;
                         }
 
-                      if (!group.items[item.name]) {
-    group.items[item.name] = {
-        name: item.name, required: 0, collected: 0, remaining: 0, studentsCount: 0,
-        paymentOption: cv.paymentOption,
-        cashExpected: 0, cashCollected: 0, cashRemaining: 0   // NEW
-    };
-}
-const gi = group.items[item.name];
-if (cv.paymentOption !== 'cash_only') {
-    gi.required += totals.itemsRequired;
-    gi.collected += totals.itemsBrought;
-    gi.remaining += totals.itemsRemaining;
-}
-// NEW: always track cash at item level too, regardless of paymentOption
-gi.cashExpected += totals.cashExpected;
-gi.cashCollected += totals.cashPaid;
-gi.cashRemaining += totals.cashRemaining;
-gi.studentsCount++;
+                        // FIX: item-level object now also carries cash totals,
+                        // regardless of paymentOption — this is what the frontend
+                        // card needs to show "UGX collected/expected" per item
+                        // instead of the always-0/0 quantity counts for cash_only.
+                        if (!group.items[item.name]) {
+                            group.items[item.name] = {
+                                name: item.name, required: 0, collected: 0, remaining: 0, studentsCount: 0,
+                                paymentOption: cv.paymentOption,
+                                cashExpected: 0, cashCollected: 0, cashRemaining: 0
+                            };
+                        }
+                        const gi = group.items[item.name];
+                        if (cv.paymentOption !== 'cash_only') {
+                            gi.required += totals.itemsRequired;
+                            gi.collected += totals.itemsBrought;
+                            gi.remaining += totals.itemsRemaining;
+                        }
+                        gi.cashExpected += totals.cashExpected;
+                        gi.cashCollected += totals.cashPaid;
+                        gi.cashRemaining += totals.cashRemaining;
+                        gi.studentsCount++;
 
-// ---- Global item table ----
-const itemKey = `${groupName}::${item.name}`;
-if (!itemTotalsMap[itemKey]) {
-    itemTotalsMap[itemKey] = {
-        name: item.name, statusGroup: groupName, required: 0, collected: 0, remaining: 0, students: 0,
-        paymentOption: cv.paymentOption,
-        cashExpected: 0, cashCollected: 0, cashRemaining: 0   // NEW
-    };
-}
-const gt = itemTotalsMap[itemKey];
-if (cv.paymentOption !== 'cash_only') {
-    gt.required += totals.itemsRequired;
-    gt.collected += totals.itemsBrought;
-    gt.remaining += totals.itemsRemaining;
-}
-gt.cashExpected += totals.cashExpected;   // NEW
-gt.cashCollected += totals.cashPaid;      // NEW
-gt.cashRemaining += totals.cashRemaining; // NEW
-gt.students++;
+                        // ---- Global item table ----
+                        const itemKey = `${groupName}::${item.name}`;
+                        if (!itemTotalsMap[itemKey]) {
+                            itemTotalsMap[itemKey] = {
+                                name: item.name, statusGroup: groupName, required: 0, collected: 0, remaining: 0, students: 0,
+                                paymentOption: cv.paymentOption,
+                                cashExpected: 0, cashCollected: 0, cashRemaining: 0
+                            };
+                        }
+                        const gt = itemTotalsMap[itemKey];
+                        if (cv.paymentOption !== 'cash_only') {
+                            gt.required += totals.itemsRequired;
+                            gt.collected += totals.itemsBrought;
+                            gt.remaining += totals.itemsRemaining;
+                        }
+                        gt.cashExpected += totals.cashExpected;
+                        gt.cashCollected += totals.cashPaid;
+                        gt.cashRemaining += totals.cashRemaining;
+                        gt.students++;
 
                         // ---- Class performance matrix ----
                         if (!classPerformance[groupName]) classPerformance[groupName] = {};
@@ -9390,7 +9327,22 @@ gt.students++;
 
         // ---- Finalize status group output ----
         const statusGroupsOut = Object.values(statusGroupsMap).map(g => {
-            const rate = g.totalRequired > 0 ? (g.totalCollected / g.totalRequired * 100) : 0;
+            // FIX: this is the actual bug. `totalRequired` is legitimately 0
+            // for a cash_only-dominated group (LTBalance, Scholastic
+            // Requirements(CASH)) — that's correct, item counts genuinely
+            // don't apply. But the OLD code fell straight to `: 0` in that
+            // case, permanently pinning the card's rate at 0% even when
+            // real cash was collected. Now: fall back to the cash
+            // collection rate whenever there's no item-count basis but
+          // there IS a cash amount expected.
+            let rate;
+            if (g.totalRequired > 0) {
+                rate = (g.totalCollected / g.totalRequired) * 100;
+            } else if (g.cashExpected > 0) {
+                rate = (g.cashCollected / g.cashExpected) * 100;
+            } else {
+                rate = 0;
+            }
             return {
                 name: g.name,
                 periodType: g.periodType,
