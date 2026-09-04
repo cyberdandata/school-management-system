@@ -63063,7 +63063,7 @@ function buildSummaryCardsV3(totals, studentCount) {
 
 
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
-    console.log('=== BUILD REPORT TABLE v25.0 - PER-STUDENT PERIOD SCOPING FIXED ===');
+    console.log('=== BUILD REPORT TABLE v24.0 - hasDirectData FIELD-NAME BUG FIXED ===');
 
     // ========== HELPER: GET CUSTOMIZED ITEM VALUE ==========
     function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
@@ -63224,38 +63224,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         };
     }
 
-    // ========== HELPER: PER-STUDENT PERIOD SCOPING (THE FIX) ==========
-    // FIX: previously oldestPeriodKey / maxTermByYear were computed ONCE,
-    // globally, across ALL students combined (the single earliest period
-    // ANY student in the whole school has ever had). One-Time and Yearly
-    // items then checked `periodKey === oldestPeriodKey` (or
-    // `term === maxTermByYear[year]`) against that school-wide value — so
-    // for the vast majority of students, whose own periods never equal the
-    // school-wide oldest one, every one of their periods was rejected and
-    // the item fell into its fallback branch. That fallback re-attaches the
-    // item's pre-aggregated totals to a synthetic period the student may
-    // never have actually been enrolled in, inflating "Expected" totals and
-    // period counts for items like LTBalance (One-Time · Cash Only) well
-    // above what the dashboard reports directly from the fee structure.
-    // Each student must instead be scoped against THEIR OWN oldest period
-    // and THEIR OWN max term per year — exactly what the server route
-    // (/api/reports/comprehensive) already does per student internally.
-    function getStudentPeriodScoping(student) {
-        var ownPeriods = (student.periods || []).slice().sort(function (a, b) {
-            if (a.year !== b.year) return a.year - b.year;
-            return a.term - b.term;
-        });
-        var oldest = ownPeriods.length > 0 ? ownPeriods[0].periodKey : null;
-        var maxTerm = {};
-        for (var i = 0; i < ownPeriods.length; i++) {
-            var p = ownPeriods[i];
-            if (!maxTerm[p.year] || p.term > maxTerm[p.year]) {
-                maxTerm[p.year] = p.term;
-            }
-        }
-        return { oldestPeriodKey: oldest, maxTermByYear: maxTerm };
-    }
-
     // ========== DETERMINE STATUS GROUPS TO SHOW ==========
     var filterStatusGroup = filters.statusGroup || 'all';
     var filterItem = filters.itemName || 'all';
@@ -63264,9 +63232,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var currentYear = currentAcademicSettings.currentYear || new Date().getFullYear();
     var currentTerm = currentAcademicSettings.currentTerm || 1;
 
-    // Get all unique period keys from students — kept ONLY for header/badge
-    // display purposes (e.g. "X period(s)" labels). This is NOT used for
-    // per-item applicability decisions anymore — see studentScopingMap below.
+    // Get all unique period keys from students
     var allPeriodKeys = [];
     for (var s = 0; s < students.length; s++) {
         var student = students[s];
@@ -63282,14 +63248,18 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     allPeriodKeys.sort(); // Sorts ascending (oldest first)
 
     // ================================================================
-    // FIX: Build a per-student scoping map. Every place that used to read
-    // the global oldestPeriodKey / maxTermByYear when deciding whether a
-    // one-time/yearly item period is "applicable" now reads
-    // studentScopingMap[student.id] instead.
+    // FIX: Determine oldest period and max term per year
     // ================================================================
-    var studentScopingMap = {};
-    for (var ssIdx = 0; ssIdx < students.length; ssIdx++) {
-        studentScopingMap[students[ssIdx].id] = getStudentPeriodScoping(students[ssIdx]);
+    var oldestPeriodKey = allPeriodKeys.length > 0 ? allPeriodKeys[0] : null;
+    var maxTermByYear = {};
+    for (var py = 0; py < allPeriodKeys.length; py++) {
+        var pKey = allPeriodKeys[py];
+        var pParts = pKey.split('_');
+        var pYear = parseInt(pParts[0]);
+        var pTerm = parseInt(pParts[1]);
+        if (!maxTermByYear[pYear] || pTerm > maxTermByYear[pYear]) {
+            maxTermByYear[pYear] = pTerm;
+        }
     }
 
     // Get all status group names
@@ -63342,12 +63312,6 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
         for (var s = 0; s < students.length; s++) {
             var student = students[s];
-
-            // FIX: per-student scoping, replacing the global oldestPeriodKey/maxTermByYear
-            var studentScoping = studentScopingMap[student.id] || { oldestPeriodKey: null, maxTermByYear: {} };
-            var studentOldestPeriodKey = studentScoping.oldestPeriodKey;
-            var studentMaxTermByYear = studentScoping.maxTermByYear;
-
             if (student.statusGroups && student.statusGroups[groupName]) {
                 var groupItems = student.statusGroups[groupName].items;
                 for (var itemName in groupItems) {
@@ -63397,15 +63361,13 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
                             var shouldIncludePeriod = false;
 
-                            // FIX: use THIS student's own oldest period / max
-                            // term-by-year, not the school-wide global ones.
                             if (periodType === 'one_time') {
-                                shouldIncludePeriod = (periodKey === studentOldestPeriodKey);
+                                shouldIncludePeriod = (periodKey === oldestPeriodKey);
                             } else if (periodType === 'yearly') {
                                 var parts = periodKey.split('_');
                                 var year = parseInt(parts[0]);
                                 var term = parseInt(parts[1]);
-                                shouldIncludePeriod = (term === studentMaxTermByYear[year]);
+                                shouldIncludePeriod = (term === maxTermByYear[year]);
                             } else {
                                 shouldIncludePeriod = true;
                             }
@@ -63419,10 +63381,13 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                         }
 
                         // ================================================================
-                        // FALLBACK: reads the real field names the server sends
-                        // (totalCollected / totalRemaining / totalAmountCollected /
-                        // amountExpected). Uses this student's own scoping for the
-                        // fallback period key too.
+                        // FIXED FALLBACK: read the REAL field names the server actually
+                        // sends (totalCollected / totalRemaining / totalAmountCollected /
+                        // amountExpected) instead of the nonexistent quantityCollected /
+                        // amountCollected / quantityRemaining / amountRemaining.
+                        // This is what was silently zeroing out one-time/yearly items in
+                        // the Excel export and dashboard stats (they had no `|| isOneTime`
+                        // safety net and no correct data to fall back on either).
                         // ================================================================
                         if (applicablePeriods.length === 0) {
                             var directQtyCollected = itemData.totalCollected || 0;
@@ -63438,13 +63403,11 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                                                isOneTime;
 
                             if (hasDirectData) {
-                                // FIX: fallback period key now comes from this
-                                // student's own scoping map.
-                                var fallbackPeriodKey = studentOldestPeriodKey;
+                                var fallbackPeriodKey = oldestPeriodKey;
                                 if (periodType === 'yearly') {
                                     var currentYearStr = currentYear.toString();
-                                    if (studentMaxTermByYear[currentYearStr]) {
-                                        fallbackPeriodKey = currentYearStr + '_' + studentMaxTermByYear[currentYearStr];
+                                    if (maxTermByYear[currentYearStr]) {
+                                        fallbackPeriodKey = currentYearStr + '_' + maxTermByYear[currentYearStr];
                                     }
                                 }
 
@@ -63776,6 +63739,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     var subHeaders = [];
     var colspan = 4;
 
+    // First four columns: sticky on both axes with solid backgrounds
     headers.push('<th class="p-2 text-center border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:0; z-index:40; width:40px; min-width:40px; background:#f3f4f6;">#</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:40px; z-index:40; width:110px; min-width:110px; background:#f3f4f6;">Admission</th>');
     headers.push('<th class="p-2 text-left border bg-gray-100" rowspan="2" style="position:sticky; top:0; left:150px; z-index:40; width:150px; min-width:150px; background:#f3f4f6;">Student</th>');
@@ -63900,6 +63864,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         else if (student.overallStatus === 'Fully Paid') rowClass = 'bg-green-50';
         else if (student.hasCustomizations) rowClass = 'bg-orange-50/20';
 
+        // For the sticky columns we use a solid white background to avoid transparency
         var frozenBg = 'bg-white';
 
         row += `
@@ -64602,8 +64567,8 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     ${includeTuition ? '<span class="text-xs text-gray-500">💰 Tuition aggregated across ' + (periodsCount || 1) + ' period(s)</span>' : ''}
                     <span class="text-xs text-gray-400">📌 Cash Only: cash expected | Item Only: items required (0 cash) | Either: EITHER cash OR items</span>
                     <span class="text-xs text-blue-400">📌 item_only items contribute 0 to cash expected, 0 to cash paid</span>
-                    <span class="text-xs text-purple-400">⭐ One-Time items only appear in the STUDENT'S OWN oldest period</span>
-                    <span class="text-xs text-orange-400">📆 Yearly items only appear in the STUDENT'S OWN latest term per year</span>
+                    <span class="text-xs text-purple-400">⭐ One-Time items only appear in the OLDEST period (${oldestPeriodKey || 'N/A'})</span>
+                    <span class="text-xs text-orange-400">📆 Yearly items only appear in the LATEST term of each year</span>
                 </div>
             </td>
         </tr>
@@ -64611,6 +64576,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
     // ========================================================================
     // WRAP THE TABLE IN A SCROLLABLE CONTAINER WITH FIXED HEIGHT
+    // The sticky columns now have solid backgrounds and a shadow to separate.
     // ========================================================================
     var tableHtml = `
         <div class="overflow-auto" id="reportTableWrapper" style="max-height: 70vh; border: 1px solid #e5e7eb; border-radius: 8px;">
@@ -64625,10 +64591,13 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         </div>
     `;
 
-    console.log('✅ Report table built with v25.0 fixes applied');
-    console.log('   🔧 One-Time/Yearly period applicability now scoped PER STUDENT (was school-wide global)');
-    console.log('   🔧 hasDirectData reads totalCollected/totalRemaining/totalAmountCollected (real fields)');
-    console.log('   📋 Global periods (for header display only): ' + allPeriodKeys.join(', '));
+    console.log('✅ Report table built with v24.0 fixes applied');
+    console.log('   🔧 hasDirectData now reads totalCollected/totalRemaining/totalAmountCollected (real fields)');
+    console.log('   🔧 No longer relying solely on || isOneTime to keep one-time items visible');
+    console.log('   ⭐ One-Time items ONLY in oldest period: ' + oldestPeriodKey);
+    console.log('   📆 Yearly items ONLY in latest term of each year');
+    console.log('   📋 Periods: ' + allPeriodKeys.join(', '));
+    console.log('   📊 Max term per year: ' + JSON.stringify(maxTermByYear));
 
     return tableHtml;
 }
