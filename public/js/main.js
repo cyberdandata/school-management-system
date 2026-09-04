@@ -70853,13 +70853,26 @@ function renderStatusGroupCard(sg) {
     const badge = getStatusBadge(rate);
 
     const items = Array.isArray(sg.items) ? sg.items : Object.values(sg.items || {});
-    const topItems = items
-        .slice()
-        .sort((a, b) => ((b.collected / (b.required || 1)) || 0) - ((a.collected / (a.required || 1)) || 0))
-        .slice(0, 4);
+
+    // FIX: sort by the metric that's actually meaningful for each item —
+    // quantity ratio for count-based items, cash ratio for cash_only ones.
+    // Previously always sorted by collected/required, which is always 0
+    // for cash_only items and pushed them to the bottom pointlessly.
+    const itemProgress = (item) => {
+        if (item.paymentOption === 'cash_only') {
+            return item.cashExpected > 0 ? (item.cashCollected / item.cashExpected) : 0;
+        }
+        return item.required > 0 ? (item.collected / item.required) : 0;
+    };
+    const topItems = items.slice().sort((a, b) => itemProgress(b) - itemProgress(a)).slice(0, 4);
 
     const borderClass = getStatusGroupColor(sg.name);
-    const cashOnly = sg.paymentOption === 'cash_only';
+
+    // FIX: a group made up entirely of cash_only items will always have
+    // totalRequired === 0 — that's correct (item counts don't apply), but
+    // the "Required/Collected/Remaining" quantity grid is misleading to show
+    // as 0/0/0 next to real money. Detect this and swap the grid's meaning.
+    const isCashOnlyGroup = (sg.totalRequired === 0) && (sg.cashExpected > 0);
 
     return `
         <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
@@ -70871,17 +70884,22 @@ function renderStatusGroupCard(sg) {
                             <h4 class="font-display font-bold text-slate-800">${escapeHtml(sg.name)}</h4>
                             ${badge}
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'yearly' ? 'Yearly' : 'Termly'}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">${sg.periodType === 'one_time' ? 'One-Time' : sg.periodType === 'yearly' ? 'Yearly' : 'Termly'}${isCashOnlyGroup ? ' · Cash Only' : ''}</p>
                     </div>
                     <p class="text-2xl font-bold font-mono-num ${rateColor}">${rate.toFixed(1)}%</p>
                 </div>
 
+                ${isCashOnlyGroup ? `
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Students</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.studentCount || 0}</p></div>
+                    <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collection Rate</p><p class="text-base font-bold font-mono-num ${rateColor}">${rate.toFixed(1)}%</p></div>
+                </div>` : `
                 <div class="grid grid-cols-4 gap-2 mb-3">
                     <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Required</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.totalRequired || 0}</p></div>
                     <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Collected</p><p class="text-base font-bold font-mono-num text-emerald-600">${sg.totalCollected || 0}</p></div>
                     <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Remaining</p><p class="text-base font-bold font-mono-num text-rose-500">${sg.totalRemaining || 0}</p></div>
                     <div class="bg-slate-50 rounded-xl p-2 text-center"><p class="text-[10px] text-slate-400 font-semibold uppercase">Students</p><p class="text-base font-bold font-mono-num text-slate-700">${sg.studentCount || 0}</p></div>
-                </div>
+                </div>`}
 
                 ${sg.cashExpected ? `
                 <div class="grid grid-cols-3 gap-2 mb-3">
@@ -70897,6 +70915,20 @@ function renderStatusGroupCard(sg) {
                         <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Items</p>
                         <div class="space-y-1.5">
                             ${topItems.map(item => {
+                                // FIX: render cash progress for cash_only items instead of
+                                // the always-0/0 quantity counts.
+                                if (item.paymentOption === 'cash_only') {
+                                    const itemRate = item.cashExpected > 0 ? (item.cashCollected / item.cashExpected * 100) : 0;
+                                    const itemColor = getStatusColor(itemRate);
+                                    const itemBar = getStatusBarColor(itemRate);
+                                    return `
+                                        <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${escapeHtml(item.name).replace(/'/g, "\\'")}', '${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+                                            <span class="text-xs font-medium text-slate-600 flex-1 truncate hover:text-indigo-600">${escapeHtml(item.name)}</span>
+                                            <span class="text-xs font-bold font-mono-num ${itemColor}">UGX ${formatMoney(item.cashCollected)}/${formatMoney(item.cashExpected)}</span>
+                                            <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
+                                        </div>
+                                    `;
+                                }
                                 const itemRate = item.required > 0 ? (item.collected / item.required * 100) : 0;
                                 const itemColor = getStatusColor(itemRate);
                                 const itemBar = getStatusBarColor(itemRate);
