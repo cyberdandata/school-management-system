@@ -8920,78 +8920,139 @@ app.post('/api/uniform/reset', (req, res) => {
 });
 
 
-//dashboard stats
-function dashGetCustomizedItemValue(student, itemId, itemName, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
-    if (!student || !student.customItemOverrides) {
-        return {
-            amount: defaultAmount || 0,
-            quantity: defaultQuantity || 1,
-            paymentOption: defaultPaymentOption || 'either',
-            unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)),
-            isCustomized: false
-        };
-    }
+// ============================================================================
+// SHARED ITEM-RESOLUTION HELPERS
+// Used by BOTH /api/dashboard/stats and /api/reports/comprehensive so the
+// two surfaces can never diverge again. This replaces the old
+// dashGetCustomizedItemValue / dashIsItemRemoved, which independently
+// reimplemented this logic and drifted out of sync with the report.
+// ============================================================================
 
-    // FIX: override keys aren't guaranteed to equal item.id — LTBalance-style
-    // dynamically generated items in particular are frequently stored under
-    // a different key. Match the same way findCustomOverride() does
-    // elsewhere: exact itemId first, then exact itemName, then a key that
-    // contains the itemName. Without this fallback, any student whose
-    // override key doesn't match item.id silently falls back to the
-    // fee-structure default (0 for an LTBalance template item), which is
-    // exactly what was undercounting the dashboard's LTBalance total.
+// ---------------------------------------------------------------------------
+// resolveItemOverride()
+//
+// Looks up the effective amount/quantity/paymentOption for a fee item,
+// applying any student-specific customItemOverride.
+//
+// FIX: the old dashboard version fell back to matching by itemName when the
+// itemId key didn't match, but it STOPPED AT THE FIRST MATCH in object-key
+// iteration order. If a student ends up with more than one override entry
+// sharing the same itemName (this happens with recurring/balance-carryforward
+// items like LTBalance, where a new override can get added without the old
+// one being cleaned up), the loop could grab a stale, smaller amount instead
+// of the current one — silently undercounting "Cash Expected" for that
+// student. It never affected "Cash Collected" because payments are summed
+// (order-independent), which is exactly why paid totals matched between the
+// dashboard and the report but expected totals didn't.
+//
+// Fix: when multiple overrides share the same itemName, pick the one with
+// the most recent updatedAt instead of the first one encountered.
+// ---------------------------------------------------------------------------
+function resolveItemOverride(student, itemId, itemName, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
+    const fallbackResult = {
+        amount: defaultAmount || 0,
+        quantity: defaultQuantity || 1,
+        paymentOption: defaultPaymentOption || 'either',
+        unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)),
+        isCustomized: false,
+        reason: null,
+        updatedAt: null,
+        customAmount: null,
+        customQuantity: null,
+        defaultAmount: defaultAmount || 0,
+        defaultQuantity: defaultQuantity || 1
+    };
+
+    if (!student || !student.customItemOverrides) return fallbackResult;
+
     let custom = null;
 
+    // 1. Exact itemId match — the primary, intended lookup path.
     if (student.customItemOverrides[itemId] && student.customItemOverrides[itemId].isActive !== false) {
         custom = student.customItemOverrides[itemId];
     }
 
+    // 2. Fallback: match by itemName. FIX — pick the most recently updated
+    // match, not the first one found, so a stale duplicate override can
+    // never silently win over the current one.
     if (!custom && itemName) {
+        let best = null;
         for (const key in student.customItemOverrides) {
             const c = student.customItemOverrides[key];
             if (!c || c.isActive === false) continue;
-            if (c.itemName === itemName) { custom = c; break; }
+            if (c.itemName === itemName) {
+                if (!best || new Date(c.updatedAt || 0) > new Date(best.updatedAt || 0)) {
+                    best = c;
+                }
+            }
         }
+        custom = best;
     }
 
+    // 3. Last-resort fallback: key contains the item name. Same
+    // most-recently-updated tiebreak.
     if (!custom && itemName) {
+        let best = null;
         for (const key in student.customItemOverrides) {
             const c = student.customItemOverrides[key];
             if (!c || c.isActive === false) continue;
-            if (key.includes(itemName)) { custom = c; break; }
+            if (key.includes(itemName)) {
+                if (!best || new Date(c.updatedAt || 0) > new Date(best.updatedAt || 0)) {
+                    best = c;
+                }
+            }
         }
+        custom = best;
     }
 
-    if (!custom) {
-        return {
-            amount: defaultAmount || 0,
-            quantity: defaultQuantity || 1,
-            paymentOption: defaultPaymentOption || 'either',
-            unitPrice: defaultUnitPrice || (defaultAmount / (defaultQuantity || 1)),
-            isCustomized: false
-        };
+    if (!custom) return fallbackResult;
+
+    const customAmount = (custom.customAmount !== null && custom.customAmount !== undefined) ? custom.customAmount : defaultAmount;
+    const customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) ? custom.customQuantity : defaultQuantity;
+    const customPaymentOption = custom.paymentOption || defaultPaymentOption || 'either';
+
+    let customUnitPrice = defaultUnitPrice;
+    if (customQuantity > 0 && customAmount > 0) {
+        customUnitPrice = customAmount / customQuantity;
+    } else if (customAmount > 0) {
+        customUnitPrice = customAmount / (customQuantity || 1);
+    } else if (customQuantity > 0) {
+        customUnitPrice = defaultUnitPrice || (defaultAmount / (defaultQuantity || 1));
     }
 
-    const amount = (custom.customAmount !== null && custom.customAmount !== undefined) ? custom.customAmount : defaultAmount;
-    const quantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) ? custom.customQuantity : defaultQuantity;
-    const paymentOption = custom.paymentOption || defaultPaymentOption || 'either';
-    let unitPrice = defaultUnitPrice;
-    if (quantity > 0 && amount > 0) unitPrice = amount / quantity;
-    return { amount, quantity, paymentOption, unitPrice, isCustomized: true };
+    return {
+        amount: customAmount,
+        quantity: customQuantity,
+        paymentOption: customPaymentOption,
+        unitPrice: customUnitPrice,
+        isCustomized: true,
+        reason: custom.reason || null,
+        updatedAt: custom.updatedAt || null,
+        customAmount: custom.customAmount,
+        customQuantity: custom.customQuantity,
+        defaultAmount: custom.defaultAmount || defaultAmount,
+        defaultQuantity: custom.defaultQuantity || defaultQuantity
+    };
 }
 
 // ---------------------------------------------------------------------------
-// Period-aware removal check.
+// isItemRemovedForStudentPeriod()
 //
-// A properly-stamped entry is checked exactly against the given period.
-// A legacy, unstamped entry is scoped ONLY to the period it was actually
-// recorded in (derived from removedAt), never treated as a blanket removal
-// across the student's whole enrollment history — that's what was silently
-// zeroing out one-time items like LTBalance for entire cohorts before.
-// With no usable stamp at all, the item is NOT assumed removed, so real
-// expected revenue never silently disappears from the totals.
+// FIX: previously the dashboard (dashIsItemRemoved) and the report
+// (isItemRemovedForPeriod) disagreed on how to treat a LEGACY removal entry
+// that has no academicYear/term stamp on it:
+//   - Report treated an unstamped removal as removed in EVERY period.
+//   - Dashboard derived a period from removedAt and only treated it as
+//     removed if that derived period matched the CURRENT period.
+// This meant the same student/item could be counted as "owing" on the
+// dashboard but "removed" in the report (or vice versa), compounding the
+// override-matching bug above. Both now use the report's original,
+// intentional behavior: an unstamped removal is scoped to the period it was
+// actually recorded in (derived from removedAt) — never a blanket removal
+// across the student's whole history, and never assumed removed with no
+// usable timestamp at all (so real revenue never silently disappears).
 // ---------------------------------------------------------------------------
-function dashIsItemRemoved(student, itemId, year, term) {
+function isItemRemovedForStudentPeriod(student, itemId, year, term) {
     if (!student || !student.removedItems) return false;
     const removed = student.removedItems[itemId];
     if (!removed || removed.isActive === false) return false;
@@ -9015,8 +9076,11 @@ function dashIsItemRemoved(student, itemId, year, term) {
     return false;
 }
 
-// Same OR-logic branch the report uses: cash_only / item_only / either.
-function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
+// ---------------------------------------------------------------------------
+// calcItemTotals() — unchanged logic (was dashCalcItemTotals), same OR-logic
+// branch (cash_only / item_only / either) the report uses.
+// ---------------------------------------------------------------------------
+function calcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
     const finalItemsBrought = Math.min(itemsBrought || 0, qtyRequired || 0);
     let cashExpected = 0;
     let finalCashPaid = 0;
@@ -9050,7 +9114,12 @@ function dashCalcItemTotals(qtyRequired, amountExpected, paymentOption, cashPaid
     };
 }
 
-function dashGetPaidAmountsForItem(studentId, componentName, itemName, year, term, allPaymentsData, periodType) {
+// ---------------------------------------------------------------------------
+// getPaidAmountsForItem() — unchanged logic (was dashGetPaidAmountsForItem),
+// scopes payments to the correct period type (one_time / yearly / termly)
+// and sums cash + item-brought contributions for one item/component pair.
+// ---------------------------------------------------------------------------
+function getPaidAmountsForItem(studentId, componentName, itemName, year, term, allPaymentsData, periodType) {
     let scoped;
     if (periodType === 'one_time') {
         scoped = allPaymentsData.filter(p => p && p.studentId === studentId);
@@ -9106,7 +9175,10 @@ function dashGetPaidAmountsForItem(studentId, componentName, itemName, year, ter
     return { cashPaid, itemsBrought };
 }
 
-function dashGetStatusGroupColor(name) {
+// ---------------------------------------------------------------------------
+// getStatusGroupColor() — unchanged.
+// ---------------------------------------------------------------------------
+function getStatusGroupColor(name) {
     if (!name) return 'bg-gray-100 text-gray-800 border-gray-200';
     const colorMap = {
         'transportation': 'bg-orange-100 text-orange-800 border-orange-200',
@@ -9129,12 +9201,16 @@ function dashGetStatusGroupColor(name) {
     return 'bg-gray-100 text-gray-800 border-gray-200';
 }
 
-// ---------------------------------------------------------------------------
-// THE CORRECTED ROUTE
-// ---------------------------------------------------------------------------
-
+// ============================================================================
+// /api/dashboard/stats
+//
+// FIX: now calls resolveItemOverride() / isItemRemovedForStudentPeriod() —
+// the same functions the report uses — instead of its own drifted copies.
+// This is the change that fixes the LTBalance mismatch (and any other item
+// with duplicate customItemOverrides entries sharing the same itemName).
+// ============================================================================
 app.get('/api/dashboard/stats', async (req, res) => {
-    console.log('=== DASHBOARD STATS (v2.2 - ITEM-LEVEL CASH FIELDS + GROUP RATE FALLBACK) ===');
+    console.log('=== DASHBOARD STATS (v3.0 - SHARED OVERRIDE RESOLUTION WITH REPORT) ===');
 
     try {
         const settings = readFile(files.settings);
@@ -9207,7 +9283,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 currentClass = student.currentClass;
             }
 
-            // ---------- TUITION (always scoped to the CURRENT term — tuition is inherently termly) ----------
+            // ---------- TUITION (always scoped to the CURRENT term) ----------
             let expectedTuition = feeStructure.tuition || 0;
             if (student.customBursary && student.customBursary.amount > 0) {
                 expectedTuition = Math.max(0, expectedTuition - student.customBursary.amount);
@@ -9242,19 +9318,23 @@ app.get('/api/dashboard/stats', async (req, res) => {
                     for (const item of (comp.items || [])) {
                         if (!item) continue;
                         const itemId = item.id || item.name;
-                        if (dashIsItemRemoved(student, itemId, currentYear, currentTerm)) continue;
+
+                        // FIX: shared removal check (was dashIsItemRemoved)
+                        if (isItemRemovedForStudentPeriod(student, itemId, currentYear, currentTerm)) continue;
 
                         const defaultAmount = item.totalAmount || 0;
                         const defaultQuantity = item.quantity || 1;
                         const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
                         const defaultPaymentOption = item.paymentOption || 'either';
 
-                      const cv = dashGetCustomizedItemValue(student, itemId, item.name, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
-                        const { cashPaid, itemsBrought } = dashGetPaidAmountsForItem(
+                        // FIX: shared, most-recent-wins override resolution (was dashGetCustomizedItemValue)
+                        const cv = resolveItemOverride(student, itemId, item.name, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice);
+
+                        const { cashPaid, itemsBrought } = getPaidAmountsForItem(
                             student.id, comp.name, item.name, currentYear, currentTerm, feePayments, periodType
                         );
 
-                        const totals = dashCalcItemTotals(cv.quantity, cv.amount, cv.paymentOption, cashPaid, itemsBrought);
+                        const totals = calcItemTotals(cv.quantity, cv.amount, cv.paymentOption, cashPaid, itemsBrought);
 
                         if (totals.cashPaid > 0 || totals.itemsBrought > 0) studentHasAnyPayment = true;
 
@@ -9275,10 +9355,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
                             studentItemsRemaining += totals.itemsRemaining;
                         }
 
-                        // FIX: item-level object now also carries cash totals,
-                        // regardless of paymentOption — this is what the frontend
-                        // card needs to show "UGX collected/expected" per item
-                        // instead of the always-0/0 quantity counts for cash_only.
                         if (!group.items[item.name]) {
                             group.items[item.name] = {
                                 name: item.name, required: 0, collected: 0, remaining: 0, studentsCount: 0,
@@ -9359,14 +9435,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
         // ---- Finalize status group output ----
         const statusGroupsOut = Object.values(statusGroupsMap).map(g => {
-            // FIX: this is the actual bug. `totalRequired` is legitimately 0
-            // for a cash_only-dominated group (LTBalance, Scholastic
-            // Requirements(CASH)) — that's correct, item counts genuinely
-            // don't apply. But the OLD code fell straight to `: 0` in that
-            // case, permanently pinning the card's rate at 0% even when
-            // real cash was collected. Now: fall back to the cash
-            // collection rate whenever there's no item-count basis but
-          // there IS a cash amount expected.
             let rate;
             if (g.totalRequired > 0) {
                 rate = (g.totalCollected / g.totalRequired) * 100;
@@ -9386,7 +9454,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 cashRemaining: g.cashRemaining,
                 studentCount: g.studentIds.size,
                 rate: rate,
-                color: dashGetStatusGroupColor(g.name),
+                color: getStatusGroupColor(g.name),
                 items: Object.values(g.items).sort((a, b) => a.name.localeCompare(b.name))
             };
         }).sort((a, b) => b.studentCount - a.studentCount);
@@ -9451,7 +9519,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
         res.status(500).json({ success: false, error: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
     }
 });
-
 // ========== HELPER: GET STATUS GROUP COLOR ==========
 function getStatusGroupColor(name) {
     if (!name) return 'bg-gray-100 text-gray-800 border-gray-200';
