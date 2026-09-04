@@ -70634,36 +70634,46 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '            <th class="p-3 text-right cursor-pointer" onclick="sortItemsTable(\'students\')">Students <i class="fas fa-sort ml-1 opacity-40"></i></th>';
     html += '          </tr></thead><tbody class="divide-y divide-slate-100">';
 
-    if (items && items.length > 0) {
-        for (var itm = 0; itm < items.length; itm++) {
-            var item = items[itm];
-            var required = item.required || 0;
-            var collected = item.collected || 0;
-            var rate = required > 0 ? (collected / required * 100) : 0;
-            var rateColor = getStatusColor(rate);
-            var barColor = getStatusBarColor(rate);
+   if (items && items.length > 0) {
+    for (var itm = 0; itm < items.length; itm++) {
+        var item = items[itm];
+        var isCashOnly = item.paymentOption === 'cash_only';
 
-            html += '<tr class="item-row cursor-pointer"';
-            html += ' data-name="' + escapeHtml(item.name).toLowerCase() + '"';
-            html += ' data-group="' + escapeHtml(item.statusGroup) + '"';
-            html += ' data-required="' + required + '"';
-            html += ' data-collected="' + collected + '"';
-            html += ' data-remaining="' + (item.remaining || 0) + '"';
-            html += ' data-rate="' + rate + '"';
-            html += ' onclick="navigateToItemReport(\'' + escapeHtml(item.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(item.statusGroup).replace(/'/g, "\\'") + '\')">';
-            html += '<td class="p-3 font-medium text-slate-700"><i class="fas fa-box-open text-slate-300 mr-2"></i>' + escapeHtml(item.name) + '</td>';
-            html += '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + escapeHtml(item.statusGroup) + '</span></td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-slate-600">' + required + '</td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">' + collected + '</td>';
-            html += '<td class="p-3 text-right font-mono-num font-semibold text-rose-500">' + (item.remaining || 0) + '</td>';
-            html += '<td class="p-3 text-center">';
-            html += '  <span class="font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
-            html += '  <div class="db-progress-track h-1.5 mt-1.5 w-24 mx-auto"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
-            html += '</td>';
-            html += '<td class="p-3 text-right text-slate-500">' + (item.students || 0) + '</td>';
-            html += '</tr>';
-        }
-    } else {
+        var required = item.required || 0;
+        var collected = item.collected || 0;
+        // FIX: use cash-based rate/progress for cash_only items instead of
+        // always dividing 0/0.
+        var rate = isCashOnly
+            ? (item.cashExpected > 0 ? (item.cashCollected / item.cashExpected * 100) : 0)
+            : (required > 0 ? (collected / required * 100) : 0);
+        var rateColor = getStatusColor(rate);
+        var barColor = getStatusBarColor(rate);
+
+        var requiredDisplay = isCashOnly ? 'UGX ' + formatMoney(item.cashExpected || 0) : required;
+        var collectedDisplay = isCashOnly ? 'UGX ' + formatMoney(item.cashCollected || 0) : collected;
+        var remainingDisplay = isCashOnly ? 'UGX ' + formatMoney(item.cashRemaining || 0) : (item.remaining || 0);
+
+        html += '<tr class="item-row cursor-pointer"';
+        html += ' data-name="' + escapeHtml(item.name).toLowerCase() + '"';
+        html += ' data-group="' + escapeHtml(item.statusGroup) + '"';
+        html += ' data-required="' + (isCashOnly ? (item.cashExpected || 0) : required) + '"';
+        html += ' data-collected="' + (isCashOnly ? (item.cashCollected || 0) : collected) + '"';
+        html += ' data-remaining="' + (isCashOnly ? (item.cashRemaining || 0) : (item.remaining || 0)) + '"';
+        html += ' data-rate="' + rate + '"';
+        html += ' onclick="navigateToItemReport(\'' + escapeHtml(item.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(item.statusGroup).replace(/'/g, "\\'") + '\')">';
+        html += '<td class="p-3 font-medium text-slate-700"><i class="fas fa-box-open text-slate-300 mr-2"></i>' + escapeHtml(item.name) + (isCashOnly ? ' <span class="text-[10px] text-slate-400">(cash only)</span>' : '') + '</td>';
+        html += '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + escapeHtml(item.statusGroup) + '</span></td>';
+        html += '<td class="p-3 text-right font-mono-num font-semibold text-slate-600">' + requiredDisplay + '</td>';
+        html += '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">' + collectedDisplay + '</td>';
+        html += '<td class="p-3 text-right font-mono-num font-semibold text-rose-500">' + remainingDisplay + '</td>';
+        html += '<td class="p-3 text-center">';
+        html += '  <span class="font-bold font-mono-num ' + rateColor + '">' + rate.toFixed(1) + '%</span>';
+        html += '  <div class="db-progress-track h-1.5 mt-1.5 w-24 mx-auto"><div class="db-progress-fill ' + barColor + ' h-1.5" style="width:' + Math.min(100, rate) + '%"></div></div>';
+        html += '</td>';
+        html += '<td class="p-3 text-right text-slate-500">' + (item.students || 0) + '</td>';
+        html += '</tr>';
+    }
+} else {
         html += '<tr><td colspan="7" class="text-center py-10 text-slate-400">No items found</td></tr>';
     }
 
