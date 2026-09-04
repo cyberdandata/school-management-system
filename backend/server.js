@@ -8984,14 +8984,53 @@ function dashGetCustomizedItemValue(student, itemId, defaultAmount, defaultQuant
     return { amount, quantity, paymentOption, unitPrice, isCustomized: true };
 }
 
-// Period-aware removal check (falls back to "removed everywhere" for legacy
-// removedItems entries that predate the per-period stamp).
+// ---------------------------------------------------------------------------
+// FIXED: Period-aware removal check.
+//
+// Previously: any removedItems[itemId] entry that predated the per-period
+// stamp (no academicYear/term on it) was treated as "removed for every
+// period, forever" — silently zeroing that item's expected amount across a
+// student's entire history, including one-time items like LTBalance. This
+// is what made the dashboard's LTBalance total (and the old Excel export,
+// which had the same class of bug) undercount versus the corrected HTML
+// report table.
+//
+// Now: a properly-stamped entry is checked exactly as before. A legacy,
+// unstamped entry is scoped ONLY to the period it was actually recorded in
+// (derived from its removedAt timestamp via the existing getTermForDate /
+// getAcademicYearForDate helpers already used elsewhere in server.js) —
+// never treated as a blanket removal. If there's no usable stamp at all,
+// the item is NOT assumed removed, so real expected revenue never
+// silently disappears from the totals.
+// ---------------------------------------------------------------------------
 function dashIsItemRemoved(student, itemId, year, term) {
     if (!student || !student.removedItems) return false;
     const removed = student.removedItems[itemId];
     if (!removed || removed.isActive === false) return false;
-    if (removed.academicYear === undefined || removed.term === undefined) return true;
-    return parseInt(removed.academicYear) === parseInt(year) && parseInt(removed.term) === parseInt(term);
+
+    // Properly stamped: check the exact period.
+    if (removed.academicYear !== undefined && removed.term !== undefined) {
+        return parseInt(removed.academicYear) === parseInt(year) && parseInt(removed.term) === parseInt(term);
+    }
+
+    // Legacy, unstamped entry: only honor it for the period it was actually
+    // recorded in (derived from removedAt), never as a blanket removal
+    // across the student's whole enrollment history.
+    if (removed.removedAt) {
+        const recordedDate = new Date(removed.removedAt);
+        if (!isNaN(recordedDate.getTime())) {
+            const recordedDateStr = recordedDate.toISOString().split('T')[0];
+            const recordedTerm = getTermForDate(recordedDateStr);
+            const recordedYear = getAcademicYearForDate(recordedDateStr);
+            if (recordedTerm && recordedYear) {
+                return parseInt(recordedYear) === parseInt(year) && parseInt(recordedTerm) === parseInt(term);
+            }
+        }
+    }
+
+    // No usable stamp of any kind — don't guess; assume the item is still
+    // owed rather than silently dropping it from the totals.
+    return false;
 }
 
 // Same OR-logic branch the report uses: cash_only / item_only / either.
@@ -9122,7 +9161,7 @@ function dashGetStatusGroupColor(name) {
 // ---------------------------------------------------------------------------
 
 app.get('/api/dashboard/stats', async (req, res) => {
-    console.log('=== DASHBOARD STATS (v2.0 - ALL STATUS GROUPS, PERIOD-AWARE) ===');
+    console.log('=== DASHBOARD STATS (v2.1 - ALL STATUS GROUPS, PERIOD-AWARE, REMOVAL FIX) ===');
 
     try {
         const settings = readFile(files.settings);
