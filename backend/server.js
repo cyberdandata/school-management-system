@@ -9309,29 +9309,44 @@ app.get('/api/dashboard/stats', async (req, res) => {
                             studentItemsRemaining += totals.itemsRemaining;
                         }
 
-                        if (!group.items[item.name]) {
-                            group.items[item.name] = { name: item.name, required: 0, collected: 0, remaining: 0, studentsCount: 0, paymentOption: cv.paymentOption };
-                        }
-                        const gi = group.items[item.name];
-                        if (cv.paymentOption !== 'cash_only') {
-                            gi.required += totals.itemsRequired;
-                            gi.collected += totals.itemsBrought;
-                            gi.remaining += totals.itemsRemaining;
-                        }
-                        gi.studentsCount++;
+                      if (!group.items[item.name]) {
+    group.items[item.name] = {
+        name: item.name, required: 0, collected: 0, remaining: 0, studentsCount: 0,
+        paymentOption: cv.paymentOption,
+        cashExpected: 0, cashCollected: 0, cashRemaining: 0   // NEW
+    };
+}
+const gi = group.items[item.name];
+if (cv.paymentOption !== 'cash_only') {
+    gi.required += totals.itemsRequired;
+    gi.collected += totals.itemsBrought;
+    gi.remaining += totals.itemsRemaining;
+}
+// NEW: always track cash at item level too, regardless of paymentOption
+gi.cashExpected += totals.cashExpected;
+gi.cashCollected += totals.cashPaid;
+gi.cashRemaining += totals.cashRemaining;
+gi.studentsCount++;
 
-                        // ---- Global item table ----
-                        const itemKey = `${groupName}::${item.name}`;
-                        if (!itemTotalsMap[itemKey]) {
-                            itemTotalsMap[itemKey] = { name: item.name, statusGroup: groupName, required: 0, collected: 0, remaining: 0, students: 0, paymentOption: cv.paymentOption };
-                        }
-                        const gt = itemTotalsMap[itemKey];
-                        if (cv.paymentOption !== 'cash_only') {
-                            gt.required += totals.itemsRequired;
-                            gt.collected += totals.itemsBrought;
-                            gt.remaining += totals.itemsRemaining;
-                        }
-                        gt.students++;
+// ---- Global item table ----
+const itemKey = `${groupName}::${item.name}`;
+if (!itemTotalsMap[itemKey]) {
+    itemTotalsMap[itemKey] = {
+        name: item.name, statusGroup: groupName, required: 0, collected: 0, remaining: 0, students: 0,
+        paymentOption: cv.paymentOption,
+        cashExpected: 0, cashCollected: 0, cashRemaining: 0   // NEW
+    };
+}
+const gt = itemTotalsMap[itemKey];
+if (cv.paymentOption !== 'cash_only') {
+    gt.required += totals.itemsRequired;
+    gt.collected += totals.itemsBrought;
+    gt.remaining += totals.itemsRemaining;
+}
+gt.cashExpected += totals.cashExpected;   // NEW
+gt.cashCollected += totals.cashPaid;      // NEW
+gt.cashRemaining += totals.cashRemaining; // NEW
+gt.students++;
 
                         // ---- Class performance matrix ----
                         if (!classPerformance[groupName]) classPerformance[groupName] = {};
