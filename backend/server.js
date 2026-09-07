@@ -215,7 +215,13 @@ class SqlJsDatabase {
                 if (startedHere) this.exec('COMMIT');
                 return result;
             } catch (error) {
-                if (startedHere) this.exec('ROLLBACK');
+                if (startedHere && this.inTransaction) {
+                    try {
+                        this.exec('ROLLBACK');
+                    } catch (rollbackError) {
+                        console.error('SQLite rollback skipped:', rollbackError.message);
+                    }
+                }
                 throw error;
             }
         };
