@@ -232,7 +232,7 @@ class SqlJsDatabase {
         if (match) {
             this.userVersion = Number(match[1]);
             this.database.run(`PRAGMA user_version = ${this.userVersion}`);
-            this.persist();
+            if (!this.inTransaction) this.persist();
             return;
         }
         if (/^user_version$/i.test(value) && options.simple) {
