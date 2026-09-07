@@ -157,7 +157,14 @@ if (!fs.existsSync(dataDir)) {
     console.log(`Created data directory: ${dataDir}`);
 }
 
-const databasePath = path.join(dataDir, 'school.db');
+// Keep the active database outside the JSON data directory. Deleting data/
+// must not delete the database that the application is using.
+const databasePath = process.env.SCHOOL_DB_PATH || path.join(__dirname, 'school.db');
+const legacyDatabasePath = path.join(dataDir, 'school.db');
+if (!fs.existsSync(databasePath) && fs.existsSync(legacyDatabasePath)) {
+    fs.copyFileSync(legacyDatabasePath, databasePath);
+    console.log(`Migrated legacy database to ${databasePath}`);
+}
 let db;
 
 class SqlJsDatabase {
