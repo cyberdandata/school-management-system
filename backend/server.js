@@ -4,67 +4,13 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { AsyncLocalStorage } = require('async_hooks'); // ✅ For atomic transactions
+const initSqlJs = require('sql.js/dist/sql-asm.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const configuredDataDir = process.env.SCHOOL_DATA_DIR;
-
-// ==================== ATOMIC TRANSACTION SYSTEM ====================
-const transactionStorage = new AsyncLocalStorage();
-const TEMP_DIR = path.join(configuredDataDir || path.join(__dirname, 'data'), '.tmp');
-const tempFileNames = fs.readdirSync(TEMP_DIR);
-// Ensure temp directory exists and clean up any leftover temp files on startup
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-} else {
-    // Remove any stale temporary files (from previous incomplete transactions)
-   
-  for (const file of tempFileNames) {
-        try {
-            fs.unlinkSync(path.join(TEMP_DIR, file));
-        } catch (e) { /* ignore */ }
-    }
-}
-
-// Start a new transaction (called per request)
-function startTransaction() {
-    const store = { tempFiles: {} };
-    return store;
-}
-
-// Commit: atomically rename all temporary files to their real paths
-function commitTransaction(store) {
-    if (!store) return;
-    const entries = Object.entries(store.tempFiles);
-    for (const [realPath, tempPath] of entries) {
-        try {
-            // rename is atomic on POSIX systems
-            fs.renameSync(tempPath, realPath);
-        } catch (err) {
-            // If any rename fails, attempt to rollback already renamed files?
-            // Since we want atomicity, we must try to revert all.
-            console.error('❌ Atomic commit failed for', realPath, err);
-            rollbackTransaction(store);
-            throw new Error('Transaction commit failed: ' + err.message);
-        }
-    }
-    // Success: clear the store
-    store.tempFiles = {};
-}
-
-// Rollback: delete all temporary files
-function rollbackTransaction(store) {
-    if (!store) return;
-    for (const tempPath of Object.values(store.tempFiles)) {
-        try {
-            if (fs.existsSync(tempPath)) {
-                fs.unlinkSync(tempPath);
-            }
-        } catch (e) { /* ignore */ }
-    }
-    store.tempFiles = {};
-}
+let requestQueue = Promise.resolve();
+const pendingDatabaseWrites = new Map();
 
 // ==================== MIDDLEWARE ====================
 app.use(cors());
@@ -72,52 +18,40 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 const aiRoutes = require('./ai/routes');
-app.use('/api/ai', aiRoutes);
-console.log('🧠 AI routes mounted at /api/ai');
-// ==================== TRANSACTION MIDDLEWARE ====================
-// This middleware wraps each request in an atomic transaction.
-// All saveFile calls within the request will write to temporary files.
-// On successful response, changes are committed (renamed).
-// On error, changes are rolled back (temp files deleted).
-app.use((req, res, next) => {
-    const store = startTransaction();
-    transactionStorage.run(store, () => {
-        // Override res.end to commit transaction before sending response
-        const originalEnd = res.end;
-        let committed = false;
-        res.end = function (...args) {
-            if (!committed) {
-                committed = true;
-                const currentStore = transactionStorage.getStore();
-                if (currentStore && Object.keys(currentStore.tempFiles).length > 0) {
-                    try {
-                        commitTransaction(currentStore);
-                    } catch (commitErr) {
-                        // If commit fails, we still need to end the response, but with an error status
-                        console.error('❌ Commit failed during res.end:', commitErr);
-                        // Rollback already done inside commitTransaction on failure
-                        // Set status to 500 if not already set
-                        if (res.statusCode < 400) res.status(500);
-                        // We cannot change the response body easily here, but we can log.
-                    }
-                }
-            }
-            originalEnd.apply(this, args);
-        };
+// app.use('/api/ai', aiRoutes);
+// console.log('🧠 AI routes mounted at /api/ai');
 
-        // Catch synchronous errors and rollback
+// SQLite transactions cover the complete lifetime of each request.
+app.use((req, res, next) => {
+    let release;
+    const turn = requestQueue;
+    requestQueue = new Promise(resolve => { release = resolve; });
+
+    turn.then(() => {
+        let finished = false;
         try {
+            db.exec('BEGIN');
+            const finish = (commit) => {
+                if (finished) return;
+                finished = true;
+                try {
+                    db.exec(commit ? 'COMMIT' : 'ROLLBACK');
+                } catch (error) {
+                    console.error('SQLite transaction finalization failed:', error.message);
+                } finally {
+                    release();
+                }
+            };
+            res.once('finish', () => finish(res.statusCode < 400));
+            res.once('close', () => finish(false));
             next();
-        } catch (err) {
-            const currentStore = transactionStorage.getStore();
-            if (currentStore) {
-                rollbackTransaction(currentStore);
-            }
-            next(err);
+        } catch (error) {
+            if (db.inTransaction) db.exec('ROLLBACK');
+            release();
+            next(error);
         }
     });
 });
-
 // ==================== SYNC MANAGER INTEGRATION ====================
 
 let syncManager = null;
@@ -223,53 +157,181 @@ if (!fs.existsSync(dataDir)) {
     console.log(`Created data directory: ${dataDir}`);
 }
 
-// ==================== BACKUP SYSTEM ====================
-const backupDir = path.join(__dirname, 'backups');
+const databasePath = path.join(dataDir, 'school.db');
+let db;
 
-function copyFolderSync(src, dest) {
-    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-    const entries = fs.readdirSync(src, { withFileTypes: true });
-    for (let entry of entries) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-        if (entry.isDirectory()) {
-            copyFolderSync(srcPath, destPath);
-        } else {
-            fs.copyFileSync(srcPath, destPath);
+class SqlJsDatabase {
+    constructor(SQL, filePath) {
+        this.SQL = SQL;
+        this.filePath = filePath;
+        this.database = fs.existsSync(filePath)
+            ? new SQL.Database(new Uint8Array(fs.readFileSync(filePath)))
+            : new SQL.Database();
+        this.inTransaction = false;
+        this.userVersion = 0;
+    }
+
+    exec(sql) {
+        this.database.exec(sql);
+        if (/^\s*BEGIN\b/i.test(sql)) this.inTransaction = true;
+        if (/^\s*ROLLBACK\b/i.test(sql)) this.inTransaction = false;
+        if (/^\s*COMMIT\b/i.test(sql)) {
+            this.inTransaction = false;
+            this.persist();
         }
     }
+
+    prepare(sql) {
+        const database = this.database;
+        return {
+            get: (...params) => {
+                const statement = database.prepare(sql);
+                statement.bind(params);
+                const result = statement.step() ? statement.getAsObject() : undefined;
+                statement.free();
+                return result;
+            },
+            all: (...params) => {
+                const statement = database.prepare(sql);
+                statement.bind(params);
+                const rows = [];
+                while (statement.step()) rows.push(statement.getAsObject());
+                statement.free();
+                return rows;
+            },
+            run: (...params) => {
+                database.run(sql, params);
+                if (!this.inTransaction) this.persist();
+            }
+        };
+    }
+
+    transaction(callback) {
+        return () => {
+            const startedHere = !this.inTransaction;
+            if (startedHere) this.exec('BEGIN');
+            try {
+                const result = callback();
+                if (startedHere) this.exec('COMMIT');
+                return result;
+            } catch (error) {
+                if (startedHere) this.exec('ROLLBACK');
+                throw error;
+            }
+        };
+    }
+
+    pragma(value, options = {}) {
+        const match = /^user_version\s*=\s*(\d+)/i.exec(value);
+        if (match) {
+            this.userVersion = Number(match[1]);
+            this.database.run(`PRAGMA user_version = ${this.userVersion}`);
+            this.persist();
+            return;
+        }
+        if (/^user_version$/i.test(value) && options.simple) {
+            const result = this.database.exec('PRAGMA user_version');
+            return result[0]?.values?.[0]?.[0] || 0;
+        }
+        try {
+            this.database.run(`PRAGMA ${value}`);
+        } catch (error) {
+            console.warn(`SQLite pragma skipped (${value}):`, error.message);
+        }
+    }
+
+    persist() {
+        fs.writeFileSync(this.filePath, Buffer.from(this.database.export()));
+    }
 }
+
+const singletonCollections = new Set(['settings.json', 'studentTermRecords.json']);
+
+function tableNameFor(filePath) {
+    return path.basename(filePath, '.json').replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
+function ensureTable(filePath) {
+    const tableName = tableNameFor(filePath);
+    db.exec(`CREATE TABLE IF NOT EXISTS "${tableName}" (id TEXT PRIMARY KEY, data TEXT NOT NULL)`);
+    return tableName;
+}
+
+function hasCollectionData(filePath) {
+    if (!db) return false;
+    const tableName = ensureTable(filePath);
+    return db.prepare(`SELECT 1 FROM "${tableName}" LIMIT 1`).get() !== undefined;
+}
+
+function hasCollection(filePath) {
+    if (!db) return false;
+    const tableName = tableNameFor(filePath);
+    return db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) !== undefined;
+}
+
+function migrateJsonData() {
+    const jsonFiles = fs.readdirSync(dataDir)
+        .filter(name => name.endsWith('.json'))
+        .map(name => path.join(dataDir, name));
+    const migrate = db.transaction(() => {
+        for (const filePath of jsonFiles) {
+            const tableName = ensureTable(filePath);
+            const existing = db.prepare(`SELECT COUNT(*) AS count FROM "${tableName}"`).get().count;
+            if (existing > 0) continue;
+
+            let value;
+            try {
+                const content = fs.readFileSync(filePath, 'utf8');
+                value = content.trim() ? JSON.parse(content) : (singletonCollections.has(path.basename(filePath)) ? {} : []);
+            } catch (error) {
+                console.error(`Could not migrate ${filePath}:`, error.message);
+                continue;
+            }
+
+            const insert = db.prepare(`INSERT INTO "${tableName}" (id, data) VALUES (?, ?)`);
+            if (!Array.isArray(value)) {
+                insert.run('__singleton__', JSON.stringify(value));
+            } else if (Array.isArray(value)) {
+                for (const item of value) {
+                    insert.run(item && item.id ? String(item.id) : uuidv4(), JSON.stringify(item));
+                }
+            }
+        }
+        db.pragma('user_version = 1');
+    });
+
+    if (db.pragma('user_version', { simple: true }) === 0) {
+        migrate();
+    }
+}
+
+function applyPendingDatabaseWrites() {
+    for (const [filePath, data] of pendingDatabaseWrites) {
+        if (!hasCollection(filePath)) saveFile(filePath, data);
+    }
+    pendingDatabaseWrites.clear();
+}
+
+// ==================== BACKUP SYSTEM ====================
+const backupDir = path.join(__dirname, 'backups');
 
 function cleanupOldBackups() {
     if (!fs.existsSync(backupDir)) return;
     const folders = fs.readdirSync(backupDir)
-        .filter(name => name.startsWith('backup_'))
+        .filter(name => name.startsWith('backup_') && name.endsWith('.db'))
         .map(name => ({
             name: name,
             path: path.join(backupDir, name),
-            dateStr: name.replace('backup_', '').slice(0, 10) // YYYY-MM-DD
+            dateStr: name.replace('backup_', '').slice(0, 19)
         }))
-        .sort((a, b) => b.dateStr.localeCompare(a.dateStr)); // descending
+        .sort((a, b) => b.dateStr.localeCompare(a.dateStr));
 
-    // group by date
-    const dateGroups = {};
-    for (const f of folders) {
-        if (!dateGroups[f.dateStr]) dateGroups[f.dateStr] = [];
-        dateGroups[f.dateStr].push(f);
-    }
-
-    const dates = Object.keys(dateGroups).sort((a,b) => b.localeCompare(a));
-    if (dates.length > 5) {
-        const toDelete = dates.slice(5); // keep latest 5 days
-        for (const date of toDelete) {
-            for (const f of dateGroups[date]) {
-                try {
-                    fs.rmSync(f.path, { recursive: true, force: true });
-                    console.log(`🗑️ Deleted old backup: ${f.path}`);
-                } catch (e) {
-                    console.error(`Failed to delete backup ${f.path}:`, e);
-                }
-            }
+    for (const backup of folders.slice(5)) {
+        try {
+            fs.rmSync(backup.path, { force: true });
+            console.log(`Deleted old backup: ${backup.path}`);
+        } catch (error) {
+            console.error(`Failed to delete backup ${backup.path}:`, error);
         }
     }
 }
@@ -280,21 +342,15 @@ function performBackup() {
             fs.mkdirSync(backupDir, { recursive: true });
         }
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const backupFolder = path.join(backupDir, `backup_${timestamp}`);
-        // copy dataDir to backupFolder recursively
-        if (fs.cpSync) {
-            fs.cpSync(dataDir, backupFolder, { recursive: true });
-        } else {
-            copyFolderSync(dataDir, backupFolder);
-        }
-        console.log(`✅ Backup created: ${backupFolder}`);
+        const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
+        db.pragma('wal_checkpoint(TRUNCATE)');
+        fs.copyFileSync(databasePath, backupPath);
+        console.log(`✅ Backup created: ${backupPath}`);
         cleanupOldBackups();
     } catch (error) {
         console.error('❌ Backup failed:', error);
     }
 }
-
-performBackup();
 
 // ==================== HELPER: AUTO-REMOVE ALL ITEMS FOR A NEW STUDENT ====================
 // Used at registration/import time so a brand-new student (no payment history yet)
@@ -414,33 +470,19 @@ function deduplicatePaymentItems(items) {
 
 function readFile(filePath) {
     try {
-        if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, 'utf8');
-            // Check if file is empty
-            if (!content || content.trim() === '') {
-                console.warn(`⚠️ File ${filePath} is empty, returning default`);
-                // Return appropriate default based on file type
-                if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
-                    return {};
-                }
-                return [];
-            }
-            const parsed = JSON.parse(content);
-            return parsed;
+        if (!db) {
+            const pending = pendingDatabaseWrites.get(filePath);
+            return pending !== undefined ? pending : (singletonCollections.has(path.basename(filePath)) ? {} : []);
         }
-        console.log(`📄 File ${filePath} does not exist, returning default`);
-        // Return appropriate default based on file type
-        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
-            return {};
+        const tableName = ensureTable(filePath);
+        const rows = db.prepare(`SELECT id, data FROM "${tableName}"`).all();
+        if (rows.length === 1 && rows[0].id === '__singleton__') {
+            return rows.length ? JSON.parse(rows[0].data) : {};
         }
-        return [];
+        return rows.map(row => JSON.parse(row.data));
     } catch (error) {
         console.error(`❌ Error reading ${filePath}:`, error.message);
-        // Return appropriate default based on file type
-        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
-            return {};
-        }
-        return [];
+        return singletonCollections.has(path.basename(filePath)) ? {} : [];
     }
 }
 
@@ -450,50 +492,25 @@ function readFile(filePath) {
 // Otherwise, writes directly (original behavior).
 function saveFile(filePath, data) {
     try {
-        // Check if we are inside a transaction
-        const store = transactionStorage.getStore();
-        if (store) {
-            // Write to a temporary file
-            if (!fs.existsSync(TEMP_DIR)) {
-                fs.mkdirSync(TEMP_DIR, { recursive: true });
-            }
-            // Ensure the target directory exists (for temp file we just use TEMP_DIR)
-            const tempFileName = path.basename(filePath) + '.' + Date.now() + '.' + Math.random().toString(36).substr(2, 6);
-            const tempPath = path.join(TEMP_DIR, tempFileName);
-            
-            // Write data to temp file
-            const jsonData = JSON.stringify(data, null, 2);
-            fs.writeFileSync(tempPath, jsonData, 'utf8');
-            
-            // Verify the temp file was written
-            if (fs.existsSync(tempPath)) {
-                // Store mapping in transaction store
-                store.tempFiles[filePath] = tempPath;
-                console.log(`📝 Staged write to temp: ${tempPath} (for ${filePath})`);
-                return true;
-            } else {
-                console.error(`❌ Failed to write temp file: ${tempPath}`);
-                return false;
-            }
-        } else {
-            // Original behavior: write directly
-            const dir = path.dirname(filePath);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-                console.log(`📁 Created directory: ${dir}`);
-            }
-            
-            const jsonData = JSON.stringify(data, null, 2);
-            fs.writeFileSync(filePath, jsonData, 'utf8');
-            
-            if (fs.existsSync(filePath)) {
-                const written = fs.readFileSync(filePath, 'utf8');
-                console.log(`✅ File saved: ${filePath}`);
-                console.log(`📄 Content length: ${written.length} bytes`);
-                return true;
-            }
-            return false;
+        if (!db) {
+            pendingDatabaseWrites.set(filePath, data);
+            return true;
         }
+        const tableName = ensureTable(filePath);
+        const replaceRows = () => {
+            db.prepare(`DELETE FROM "${tableName}"`).run();
+            const insert = db.prepare(`INSERT INTO "${tableName}" (id, data) VALUES (?, ?)`);
+            if (!Array.isArray(data)) {
+                insert.run('__singleton__', JSON.stringify(data));
+            } else if (Array.isArray(data)) {
+                for (const item of data) {
+                    insert.run(item && item.id ? String(item.id) : uuidv4(), JSON.stringify(item));
+                }
+            }
+        };
+        if (db.inTransaction) replaceRows();
+        else db.transaction(replaceRows)();
+        return true;
     } catch (error) {
         console.error(`❌ Error writing ${filePath}:`, error.message);
         return false;
@@ -542,7 +559,7 @@ function transformFeeStructureWithPeriods(feeStructure) {
 
 function initializeDefaultData() {
     // Initialize settings - OBJECT
-    if (!fs.existsSync(files.settings)) {
+    if (!hasCollection(files.settings)) {
         saveFile(files.settings, {
             currentAcademicYear: new Date().getFullYear(),
             currentTerm: 1,
@@ -559,12 +576,12 @@ function initializeDefaultData() {
     
     
     // Initialize schools - ARRAY
-    if (!fs.existsSync(files.schools)) {
+    if (!hasCollection(files.schools)) {
         saveFile(files.schools, []);
     }
     
     // Initialize classes - ARRAY
-    if (!fs.existsSync(files.classes)) {
+    if (!hasCollection(files.classes)) {
         saveFile(files.classes, [
             { id: uuidv4(), name: 'Baby Class', level: 'Nursery', order: 1, createdAt: new Date().toISOString() },
             { id: uuidv4(), name: 'Middle Class', level: 'Nursery', order: 2, createdAt: new Date().toISOString() },
@@ -579,12 +596,12 @@ function initializeDefaultData() {
         ]);
     }
     
-    if (!fs.existsSync(files.statusGroups)) {
+    if (!hasCollection(files.statusGroups)) {
         saveFile(files.statusGroups, []);
     }
 
     // Initialize subjects - ARRAY
-    if (!fs.existsSync(files.subjects)) {
+    if (!hasCollection(files.subjects)) {
         saveFile(files.subjects, [
             { id: uuidv4(), name: 'English', code: 'ENG', category: 'Core', classId: 'all', createdAt: new Date().toISOString() },
             { id: uuidv4(), name: 'Mathematics', code: 'MATH', category: 'Core', classId: 'all', createdAt: new Date().toISOString() },
@@ -594,7 +611,7 @@ function initializeDefaultData() {
     }
     
     // Initialize bursaries - ARRAY
-    if (!fs.existsSync(files.feeBursaries)) {
+    if (!hasCollection(files.feeBursaries)) {
         saveFile(files.feeBursaries, [
             { id: uuidv4(), name: 'Merit Scholarship', description: 'Top performers', type: 'percentage', value: 25, category: 'Academic', isActive: true, createdAt: new Date().toISOString() },
             { id: uuidv4(), name: 'Sports Bursary', description: 'Sports talent', type: 'percentage', value: 15, category: 'Sports', isActive: true, createdAt: new Date().toISOString() },
@@ -605,18 +622,16 @@ function initializeDefaultData() {
     // Initialize empty arrays for other collections
     const emptyArrays = ['feeStructures', 'teachers', 'students', 'enrollments', 'assessments', 'scores', 'attendance', 'feePayments', 'studentFeeAssignments'];
     emptyArrays.forEach(file => {
-        if (!fs.existsSync(files[file])) {
+        if (!hasCollection(files[file])) {
             saveFile(files[file], []);
         }
     });
     
     // Initialize studentTermRecords - OBJECT (special case)
-    if (!fs.existsSync(files.studentTermRecords)) {
+    if (!hasCollection(files.studentTermRecords)) {
         saveFile(files.studentTermRecords, {});
     }
 }
-
-initializeDefaultData();
 
 // ==================== GLOBAL ACADEMIC SETTINGS ====================
 // This MUST be defined at the top level before any routes use it
@@ -630,10 +645,9 @@ let currentAcademicSettings = {
 // Function to load settings from file
 function loadAcademicSettings() {
     try {
-        const settingsPath = path.join(__dirname, 'data', 'settings.json');
-        if (fs.existsSync(settingsPath)) {
-            const settingsData = fs.readFileSync(settingsPath, 'utf8');
-            const settings = JSON.parse(settingsData);
+        const settingsPath = path.join(dataDir, 'settings.json');
+        if (hasCollectionData(settingsPath)) {
+            const settings = readFile(settingsPath);
             if (settings.currentAcademicYear) {
                 currentAcademicSettings.currentYear = settings.currentAcademicYear;
             }
@@ -650,8 +664,6 @@ function loadAcademicSettings() {
 }
 
 // Load settings immediately
-loadAcademicSettings();
-
 // Export for use in other routes if needed
 function getAcademicSettings() {
     return currentAcademicSettings;
@@ -662,15 +674,12 @@ function updateAcademicSettings(year, term) {
     currentAcademicSettings.currentTerm = term;
     // Save to file
     try {
-        const settingsPath = path.join(__dirname, 'data', 'settings.json');
-        let settings = {};
-        if (fs.existsSync(settingsPath)) {
-            settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-        }
+        const settingsPath = path.join(dataDir, 'settings.json');
+        let settings = readFile(settingsPath);
         settings.currentAcademicYear = year;
         settings.currentTerm = term;
         settings.lastUpdated = new Date().toISOString();
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        saveFile(settingsPath, settings);
         console.log(`📅 Academic settings saved: Year ${year}, Term ${term}`);
     } catch (error) {
         console.warn('Could not save academic settings:', error.message);
@@ -1367,13 +1376,8 @@ const archivePath = path.join(dataDir, 'archivedStudents.json');
 
 // Helper: Read archive file
 function readArchive() {
-    if (!fs.existsSync(archivePath)) {
-        return [];
-    }
     try {
-        const content = fs.readFileSync(archivePath, 'utf8');
-        if (!content || content.trim() === '') return [];
-        return JSON.parse(content);
+        return readFile(archivePath);
     } catch (e) {
         console.error('❌ Error reading archive:', e.message);
         return [];
@@ -1383,11 +1387,7 @@ function readArchive() {
 // Helper: Save archive file
 function saveArchive(data) {
     try {
-        const dir = path.dirname(archivePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(archivePath, JSON.stringify(data, null, 2), 'utf8');
+        saveFile(archivePath, data);
         console.log(`✅ Archived students saved (${data.length} records)`);
         return true;
     } catch (e) {
@@ -1499,9 +1499,7 @@ app.post('/api/students/restore/:studentId', (req, res) => {
         
         // Add back to students
         let students = [];
-        if (fs.existsSync(studentsPath)) {
-            students = JSON.parse(fs.readFileSync(studentsPath, 'utf8'));
-        }
+        students = readFile(studentsPath);
         
         // Check if student already exists (by ID)
         const existingIndex = students.findIndex(s => s.id === student.id);
@@ -1510,14 +1508,12 @@ app.post('/api/students/restore/:studentId', (req, res) => {
         } else {
             students.push(student);
         }
-        fs.writeFileSync(studentsPath, JSON.stringify(students, null, 2));
+        saveFile(studentsPath, students);
         
         // Also restore the enrollment
         if (record.enrollments && record.enrollments.length > 0) {
             let enrollments = [];
-            if (fs.existsSync(enrollmentsPath)) {
-                enrollments = JSON.parse(fs.readFileSync(enrollmentsPath, 'utf8'));
-            }
+            enrollments = readFile(enrollmentsPath);
             
             // Find the last enrollment and make it current
             const lastEnrollment = record.enrollments[record.enrollments.length - 1];
@@ -1533,7 +1529,7 @@ app.post('/api/students/restore/:studentId', (req, res) => {
                     lastEnrollment.completionReason = null;
                     enrollments.push(lastEnrollment);
                 }
-                fs.writeFileSync(enrollmentsPath, JSON.stringify(enrollments, null, 2));
+                saveFile(enrollmentsPath, enrollments);
             }
         }
         
@@ -1747,9 +1743,7 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
             
             // Add to students
             let students = [];
-            if (fs.existsSync(studentsPath)) {
-                students = JSON.parse(fs.readFileSync(studentsPath, 'utf8'));
-            }
+            students = readFile(studentsPath);
             
             const existingIndex = students.findIndex(s => s.id === student.id);
             if (existingIndex !== -1) {
@@ -1757,7 +1751,7 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
             } else {
                 students.push(student);
             }
-            fs.writeFileSync(studentsPath, JSON.stringify(students, null, 2));
+            saveFile(studentsPath, students);
             
             restored.push(student.id);
         }
@@ -4694,43 +4688,23 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     let stock = {};
     
     try {
-        if (fs.existsSync(inventoryStockPath)) {
-            const content = fs.readFileSync(inventoryStockPath, 'utf8');
-            console.log('📄 Stock file content length:', content.length);
-            
-            if (content.trim() === '') {
-                console.log('⚠️ Stock file is empty, using empty object');
-                stock = {};
-            } else {
-                const parsed = JSON.parse(content);
-                if (Array.isArray(parsed)) {
-                    console.log('⚠️ Stock file contained an array! Converting to object...');
-                    const newStock = {};
-                    parsed.forEach((item, index) => {
-                        if (item && item.name) {
-                            const key = `${item.name}_${item.academicYear || 2026}_${item.term || 1}`;
-                            newStock[key] = item;
-                        }
-                    });
-                    stock = newStock;
-                } else if (typeof parsed === 'object' && parsed !== null) {
-                    stock = parsed;
-                    console.log('📊 Stock loaded as object. Keys:', Object.keys(stock).length);
-                } else {
-                    console.log('⚠️ Invalid stock data, using empty object');
-                    stock = {};
+        const parsed = readFile(inventoryStockPath);
+        if (Array.isArray(parsed)) {
+            console.log('⚠️ Stock data contained an array! Converting to object...');
+            parsed.forEach(item => {
+                if (item && item.name) {
+                    const key = `${item.name}_${item.academicYear || 2026}_${item.term || 1}`;
+                    stock[key] = item;
                 }
-            }
-        } else {
-            console.log('📊 No stock file found, creating new');
-            fs.writeFileSync(inventoryStockPath, JSON.stringify({}, null, 2), 'utf8');
-            stock = {};
+            });
+        } else if (parsed && typeof parsed === 'object') {
+            stock = parsed;
         }
     } catch (e) {
         console.warn('⚠️ Could not read stock:', e.message);
         console.log('🔄 Resetting stock to empty object');
         stock = {};
-        fs.writeFileSync(inventoryStockPath, JSON.stringify({}, null, 2), 'utf8');
+        saveFile(inventoryStockPath, {});
     }
     
     // SAFETY CHECK: Ensure stock is ALWAYS an object
@@ -4752,20 +4726,13 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     // ========== READ EXISTING TRANSACTIONS ==========
     let transactions = [];
     try {
-        if (fs.existsSync(inventoryTransactionsPath)) {
-            const content = fs.readFileSync(inventoryTransactionsPath, 'utf8');
-            transactions = JSON.parse(content);
-            if (!Array.isArray(transactions)) transactions = [];
-            console.log('📊 Transactions loaded:', transactions.length);
-        } else {
-            console.log('📊 No transactions file found, creating new');
-            fs.writeFileSync(inventoryTransactionsPath, JSON.stringify([], null, 2), 'utf8');
-            transactions = [];
-        }
+        transactions = readFile(inventoryTransactionsPath);
+        if (!Array.isArray(transactions)) transactions = [];
+        console.log('📊 Transactions loaded:', transactions.length);
     } catch (e) {
         console.warn('⚠️ Could not read transactions:', e.message);
         transactions = [];
-        fs.writeFileSync(inventoryTransactionsPath, JSON.stringify([], null, 2), 'utf8');
+        saveFile(inventoryTransactionsPath, []);
     }
     
     const year = parseInt(academicYear) || new Date().getFullYear();
@@ -4929,21 +4896,18 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
             }
             
             // Save stock
-            const stockJson = JSON.stringify(stock, null, 2);
-            console.log('📝 Stock JSON to save:', stockJson);
-            fs.writeFileSync(inventoryStockPath, stockJson, 'utf8');
-            console.log(`✅ Stock written to: ${inventoryStockPath}`);
+            console.log('📝 Saving stock to SQLite');
+            saveFile(inventoryStockPath, stock);
+            console.log(`✅ Stock saved to database`);
             
             // Verify save
-            const verifyContent = fs.readFileSync(inventoryStockPath, 'utf8');
-            const verifyStock = JSON.parse(verifyContent);
+            const verifyStock = readFile(inventoryStockPath);
             const verifyKeys = Object.keys(verifyStock);
             console.log(`📊 Verified keys: ${verifyKeys.join(', ')}`);
             console.log(`📊 Verified count: ${verifyKeys.length}`);
             
             // Save transactions
-            const txJson = JSON.stringify(transactions, null, 2);
-            fs.writeFileSync(inventoryTransactionsPath, txJson, 'utf8');
+            saveFile(inventoryTransactionsPath, transactions);
             console.log(`✅ Transactions saved: ${transactions.length} records`);
             
             console.log(`\n✅✅✅ INVENTORY UPDATE COMPLETE!`);
@@ -5008,11 +4972,7 @@ app.post('/api/test/inventory-direct', async (req, res) => {
         
         // Check if stock was saved
         const stockPath = path.join(__dirname, 'data', 'inventoryStock.json');
-        let stock = {};
-        if (fs.existsSync(stockPath)) {
-            const content = fs.readFileSync(stockPath, 'utf8');
-            stock = JSON.parse(content);
-        }
+        const stock = readFile(stockPath) || {};
         
         res.json({
             success: true,
@@ -5729,11 +5689,7 @@ app.post('/api/debug/payment-flow', async (req, res) => {
         
         // Check stock after manual update
         const stockPath = path.join(__dirname, 'data', 'inventoryStock.json');
-        let stock = {};
-        if (fs.existsSync(stockPath)) {
-            const content = fs.readFileSync(stockPath, 'utf8');
-            stock = JSON.parse(content);
-        }
+        const stock = readFile(stockPath) || {};
         
         res.json({
             success: true,
@@ -6170,13 +6126,10 @@ app.get('/api/inventory/summary', async (req, res) => {
         
         // ========== READ STOCK ==========
         const stockPath = path.join(dataDir, 'inventoryStock.json');
-        let stock = {};
         try {
-            if (fs.existsSync(stockPath)) {
-                const content = fs.readFileSync(stockPath, 'utf8');
-                stock = JSON.parse(content);
-                console.log(`📊 Stock loaded. Keys: ${Object.keys(stock).length}`);
-            }
+            const stock = readFile(stockPath) || {};
+            console.log(`📊 Stock loaded. Keys: ${Object.keys(stock).length}`);
+            inventoryData.stock = stock;
         } catch (e) {
             console.warn('Could not read stock:', e.message);
         }
@@ -10406,10 +10359,9 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         const settingsPath = path.join(__dirname, 'data', 'settings.json');
         let currentYear = new Date().getFullYear();
         let currentTerm = 1;
-        if (fs.existsSync(settingsPath)) {
+        if (hasCollectionData(settingsPath)) {
             try {
-                const settingsData = fs.readFileSync(settingsPath, 'utf8');
-                const settings = JSON.parse(settingsData);
+                const settings = readFile(settingsPath);
                 if (settings.currentAcademicYear) currentYear = settings.currentAcademicYear;
                 if (settings.currentTerm) currentTerm = settings.currentTerm;
             } catch(e) {}
@@ -11662,14 +11614,8 @@ app.post('/api/students/promote', async (req, res) => {
 
         function readJSON(file) {
             const filePath = path.join(dataDir, file);
-            if (!fs.existsSync(filePath)) {
-                console.warn(`⚠️ File not found: ${file}, creating empty`);
-                return [];
-            }
             try {
-                const content = fs.readFileSync(filePath, 'utf8');
-                if (!content || content.trim() === '') return [];
-                return JSON.parse(content);
+                return readFile(filePath);
             } catch (e) {
                 console.warn(`⚠️ Error reading ${file}:`, e.message);
                 return [];
@@ -11679,7 +11625,7 @@ app.post('/api/students/promote', async (req, res) => {
         function saveJSON(file, data) {
             const filePath = path.join(dataDir, file);
             try {
-                fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+                saveFile(filePath, data);
                 console.log(`✅ Saved: ${file}`);
                 return true;
             } catch (e) {
@@ -11706,12 +11652,8 @@ app.post('/api/students/promote', async (req, res) => {
         const archivePath = path.join(dataDir, 'archivedStudents.json');
         
         function readArchive() {
-            if (!fs.existsSync(archivePath)) {
-                return [];
-            }
             try {
-                const content = fs.readFileSync(archivePath, 'utf8');
-                return JSON.parse(content);
+                return readFile(archivePath);
             } catch (e) {
                 return [];
             }
@@ -11719,7 +11661,7 @@ app.post('/api/students/promote', async (req, res) => {
 
         function saveArchive(data) {
             try {
-                fs.writeFileSync(archivePath, JSON.stringify(data, null, 2), 'utf8');
+                saveFile(archivePath, data);
                 console.log(`✅ Saved archived students`);
                 return true;
             } catch (e) {
@@ -14998,7 +14940,7 @@ console.log('✅ Parent Portal routes loaded');
 const eventsFilePath = path.join(dataDir, 'events.json');
 
 // Initialize events file
-if (!fs.existsSync(eventsFilePath)) {
+if (!hasCollection(eventsFilePath)) {
     saveFile(eventsFilePath, []);
 }
 
@@ -15255,10 +15197,10 @@ const chatFilePath = path.join(dataDir, 'chatMessages.json');
 const chatContactsFilePath = path.join(dataDir, 'chatContacts.json');
 
 // Initialize chat files
-if (!fs.existsSync(chatFilePath)) {
+if (!hasCollection(chatFilePath)) {
     saveFile(chatFilePath, {});
 }
-if (!fs.existsSync(chatContactsFilePath)) {
+if (!hasCollection(chatContactsFilePath)) {
     saveFile(chatContactsFilePath, {});
 }
 
@@ -15910,8 +15852,7 @@ app.use((err, req, res, next) => {
 app.get('/api/academic/debug', (req, res) => {
     try {
         const settings = readFile(files.settings);
-        const fileExists = fs.existsSync(files.settings);
-        const fileContent = fileExists ? fs.readFileSync(files.settings, 'utf8') : 'File not found';
+        const fileContent = JSON.stringify(readFile(files.settings), null, 2);
         
         res.json({
             settings: settings,
@@ -16100,7 +16041,18 @@ function getLocalIP() {
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');
 
-app.listen(PORT, '0.0.0.0', () => {
+async function startServer() {
+    const SQL = await initSqlJs();
+    db = new SqlJsDatabase(SQL, databasePath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = FULL');
+    migrateJsonData();
+    applyPendingDatabaseWrites();
+    initializeDefaultData();
+    loadAcademicSettings();
+    performBackup();
+
+    app.listen(PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
     const networkUrl = `http://${ip}:${PORT}`;
 
@@ -16128,6 +16080,12 @@ app.listen(PORT, '0.0.0.0', () => {
         console.log('   Install it with: npm install qrcode-terminal');
     }
     console.log('='.repeat(50));
+    });
+}
+
+startServer().catch(error => {
+    console.error('❌ Server startup failed:', error);
+    process.exitCode = 1;
 });
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');
