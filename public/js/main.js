@@ -66242,27 +66242,11 @@ function buildSummaryCardsV3(totals, studentCount) {
 // so Excel now agrees with the HTML report table.
 // ======================================================================
 
-// ============================================================================
-// EXCEL EXPORT — v34.0 — EXACT MATCH TO printReportV3 / on-screen #reportTable
-//
-// This does NOT rebuild the report from reportData with its own logic.
-// It reads the exact same rendered DOM table that printReportV3 prints —
-// same merged header cells (colspan/rowspan), same "Doesn't pay" cells,
-// same collapsed/expanded state — and writes it into an Excel sheet
-// cell-for-cell, with the identical header block (school name, term,
-// generated-at, student count, active filters) placed above the table.
-//
-// No extra columns. No recomputed totals. Whatever the user sees on the
-// screen / on the printed page is exactly what lands in the .xlsx file.
-// ============================================================================
-
 function exportReportToCSV() {
-    console.log('=== 📊 EXCEL EXPORT v34.0 — exact match to printReportV3 ===');
+    console.log('=== 📊 EXCEL EXPORT v34.1 — exact match to printReportV3 ===');
 
     var tableEl = document.getElementById('reportTable');
 
-    // Same rebuild fallback printReportV3 uses, so export works even if
-    // the table hasn't been rendered into the DOM yet but data exists.
     if (!tableEl && reportData && reportData.students && reportData.students.length > 0) {
         try {
             renderReportResultsV3(reportData);
@@ -66275,6 +66259,13 @@ function exportReportToCSV() {
     if (!tableEl) {
         showToast('❌ No data to export. Please generate a report first.', 'error');
         return;
+    }
+
+    // Warn (once) if SheetJS isn't loaded, since that's what produces a
+    // real .xlsx with true merged cells instead of the CSV fallback.
+    if (typeof XLSX === 'undefined') {
+        console.warn('⚠️ SheetJS (XLSX) not found on this page — falling back to CSV. ' +
+            'Add <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> to enable proper .xlsx export with merged cells.');
     }
 
     var school = (typeof currentSchoolInfo !== 'undefined' && currentSchoolInfo) ? currentSchoolInfo : {};
@@ -66294,33 +66285,21 @@ function exportReportToCSV() {
     var studentCount = recordCountEl ? recordCountEl.innerText : (reportData && reportData.students ? reportData.students.length : '');
 
     try {
-        // --------------------------------------------------------------
-        // 1. Parse the exact rendered table into a grid + merge list,
-        //    honoring colspan/rowspan exactly the way the browser lays
-        //    them out (this is what makes the multi-row header and the
-        //    "Doesn't pay" cells come out identical to the printout).
-        // --------------------------------------------------------------
         var parsed = tableToGridWithMerges(tableEl);
         var grid = parsed.grid;
         var merges = parsed.merges;
         var totalCols = grid.length > 0 ? grid[0].length : 1;
 
-        // --------------------------------------------------------------
-        // 2. Build the same header block printReportV3 places above the
-        //    table (school / title / generated-at + count / filters),
-        //    as extra rows — never extra columns.
-        // --------------------------------------------------------------
         var headerRows = [];
         headerRows.push([schoolName]);
         headerRows.push(['Comprehensive Fee Report — ' + termName + ' ' + currentYear]);
         headerRows.push(['Generated: ' + new Date().toLocaleString() + '    |    Students: ' + studentCount]);
         if (filterLines.length) headerRows.push(['Filters: ' + filterLines.join('  |  ')]);
-        headerRows.push([]); // spacer row before the table starts
+        headerRows.push([]);
 
         var headerOffset = headerRows.length;
         var fullGrid = headerRows.concat(grid);
 
-        // Shift the table's own merges down by the header row count
         var shiftedMerges = merges.map(function (m) {
             return {
                 s: { r: m.s.r + headerOffset, c: m.s.c },
@@ -66328,7 +66307,6 @@ function exportReportToCSV() {
             };
         });
 
-        // Merge each header/title/meta row across the table's full width
         if (totalCols > 1) {
             for (var hr = headerRows.length - 1; hr >= 0; hr--) {
                 if (headerRows[hr].length > 0 && headerRows[hr][0] !== '') {
@@ -66341,12 +66319,6 @@ function exportReportToCSV() {
         var timestamp = new Date().toISOString().slice(0, 10);
         var fileName = fileBaseName + '_' + timestamp;
 
-        // --------------------------------------------------------------
-        // 3. Write it out. Real merged cells in .xlsx via SheetJS
-        //    (identical to how the browser/printout merges header and
-        //    "Doesn't pay" cells); a flattened, merge-filled CSV as a
-        //    graceful fallback if SheetJS isn't loaded on the page.
-        // --------------------------------------------------------------
         if (typeof XLSX !== 'undefined' && XLSX.utils) {
             var ws = XLSX.utils.aoa_to_sheet(fullGrid);
             ws['!merges'] = shiftedMerges.filter(function (m) {
@@ -66388,123 +66360,6 @@ function exportReportToCSV() {
         showToast('❌ Export failed: ' + error.message, 'error');
     }
 }
-
-// ============================================================================
-// tableToGridWithMerges — converts a live table into a 2D grid of visible
-// text plus a merge list, honoring colspan/rowspan exactly the way the
-// browser lays them out. Interactive buttons are stripped (irrelevant on
-// paper/in Excel) and the clone is attached off-screen so innerText
-// correctly respects any collapsed (.hidden / display:none) detail panels
-// — meaning collapsed rows stay collapsed in the export too, exactly
-// matching what printReportV3 produces.
-// ============================================================================
-function tableToGridWithMerges(tableEl) {
-    var clone = tableEl.cloneNode(true);
-
-    var buttons = clone.querySelectorAll('button');
-    for (var b = 0; b < buttons.length; b++) buttons[b].remove();
-
-    var holder = document.createElement('div');
-    holder.style.position = 'absolute';
-    holder.style.left = '-99999px';
-    holder.style.top = '0';
-    holder.style.visibility = 'hidden';
-    holder.appendChild(clone);
-    document.body.appendChild(holder);
-
-    var thead = clone.querySelector('thead');
-    var tbody = clone.querySelector('tbody');
-    var headerRows = thead ? Array.prototype.slice.call(thead.querySelectorAll('tr')) : [];
-    var bodyRows = tbody ? Array.prototype.slice.call(tbody.querySelectorAll('tr')) : [];
-    var allRows = headerRows.concat(bodyRows);
-
-    function getCellText(cell) {
-        var text = (cell.innerText || cell.textContent || '');
-        return text.replace(/\s+/g, ' ').trim();
-    }
-
-    var grid = [];
-    var merges = [];
-    var colTrack = {};
-    var maxCols = 0;
-
-    for (var r = 0; r < allRows.length; r++) {
-        var cells = Array.prototype.slice.call(allRows[r].children);
-        var rowArr = [];
-        var col = 0, cellIdx = 0;
-
-        while (cellIdx < cells.length) {
-            while (colTrack[col] && colTrack[col] > 0) {
-                rowArr[col] = '';
-                colTrack[col]--;
-                if (colTrack[col] <= 0) delete colTrack[col];
-                col++;
-            }
-
-            var cell = cells[cellIdx];
-            var colspan = parseInt(cell.getAttribute('colspan'), 10) || 1;
-            var rowspan = parseInt(cell.getAttribute('rowspan'), 10) || 1;
-            var text = getCellText(cell);
-
-            rowArr[col] = text;
-            for (var c = 1; c < colspan; c++) rowArr[col + c] = '';
-
-            if (colspan > 1 || rowspan > 1) {
-                merges.push({ s: { r: r, c: col }, e: { r: r + rowspan - 1, c: col + colspan - 1 } });
-            }
-            if (rowspan > 1) {
-                for (var c2 = 0; c2 < colspan; c2++) {
-                    colTrack[col + c2] = (colTrack[col + c2] || 0) + (rowspan - 1);
-                }
-            }
-
-            col += colspan;
-            cellIdx++;
-        }
-
-        while (colTrack[col] && colTrack[col] > 0) {
-            rowArr[col] = '';
-            colTrack[col]--;
-            if (colTrack[col] <= 0) delete colTrack[col];
-            col++;
-        }
-
-        maxCols = Math.max(maxCols, col);
-        grid.push(rowArr);
-    }
-
-    for (var i = 0; i < grid.length; i++) {
-        for (var c3 = 0; c3 < maxCols; c3++) {
-            if (grid[i][c3] === undefined || grid[i][c3] === null) grid[i][c3] = '';
-        }
-        grid[i].length = maxCols;
-    }
-
-    document.body.removeChild(holder);
-    return { grid: grid, merges: merges };
-}
-
-// ============================================================================
-// fillMergesForCsv — CSV has no concept of merged cells, so for the
-// fallback export we re-fill each merge's spanned blank cells with its
-// top-left value, so the CSV reads cleanly instead of showing gaps.
-// ============================================================================
-function fillMergesForCsv(grid, merges) {
-    var flat = grid.map(function (row) { return row.slice(); });
-    for (var m = 0; m < merges.length; m++) {
-        var merge = merges[m];
-        var value = (flat[merge.s.r] && flat[merge.s.r][merge.s.c]) || '';
-        for (var r = merge.s.r; r <= merge.e.r; r++) {
-            for (var c = merge.s.c; c <= merge.e.c; c++) {
-                if (!flat[r]) flat[r] = [];
-                flat[r][c] = value;
-            }
-        }
-    }
-    return flat;
-}
-
-window.exportReportToCSV = exportReportToCSV;
 
 // ========== Make sure the function is global ==========
 window.exportReportToCSV = exportReportToCSV;
