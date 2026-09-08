@@ -84465,12 +84465,6 @@ window.initializeAIChat = initializeAIChat;
 console.log('🤖 AI Assistant frontend loaded successfully!');
 
 
-// ============================================================
-// SIMPLIFIED, PRINT-FRIENDLY REPORT TABLE
-// Paste at the very end of main.js — these definitions override
-// every earlier duplicate of the same function name.
-// ============================================================
-
 function formatMoney(amount) {
     return Math.round(amount || 0).toLocaleString('en-US');
 }
@@ -84487,29 +84481,61 @@ function getTermShort(term) {
     return names[term] || 'T' + term;
 }
 
-// Decide whether an item is measured in money or quantity, and
-// pull out its collected / expected / balance in that one unit.
+// ============================================================
+// METRIC RESOLUTION — now supports 'combo' (qty AND money)
+// for 'either' items that genuinely carry both a quantity and
+// a cash value. cash_only / item_only stay single-unit as before.
+// ============================================================
 function getItemMetric(itemData) {
-    if (itemData.paymentOption === 'cash_only') {
-        var expected = itemData.amountExpected || 0;
-        var collected = itemData.totalAmountCollected || 0;
-        return { unit: 'money', collected: collected, expected: expected, balance: Math.max(0, expected - collected) };
+    var paymentOption = itemData.paymentOption || 'either';
+    var qtyRequired = itemData.quantityRequired || 0;
+    var qtyCollected = itemData.totalCollected || 0;
+    var qtyRemaining = Math.max(0, itemData.totalRemaining != null ? itemData.totalRemaining : (qtyRequired - qtyCollected));
+    var amtExpected = itemData.amountExpected || 0;
+    var amtCollected = itemData.totalAmountCollected || 0;
+    var amtRemaining = Math.max(0, amtExpected - amtCollected);
+
+    if (paymentOption === 'cash_only') {
+        return { unit: 'money', expected: amtExpected, collected: amtCollected, balance: amtRemaining };
     }
-    if ((itemData.quantityRequired || 0) > 0) {
+    if (paymentOption === 'item_only') {
+        return { unit: 'qty', expected: qtyRequired, collected: qtyCollected, balance: qtyRemaining };
+    }
+    // 'either' — combo when both a quantity and a cash value actually exist
+    if (qtyRequired > 0 && amtExpected > 0) {
         return {
-            unit: 'qty',
-            collected: itemData.totalCollected || 0,
-            expected: itemData.quantityRequired || 0,
-            balance: Math.max(0, itemData.totalRemaining || 0)
+            unit: 'combo',
+            qtyExpected: qtyRequired, amtExpected: amtExpected,
+            qtyCollected: qtyCollected, amtCollected: amtCollected,
+            qtyBalance: qtyRemaining, amtBalance: amtRemaining
         };
     }
-    var exp2 = itemData.amountExpected || 0;
-    var col2 = itemData.totalAmountCollected || 0;
-    return { unit: 'money', collected: col2, expected: exp2, balance: Math.max(0, exp2 - col2) };
+    if (qtyRequired > 0) {
+        return { unit: 'qty', expected: qtyRequired, collected: qtyCollected, balance: qtyRemaining };
+    }
+    return { unit: 'money', expected: amtExpected, collected: amtCollected, balance: amtRemaining };
 }
 
 function formatMetricValue(unit, value) {
     return unit === 'money' ? formatMoney(value) : Math.round(value || 0).toString();
+}
+
+function formatComboExpected(m) {
+    return Math.round(m.qtyExpected || 0) + ' or ' + formatMoney(m.amtExpected || 0);
+}
+function formatComboCollected(m) {
+    var q = Math.round(m.qtyCollected || 0);
+    var a = m.amtCollected || 0;
+    if (q > 0 && a > 0) return q + ' or ' + formatMoney(a);
+    if (q > 0) return String(q);
+    if (a > 0) return formatMoney(a);
+    return '0';
+}
+function formatComboBalance(m) {
+    var q = Math.round(m.qtyBalance || 0);
+    var a = m.amtBalance || 0;
+    if (q <= 0 && a <= 0) return '0';
+    return q + ' or ' + formatMoney(a);
 }
 
 function buildItemPeriodsPlain(itemData, metric) {
@@ -84519,23 +84545,22 @@ function buildItemPeriodsPlain(itemData, metric) {
     for (var i = 0; i < keys.length; i++) {
         var p = pb[keys[i]];
         if (!p || p.isNotApplicable) continue;
-        var collected = metric.unit === 'money' ? (p.amtCollected || 0) : (p.qtyCollected || 0);
-        var expected = metric.unit === 'money'
-            ? ((p.amtCollected || 0) + (p.amtRemaining || 0))
-            : ((p.qtyCollected || 0) + (p.qtyRemaining || 0));
-        parts.push(getTermShort(p.term) + ' ' + p.year + ': ' + formatMetricValue(metric.unit, collected) + '/' + formatMetricValue(metric.unit, expected));
-    }
-    return parts.join('; ');
-}
+        var label = getTermShort(p.term) + ' ' + p.year + ': ';
 
-function buildTuitionPeriodsPlain(tuition) {
-    var pb = tuition.periodBreakdown || {};
-    var keys = Object.keys(pb).sort();
-    var parts = [];
-    for (var i = 0; i < keys.length; i++) {
-        var p = pb[keys[i]];
-        if (!p) continue;
-        parts.push(getTermShort(p.term) + ' ' + p.year + ': ' + formatMoney(p.paid) + '/' + formatMoney(p.expected));
+        if (metric.unit === 'combo') {
+            var qc = p.qtyCollected || 0, ac = p.amtCollected || 0;
+            var qe = qc + (p.qtyRemaining || 0), ae = ac + (p.amtRemaining || 0);
+            var collectedStr = (qc > 0 && ac > 0) ? (qc + ' or ' + formatMoney(ac))
+                              : (qc > 0 ? String(qc) : (ac > 0 ? formatMoney(ac) : '0'));
+            var expectedStr = qe + ' or ' + formatMoney(ae);
+            parts.push(label + collectedStr + '/' + expectedStr);
+        } else {
+            var collected = metric.unit === 'money' ? (p.amtCollected || 0) : (p.qtyCollected || 0);
+            var expected = metric.unit === 'money'
+                ? ((p.amtCollected || 0) + (p.amtRemaining || 0))
+                : ((p.qtyCollected || 0) + (p.qtyRemaining || 0));
+            parts.push(label + formatMetricValue(metric.unit, collected) + '/' + formatMetricValue(metric.unit, expected));
+        }
     }
     return parts.join('; ');
 }
@@ -84721,14 +84746,34 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 }
 
                 var metric = getItemMetric(itemData);
-                if (!itemTotalsAcc[accKey]) itemTotalsAcc[accKey] = { collected: 0, expected: 0, balance: 0, unit: metric.unit };
-                itemTotalsAcc[accKey].collected += metric.collected;
-                itemTotalsAcc[accKey].expected += metric.expected;
-                itemTotalsAcc[accKey].balance += metric.balance;
 
-                row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.collected) + '</td>';
-                row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.expected) + '</td>';
-                row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.balance) + '</td>';
+                if (!itemTotalsAcc[accKey]) {
+                    itemTotalsAcc[accKey] = metric.unit === 'combo'
+                        ? { unit: 'combo', qtyCollected: 0, amtCollected: 0, qtyExpected: 0, amtExpected: 0, qtyBalance: 0, amtBalance: 0 }
+                        : { unit: metric.unit, collected: 0, expected: 0, balance: 0 };
+                }
+                var acc = itemTotalsAcc[accKey];
+
+                if (metric.unit === 'combo') {
+                    acc.qtyCollected += metric.qtyCollected;
+                    acc.amtCollected += metric.amtCollected;
+                    acc.qtyExpected += metric.qtyExpected;
+                    acc.amtExpected += metric.amtExpected;
+                    acc.qtyBalance += metric.qtyBalance;
+                    acc.amtBalance += metric.amtBalance;
+
+                    row += '<td class="p-2 text-right border">' + formatComboCollected(metric) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatComboExpected(metric) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatComboBalance(metric) + '</td>';
+                } else {
+                    acc.collected += metric.collected;
+                    acc.expected += metric.expected;
+                    acc.balance += metric.balance;
+
+                    row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.collected) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.expected) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.balance) + '</td>';
+                }
                 if (includeAllPeriods) row += '<td class="p-2 border text-xs">' + buildItemPeriodsPlain(itemData, metric) + '</td>';
             }
         }
@@ -84750,10 +84795,21 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         var gItems3 = itemsByGroup[gName3];
         for (var ii3 = 0; ii3 < gItems3.length; ii3++) {
             var key = gName3 + '::' + gItems3[ii3];
-            var acc = itemTotalsAcc[key] || { collected: 0, expected: 0, balance: 0, unit: 'qty' };
-            totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc.unit, acc.collected) + '</td>';
-            totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc.unit, acc.expected) + '</td>';
-            totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc.unit, acc.balance) + '</td>';
+            var acc2 = itemTotalsAcc[key];
+            if (!acc2) {
+                totalRow += '<td class="p-2 text-right border">0</td><td class="p-2 text-right border">0</td><td class="p-2 text-right border">0</td>';
+                if (includeAllPeriods) totalRow += '<td class="p-2 border"></td>';
+                continue;
+            }
+            if (acc2.unit === 'combo') {
+                totalRow += '<td class="p-2 text-right border">' + formatComboCollected({ qtyCollected: acc2.qtyCollected, amtCollected: acc2.amtCollected }) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatComboExpected({ qtyExpected: acc2.qtyExpected, amtExpected: acc2.amtExpected }) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatComboBalance({ qtyBalance: acc2.qtyBalance, amtBalance: acc2.amtBalance }) + '</td>';
+            } else {
+                totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc2.unit, acc2.collected) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc2.unit, acc2.expected) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc2.unit, acc2.balance) + '</td>';
+            }
             if (includeAllPeriods) totalRow += '<td class="p-2 border"></td>';
         }
     }
@@ -84766,6 +84822,18 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                 '<tbody>' + bodyRows + totalRow + '</tbody>' +
             '</table>' +
         '</div>';
+}
+
+function buildTuitionPeriodsPlain(tuition) {
+    var pb = tuition.periodBreakdown || {};
+    var keys = Object.keys(pb).sort();
+    var parts = [];
+    for (var i = 0; i < keys.length; i++) {
+        var p = pb[keys[i]];
+        if (!p) continue;
+        parts.push(getTermShort(p.term) + ' ' + p.year + ': ' + formatMoney(p.paid) + '/' + formatMoney(p.expected));
+    }
+    return parts.join('; ');
 }
 
 function renderReportResultsV3(data) {
