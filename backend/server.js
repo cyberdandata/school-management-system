@@ -8023,6 +8023,22 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 if (overallStatus !== paymentStatus) continue;
             }
             
+
+            // Exclude students who don't owe anything on the filtered item/group
+if (filterItemName && filterItemName !== 'all') {
+    let hasFilteredItem = false;
+    for (const gName in statusGroups) {
+        if (filterStatusGroup && filterStatusGroup !== 'all' && gName !== filterStatusGroup) continue;
+        if (statusGroups[gName].items && statusGroups[gName].items[filterItemName]) {
+            hasFilteredItem = true;
+            break;
+        }
+    }
+    if (!hasFilteredItem) continue;
+} else if (filterStatusGroup && filterStatusGroup !== 'all' && filterStatusGroup !== 'none') {
+    const g = statusGroups[filterStatusGroup];
+    if (!g || !g.items || Object.keys(g.items).length === 0) continue;
+}
             // ============================================================
             // BUILD STUDENT OBJECT
             // ============================================================
