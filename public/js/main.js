@@ -84711,11 +84711,10 @@ var headerRow1 = [
     for (var r = 0; r < visibleStudents.length; r++) {
         var student = visibleStudents[r];
         var row = '<tr class="border-b">';
-        row += '<td class="p-2 text-center border">' + (r + 1) + '</td>';
-        row += '<td class="p-2 border font-mono text-xs">' + escapeHtml(student.admissionNumber) + '</td>';
-        row += '<td class="p-2 border">' + escapeHtml(student.firstName) + ' ' + escapeHtml(student.lastName) + '</td>';
-        row += '<td class="p-2 border">' + escapeHtml(student.currentClass) + '</td>';
-
+   row += '<td class="p-2 text-center border" style="position:sticky;left:0;z-index:10;background:#fff;">' + (r+1) + '</td>';
+row += '<td class="p-2 border font-mono text-xs" style="position:sticky;left:40px;z-index:10;background:#fff;">' + escapeHtml(student.admissionNumber) + '</td>';
+row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName)+' '+escapeHtml(student.lastName) + '</td>';
+row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;background:#fff;border-right:2px solid #d1d5db;">' + escapeHtml(student.currentClass) + '</td>';
         if (includeTuition) {
             var t = student.tuition || {};
             var tExpected = t.expected || 0, tPaid = t.paid || 0, tBalance = Math.max(0, tExpected - tPaid);
