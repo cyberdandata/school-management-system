@@ -7890,11 +7890,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         // the item list, not in required/expected, not in the status
                         // group's student count.
                         // ============================================================
-       const hasPayment = totalQtyCollected > 0 || totalAmtCollected > 0;
-const hasExpectation = effectiveQuantity > 0 || effectiveAmount > 0;
-if ((!anyPeriodApplicable || !hasExpectation) && !hasPayment) {
-    continue; // nothing expected and nothing paid — skip entirely
-}
+                        const hasPayment = totalQtyCollected > 0 || totalAmtCollected > 0;
+                        if (!anyPeriodApplicable && !hasPayment) {
+                            continue; // removed for this student in every period — skip entirely
+                        }
 
                         // ============================================================
                         // Item genuinely applies to this student — only now commit it.
