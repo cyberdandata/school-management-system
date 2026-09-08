@@ -84670,12 +84670,13 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     }
     var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g]; });
 
-    var headerRow1 = [
-        '<th class="p-2 border bg-gray-100" rowspan="2">#</th>',
-        '<th class="p-2 border bg-gray-100 text-left" rowspan="2">Admission</th>',
-        '<th class="p-2 border bg-gray-100 text-left" rowspan="2">Student</th>',
-        '<th class="p-2 border bg-gray-100 text-left" rowspan="2">Class</th>'
-    ];
+   // Header row 1 — make every header cell sticky on top
+var headerRow1 = [
+    '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
+    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
+    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:150px;z-index:30;">Student</th>',
+    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:300px;z-index:30;border-right:2px solid #9ca3af;">Class</th>'
+];
     var headerRow2 = [];
 
     if (includeTuition) {
