@@ -66241,27 +66241,7 @@ function buildSummaryCardsV3(totals, studentCount) {
 // function. It uses the correct field names AND the isOneTime fallback,
 // so Excel now agrees with the HTML report table.
 // ======================================================================
-// ============================================================================
-// fillMergesForCsv — CSV has no concept of merged cells. Instead of
-// repeating the merged value into every spanned column (which produced
-// the "School Report" duplicated 12 times across a row), we leave the
-// spanned cells blank after the first — matching how Excel itself shows
-// an unmerged range: value once, blanks after.
-// ============================================================================
-function fillMergesForCsv(grid, merges) {
-    var flat = grid.map(function (row) { return row.slice(); });
-    for (var m = 0; m < merges.length; m++) {
-        var merge = merges[m];
-        for (var r = merge.s.r; r <= merge.e.r; r++) {
-            for (var c = merge.s.c; c <= merge.e.c; c++) {
-                if (r === merge.s.r && c === merge.s.c) continue; // keep the top-left value
-                if (!flat[r]) flat[r] = [];
-                flat[r][c] = '';
-            }
-        }
-    }
-    return flat;
-}
+
 function exportReportToCSV() {
     console.log('=== 📊 EXCEL EXPORT v34.1 — exact match to printReportV3 ===');
 
@@ -66380,7 +66360,6 @@ function exportReportToCSV() {
         showToast('❌ Export failed: ' + error.message, 'error');
     }
 }
-
 
 // ========== Make sure the function is global ==========
 window.exportReportToCSV = exportReportToCSV;
