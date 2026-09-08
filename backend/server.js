@@ -7151,8 +7151,31 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 // - Now detects periods from fee assignments (promoted years) even with no payments
 
 // ==================== COMPREHENSIVE REPORT (v12.0 - PERIOD SCOPING FIXED) ====================
+// ================================================================
+// REPLACE your existing app.get('/api/reports/comprehensive', ...) route
+// in server.js with this ENTIRE block.
+//
+// v12.1 — ONE BEHAVIORAL CHANGE FROM v11.2:
+//   Added a "ZERO-EXPECTED TEST" right next to the existing "DOESN'T PAY"
+//   test. If an item's effective expected value for a student (after
+//   customizations) is 0 for its payment option (cash_only -> amount<=0,
+//   item_only -> quantity<=0, either -> both <=0) AND the student has never
+//   paid/brought anything toward it, the item is skipped entirely for that
+//   student: not shown, not counted in status-group/period totals, and it
+//   can never make that student match an item/group filter.
+//
+// This is what was producing rows like "LTBalance Expected 0 / Collected 0
+// / Balance 0" in your export — those students had a customized/derived
+// expected amount of 0 for that item and should never have been counted
+// as "having" it.
+//
+// Nothing else in the route changed: period scoping (termly/yearly/
+// one_time), OR-logic cash-vs-items, tuition calculation, customizations,
+// and removed-items handling are all identical to v11.2.
+// ================================================================
+
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v11.2 - PERIOD-AWARE REMOVAL ===');
+    console.log('=== COMPREHENSIVE REPORT v12.1 - ZERO-EXPECTED ITEMS FILTERED ===');
     
     try {
         // ================================================================
@@ -7316,7 +7339,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         }
 
         // ================================================================
-        // NEW: PERIOD-AWARE REMOVAL CHECK
+        // PERIOD-AWARE REMOVAL CHECK
         // ================================================================
         function isItemRemovedForPeriod(student, itemId, year, term) {
             if (!student || !student.removedItems) return false;
@@ -7327,7 +7350,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return removed.academicYear === parseInt(year) && removed.term === parseInt(term);
         }
 
-        // 4.6: Get Period-Scoped Payments (unchanged)
+        // 4.6: Get Period-Scoped Payments
         function getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData) {
             const studentPayments = allPaymentsData.filter(p => p && p.studentId === studentId);
             if (periodType === 'one_time') {
@@ -7345,7 +7368,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
         }
 
-        // 4.7: getPaidAmountsForItem (unchanged)
+        // 4.7: getPaidAmountsForItem
         function getPaidAmountsForItem(studentId, componentName, itemName, periodType, year, term, allPaymentsData) {
             const scopedPayments = getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData);
             let cashPaid = 0;
@@ -7447,7 +7470,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
 
-        // 4.8: Calculate Item Totals with OR Logic (unchanged)
+        // 4.8: Calculate Item Totals with OR Logic
         function calculateItemTotalsWithORLogic(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
             const finalItemsBrought = Math.min(itemsBrought, qtyRequired);
             let cashExpected = 0;
@@ -7486,7 +7509,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         }
 
         // ================================================================
-        // STEP 5: GET ALL PERIODS FOR STUDENT (unchanged)
+        // STEP 5: GET ALL PERIODS FOR STUDENT
         // ================================================================
         function getAllPeriodsForStudent(studentId) {
         const currentYear = parseInt(targetYear);
@@ -7495,12 +7518,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // ================================================================
         // DETERMINE START PERIOD FROM ENROLLMENT DATE
         // ================================================================
-        // A period "applies" to a student because they were enrolled during
-        // it — not because a payment/term-record/fee-assignment happens to
-        // reference it. This stops phantom periods (e.g. a manufactured
-        // Term 1 balance for a student who joined in Term 3) and stops
-        // real gaps (e.g. Term 2 with no activity yet) from being silently
-        // skipped.
         const student = students.find(s => s && s.id === studentId);
 
         let startYear = currentYear;
@@ -7536,9 +7553,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         }
 
         // ================================================================
-        // ATTACH MATCHING PAYMENTS TO EACH PERIOD (payment amounts are
-        // still read this way downstream — this does not affect whether
-        // a period is included, only what it displays)
+        // ATTACH MATCHING PAYMENTS TO EACH PERIOD
         // ================================================================
         allPayments.forEach(p => {
             if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
@@ -7811,9 +7826,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             }
 
                             // ================================================================
-                            // PERIOD-AWARE REMOVAL — respects student.removedItems exactly as
-                            // written by registration / import / edit-student. Once removed
-                            // (and never restored), the item contributes nothing, ever.
+                            // PERIOD-AWARE REMOVAL
                             // ================================================================
                             if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
                                 shouldInclude = false;
@@ -7886,13 +7899,33 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         // "DOESN'T PAY" TEST — same rule the report table's per-cell
                         // "—" (Doesn't pay) uses. If the item was not applicable in a
                         // single requested period AND the student never paid/brought
-                        // anything toward it, it never counts for this student: not in
-                        // the item list, not in required/expected, not in the status
-                        // group's student count.
+                        // anything toward it, it never counts for this student.
                         // ============================================================
                         const hasPayment = totalQtyCollected > 0 || totalAmtCollected > 0;
-                        if (!anyPeriodApplicable && !hasPayment) {
-                            continue; // removed for this student in every period — skip entirely
+
+                        // ============================================================
+                        // ★ NEW IN v12.1 — ZERO-EXPECTED TEST ★
+                        // If, after applying customizations, this item genuinely
+                        // expects NOTHING from this student for its payment option
+                        // (cash_only with amount<=0, item_only with quantity<=0, or
+                        // either with both<=0), AND the student has never paid or
+                        // brought anything toward it, the item never counts for this
+                        // student — same treatment as "doesn't apply in any period".
+                        // This keeps students like "LTBalance Expected 0 / Collected 0
+                        // / Balance 0" out of the report and out of item/group filters
+                        // entirely, instead of showing a hollow 0/0/0 row.
+                        // ============================================================
+                        let hasZeroExpected = false;
+                        if (effectivePaymentOption === 'cash_only') {
+                            hasZeroExpected = effectiveAmount <= 0;
+                        } else if (effectivePaymentOption === 'item_only') {
+                            hasZeroExpected = effectiveQuantity <= 0;
+                        } else {
+                            hasZeroExpected = effectiveAmount <= 0 && effectiveQuantity <= 0;
+                        }
+
+                        if ((!anyPeriodApplicable || hasZeroExpected) && !hasPayment) {
+                            continue; // removed / zero-expected for this student — skip entirely
                         }
 
                         // ============================================================
@@ -8255,6 +8288,13 @@ if (filterItemName && filterItemName !== 'all') {
         });
     }
 });
+console.log('✅ Comprehensive Report API v12.1 - ZERO-EXPECTED ITEMS FILTERED!');
+console.log('   - Items with 0 effective expected (and 0 paid) are dropped entirely per student');
+console.log('   - Correct OR logic for cash vs items');
+console.log('   - Proper period scoping (Termly, Yearly, One-Time)');
+console.log('   - Accurate payment aggregation');
+console.log('   - Customizations and removed items handled');
+console.log('   - Raw payments included for Excel export');
 console.log('✅ Comprehensive Report API v11.1 - PERIOD DETECTION FIXED!');
 console.log('   - Correct OR logic for cash vs items');
 console.log('   - Proper period scoping (Termly, Yearly, One-Time)');
