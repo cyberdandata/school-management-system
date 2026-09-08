@@ -4,54 +4,120 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const initSqlJs = require('sql.js/dist/sql-asm.js');
+const { AsyncLocalStorage } = require('async_hooks'); // ✅ For atomic transactions
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const configuredDataDir = process.env.SCHOOL_DATA_DIR;
-let requestQueue = Promise.resolve();
-const pendingDatabaseWrites = new Map();
+
+// ==================== ATOMIC TRANSACTION SYSTEM ====================
+const transactionStorage = new AsyncLocalStorage();
+const TEMP_DIR = path.join(configuredDataDir || path.join(__dirname, 'data'), '.tmp');
+const tempFileNames = fs.readdirSync(TEMP_DIR);
+// Ensure temp directory exists and clean up any leftover temp files on startup
+if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+} else {
+    // Remove any stale temporary files (from previous incomplete transactions)
+   
+  for (const file of tempFileNames) {
+        try {
+            fs.unlinkSync(path.join(TEMP_DIR, file));
+        } catch (e) { /* ignore */ }
+    }
+}
+
+// Start a new transaction (called per request)
+function startTransaction() {
+    const store = { tempFiles: {} };
+    return store;
+}
+
+// Commit: atomically rename all temporary files to their real paths
+function commitTransaction(store) {
+    if (!store) return;
+    const entries = Object.entries(store.tempFiles);
+    for (const [realPath, tempPath] of entries) {
+        try {
+            // rename is atomic on POSIX systems
+            fs.renameSync(tempPath, realPath);
+        } catch (err) {
+            // If any rename fails, attempt to rollback already renamed files?
+            // Since we want atomicity, we must try to revert all.
+            console.error('❌ Atomic commit failed for', realPath, err);
+            rollbackTransaction(store);
+            throw new Error('Transaction commit failed: ' + err.message);
+        }
+    }
+    // Success: clear the store
+    store.tempFiles = {};
+}
+
+// Rollback: delete all temporary files
+function rollbackTransaction(store) {
+    if (!store) return;
+    for (const tempPath of Object.values(store.tempFiles)) {
+        try {
+            if (fs.existsSync(tempPath)) {
+                fs.unlinkSync(tempPath);
+            }
+        } catch (e) { /* ignore */ }
+    }
+    store.tempFiles = {};
+}
 
 // ==================== MIDDLEWARE ====================
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-const aiRoutes = require('./ai/routes');
+// const aiRoutes = require('./ai/routes');
 // app.use('/api/ai', aiRoutes);
 // console.log('🧠 AI routes mounted at /api/ai');
-
-// SQLite transactions cover the complete lifetime of each request.
+// ==================== TRANSACTION MIDDLEWARE ====================
+// This middleware wraps each request in an atomic transaction.
+// All saveFile calls within the request will write to temporary files.
+// On successful response, changes are committed (renamed).
+// On error, changes are rolled back (temp files deleted).
 app.use((req, res, next) => {
-    let release;
-    const turn = requestQueue;
-    requestQueue = new Promise(resolve => { release = resolve; });
-
-    turn.then(() => {
-        let finished = false;
-        try {
-            db.exec('BEGIN');
-            const finish = (commit) => {
-                if (finished) return;
-                finished = true;
-                try {
-                    db.exec(commit ? 'COMMIT' : 'ROLLBACK');
-                } catch (error) {
-                    console.error('SQLite transaction finalization failed:', error.message);
-                } finally {
-                    release();
+    const store = startTransaction();
+    transactionStorage.run(store, () => {
+        // Override res.end to commit transaction before sending response
+        const originalEnd = res.end;
+        let committed = false;
+        res.end = function (...args) {
+            if (!committed) {
+                committed = true;
+                const currentStore = transactionStorage.getStore();
+                if (currentStore && Object.keys(currentStore.tempFiles).length > 0) {
+                    try {
+                        commitTransaction(currentStore);
+                    } catch (commitErr) {
+                        // If commit fails, we still need to end the response, but with an error status
+                        console.error('❌ Commit failed during res.end:', commitErr);
+                        // Rollback already done inside commitTransaction on failure
+                        // Set status to 500 if not already set
+                        if (res.statusCode < 400) res.status(500);
+                        // We cannot change the response body easily here, but we can log.
+                    }
                 }
-            };
-            res.once('finish', () => finish(res.statusCode < 400));
-            res.once('close', () => finish(false));
+            }
+            originalEnd.apply(this, args);
+        };
+
+        // Catch synchronous errors and rollback
+        try {
             next();
-        } catch (error) {
-            if (db.inTransaction) db.exec('ROLLBACK');
-            release();
-            next(error);
+        } catch (err) {
+            const currentStore = transactionStorage.getStore();
+            if (currentStore) {
+                rollbackTransaction(currentStore);
+            }
+            next(err);
         }
     });
 });
+
 // ==================== SYNC MANAGER INTEGRATION ====================
 
 let syncManager = null;
@@ -157,194 +223,53 @@ if (!fs.existsSync(dataDir)) {
     console.log(`Created data directory: ${dataDir}`);
 }
 
-// Keep the active database outside the JSON data directory. Deleting data/
-// must not delete the database that the application is using.
-const databasePath = process.env.SCHOOL_DB_PATH || path.join(__dirname, 'school.db');
-const legacyDatabasePath = path.join(dataDir, 'school.db');
-if (!fs.existsSync(databasePath) && fs.existsSync(legacyDatabasePath)) {
-    fs.copyFileSync(legacyDatabasePath, databasePath);
-    console.log(`Migrated legacy database to ${databasePath}`);
-}
-let db;
-
-class SqlJsDatabase {
-    constructor(SQL, filePath) {
-        this.SQL = SQL;
-        this.filePath = filePath;
-        this.database = fs.existsSync(filePath)
-            ? new SQL.Database(new Uint8Array(fs.readFileSync(filePath)))
-            : new SQL.Database();
-        this.inTransaction = false;
-        this.userVersion = 0;
-    }
-
-    exec(sql) {
-        this.database.exec(sql);
-        if (/^\s*BEGIN\b/i.test(sql)) this.inTransaction = true;
-        if (/^\s*ROLLBACK\b/i.test(sql)) this.inTransaction = false;
-        if (/^\s*COMMIT\b/i.test(sql)) {
-            this.inTransaction = false;
-            this.persist();
-        }
-    }
-
-    prepare(sql) {
-        const database = this.database;
-        return {
-            get: (...params) => {
-                const statement = database.prepare(sql);
-                statement.bind(params);
-                const result = statement.step() ? statement.getAsObject() : undefined;
-                statement.free();
-                return result;
-            },
-            all: (...params) => {
-                const statement = database.prepare(sql);
-                statement.bind(params);
-                const rows = [];
-                while (statement.step()) rows.push(statement.getAsObject());
-                statement.free();
-                return rows;
-            },
-            run: (...params) => {
-                database.run(sql, params);
-                if (!this.inTransaction) this.persist();
-            }
-        };
-    }
-
-    transaction(callback) {
-        return () => {
-            const startedHere = !this.inTransaction;
-            if (startedHere) this.exec('BEGIN');
-            try {
-                const result = callback();
-                if (startedHere) this.exec('COMMIT');
-                return result;
-            } catch (error) {
-                if (startedHere && this.inTransaction) {
-                    try {
-                        this.exec('ROLLBACK');
-                    } catch (rollbackError) {
-                        console.error('SQLite rollback skipped:', rollbackError.message);
-                    }
-                }
-                throw error;
-            }
-        };
-    }
-
-    pragma(value, options = {}) {
-        const match = /^user_version\s*=\s*(\d+)/i.exec(value);
-        if (match) {
-            this.userVersion = Number(match[1]);
-            this.database.run(`PRAGMA user_version = ${this.userVersion}`);
-            if (!this.inTransaction) this.persist();
-            return;
-        }
-        if (/^user_version$/i.test(value) && options.simple) {
-            const result = this.database.exec('PRAGMA user_version');
-            return result[0]?.values?.[0]?.[0] || 0;
-        }
-        try {
-            this.database.run(`PRAGMA ${value}`);
-        } catch (error) {
-            console.warn(`SQLite pragma skipped (${value}):`, error.message);
-        }
-    }
-
-    persist() {
-        fs.writeFileSync(this.filePath, Buffer.from(this.database.export()));
-    }
-}
-
-const singletonCollections = new Set(['settings.json', 'studentTermRecords.json']);
-
-function tableNameFor(filePath) {
-    return path.basename(filePath, '.json').replace(/[^a-zA-Z0-9_]/g, '_');
-}
-
-function ensureTable(filePath) {
-    const tableName = tableNameFor(filePath);
-    db.exec(`CREATE TABLE IF NOT EXISTS "${tableName}" (id TEXT PRIMARY KEY, data TEXT NOT NULL)`);
-    return tableName;
-}
-
-function hasCollectionData(filePath) {
-    if (!db) return false;
-    const tableName = ensureTable(filePath);
-    return db.prepare(`SELECT 1 FROM "${tableName}" LIMIT 1`).get() !== undefined;
-}
-
-function hasCollection(filePath) {
-    if (!db) return false;
-    const tableName = tableNameFor(filePath);
-    return db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) !== undefined;
-}
-
-function migrateJsonData() {
-    const jsonFiles = fs.readdirSync(dataDir)
-        .filter(name => name.endsWith('.json'))
-        .map(name => path.join(dataDir, name));
-    const migrate = db.transaction(() => {
-        for (const filePath of jsonFiles) {
-            const tableName = ensureTable(filePath);
-            const existing = db.prepare(`SELECT COUNT(*) AS count FROM "${tableName}"`).get().count;
-            if (existing > 0) continue;
-
-            let value;
-            try {
-                const content = fs.readFileSync(filePath, 'utf8');
-                value = content.trim() ? JSON.parse(content) : (singletonCollections.has(path.basename(filePath)) ? {} : []);
-            } catch (error) {
-                console.error(`Could not migrate ${filePath}:`, error.message);
-                continue;
-            }
-
-            const insert = db.prepare(`INSERT INTO "${tableName}" (id, data) VALUES (?, ?)`);
-            if (!Array.isArray(value)) {
-                insert.run('__singleton__', JSON.stringify(value));
-            } else if (Array.isArray(value)) {
-                for (const item of value) {
-                    insert.run(item && item.id ? String(item.id) : uuidv4(), JSON.stringify(item));
-                }
-            }
-        }
-        db.pragma('user_version = 1');
-    });
-
-    if (db.pragma('user_version', { simple: true }) === 0) {
-        migrate();
-    }
-}
-
-function applyPendingDatabaseWrites() {
-    for (const [filePath, data] of pendingDatabaseWrites) {
-        if (!hasCollection(filePath)) saveFile(filePath, data);
-    }
-    pendingDatabaseWrites.clear();
-}
-
 // ==================== BACKUP SYSTEM ====================
 const backupDir = path.join(__dirname, 'backups');
+
+function copyFolderSync(src, dest) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (let entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyFolderSync(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
 
 function cleanupOldBackups() {
     if (!fs.existsSync(backupDir)) return;
     const folders = fs.readdirSync(backupDir)
-        .filter(name => name.startsWith('backup_') && name.endsWith('.db'))
+        .filter(name => name.startsWith('backup_'))
         .map(name => ({
             name: name,
             path: path.join(backupDir, name),
-            dateStr: name.replace('backup_', '').slice(0, 19)
+            dateStr: name.replace('backup_', '').slice(0, 10) // YYYY-MM-DD
         }))
-        .sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+        .sort((a, b) => b.dateStr.localeCompare(a.dateStr)); // descending
 
-    for (const backup of folders.slice(5)) {
-        try {
-            fs.rmSync(backup.path, { force: true });
-            console.log(`Deleted old backup: ${backup.path}`);
-        } catch (error) {
-            console.error(`Failed to delete backup ${backup.path}:`, error);
+    // group by date
+    const dateGroups = {};
+    for (const f of folders) {
+        if (!dateGroups[f.dateStr]) dateGroups[f.dateStr] = [];
+        dateGroups[f.dateStr].push(f);
+    }
+
+    const dates = Object.keys(dateGroups).sort((a,b) => b.localeCompare(a));
+    if (dates.length > 5) {
+        const toDelete = dates.slice(5); // keep latest 5 days
+        for (const date of toDelete) {
+            for (const f of dateGroups[date]) {
+                try {
+                    fs.rmSync(f.path, { recursive: true, force: true });
+                    console.log(`🗑️ Deleted old backup: ${f.path}`);
+                } catch (e) {
+                    console.error(`Failed to delete backup ${f.path}:`, e);
+                }
+            }
         }
     }
 }
@@ -355,15 +280,21 @@ function performBackup() {
             fs.mkdirSync(backupDir, { recursive: true });
         }
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
-        db.pragma('wal_checkpoint(TRUNCATE)');
-        fs.copyFileSync(databasePath, backupPath);
-        console.log(`✅ Backup created: ${backupPath}`);
+        const backupFolder = path.join(backupDir, `backup_${timestamp}`);
+        // copy dataDir to backupFolder recursively
+        if (fs.cpSync) {
+            fs.cpSync(dataDir, backupFolder, { recursive: true });
+        } else {
+            copyFolderSync(dataDir, backupFolder);
+        }
+        console.log(`✅ Backup created: ${backupFolder}`);
         cleanupOldBackups();
     } catch (error) {
         console.error('❌ Backup failed:', error);
     }
 }
+
+performBackup();
 
 // ==================== HELPER: AUTO-REMOVE ALL ITEMS FOR A NEW STUDENT ====================
 // Used at registration/import time so a brand-new student (no payment history yet)
@@ -483,19 +414,33 @@ function deduplicatePaymentItems(items) {
 
 function readFile(filePath) {
     try {
-        if (!db) {
-            const pending = pendingDatabaseWrites.get(filePath);
-            return pending !== undefined ? pending : (singletonCollections.has(path.basename(filePath)) ? {} : []);
+        if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, 'utf8');
+            // Check if file is empty
+            if (!content || content.trim() === '') {
+                console.warn(`⚠️ File ${filePath} is empty, returning default`);
+                // Return appropriate default based on file type
+                if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
+                    return {};
+                }
+                return [];
+            }
+            const parsed = JSON.parse(content);
+            return parsed;
         }
-        const tableName = ensureTable(filePath);
-        const rows = db.prepare(`SELECT id, data FROM "${tableName}"`).all();
-        if (rows.length === 1 && rows[0].id === '__singleton__') {
-            return rows.length ? JSON.parse(rows[0].data) : {};
+        console.log(`📄 File ${filePath} does not exist, returning default`);
+        // Return appropriate default based on file type
+        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
+            return {};
         }
-        return rows.map(row => JSON.parse(row.data));
+        return [];
     } catch (error) {
         console.error(`❌ Error reading ${filePath}:`, error.message);
-        return singletonCollections.has(path.basename(filePath)) ? {} : [];
+        // Return appropriate default based on file type
+        if (filePath.includes('settings.json') || filePath.includes('studentTermRecords.json')) {
+            return {};
+        }
+        return [];
     }
 }
 
@@ -505,25 +450,50 @@ function readFile(filePath) {
 // Otherwise, writes directly (original behavior).
 function saveFile(filePath, data) {
     try {
-        if (!db) {
-            pendingDatabaseWrites.set(filePath, data);
-            return true;
-        }
-        const tableName = ensureTable(filePath);
-        const replaceRows = () => {
-            db.prepare(`DELETE FROM "${tableName}"`).run();
-            const insert = db.prepare(`INSERT INTO "${tableName}" (id, data) VALUES (?, ?)`);
-            if (!Array.isArray(data)) {
-                insert.run('__singleton__', JSON.stringify(data));
-            } else if (Array.isArray(data)) {
-                for (const item of data) {
-                    insert.run(item && item.id ? String(item.id) : uuidv4(), JSON.stringify(item));
-                }
+        // Check if we are inside a transaction
+        const store = transactionStorage.getStore();
+        if (store) {
+            // Write to a temporary file
+            if (!fs.existsSync(TEMP_DIR)) {
+                fs.mkdirSync(TEMP_DIR, { recursive: true });
             }
-        };
-        if (db.inTransaction) replaceRows();
-        else db.transaction(replaceRows)();
-        return true;
+            // Ensure the target directory exists (for temp file we just use TEMP_DIR)
+            const tempFileName = path.basename(filePath) + '.' + Date.now() + '.' + Math.random().toString(36).substr(2, 6);
+            const tempPath = path.join(TEMP_DIR, tempFileName);
+            
+            // Write data to temp file
+            const jsonData = JSON.stringify(data, null, 2);
+            fs.writeFileSync(tempPath, jsonData, 'utf8');
+            
+            // Verify the temp file was written
+            if (fs.existsSync(tempPath)) {
+                // Store mapping in transaction store
+                store.tempFiles[filePath] = tempPath;
+                console.log(`📝 Staged write to temp: ${tempPath} (for ${filePath})`);
+                return true;
+            } else {
+                console.error(`❌ Failed to write temp file: ${tempPath}`);
+                return false;
+            }
+        } else {
+            // Original behavior: write directly
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+                console.log(`📁 Created directory: ${dir}`);
+            }
+            
+            const jsonData = JSON.stringify(data, null, 2);
+            fs.writeFileSync(filePath, jsonData, 'utf8');
+            
+            if (fs.existsSync(filePath)) {
+                const written = fs.readFileSync(filePath, 'utf8');
+                console.log(`✅ File saved: ${filePath}`);
+                console.log(`📄 Content length: ${written.length} bytes`);
+                return true;
+            }
+            return false;
+        }
     } catch (error) {
         console.error(`❌ Error writing ${filePath}:`, error.message);
         return false;
@@ -572,7 +542,7 @@ function transformFeeStructureWithPeriods(feeStructure) {
 
 function initializeDefaultData() {
     // Initialize settings - OBJECT
-    if (!hasCollection(files.settings)) {
+    if (!fs.existsSync(files.settings)) {
         saveFile(files.settings, {
             currentAcademicYear: new Date().getFullYear(),
             currentTerm: 1,
@@ -589,12 +559,12 @@ function initializeDefaultData() {
     
     
     // Initialize schools - ARRAY
-    if (!hasCollection(files.schools)) {
+    if (!fs.existsSync(files.schools)) {
         saveFile(files.schools, []);
     }
     
     // Initialize classes - ARRAY
-    if (!hasCollection(files.classes)) {
+    if (!fs.existsSync(files.classes)) {
         saveFile(files.classes, [
             { id: uuidv4(), name: 'Baby Class', level: 'Nursery', order: 1, createdAt: new Date().toISOString() },
             { id: uuidv4(), name: 'Middle Class', level: 'Nursery', order: 2, createdAt: new Date().toISOString() },
@@ -609,12 +579,12 @@ function initializeDefaultData() {
         ]);
     }
     
-    if (!hasCollection(files.statusGroups)) {
+    if (!fs.existsSync(files.statusGroups)) {
         saveFile(files.statusGroups, []);
     }
 
     // Initialize subjects - ARRAY
-    if (!hasCollection(files.subjects)) {
+    if (!fs.existsSync(files.subjects)) {
         saveFile(files.subjects, [
             { id: uuidv4(), name: 'English', code: 'ENG', category: 'Core', classId: 'all', createdAt: new Date().toISOString() },
             { id: uuidv4(), name: 'Mathematics', code: 'MATH', category: 'Core', classId: 'all', createdAt: new Date().toISOString() },
@@ -624,7 +594,7 @@ function initializeDefaultData() {
     }
     
     // Initialize bursaries - ARRAY
-    if (!hasCollection(files.feeBursaries)) {
+    if (!fs.existsSync(files.feeBursaries)) {
         saveFile(files.feeBursaries, [
             { id: uuidv4(), name: 'Merit Scholarship', description: 'Top performers', type: 'percentage', value: 25, category: 'Academic', isActive: true, createdAt: new Date().toISOString() },
             { id: uuidv4(), name: 'Sports Bursary', description: 'Sports talent', type: 'percentage', value: 15, category: 'Sports', isActive: true, createdAt: new Date().toISOString() },
@@ -635,16 +605,18 @@ function initializeDefaultData() {
     // Initialize empty arrays for other collections
     const emptyArrays = ['feeStructures', 'teachers', 'students', 'enrollments', 'assessments', 'scores', 'attendance', 'feePayments', 'studentFeeAssignments'];
     emptyArrays.forEach(file => {
-        if (!hasCollection(files[file])) {
+        if (!fs.existsSync(files[file])) {
             saveFile(files[file], []);
         }
     });
     
     // Initialize studentTermRecords - OBJECT (special case)
-    if (!hasCollection(files.studentTermRecords)) {
+    if (!fs.existsSync(files.studentTermRecords)) {
         saveFile(files.studentTermRecords, {});
     }
 }
+
+initializeDefaultData();
 
 // ==================== GLOBAL ACADEMIC SETTINGS ====================
 // This MUST be defined at the top level before any routes use it
@@ -658,9 +630,10 @@ let currentAcademicSettings = {
 // Function to load settings from file
 function loadAcademicSettings() {
     try {
-        const settingsPath = path.join(dataDir, 'settings.json');
-        if (hasCollectionData(settingsPath)) {
-            const settings = readFile(settingsPath);
+        const settingsPath = path.join(__dirname, 'data', 'settings.json');
+        if (fs.existsSync(settingsPath)) {
+            const settingsData = fs.readFileSync(settingsPath, 'utf8');
+            const settings = JSON.parse(settingsData);
             if (settings.currentAcademicYear) {
                 currentAcademicSettings.currentYear = settings.currentAcademicYear;
             }
@@ -677,6 +650,8 @@ function loadAcademicSettings() {
 }
 
 // Load settings immediately
+loadAcademicSettings();
+
 // Export for use in other routes if needed
 function getAcademicSettings() {
     return currentAcademicSettings;
@@ -687,12 +662,15 @@ function updateAcademicSettings(year, term) {
     currentAcademicSettings.currentTerm = term;
     // Save to file
     try {
-        const settingsPath = path.join(dataDir, 'settings.json');
-        let settings = readFile(settingsPath);
+        const settingsPath = path.join(__dirname, 'data', 'settings.json');
+        let settings = {};
+        if (fs.existsSync(settingsPath)) {
+            settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        }
         settings.currentAcademicYear = year;
         settings.currentTerm = term;
         settings.lastUpdated = new Date().toISOString();
-        saveFile(settingsPath, settings);
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         console.log(`📅 Academic settings saved: Year ${year}, Term ${term}`);
     } catch (error) {
         console.warn('Could not save academic settings:', error.message);
@@ -1389,8 +1367,13 @@ const archivePath = path.join(dataDir, 'archivedStudents.json');
 
 // Helper: Read archive file
 function readArchive() {
+    if (!fs.existsSync(archivePath)) {
+        return [];
+    }
     try {
-        return readFile(archivePath);
+        const content = fs.readFileSync(archivePath, 'utf8');
+        if (!content || content.trim() === '') return [];
+        return JSON.parse(content);
     } catch (e) {
         console.error('❌ Error reading archive:', e.message);
         return [];
@@ -1400,7 +1383,11 @@ function readArchive() {
 // Helper: Save archive file
 function saveArchive(data) {
     try {
-        saveFile(archivePath, data);
+        const dir = path.dirname(archivePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(archivePath, JSON.stringify(data, null, 2), 'utf8');
         console.log(`✅ Archived students saved (${data.length} records)`);
         return true;
     } catch (e) {
@@ -1512,7 +1499,9 @@ app.post('/api/students/restore/:studentId', (req, res) => {
         
         // Add back to students
         let students = [];
-        students = readFile(studentsPath);
+        if (fs.existsSync(studentsPath)) {
+            students = JSON.parse(fs.readFileSync(studentsPath, 'utf8'));
+        }
         
         // Check if student already exists (by ID)
         const existingIndex = students.findIndex(s => s.id === student.id);
@@ -1521,12 +1510,14 @@ app.post('/api/students/restore/:studentId', (req, res) => {
         } else {
             students.push(student);
         }
-        saveFile(studentsPath, students);
+        fs.writeFileSync(studentsPath, JSON.stringify(students, null, 2));
         
         // Also restore the enrollment
         if (record.enrollments && record.enrollments.length > 0) {
             let enrollments = [];
-            enrollments = readFile(enrollmentsPath);
+            if (fs.existsSync(enrollmentsPath)) {
+                enrollments = JSON.parse(fs.readFileSync(enrollmentsPath, 'utf8'));
+            }
             
             // Find the last enrollment and make it current
             const lastEnrollment = record.enrollments[record.enrollments.length - 1];
@@ -1542,7 +1533,7 @@ app.post('/api/students/restore/:studentId', (req, res) => {
                     lastEnrollment.completionReason = null;
                     enrollments.push(lastEnrollment);
                 }
-                saveFile(enrollmentsPath, enrollments);
+                fs.writeFileSync(enrollmentsPath, JSON.stringify(enrollments, null, 2));
             }
         }
         
@@ -1756,7 +1747,9 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
             
             // Add to students
             let students = [];
-            students = readFile(studentsPath);
+            if (fs.existsSync(studentsPath)) {
+                students = JSON.parse(fs.readFileSync(studentsPath, 'utf8'));
+            }
             
             const existingIndex = students.findIndex(s => s.id === student.id);
             if (existingIndex !== -1) {
@@ -1764,7 +1757,7 @@ app.post('/api/students/archive/bulk-restore', (req, res) => {
             } else {
                 students.push(student);
             }
-            saveFile(studentsPath, students);
+            fs.writeFileSync(studentsPath, JSON.stringify(students, null, 2));
             
             restored.push(student.id);
         }
@@ -4701,23 +4694,43 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     let stock = {};
     
     try {
-        const parsed = readFile(inventoryStockPath);
-        if (Array.isArray(parsed)) {
-            console.log('⚠️ Stock data contained an array! Converting to object...');
-            parsed.forEach(item => {
-                if (item && item.name) {
-                    const key = `${item.name}_${item.academicYear || 2026}_${item.term || 1}`;
-                    stock[key] = item;
+        if (fs.existsSync(inventoryStockPath)) {
+            const content = fs.readFileSync(inventoryStockPath, 'utf8');
+            console.log('📄 Stock file content length:', content.length);
+            
+            if (content.trim() === '') {
+                console.log('⚠️ Stock file is empty, using empty object');
+                stock = {};
+            } else {
+                const parsed = JSON.parse(content);
+                if (Array.isArray(parsed)) {
+                    console.log('⚠️ Stock file contained an array! Converting to object...');
+                    const newStock = {};
+                    parsed.forEach((item, index) => {
+                        if (item && item.name) {
+                            const key = `${item.name}_${item.academicYear || 2026}_${item.term || 1}`;
+                            newStock[key] = item;
+                        }
+                    });
+                    stock = newStock;
+                } else if (typeof parsed === 'object' && parsed !== null) {
+                    stock = parsed;
+                    console.log('📊 Stock loaded as object. Keys:', Object.keys(stock).length);
+                } else {
+                    console.log('⚠️ Invalid stock data, using empty object');
+                    stock = {};
                 }
-            });
-        } else if (parsed && typeof parsed === 'object') {
-            stock = parsed;
+            }
+        } else {
+            console.log('📊 No stock file found, creating new');
+            fs.writeFileSync(inventoryStockPath, JSON.stringify({}, null, 2), 'utf8');
+            stock = {};
         }
     } catch (e) {
         console.warn('⚠️ Could not read stock:', e.message);
         console.log('🔄 Resetting stock to empty object');
         stock = {};
-        saveFile(inventoryStockPath, {});
+        fs.writeFileSync(inventoryStockPath, JSON.stringify({}, null, 2), 'utf8');
     }
     
     // SAFETY CHECK: Ensure stock is ALWAYS an object
@@ -4739,13 +4752,20 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
     // ========== READ EXISTING TRANSACTIONS ==========
     let transactions = [];
     try {
-        transactions = readFile(inventoryTransactionsPath);
-        if (!Array.isArray(transactions)) transactions = [];
-        console.log('📊 Transactions loaded:', transactions.length);
+        if (fs.existsSync(inventoryTransactionsPath)) {
+            const content = fs.readFileSync(inventoryTransactionsPath, 'utf8');
+            transactions = JSON.parse(content);
+            if (!Array.isArray(transactions)) transactions = [];
+            console.log('📊 Transactions loaded:', transactions.length);
+        } else {
+            console.log('📊 No transactions file found, creating new');
+            fs.writeFileSync(inventoryTransactionsPath, JSON.stringify([], null, 2), 'utf8');
+            transactions = [];
+        }
     } catch (e) {
         console.warn('⚠️ Could not read transactions:', e.message);
         transactions = [];
-        saveFile(inventoryTransactionsPath, []);
+        fs.writeFileSync(inventoryTransactionsPath, JSON.stringify([], null, 2), 'utf8');
     }
     
     const year = parseInt(academicYear) || new Date().getFullYear();
@@ -4909,18 +4929,21 @@ async function updateInventoryFromPayment(studentId, activityItemPayments, acade
             }
             
             // Save stock
-            console.log('📝 Saving stock to SQLite');
-            saveFile(inventoryStockPath, stock);
-            console.log(`✅ Stock saved to database`);
+            const stockJson = JSON.stringify(stock, null, 2);
+            console.log('📝 Stock JSON to save:', stockJson);
+            fs.writeFileSync(inventoryStockPath, stockJson, 'utf8');
+            console.log(`✅ Stock written to: ${inventoryStockPath}`);
             
             // Verify save
-            const verifyStock = readFile(inventoryStockPath);
+            const verifyContent = fs.readFileSync(inventoryStockPath, 'utf8');
+            const verifyStock = JSON.parse(verifyContent);
             const verifyKeys = Object.keys(verifyStock);
             console.log(`📊 Verified keys: ${verifyKeys.join(', ')}`);
             console.log(`📊 Verified count: ${verifyKeys.length}`);
             
             // Save transactions
-            saveFile(inventoryTransactionsPath, transactions);
+            const txJson = JSON.stringify(transactions, null, 2);
+            fs.writeFileSync(inventoryTransactionsPath, txJson, 'utf8');
             console.log(`✅ Transactions saved: ${transactions.length} records`);
             
             console.log(`\n✅✅✅ INVENTORY UPDATE COMPLETE!`);
@@ -4985,7 +5008,11 @@ app.post('/api/test/inventory-direct', async (req, res) => {
         
         // Check if stock was saved
         const stockPath = path.join(__dirname, 'data', 'inventoryStock.json');
-        const stock = readFile(stockPath) || {};
+        let stock = {};
+        if (fs.existsSync(stockPath)) {
+            const content = fs.readFileSync(stockPath, 'utf8');
+            stock = JSON.parse(content);
+        }
         
         res.json({
             success: true,
@@ -5702,7 +5729,11 @@ app.post('/api/debug/payment-flow', async (req, res) => {
         
         // Check stock after manual update
         const stockPath = path.join(__dirname, 'data', 'inventoryStock.json');
-        const stock = readFile(stockPath) || {};
+        let stock = {};
+        if (fs.existsSync(stockPath)) {
+            const content = fs.readFileSync(stockPath, 'utf8');
+            stock = JSON.parse(content);
+        }
         
         res.json({
             success: true,
@@ -6139,10 +6170,13 @@ app.get('/api/inventory/summary', async (req, res) => {
         
         // ========== READ STOCK ==========
         const stockPath = path.join(dataDir, 'inventoryStock.json');
+        let stock = {};
         try {
-            const stock = readFile(stockPath) || {};
-            console.log(`📊 Stock loaded. Keys: ${Object.keys(stock).length}`);
-            inventoryData.stock = stock;
+            if (fs.existsSync(stockPath)) {
+                const content = fs.readFileSync(stockPath, 'utf8');
+                stock = JSON.parse(content);
+                console.log(`📊 Stock loaded. Keys: ${Object.keys(stock).length}`);
+            }
         } catch (e) {
             console.warn('Could not read stock:', e.message);
         }
@@ -7722,59 +7756,169 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             let studentCustomizedItems = 0;
             let studentHasCustomizations = false;
             
-            if (feeStructure.activityComponents) {
+                       if (feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     if (!component) continue;
-                    
+
                     const periodType = component.periodType || 'termly';
                     const groupName = component.statusGroupName || component.name || 'Other';
-                    allStatusGroups.add(groupName);
-                    
-                    if (!statusGroups[groupName]) {
-                        statusGroups[groupName] = {
-                            name: groupName,
-                            periodTypes: new Set([periodType]),
-                            items: {},
-                            totalExpected: 0,
-                            totalPaid: 0,
-                            totalBalance: 0,
-                            totalRemaining: 0,
-                            totalRequired: 0,
-                            totalCollected: 0
-                        };
-                    }
-                    
+
                     for (const item of (component.items || [])) {
                         if (!item) continue;
-                        
+
                         const itemId = item.id || item.name;
-                        
-                        // ============================================================
-                        // REMOVED GLOBAL SKIP – we will handle per‑period below
-                        // ============================================================
-                        // if (isItemRemoved(student, itemId)) continue;   // <-- REMOVED
-                        
+
                         const defaultAmount = item.totalAmount || 0;
                         const defaultQuantity = item.quantity || 1;
                         const defaultUnitPrice = item.unitPrice || (defaultAmount / defaultQuantity);
                         const defaultPaymentOption = item.paymentOption || 'either';
-                        
+
                         const customValues = getCustomizedItemValue(
-                            student, itemId, defaultAmount, defaultQuantity, 
+                            student, itemId, defaultAmount, defaultQuantity,
                             defaultPaymentOption, defaultUnitPrice
                         );
-                        
+
                         const effectiveAmount = customValues.amount;
                         const effectiveQuantity = customValues.quantity;
                         const effectiveUnitPrice = customValues.unitPrice;
                         const effectivePaymentOption = customValues.paymentOption;
                         const isCustomized = customValues.isCustomized;
-                        
+
+                        // ============================================================
+                        // FIRST PASS: resolve every requested period for THIS item
+                        // before touching any total. This is what lets us decide,
+                        // correctly, whether the item applies to this student at all.
+                        // ============================================================
+                        let totalQtyCollected = 0;
+                        let totalAmtCollected = 0;
+                        let totalCashExpected = 0;
+                        let totalCashPaid = 0;
+                        let anyPeriodApplicable = false;
+                        const localPeriodBreakdown = {};
+
+                        for (const period of periodsToProcess) {
+                            const periodKey = `${period.year}_${period.term}`;
+                            const isCurrentPeriod = (period.year === currentYear && period.term === currentTerm);
+
+                            let shouldInclude = false;
+                            if (periodType === 'termly') {
+                                shouldInclude = true;
+                            } else if (periodType === 'one_time') {
+                                shouldInclude = (periodKey === oldestPeriodKey);
+                            } else if (periodType === 'yearly') {
+                                const maxTerm = maxTermByYear[period.year] || 0;
+                                shouldInclude = (period.term === maxTerm);
+                            }
+
+                            // ================================================================
+                            // PERIOD-AWARE REMOVAL — respects student.removedItems exactly as
+                            // written by registration / import / edit-student. Once removed
+                            // (and never restored), the item contributes nothing, ever.
+                            // ================================================================
+                            if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
+                                shouldInclude = false;
+                            }
+
+                            if (!shouldInclude) {
+                                localPeriodBreakdown[periodKey] = {
+                                    year: period.year,
+                                    term: period.term,
+                                    qtyCollected: 0,
+                                    qtyRemaining: 0,
+                                    amtCollected: 0,
+                                    amtRemaining: 0,
+                                    isFullyPaid: false,
+                                    isNotApplicable: true,
+                                    isCurrent: isCurrentPeriod,
+                                    periodLabel: getPeriodLabel(period.year, period.term, isCurrentPeriod)
+                                };
+                                continue;
+                            }
+
+                            anyPeriodApplicable = true;
+
+                            const paidInfo = getPaidAmountsForItem(
+                                student.id, component.name, item.name,
+                                periodType, period.year, period.term, allPayments
+                            );
+
+                            const cashPaid = paidInfo.cashPaid;
+                            const itemsBrought = paidInfo.itemsBrought;
+                            const paymentHistories = paidInfo.paymentHistories;
+
+                            const totals = calculateItemTotalsWithORLogic(
+                                effectiveQuantity,
+                                effectiveAmount,
+                                effectivePaymentOption,
+                                cashPaid,
+                                itemsBrought
+                            );
+
+                            const qtyCollected = totals.itemsBrought;
+                            const amtCollected = totals.cashPaid;
+                            const qtyRemaining = totals.itemsRemaining;
+                            const amtRemaining = totals.cashRemaining;
+                            const isPeriodFullyPaid = totals.isFullyPaid;
+
+                            localPeriodBreakdown[periodKey] = {
+                                year: period.year,
+                                term: period.term,
+                                qtyCollected: qtyCollected,
+                                qtyRemaining: qtyRemaining,
+                                amtCollected: amtCollected,
+                                amtRemaining: amtRemaining,
+                                isFullyPaid: isPeriodFullyPaid,
+                                isCurrent: isCurrentPeriod,
+                                paymentHistories: paymentHistories,
+                                cashPaid: cashPaid,
+                                itemsBrought: itemsBrought,
+                                periodLabel: getPeriodLabel(period.year, period.term, isCurrentPeriod),
+                                isNotApplicable: false
+                            };
+
+                            totalQtyCollected += qtyCollected;
+                            totalAmtCollected += amtCollected;
+                            totalCashExpected += totals.cashExpected;
+                            totalCashPaid += totals.cashPaid;
+                        }
+
+                        // ============================================================
+                        // "DOESN'T PAY" TEST — same rule the report table's per-cell
+                        // "—" (Doesn't pay) uses. If the item was not applicable in a
+                        // single requested period AND the student never paid/brought
+                        // anything toward it, it never counts for this student: not in
+                        // the item list, not in required/expected, not in the status
+                        // group's student count.
+                        // ============================================================
+                        const hasPayment = totalQtyCollected > 0 || totalAmtCollected > 0;
+                        if (!anyPeriodApplicable && !hasPayment) {
+                            continue; // removed for this student in every period — skip entirely
+                        }
+
+                        // ============================================================
+                        // Item genuinely applies to this student — only now commit it.
+                        // ============================================================
+                        allStatusGroups.add(groupName);
+
+                        if (!statusGroups[groupName]) {
+                            statusGroups[groupName] = {
+                                name: groupName,
+                                periodTypes: new Set([periodType]),
+                                items: {},
+                                totalExpected: 0,
+                                totalPaid: 0,
+                                totalBalance: 0,
+                                totalRemaining: 0,
+                                totalRequired: 0,
+                                totalCollected: 0
+                            };
+                        }
+
                         if (isCustomized) {
                             studentCustomizedItems++;
                             studentHasCustomizations = true;
                         }
-                        
+
                         if (!statusGroups[groupName].items[item.name]) {
                             statusGroups[groupName].items[item.name] = {
                                 id: itemId,
@@ -7795,122 +7939,17 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                                 isOneTime: periodType === 'one_time'
                             };
                         }
-                        
+
                         const itemData = statusGroups[groupName].items[item.name];
-                        
-                        // ============================================================
-                        // CALCULATE FOR EACH PERIOD (with period‑aware removal)
-                        // ============================================================
-                        let totalQtyCollected = 0;
-                        let totalAmtCollected = 0;
-                        let totalCashExpected = 0;
-                        let totalCashPaid = 0;
-                        
-                        for (const period of periodsToProcess) {
-                            const periodKey = `${period.year}_${period.term}`;
-                            const isCurrentPeriod = (period.year === currentYear && period.term === currentTerm);
-                            const isFirstTermForPeriod = (period.term === 1);
-                            
-                            // ================================================================
-                            // Determine if this item should be included in this period
-                            // ================================================================
-                            let shouldInclude = false;
-                            if (periodType === 'termly') {
-                                shouldInclude = true;
-                            } else if (periodType === 'one_time') {
-                                shouldInclude = (periodKey === oldestPeriodKey);
-                            } else if (periodType === 'yearly') {
-                                const maxTerm = maxTermByYear[period.year] || 0;
-                                shouldInclude = (period.term === maxTerm);
-                            }
-                            
-                            // ================================================================
-                            // NEW: PERIOD-AWARE REMOVAL – skip if removed for this specific period
-                            // ================================================================
-                            if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
-                                shouldInclude = false;
-                            }
-                            
-                            if (!shouldInclude) {
-                                itemData.periodBreakdown[periodKey] = {
-                                    year: period.year,
-                                    term: period.term,
-                                    qtyCollected: 0,
-                                    qtyRemaining: 0,
-                                    amtCollected: 0,
-                                    amtRemaining: 0,
-                                    isFullyPaid: false,
-                                    isNotApplicable: true,
-                                    isCurrent: isCurrentPeriod,
-                                    periodLabel: getPeriodLabel(period.year, period.term, isCurrentPeriod)
-                                };
-                                continue;
-                            }
-                            
-                            // ============================================================
-                            // GET PAID AMOUNTS FOR THIS PERIOD
-                            // ============================================================
-                            const paidInfo = getPaidAmountsForItem(
-                                student.id, component.name, item.name, 
-                                periodType, period.year, period.term, allPayments
-                            );
-                            
-                            const cashPaid = paidInfo.cashPaid;
-                            const itemsBrought = paidInfo.itemsBrought;
-                            const paymentHistories = paidInfo.paymentHistories;
-                            
-                            // ============================================================
-                            // CALCULATE WITH OR LOGIC
-                            // ============================================================
-                            const totals = calculateItemTotalsWithORLogic(
-                                effectiveQuantity,
-                                effectiveAmount,
-                                effectivePaymentOption,
-                                cashPaid,
-                                itemsBrought
-                            );
-                            
-                            const qtyCollected = totals.itemsBrought;
-                            const amtCollected = totals.cashPaid;
-                            const qtyRemaining = totals.itemsRemaining;
-                            const amtRemaining = totals.cashRemaining;
-                            const isPeriodFullyPaid = totals.isFullyPaid;
-                            
-                            // ============================================================
-                            // STORE PERIOD BREAKDOWN
-                            // ============================================================
-                            itemData.periodBreakdown[periodKey] = {
-                                year: period.year,
-                                term: period.term,
-                                qtyCollected: qtyCollected,
-                                qtyRemaining: qtyRemaining,
-                                amtCollected: amtCollected,
-                                amtRemaining: amtRemaining,
-                                isFullyPaid: isPeriodFullyPaid,
-                                isCurrent: isCurrentPeriod,
-                                paymentHistories: paymentHistories,
-                                cashPaid: cashPaid,
-                                itemsBrought: itemsBrought,
-                                periodLabel: getPeriodLabel(period.year, period.term, isCurrentPeriod),
-                                isNotApplicable: false
-                            };
-                            
-                            totalQtyCollected += qtyCollected;
-                            totalAmtCollected += amtCollected;
-                            totalCashExpected += totals.cashExpected;
-                            totalCashPaid += totals.cashPaid;
-                        }
-                        
-                        // ============================================================
-                        // UPDATE ITEM TOTALS
-                        // ============================================================
+                        itemData.periodBreakdown = localPeriodBreakdown;
                         itemData.totalCollected = totalQtyCollected;
                         itemData.totalRemaining = Math.max(0, effectiveQuantity - totalQtyCollected);
                         itemData.totalAmountCollected = totalAmtCollected;
                         itemData.isFullyPaid = itemData.totalRemaining <= 0 && totalAmtCollected >= effectiveAmount;
-                        
+
                         // ============================================================
-                        // UPDATE GROUP TOTALS
+                        // UPDATE GROUP TOTALS — only ever reached for an item that
+                        // genuinely applies to this student.
                         // ============================================================
                         statusGroups[groupName].totalRequired += effectiveQuantity;
                         statusGroups[groupName].totalCollected += totalQtyCollected;
@@ -7918,7 +7957,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         statusGroups[groupName].totalExpected += effectiveAmount;
                         statusGroups[groupName].totalPaid += totalAmtCollected;
                         statusGroups[groupName].totalBalance += Math.max(0, effectiveAmount - totalAmtCollected);
-                        
+
                         studentTotalCashExpected += totalCashExpected;
                         studentTotalCashPaid += totalCashPaid;
                         studentTotalCashRemaining += (totalCashExpected - totalCashPaid);
@@ -10372,9 +10411,10 @@ app.get('/api/students/:studentId/previous-balances', async (req, res) => {
         const settingsPath = path.join(__dirname, 'data', 'settings.json');
         let currentYear = new Date().getFullYear();
         let currentTerm = 1;
-        if (hasCollectionData(settingsPath)) {
+        if (fs.existsSync(settingsPath)) {
             try {
-                const settings = readFile(settingsPath);
+                const settingsData = fs.readFileSync(settingsPath, 'utf8');
+                const settings = JSON.parse(settingsData);
                 if (settings.currentAcademicYear) currentYear = settings.currentAcademicYear;
                 if (settings.currentTerm) currentTerm = settings.currentTerm;
             } catch(e) {}
@@ -11627,8 +11667,14 @@ app.post('/api/students/promote', async (req, res) => {
 
         function readJSON(file) {
             const filePath = path.join(dataDir, file);
+            if (!fs.existsSync(filePath)) {
+                console.warn(`⚠️ File not found: ${file}, creating empty`);
+                return [];
+            }
             try {
-                return readFile(filePath);
+                const content = fs.readFileSync(filePath, 'utf8');
+                if (!content || content.trim() === '') return [];
+                return JSON.parse(content);
             } catch (e) {
                 console.warn(`⚠️ Error reading ${file}:`, e.message);
                 return [];
@@ -11638,7 +11684,7 @@ app.post('/api/students/promote', async (req, res) => {
         function saveJSON(file, data) {
             const filePath = path.join(dataDir, file);
             try {
-                saveFile(filePath, data);
+                fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
                 console.log(`✅ Saved: ${file}`);
                 return true;
             } catch (e) {
@@ -11665,8 +11711,12 @@ app.post('/api/students/promote', async (req, res) => {
         const archivePath = path.join(dataDir, 'archivedStudents.json');
         
         function readArchive() {
+            if (!fs.existsSync(archivePath)) {
+                return [];
+            }
             try {
-                return readFile(archivePath);
+                const content = fs.readFileSync(archivePath, 'utf8');
+                return JSON.parse(content);
             } catch (e) {
                 return [];
             }
@@ -11674,7 +11724,7 @@ app.post('/api/students/promote', async (req, res) => {
 
         function saveArchive(data) {
             try {
-                saveFile(archivePath, data);
+                fs.writeFileSync(archivePath, JSON.stringify(data, null, 2), 'utf8');
                 console.log(`✅ Saved archived students`);
                 return true;
             } catch (e) {
@@ -14953,7 +15003,7 @@ console.log('✅ Parent Portal routes loaded');
 const eventsFilePath = path.join(dataDir, 'events.json');
 
 // Initialize events file
-if (!hasCollection(eventsFilePath)) {
+if (!fs.existsSync(eventsFilePath)) {
     saveFile(eventsFilePath, []);
 }
 
@@ -15210,10 +15260,10 @@ const chatFilePath = path.join(dataDir, 'chatMessages.json');
 const chatContactsFilePath = path.join(dataDir, 'chatContacts.json');
 
 // Initialize chat files
-if (!hasCollection(chatFilePath)) {
+if (!fs.existsSync(chatFilePath)) {
     saveFile(chatFilePath, {});
 }
-if (!hasCollection(chatContactsFilePath)) {
+if (!fs.existsSync(chatContactsFilePath)) {
     saveFile(chatContactsFilePath, {});
 }
 
@@ -15865,7 +15915,8 @@ app.use((err, req, res, next) => {
 app.get('/api/academic/debug', (req, res) => {
     try {
         const settings = readFile(files.settings);
-        const fileContent = JSON.stringify(readFile(files.settings), null, 2);
+        const fileExists = fs.existsSync(files.settings);
+        const fileContent = fileExists ? fs.readFileSync(files.settings, 'utf8') : 'File not found';
         
         res.json({
             settings: settings,
@@ -16054,18 +16105,7 @@ function getLocalIP() {
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');
 
-async function startServer() {
-    const SQL = await initSqlJs();
-    db = new SqlJsDatabase(SQL, databasePath);
-    db.pragma('journal_mode = WAL');
-    db.pragma('synchronous = FULL');
-    migrateJsonData();
-    applyPendingDatabaseWrites();
-    initializeDefaultData();
-    loadAcademicSettings();
-    performBackup();
-
-    app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
     const networkUrl = `http://${ip}:${PORT}`;
 
@@ -16093,12 +16133,6 @@ async function startServer() {
         console.log('   Install it with: npm install qrcode-terminal');
     }
     console.log('='.repeat(50));
-    });
-}
-
-startServer().catch(error => {
-    console.error('❌ Server startup failed:', error);
-    process.exitCode = 1;
 });
 
 console.log('✅ Student Promotion endpoint registered at /api/students/promote');

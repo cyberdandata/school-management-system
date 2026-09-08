@@ -70021,8 +70021,6 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // SchoolPay removed, all status groups always shown
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-// DASHBOARD v13.0 — Uniform stats, general stock, drill-down nav, SchoolPay
-// ---------------------------------------------------------------------------
 function injectDashboardDesignSystem() {
     if (document.getElementById('dashboard-modern-fonts')) return;
 
@@ -70248,11 +70246,415 @@ function getTermName(term) {
     return names[term] || `Term ${term}`;
 }
 
+// =============================================================================
+// 1.5. DATA LAYER — everything the dashboard shows is now derived from
+// /api/reports/comprehensive, the SAME endpoint and SAME per-item logic the
+// Reports page uses (see buildReportTable() in main.js). This guarantees the
+// dashboard's numbers can never drift from what the Reports page shows for
+// the same period.
+//
+// The core correctness rule (this is the fix the user asked for):
+// For every student × item, we resolve the item's applicable periods and
+// compute cash/qty totals using the exact same period-scoping + OR-logic the
+// report table uses. If, after that, the student genuinely owes nothing on
+// that item (0 expected in whichever unit applies) AND has never paid/brought
+// anything toward it, the item is treated as "Doesn't Pay" for that student
+// and is EXCLUDED ENTIRELY from every downstream total: status-group
+// student counts, item required/collected counts, class-performance
+// breakdowns, and the cash-only card. A student who doesn't owe an item is
+// never counted as a payer of it.
+// =============================================================================
+
+// Resolve which period entries in an item's periodBreakdown actually count,
+// given the item's periodType (termly/yearly/one_time), mirroring
+// buildReportTable's period-scoping + its direct-data fallback exactly.
+function dashGetApplicablePeriods(itemData, oldestPeriodKey, maxTermByYear, currentYear) {
+    var periodBreakdown = itemData.periodBreakdown || {};
+    var periodKeys = Object.keys(periodBreakdown);
+    var periodType = itemData.periodType || 'termly';
+    var applicable = [];
+
+    for (var i = 0; i < periodKeys.length; i++) {
+        var pk = periodKeys[i];
+        var pd = periodBreakdown[pk];
+        if (!pd || pd.isNotApplicable) continue;
+
+        var shouldInclude = false;
+        if (periodType === 'one_time') {
+            shouldInclude = (pk === oldestPeriodKey);
+        } else if (periodType === 'yearly') {
+            var parts = pk.split('_');
+            var year = parseInt(parts[0]);
+            var term = parseInt(parts[1]);
+            shouldInclude = (term === maxTermByYear[year]);
+        } else {
+            shouldInclude = true;
+        }
+        if (shouldInclude) applicable.push({ periodKey: pk, data: pd });
+    }
+
+    // Fallback: same rule the report table uses when period scoping produced
+    // nothing but the item still carries real totals (e.g. a one-time item
+    // that's never been billed/paid yet).
+    if (applicable.length === 0) {
+        var isOneTime = itemData.isOneTime || periodType === 'one_time';
+        var directQtyCollected = itemData.totalCollected || 0;
+        var directQtyRemaining = itemData.totalRemaining || 0;
+        var directAmtCollected = itemData.totalAmountCollected || 0;
+        var directAmtExpected = itemData.amountExpected || 0;
+        var directAmtRemaining = Math.max(0, directAmtExpected - directAmtCollected);
+
+        var hasDirectData = directQtyCollected > 0 || directQtyRemaining > 0 ||
+                             directAmtCollected > 0 || directAmtRemaining > 0 || isOneTime;
+
+        if (hasDirectData) {
+            var fallbackKey = oldestPeriodKey;
+            if (periodType === 'yearly') {
+                var currentYearStr = String(currentYear);
+                if (maxTermByYear[currentYearStr]) {
+                    fallbackKey = currentYearStr + '_' + maxTermByYear[currentYearStr];
+                }
+            }
+            if (fallbackKey) {
+                applicable.push({
+                    periodKey: fallbackKey,
+                    data: {
+                        qtyCollected: directQtyCollected,
+                        qtyRemaining: directQtyRemaining,
+                        amtCollected: directAmtCollected,
+                        amtRemaining: directAmtRemaining,
+                        isFullyPaid: itemData.isFullyPaid || false,
+                        isCurrent: false
+                    }
+                });
+            }
+        }
+    }
+
+    return applicable;
+}
+
+// Aggregate one student's item into cash/qty totals using the report's OR
+// logic, then apply the "doesn't pay" test. Returns null when the item
+// should NOT count toward this student at all.
+function dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, currentYear) {
+    var paymentOption = itemData.paymentOption || 'either';
+    var perPeriodQtyRequired = (itemData.quantityRequired > 0) ? itemData.quantityRequired : 1;
+    var perPeriodAmountExpected = itemData.amountExpected || 0;
+    var unitPrice = itemData.unitPrice || (perPeriodQtyRequired > 0 ? (perPeriodAmountExpected / perPeriodQtyRequired) : 0);
+
+    var applicablePeriods = dashGetApplicablePeriods(itemData, oldestPeriodKey, maxTermByYear, currentYear);
+    if (applicablePeriods.length === 0) return null; // structurally not applicable this period
+
+    var totalCashExpected = 0, totalCashPaid = 0, totalCashRemaining = 0;
+    var totalItemsRequired = 0, totalItemsCollected = 0, totalItemsRemaining = 0;
+
+    for (var i = 0; i < applicablePeriods.length; i++) {
+        var pd = applicablePeriods[i].data;
+        var cashPaid = pd.amtCollected || 0;
+        var itemsBrought = pd.qtyCollected || 0;
+        var finalItemsBrought = Math.min(itemsBrought, perPeriodQtyRequired);
+
+        var remainingCash = 0, remainingItems = 0, displayCash = 0, displayItems = 0;
+
+        if (paymentOption === 'cash_only') {
+            remainingCash = Math.max(0, perPeriodAmountExpected - cashPaid);
+            displayCash = cashPaid;
+            displayItems = 0;
+        } else if (paymentOption === 'item_only') {
+            remainingItems = Math.max(0, perPeriodQtyRequired - finalItemsBrought);
+            displayCash = 0;
+            displayItems = finalItemsBrought;
+            cashPaid = 0;
+        } else {
+            var cashCoversFull = cashPaid >= perPeriodAmountExpected && perPeriodAmountExpected > 0;
+            var itemsCoversFull = finalItemsBrought >= perPeriodQtyRequired && perPeriodQtyRequired > 0;
+
+            if (cashCoversFull) {
+                displayCash = cashPaid; displayItems = 0; remainingCash = 0; remainingItems = 0;
+            } else if (itemsCoversFull) {
+                displayCash = 0; displayItems = finalItemsBrought; remainingCash = 0; remainingItems = 0;
+            } else {
+                var cashCoversItems = unitPrice > 0 ? Math.floor(cashPaid / unitPrice) : 0;
+                var totalCovered = Math.max(finalItemsBrought, cashCoversItems);
+                var totalItemsCovered = Math.min(totalCovered, perPeriodQtyRequired);
+                var remainingQty = Math.max(0, perPeriodQtyRequired - totalItemsCovered);
+                remainingCash = remainingQty * unitPrice;
+                remainingItems = remainingQty;
+
+                var totalValueCovered = cashPaid + finalItemsBrought * unitPrice;
+                var totalRequiredValue = perPeriodQtyRequired * unitPrice;
+                if (totalRequiredValue > 0 && totalValueCovered >= totalRequiredValue) {
+                    remainingCash = 0; remainingItems = 0;
+                }
+                displayCash = cashPaid;
+                displayItems = finalItemsBrought;
+            }
+        }
+
+        if (paymentOption !== 'item_only') {
+            totalCashExpected += perPeriodAmountExpected;
+            totalCashPaid += displayCash;
+            totalCashRemaining += remainingCash;
+        }
+        totalItemsRequired += perPeriodQtyRequired;
+        totalItemsCollected += displayItems;
+        totalItemsRemaining += remainingItems;
+    }
+
+    // ===== THE "DOESN'T PAY" TEST — matches the report's per-cell rule =====
+    var owesNothing;
+    if (paymentOption === 'cash_only') {
+        owesNothing = totalCashExpected <= 0;
+    } else if (paymentOption === 'item_only') {
+        owesNothing = totalItemsRequired <= 0;
+    } else {
+        owesNothing = (totalCashExpected <= 0 && totalItemsRequired <= 0);
+    }
+    var hasPayment = totalCashPaid > 0 || totalItemsCollected > 0;
+
+    if (owesNothing && !hasPayment) return null; // "Doesn't Pay" — never counted
+
+    return {
+        paymentOption: paymentOption,
+        cashExpected: totalCashExpected,
+        cashPaid: totalCashPaid,
+        cashRemaining: totalCashRemaining,
+        itemsRequired: totalItemsRequired,
+        itemsCollected: totalItemsCollected,
+        itemsRemaining: totalItemsRemaining
+    };
+}
+
+// Turn a /api/reports/comprehensive payload into the exact "data" shape
+// renderDashboard() and friends already know how to draw.
+function computeDashboardStatsFromReport(reportPayload, school, currentYear, currentTerm) {
+    var students = (reportPayload && reportPayload.students) || [];
+    var totals = (reportPayload && reportPayload.totals) || {};
+    var metadata = (reportPayload && reportPayload.metadata) || {};
+
+    // Global period-scoping context, same derivation buildReportTable uses:
+    // prefer the server's own periodsIncluded list; fall back to scanning
+    // student.periods if that's ever empty.
+    var allPeriodKeys = (metadata.periodsIncluded && metadata.periodsIncluded.length)
+        ? metadata.periodsIncluded.slice()
+        : [];
+    if (allPeriodKeys.length === 0) {
+        for (var s0 = 0; s0 < students.length; s0++) {
+            var pers = students[s0].periods || [];
+            for (var p0 = 0; p0 < pers.length; p0++) {
+                var k0 = pers[p0].periodKey;
+                if (allPeriodKeys.indexOf(k0) === -1) allPeriodKeys.push(k0);
+            }
+        }
+    }
+    allPeriodKeys.sort();
+    var oldestPeriodKey = allPeriodKeys.length > 0 ? allPeriodKeys[0] : (currentYear + '_' + currentTerm);
+    var maxTermByYear = {};
+    for (var i0 = 0; i0 < allPeriodKeys.length; i0++) {
+        var parts0 = allPeriodKeys[i0].split('_');
+        var y0 = parseInt(parts0[0]);
+        var t0 = parseInt(parts0[1]);
+        if (!maxTermByYear[y0] || t0 > maxTermByYear[y0]) maxTermByYear[y0] = t0;
+    }
+
+    var male = 0, female = 0;
+    var statusGroupsMap = {};
+    var itemTotalsMap = {};
+    var classPerformance = {};
+    var cashOnlyExpected = 0, cashOnlyCollected = 0, cashOnlyRemaining = 0;
+
+    function getGroup(name, periodType) {
+        if (!statusGroupsMap[name]) {
+            statusGroupsMap[name] = {
+                name: name, periodType: periodType || 'termly',
+                totalRequired: 0, totalCollected: 0, totalRemaining: 0,
+                cashExpected: 0, cashCollected: 0, cashRemaining: 0,
+                studentIds: new Set(), items: {}
+            };
+        }
+        return statusGroupsMap[name];
+    }
+
+    for (var s = 0; s < students.length; s++) {
+        var student = students[s];
+        if (!student) continue;
+
+        if (student.gender === 'Male') male++;
+        else if (student.gender === 'Female') female++;
+
+        var currentClass = student.currentClass || 'Not Assigned';
+        var groupNames = student.statusGroups ? Object.keys(student.statusGroups) : [];
+
+        for (var g = 0; g < groupNames.length; g++) {
+            var groupName = groupNames[g];
+            var groupData = student.statusGroups[groupName];
+            if (!groupData || !groupData.items) continue;
+
+            var itemNames = Object.keys(groupData.items);
+            for (var it = 0; it < itemNames.length; it++) {
+                var itemName = itemNames[it];
+                var itemData = groupData.items[itemName];
+                if (!itemData) continue;
+
+                // ===== Resolve + "doesn't pay" filter (the key fix) =====
+                var agg = dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, currentYear);
+                if (!agg) continue; // student doesn't owe this item — never counted as a payer
+
+                var periodType = itemData.periodType || 'termly';
+                var group = getGroup(groupName, periodType);
+                group.studentIds.add(student.id);
+                group.cashExpected += agg.cashExpected;
+                group.cashCollected += agg.cashPaid;
+                group.cashRemaining += agg.cashRemaining;
+                if (agg.paymentOption !== 'cash_only') {
+                    group.totalRequired += agg.itemsRequired;
+                    group.totalCollected += agg.itemsCollected;
+                    group.totalRemaining += agg.itemsRemaining;
+                }
+
+                if (!group.items[itemName]) {
+                    group.items[itemName] = {
+                        name: itemName, required: 0, collected: 0, remaining: 0, studentsCount: 0,
+                        paymentOption: agg.paymentOption,
+                        cashExpected: 0, cashCollected: 0, cashRemaining: 0
+                    };
+                }
+                var gi = group.items[itemName];
+                if (agg.paymentOption !== 'cash_only') {
+                    gi.required += agg.itemsRequired;
+                    gi.collected += agg.itemsCollected;
+                    gi.remaining += agg.itemsRemaining;
+                }
+                gi.cashExpected += agg.cashExpected;
+                gi.cashCollected += agg.cashPaid;
+                gi.cashRemaining += agg.cashRemaining;
+                gi.studentsCount++;
+
+                var itemKey = groupName + '::' + itemName;
+                if (!itemTotalsMap[itemKey]) {
+                    itemTotalsMap[itemKey] = {
+                        name: itemName, statusGroup: groupName, required: 0, collected: 0, remaining: 0, students: 0,
+                        paymentOption: agg.paymentOption,
+                        cashExpected: 0, cashCollected: 0, cashRemaining: 0
+                    };
+                }
+                var gt = itemTotalsMap[itemKey];
+                if (agg.paymentOption !== 'cash_only') {
+                    gt.required += agg.itemsRequired;
+                    gt.collected += agg.itemsCollected;
+                    gt.remaining += agg.itemsRemaining;
+                }
+                gt.cashExpected += agg.cashExpected;
+                gt.cashCollected += agg.cashPaid;
+                gt.cashRemaining += agg.cashRemaining;
+                gt.students++;
+
+                if (!classPerformance[groupName]) classPerformance[groupName] = {};
+                if (!classPerformance[groupName][currentClass]) {
+                    classPerformance[groupName][currentClass] = { required: 0, collected: 0 };
+                }
+                if (agg.paymentOption !== 'cash_only') {
+                    classPerformance[groupName][currentClass].required += agg.itemsRequired;
+                    classPerformance[groupName][currentClass].collected += agg.itemsCollected;
+                }
+
+                if (agg.paymentOption === 'cash_only') {
+                    cashOnlyExpected += agg.cashExpected;
+                    cashOnlyCollected += agg.cashPaid;
+                    cashOnlyRemaining += agg.cashRemaining;
+                }
+            }
+        }
+    }
+
+    var statusGroupsOut = Object.keys(statusGroupsMap).map(function (name) {
+        var grp = statusGroupsMap[name];
+        var rate;
+        if (grp.totalRequired > 0) rate = (grp.totalCollected / grp.totalRequired) * 100;
+        else if (grp.cashExpected > 0) rate = (grp.cashCollected / grp.cashExpected) * 100;
+        else rate = 0;
+        return {
+            name: grp.name,
+            periodType: grp.periodType,
+            totalRequired: grp.totalRequired,
+            totalCollected: grp.totalCollected,
+            totalRemaining: grp.totalRemaining,
+            cashExpected: grp.cashExpected,
+            cashCollected: grp.cashCollected,
+            cashRemaining: grp.cashRemaining,
+            studentCount: grp.studentIds.size,
+            rate: rate,
+            color: getStatusGroupColor(grp.name),
+            items: Object.keys(grp.items).map(function (n) { return grp.items[n]; })
+                        .sort(function (a, b) { return a.name.localeCompare(b.name); })
+        };
+    }).sort(function (a, b) { return b.studentCount - a.studentCount; });
+
+    var statusGroupHealth = statusGroupsOut.map(function (g) {
+        return {
+            name: g.name, rate: g.rate,
+            status: g.rate >= 85 ? 'Excellent' : g.rate >= 70 ? 'Good' : g.rate >= 50 ? 'Needs Attention' : 'Critical',
+            color: g.color
+        };
+    }).sort(function (a, b) { return b.rate - a.rate; });
+
+    var itemsList = Object.keys(itemTotalsMap).map(function (k) { return itemTotalsMap[k]; })
+                        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+    var tuitionExpected = totals.totalTuitionExpected || 0;
+    var tuitionCollected = totals.totalTuitionCollected || 0;
+    var tuitionOutstanding = Math.max(0, tuitionExpected - tuitionCollected);
+    var tuitionRateNum = parseFloat(totals.tuitionRate);
+    if (isNaN(tuitionRateNum)) tuitionRateNum = tuitionExpected > 0 ? (tuitionCollected / tuitionExpected * 100) : 0;
+
+    var totalStudents = (totals.totalStudents != null) ? totals.totalStudents : students.length;
+
+    return {
+        school: school || {},
+        currentPeriod: { year: currentYear, term: currentTerm },
+        studentStats: {
+            total: totalStudents,
+            active: totalStudents,
+            male: male,
+            female: female,
+            paymentStatus: {
+                fullyPaid: totals.fullyPaidCount || 0,
+                paymentDue: totals.paymentDueCount || 0,
+                criticalOverdue: 0,
+                noPayment: totals.noPaymentCount || 0,
+                creditBalance: totals.creditBalanceCount || 0
+            }
+        },
+        tuitionStats: {
+            expected: tuitionExpected,
+            collected: tuitionCollected,
+            outstanding: tuitionOutstanding,
+            collectionRate: tuitionRateNum,
+            fullyPaid: totals.fullyPaidCount || 0,
+            withBalance: totals.paymentDueCount || 0
+        },
+        cashItemsStats: {
+            expected: cashOnlyExpected,
+            collected: cashOnlyCollected,
+            outstanding: cashOnlyRemaining,
+            collectionRate: cashOnlyExpected > 0 ? (cashOnlyCollected / cashOnlyExpected * 100) : 0
+        },
+        statusGroups: statusGroupsOut,
+        statusGroupHealth: statusGroupHealth,
+        classPerformance: classPerformance,
+        items: itemsList,
+        statusGroupsCount: statusGroupsOut.length,
+        totalItemsCount: itemsList.length,
+        timestamp: new Date().toISOString()
+    };
+}
+
 // ---------------------------------------------------------------------------
 // 2. MAIN DASHBOARD FUNCTION
 // ---------------------------------------------------------------------------
 async function showDashboard() {
-    console.log('showDashboard() — v13.0 (uniform + stock + drilldown + schoolpay)');
+    console.log('showDashboard() — v14.0 (data sourced live from /api/reports/comprehensive, same as the Reports page)');
     injectDashboardDesignSystem();
 
     const pageTitle = document.getElementById('pageTitle');
@@ -70278,21 +70680,39 @@ async function showDashboard() {
         const { currentYear, currentTerm } = currentAcademicSettings;
         const termName = getTermName(currentTerm);
 
-        // Fetch core dashboard stats + uniform + general stock in parallel.
-        // Uniform / stock endpoints are optional — dashboard still renders if they fail.
-        const [statsRes, uniformRes, stockRes] = await Promise.allSettled([
-            fetch('/api/dashboard/stats'),
+        // Ask the SAME endpoint the Reports page uses, for the current
+        // period only, with every filter left open (all groups, all items,
+        // all classes) so the dashboard reflects the whole school.
+        const reportParams = new URLSearchParams({
+            level: 'all',
+            studentId: 'all',
+            feeStructureId: 'all',
+            statusGroup: 'all',
+            itemName: 'all',
+            paymentStatus: 'all',
+            includeTuition: 'true',
+            includeAllPeriods: 'false',
+            academicYear: currentYear,
+            academicTerm: currentTerm
+        });
+
+        const [reportRes, schoolRes, uniformRes, stockRes] = await Promise.allSettled([
+            fetch('/api/reports/comprehensive?' + reportParams.toString()),
+            fetch('/api/school'),
             fetch('/api/uniform/summary'),
             fetch('/api/school-stock/summary')
         ]);
 
-        if (statsRes.status !== 'fulfilled' || !statsRes.value.ok) {
-            throw new Error(`Server returned ${statsRes.value ? statsRes.value.status : 'no response'}`);
+        if (reportRes.status !== 'fulfilled' || !reportRes.value.ok) {
+            throw new Error(`Server returned ${reportRes.value ? reportRes.value.status : 'no response'} while loading report data`);
         }
-        const result = await statsRes.value.json();
-        if (!result.success) throw new Error(result.error || 'Failed to load dashboard data');
-        const data = result.data;
-        window.dashboardData = data;
+        const reportResult = await reportRes.value.json();
+        if (!reportResult.success) throw new Error(reportResult.error || 'Failed to load report data');
+
+        let school = null;
+        if (schoolRes.status === 'fulfilled' && schoolRes.value.ok) {
+            try { const sj = await schoolRes.value.json(); school = sj.school || null; } catch (e) {}
+        }
 
         let uniformData = null;
         if (uniformRes.status === 'fulfilled' && uniformRes.value.ok) {
@@ -70305,6 +70725,10 @@ async function showDashboard() {
             try { const j = await stockRes.value.json(); if (j.success) stockData = j.summary; } catch (e) {}
         }
         window.dashboardStockData = stockData;
+
+        const data = computeDashboardStatsFromReport(reportResult.data, school, currentYear, currentTerm);
+        window.dashboardData = data;
+        window.dashboardReportRaw = reportResult.data; // raw report payload, kept for drilldowns/printDashboardReport
 
         renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm);
 
@@ -70369,7 +70793,7 @@ function navigateToStatusGroupReport(statusGroupName) {
             for (let i = 0; i < filterSelect.options.length; i++) {
                 if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
             }
-            setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
+            setTimeout(() => { if (typeof generateReportV3 === 'function') generateReportV3(); }, 200);
         }
     }, 300);
 }
@@ -70389,7 +70813,7 @@ function navigateToItemReport(itemName, statusGroupName) {
                 if (itemSelect.options[i].value === itemName) { itemSelect.value = itemName; break; }
             }
         }
-        setTimeout(() => { if (typeof generateReportV2 === 'function') generateReportV2(); }, 200);
+        setTimeout(() => { if (typeof generateReportV3 === 'function') generateReportV3(); }, 200);
     }, 300);
 }
 function navigateToTuitionReport() {
@@ -70404,7 +70828,6 @@ function navigateToInventorySection() {
 }
 function navigateToStockCategory(categoryId) {
     if (typeof showInventory === 'function') showInventory();
-    // If the inventory page exposes a category filter, try to apply it shortly after render.
     setTimeout(() => {
         const sel = document.getElementById('schoolStockCategoryFilter');
         if (sel && categoryId) { sel.value = categoryId; sel.dispatchEvent(new Event('change')); }
@@ -70466,6 +70889,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '      </div>';
     html += '    </div>';
     html += '    <div class="flex flex-wrap gap-2">';
+    html += '      <span class="db-chip px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5" title="Every number here is computed from the same report engine as the Reports page"><i class="fas fa-link"></i> Live from Reports</span>';
     html += '      <button onclick="showAcademicSettingsModal()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-calendar-days"></i> Period</button>';
     html += '      <button onclick="document.getElementById(\'schoolpaySection\').scrollIntoView({behavior:\'smooth\'})" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-credit-card"></i> SchoolPay</button>';
     html += '      <button onclick="printDashboard()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-print"></i> Print</button>';
@@ -70496,12 +70920,6 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
         html += '</div>';
     }
 
-    // ======================= REMAINDER OF THE DASHBOARD (unchanged) =======================
-    // ... (all subsequent sections are exactly as before; we keep them identical)
-
-    // For brevity, I will include the remaining code from your original function below.
-    // You can simply copy the rest from your existing file – it remains unchanged.
-
     // ======================= SECTION 2: STATUS GROUP CARDS =======================
     html += '<div>';
     html += '  <div class="flex justify-between items-center mb-4">';
@@ -70515,7 +70933,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
         html += '<div class="col-span-2 db-card p-10 text-center border-dashed">';
         html += '<i class="fas fa-tags text-slate-300 text-4xl mb-3"></i>';
         html += '<p class="text-slate-500 font-medium">No status groups found</p>';
-        html += '<p class="text-sm text-slate-400 mt-1">Status groups appear once fee structures with activity components are created</p>';
+        html += '<p class="text-sm text-slate-400 mt-1">Status groups appear once students actually owe something on a fee component for this period</p>';
         html += '</div>';
     }
     html += '  </div>';
@@ -70641,8 +71059,6 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
         var required = item.required || 0;
         var collected = item.collected || 0;
-        // FIX: use cash-based rate/progress for cash_only items instead of
-        // always dividing 0/0.
         var rate = isCashOnly
             ? (item.cashExpected > 0 ? (item.cashCollected / item.cashExpected * 100) : 0)
             : (required > 0 ? (collected / required * 100) : 0);
@@ -70757,7 +71173,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  <div class="flex flex-wrap justify-center gap-4">';
     html += '    <span><i class="fas fa-rotate text-emerald-500 mr-1"></i>Live data</span>';
     html += '    <span>Last sync: ' + new Date(timestamp || Date.now()).toLocaleString() + '</span>';
-    html += '    <span>Dashboard v13.0</span>';
+    html += '    <span>Dashboard v14.0 &middot; powered by the Reports engine</span>';
     html += '    <span><i class="fas fa-database text-indigo-500 mr-1"></i>' + totalStudents + ' students &middot; ' + (statusGroupsCount || 0) + ' status groups</span>';
     html += '  </div>';
     html += '</div>';
@@ -70772,7 +71188,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     }, 150);
     initializeItemFilters();
 
-    console.log('✅ Dashboard v13.0 rendered');
+    console.log('✅ Dashboard v14.0 rendered from the Reports engine');
 }
 // ---------------------------------------------------------------------------
 // 6. METRIC CARD — click drills into a page; small eye toggles hide/show
@@ -70864,10 +71280,6 @@ function renderStatusGroupCard(sg) {
 
     const items = Array.isArray(sg.items) ? sg.items : Object.values(sg.items || {});
 
-    // FIX: sort by the metric that's actually meaningful for each item —
-    // quantity ratio for count-based items, cash ratio for cash_only ones.
-    // Previously always sorted by collected/required, which is always 0
-    // for cash_only items and pushed them to the bottom pointlessly.
     const itemProgress = (item) => {
         if (item.paymentOption === 'cash_only') {
             return item.cashExpected > 0 ? (item.cashCollected / item.cashExpected) : 0;
@@ -70878,10 +71290,6 @@ function renderStatusGroupCard(sg) {
 
     const borderClass = getStatusGroupColor(sg.name);
 
-    // FIX: a group made up entirely of cash_only items will always have
-    // totalRequired === 0 — that's correct (item counts don't apply), but
-    // the "Required/Collected/Remaining" quantity grid is misleading to show
-    // as 0/0/0 next to real money. Detect this and swap the grid's meaning.
     const isCashOnlyGroup = (sg.totalRequired === 0) && (sg.cashExpected > 0);
 
     return `
@@ -70925,8 +71333,6 @@ function renderStatusGroupCard(sg) {
                         <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Items</p>
                         <div class="space-y-1.5">
                             ${topItems.map(item => {
-                                // FIX: render cash progress for cash_only items instead of
-                                // the always-0/0 quantity counts.
                                 if (item.paymentOption === 'cash_only') {
                                     const itemRate = item.cashExpected > 0 ? (item.cashCollected / item.cashExpected * 100) : 0;
                                     const itemColor = getStatusColor(itemRate);
@@ -70973,7 +71379,7 @@ function renderClassPerformanceTable(classPerformance) {
         return `<div class="text-center py-10 text-slate-400">
             <i class="fas fa-chalkboard text-3xl mb-2 text-slate-300"></i>
             <p class="font-medium">No class performance data available</p>
-            <p class="text-sm text-slate-400 mt-1">Data appears once students are assigned to classes</p>
+            <p class="text-sm text-slate-400 mt-1">Data appears once students genuinely owe something in a status group</p>
         </div>`;
     }
 
@@ -71107,7 +71513,6 @@ function renderUniformSection(uniformData) {
 
     html += '  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">';
 
-    // Pie chart card
     html += '    <div class="db-card overflow-hidden">';
     html += '      <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
     html += '        <div class="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center"><i class="fas fa-shirt text-sm"></i></div>';
@@ -71124,7 +71529,6 @@ function renderUniformSection(uniformData) {
     html += '      </div>';
     html += '    </div>';
 
-    // Item stock summary card
     html += '    <div class="db-card overflow-hidden">';
     html += '      <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
     html += '        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-warehouse text-sm"></i></div>';
@@ -71151,7 +71555,6 @@ function renderUniformSection(uniformData) {
 
     html += '  </div>';
 
-    // Item collection (required vs collected) table
     if (itemRows.length > 0) {
         html += '  <div class="db-card overflow-hidden">';
         html += '    <div class="db-card-hd px-5 py-4 flex items-center gap-2">';
@@ -71476,7 +71879,9 @@ async function refreshDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 14. PRINT DASHBOARD SUMMARY REPORT (unchanged)
+// 14. PRINT DASHBOARD SUMMARY REPORT — now sourced from the same report data
+// the dashboard itself just rendered (window.dashboardReportRaw), instead of
+// a second, separate computation.
 // ---------------------------------------------------------------------------
 async function printDashboardReport() {
     const { currentYear, currentTerm } = currentAcademicSettings;
@@ -71486,9 +71891,11 @@ async function printDashboardReport() {
     const schoolData = await schoolRes.json();
     const school = schoolData.school || {};
 
-    const students = window.dashboardStudents || [];
-    const totalExpected = students.reduce((sum, s) => sum + s.totalExpected, 0);
-    const totalCollected = students.reduce((sum, s) => sum + s.totalPaid, 0);
+    const reportRaw = window.dashboardReportRaw || {};
+    const students = reportRaw.students || [];
+    const totals = reportRaw.totals || {};
+    const totalExpected = totals.totalExpected || 0;
+    const totalCollected = totals.totalPaid || 0;
     const collectionRate = totalExpected > 0 ? (totalCollected / totalExpected * 100).toFixed(1) : 0;
 
     const feeStructuresRes = await fetch('/api/fee/structures');
@@ -71607,2138 +72014,9 @@ window.escapeHtml = escapeHtml;
 window.getTermName = getTermName;
 window.toggleMetricVisibility = toggleMetricVisibility;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
+window.computeDashboardStatsFromReport = computeDashboardStatsFromReport;
 
-console.log('✅ Dashboard v13.0 loaded — uniform + general stock + drill-down + SchoolPay embed'); 
-// ==================== RENDER FEE STRUCTURE STATISTICS PAGE ====================
-
-// ==================== COMPLETELY REBUILT FEE STRUCTURE STATISTICS PAGE ====================
-
-// ==================== COMPLETE REBUILT FEE STRUCTURE STATISTICS ====================
-// Version: 11.0 - Full statistics with search per fee structure and print reports
-
-// ==================== COMPLETELY REBUILT FEE STRUCTURE STATISTICS ====================
-// Version: 12.0 - Accurate data calculation with all fee types (Tuition, One-Time, Termly, Yearly)
-
-// Store global data
-// ==================== COMPLETE WORKING FEE STRUCTURE STATISTICS ====================
-// Version: 15.0 - Fully functional with all fee types (Tuition, One-Time, Termly, Yearly)
-// Fixed: All undefined property errors, search filters, and data display
-
-// Store global data
-// ==================== COMPLETE FIXED FEE STRUCTURE STATISTICS ====================
-// Version: 21.0 - Self-contained with no external dependencies
-
-// Store global data
-window.feeStructureStatsData = [];
-
-// ==================== COMPLETE FIXED FEE STRUCTURE STATISTICS ====================
-// Version: 21.0 - Self-contained with no external dependencies
-
-// Store global data
-window.feeStructureStatsData = [];
-
-// ==================== FEE STRUCTURE STATISTICS - WORKING VERSION ====================
-// Version: 23.0 - No syntax errors, completely self-contained
-
-// Store global data
-window.feeStructureStatsData = [];
-// ==================== COMPLETE FEE STRUCTURE STATISTICS WITH WORKING SEARCH ====================
-
-// ==================== COMPLETE REBUILT FEE STRUCTURE STATISTICS ====================
-// Version: 30.0 - With Item-Level Statistics (Brooms, Books, Reams, etc.)
-
-// ==================== COMPLETE FEE STRUCTURE STATISTICS ====================
-// Version: 35.0 - Full numbers, no abbreviations, accurate calculations
-
-// ============================================================================
-// FEE STRUCTURE STATISTICS — MODERN EDITION
-// Version: 13.0 — Matches dashboard.js / studentList.js / inventory.js design system
-// Same data contracts, calculations & function names — visuals rebuilt.
-// ============================================================================
-
-async function showFeeStructureStatistics() {
-    console.log('showFeeStructureStatistics called - MODERN EDITION v13.0');
-    if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
-
-    const pageTitle = document.getElementById('pageTitle');
-    if (pageTitle) pageTitle.innerHTML = '<i class="fas fa-chart-pie mr-2"></i>Fee Structure Statistics';
-
-    const mainContent = document.getElementById('mainContent');
-    if (mainContent) {
-        mainContent.innerHTML = `
-            <div class="db-app-bg -m-4 p-4 min-h-[70vh] rounded-2xl">
-                <div class="db-hero mb-6" style="padding-bottom:30px;">
-                    <div class="db-skeleton h-8 w-72 mb-3 opacity-40"></div>
-                    <div class="db-skeleton h-4 w-44 opacity-30"></div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                    ${Array(5).fill('<div class="db-skeleton h-24 rounded-2xl"></div>').join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    try {
-        await initializeAcademicSettings();
-        const { currentYear, currentTerm } = currentAcademicSettings;
-        const termName = getTermName(currentTerm);
-        const isFirstTerm = currentTerm === 1;
-
-        // Fetch all required data
-        const [studentsRes, classesRes, feeStructuresRes, feeAssignmentsRes, feePaymentsRes, feeBursariesRes] = await Promise.all([
-            fetch('/api/students'),
-            fetch('/api/school/classes'),
-            fetch('/api/fee/structures'),
-            fetch('/api/student-fee-assignments'),
-            fetch('/api/fee/payments'),
-            fetch('/api/fee/bursaries')
-        ]);
-
-        let students = await studentsRes.json();
-        let classes = await classesRes.json();
-        let feeStructures = await feeStructuresRes.json();
-        let feeAssignments = await feeAssignmentsRes.json();
-        let allPayments = await feePaymentsRes.json();
-        let feeBursaries = await feeBursariesRes.json();
-
-        students = Array.isArray(students) ? students : [];
-        feeStructures = Array.isArray(feeStructures) ? feeStructures : [];
-        feeAssignments = Array.isArray(feeAssignments) ? feeAssignments : [];
-        allPayments = Array.isArray(allPayments) ? allPayments : [];
-
-        // Create maps
-        const classesMap = {};
-        classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
-
-        const assignmentsMap = {};
-        feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
-
-        const bursariesMap = {};
-        feeBursaries.forEach(b => { if (b && b.id) bursariesMap[b.id] = b; });
-
-        const currentTermPayments = allPayments.filter(p => p && p.term === currentTerm && p.academicYear === currentYear.toString());
-
-        const getTermStartDate = (year, term) => {
-            if (term === 1) return new Date(year, 0, 10);
-            if (term === 2) return new Date(year, 4, 10);
-            return new Date(year, 8, 10);
-        };
-        const termStartDate = getTermStartDate(currentYear, currentTerm);
-
-        // ==================== FORMAT CURRENCY FUNCTION - FULL NUMBERS ====================
-        function formatMoney(amount) {
-            const num = Math.round(amount || 0);
-            return num.toLocaleString('en-US');
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Build fee structure statistics (logic unchanged)
-        const feeStructureStats = [];
-
-        for (const feeStructure of feeStructures) {
-            const assignedStudents = students.filter(s => {
-                const assignment = assignmentsMap[s.id];
-                return assignment && assignment.feeStructureId === feeStructure.id;
-            });
-
-            let termlyTotal = 0;
-            let oneTimeTotal = 0;
-            let yearlyTotal = 0;
-
-            const feeStructureItems = { termly: [], one_time: [], yearly: [] };
-
-            if (feeStructure.activityComponents) {
-                for (const comp of feeStructure.activityComponents) {
-                    const compTotal = (comp.items || []).reduce((sum, item) => sum + (item.totalAmount || 0), 0);
-                    if (comp.periodType === 'termly') { termlyTotal += compTotal; feeStructureItems.termly.push(...comp.items); }
-                    else if (comp.periodType === 'one_time') { oneTimeTotal += compTotal; feeStructureItems.one_time.push(...comp.items); }
-                    else if (comp.periodType === 'yearly') { yearlyTotal += compTotal; feeStructureItems.yearly.push(...comp.items); }
-                }
-            }
-
-            const itemStats = { termly: {}, one_time: {}, yearly: {} };
-
-            for (const item of feeStructureItems.termly) {
-                itemStats.termly[item.name] = {
-                    name: item.name, quantity: item.quantity || 1, unitPrice: item.unitPrice || (item.totalAmount / (item.quantity || 1)),
-                    totalAmount: item.totalAmount || 0, totalCashCollected: 0, totalItemsBrought: 0, totalPaid: 0,
-                    studentsPaid: 0, studentsPartial: 0, studentsUnpaid: 0, count: 0
-                };
-            }
-            for (const item of feeStructureItems.one_time) {
-                itemStats.one_time[item.name] = {
-                    name: item.name, quantity: item.quantity || 1, unitPrice: item.unitPrice || (item.totalAmount / (item.quantity || 1)),
-                    totalAmount: item.totalAmount || 0, totalCashCollected: 0, totalItemsBrought: 0, totalPaid: 0,
-                    studentsPaid: 0, studentsPartial: 0, studentsUnpaid: 0, count: 0
-                };
-            }
-            for (const item of feeStructureItems.yearly) {
-                itemStats.yearly[item.name] = {
-                    name: item.name, quantity: item.quantity || 1, unitPrice: item.unitPrice || (item.totalAmount / (item.quantity || 1)),
-                    totalAmount: item.totalAmount || 0, totalCashCollected: 0, totalItemsBrought: 0, totalPaid: 0,
-                    studentsPaid: 0, studentsPartial: 0, studentsUnpaid: 0, count: 0
-                };
-            }
-
-            const stats = {
-                id: feeStructure.id, name: feeStructure.name || 'Unnamed', level: feeStructure.level || 'Nursery',
-                tuitionAmount: feeStructure.tuition || 0, termlyTotal: termlyTotal, oneTimeTotal: oneTimeTotal, yearlyTotal: yearlyTotal,
-                students: [], totalStudents: assignedStudents.length, tuitionCollected: 0, termlyCollected: 0, oneTimeCollected: 0, yearlyCollected: 0,
-                totalDiscount: 0, studentsWithBursary: 0, bursariesApplied: {}, itemStats: itemStats
-            };
-
-            for (const student of assignedStudents) {
-                const assignment = assignmentsMap[student.id] || {};
-
-                let currentClass = 'Not Assigned';
-                if (student.currentClassId && classesMap[student.currentClassId]) currentClass = classesMap[student.currentClassId].name;
-                else if (student.currentClass) currentClass = student.currentClass;
-
-                let isNewStudent = false;
-                if (student.enrolledAt) { const enrollmentDate = new Date(student.enrolledAt); isNewStudent = enrollmentDate >= termStartDate; }
-
-                let expectedTuition = feeStructure.tuition || 0;
-                let discountAmount = 0;
-                let discountDisplay = '';
-                let bursaryName = null;
-
-                if (assignment.bursaryId && bursariesMap[assignment.bursaryId]) {
-                    const bursary = bursariesMap[assignment.bursaryId];
-                    bursaryName = bursary.name;
-                    if (bursary.type === 'percentage') {
-                        discountAmount = (expectedTuition * bursary.value) / 100;
-                        discountDisplay = `${bursary.value}% off`;
-                        expectedTuition = Math.max(0, expectedTuition - discountAmount);
-                    } else {
-                        discountAmount = bursary.value;
-                        discountDisplay = `UGX ${bursary.value.toLocaleString()} off`;
-                        expectedTuition = Math.max(0, expectedTuition - discountAmount);
-                    }
-
-                    stats.totalDiscount += discountAmount;
-                    stats.studentsWithBursary++;
-                    if (!stats.bursariesApplied[bursary.name]) stats.bursariesApplied[bursary.name] = { count: 0, totalDiscount: 0 };
-                    stats.bursariesApplied[bursary.name].count++;
-                    stats.bursariesApplied[bursary.name].totalDiscount += discountAmount;
-                }
-
-                const studentPayments = currentTermPayments.filter(p => p && p.studentId === student.id);
-                const tuitionPaid = studentPayments.reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
-
-                let termlyPaid = 0, oneTimePaid = 0, yearlyPaid = 0;
-                const studentItemPayments = { termly: {}, one_time: {}, yearly: {} };
-
-                for (const payment of studentPayments) {
-                    if (payment.paymentsByPeriodType) {
-                        for (const period of ['termly', 'one_time', 'yearly']) {
-                            const periodItems = payment.paymentsByPeriodType[period] || [];
-                            for (const item of periodItems) {
-                                let paidAmount = 0;
-                                let itemsBrought = 0;
-
-                                if (item.paymentType === 'paid_cash') { paidAmount = item.amountPaid || 0; itemsBrought = 0; }
-                                else if (item.paymentType === 'brought_item') { paidAmount = item.cashEquivalent || 0; itemsBrought = item.itemsBrought || 0; }
-                                else {
-                                    const cashVal = item.amountPaid || 0;
-                                    const itemVal = item.cashEquivalent || 0;
-                                    if (cashVal >= itemVal) { paidAmount = cashVal; itemsBrought = 0; }
-                                    else { paidAmount = itemVal; itemsBrought = item.itemsBrought || 0; }
-                                }
-
-                                if (period === 'termly') termlyPaid += paidAmount;
-                                else if (period === 'one_time') oneTimePaid += paidAmount;
-                                else if (period === 'yearly') yearlyPaid += paidAmount;
-
-                                if (!studentItemPayments[period][item.itemName]) studentItemPayments[period][item.itemName] = { cash: 0, items: 0, total: 0, counted: false };
-
-                                if (!studentItemPayments[period][item.itemName].counted) {
-                                    studentItemPayments[period][item.itemName].cash += paidAmount;
-                                    studentItemPayments[period][item.itemName].items += itemsBrought;
-                                    studentItemPayments[period][item.itemName].total += paidAmount;
-                                    studentItemPayments[period][item.itemName].counted = true;
-
-                                    if (stats.itemStats[period] && stats.itemStats[period][item.itemName]) {
-                                        stats.itemStats[period][item.itemName].totalCashCollected += paidAmount;
-                                        stats.itemStats[period][item.itemName].totalItemsBrought += itemsBrought;
-                                        stats.itemStats[period][item.itemName].totalPaid += paidAmount;
-                                        stats.itemStats[period][item.itemName].count++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                const shouldChargeOneTime = isFirstTerm || isNewStudent;
-                const shouldChargeYearly = isFirstTerm || isNewStudent;
-
-                const expectedTermly = termlyTotal;
-                const expectedOneTime = shouldChargeOneTime ? oneTimeTotal : 0;
-                const expectedYearly = shouldChargeYearly ? yearlyTotal : 0;
-
-                const totalExpected = expectedTuition + expectedTermly + expectedOneTime + expectedYearly;
-                const totalPaid = tuitionPaid + termlyPaid + oneTimePaid + yearlyPaid;
-                const totalBalance = totalExpected - totalPaid;
-
-                let statusText = 'Payment Due';
-                let statusColor = 'bg-amber-50 text-amber-700 border border-amber-200';
-                let statusIcon = '⚠️';
-
-                if (Math.abs(totalBalance) <= 10 && totalPaid > 0) { statusText = 'Fully Paid'; statusColor = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; statusIcon = '✅'; }
-                else if (totalBalance < -10) { statusText = 'Credit Balance'; statusColor = 'bg-sky-50 text-sky-700 border border-sky-200'; statusIcon = '💰'; }
-                else if (totalPaid === 0 && totalExpected > 0) { statusText = 'No Payment'; statusColor = 'bg-slate-100 text-slate-600 border border-slate-200'; statusIcon = '📋'; }
-
-                for (const period of ['termly', 'one_time', 'yearly']) {
-                    for (const [itemName, paymentData] of Object.entries(studentItemPayments[period])) {
-                        if (stats.itemStats[period] && stats.itemStats[period][itemName]) {
-                            const itemTotal = stats.itemStats[period][itemName].totalAmount;
-                            if (paymentData.total >= itemTotal) stats.itemStats[period][itemName].studentsPaid++;
-                            else if (paymentData.total > 0) stats.itemStats[period][itemName].studentsPartial++;
-                        }
-                    }
-                }
-
-                for (const period of ['termly', 'one_time', 'yearly']) {
-                    for (const itemName of Object.keys(stats.itemStats[period])) {
-                        if (!studentItemPayments[period][itemName]) stats.itemStats[period][itemName].studentsUnpaid++;
-                    }
-                }
-
-                stats.students.push({
-                    id: student.id, firstName: student.firstName || '', lastName: student.lastName || '', admissionNumber: student.admissionNumber || '',
-                    currentClass: currentClass, expectedTuition: expectedTuition, tuitionPaid: tuitionPaid, expectedTermly: expectedTermly, termlyPaid: termlyPaid,
-                    expectedOneTime: expectedOneTime, oneTimePaid: oneTimePaid, expectedYearly: expectedYearly, yearlyPaid: yearlyPaid,
-                    totalExpected: totalExpected, totalPaid: totalPaid, totalBalance: totalBalance, discountDisplay: discountDisplay, bursaryName: bursaryName,
-                    status: statusText, statusColor: statusColor, statusIcon: statusIcon
-                });
-
-                stats.tuitionCollected += tuitionPaid;
-                stats.termlyCollected += termlyPaid;
-                stats.oneTimeCollected += oneTimePaid;
-                stats.yearlyCollected += yearlyPaid;
-            }
-
-            stats.tuitionExpected = stats.totalStudents * (feeStructure.tuition || 0);
-            stats.termlyExpected = stats.totalStudents * termlyTotal;
-            stats.oneTimeExpected = stats.totalStudents * oneTimeTotal;
-            stats.yearlyExpected = stats.totalStudents * yearlyTotal;
-
-            stats.tuitionRate = stats.tuitionExpected > 0 ? (stats.tuitionCollected / stats.tuitionExpected * 100).toFixed(1) : 0;
-            stats.termlyRate = stats.termlyExpected > 0 ? (stats.termlyCollected / stats.termlyExpected * 100).toFixed(1) : 0;
-            stats.oneTimeRate = stats.oneTimeExpected > 0 ? (stats.oneTimeCollected / stats.oneTimeExpected * 100).toFixed(1) : 0;
-            stats.yearlyRate = stats.yearlyExpected > 0 ? (stats.yearlyCollected / stats.yearlyExpected * 100).toFixed(1) : 0;
-
-            stats.totalExpected = stats.tuitionExpected + stats.termlyExpected + stats.oneTimeExpected + stats.yearlyExpected;
-            stats.totalCollected = stats.tuitionCollected + stats.termlyCollected + stats.oneTimeCollected + stats.yearlyCollected;
-            stats.overallRate = stats.totalExpected > 0 ? (stats.totalCollected / stats.totalExpected * 100).toFixed(1) : 0;
-
-            feeStructureStats.push(stats);
-        }
-
-        window.feeStructureStatsData = feeStructureStats;
-
-        const totalStructures = feeStructureStats.length;
-        const totalStudents = feeStructureStats.reduce((sum, fs) => sum + fs.totalStudents, 0);
-        const totalExpected = feeStructureStats.reduce((sum, fs) => sum + fs.totalExpected, 0);
-        const totalCollected = feeStructureStats.reduce((sum, fs) => sum + fs.totalCollected, 0);
-        const totalCollectionRate = totalExpected > 0 ? (totalCollected / totalExpected * 100).toFixed(1) : 0;
-
-        // Rate → colour helpers (design-system palette)
-        function rateColorText(rate) { rate = parseFloat(rate); return rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-rose-600'; }
-        function rateColorBar(rate) { rate = parseFloat(rate); return rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-rose-500'; }
-
-        // ==================== ITEM STATISTICS TABLE ====================
-        function renderItemStatistics(itemStats, periodType, title, iconClass, accent) {
-            const items = Object.values(itemStats[periodType] || {});
-            if (items.length === 0) return '';
-
-            const correctedItems = items.map(item => {
-                const totalPaidCorrected = Math.min(item.totalPaid, item.totalAmount);
-                const collectionRateCorrected = item.totalAmount > 0 ? (totalPaidCorrected / item.totalAmount * 100).toFixed(1) : 0;
-                const maxPossibleItems = item.count * item.quantity;
-                const itemsBroughtCorrected = Math.min(item.totalItemsBrought, maxPossibleItems);
-
-                return {
-                    ...item,
-                    totalPaid: totalPaidCorrected,
-                    collectionRate: Math.min(100, parseFloat(collectionRateCorrected)),
-                    totalItemsBrought: itemsBroughtCorrected,
-                    totalOutstanding: item.totalAmount - totalPaidCorrected
-                };
-            });
-
-            const totalAmount = correctedItems.reduce((sum, i) => sum + i.totalAmount, 0);
-            const totalPaid = correctedItems.reduce((sum, i) => sum + i.totalPaid, 0);
-            const collectionRate = totalAmount > 0 ? (totalPaid / totalAmount * 100).toFixed(1) : 0;
-
-            const accentMap = {
-                emerald: { chip: 'bg-emerald-50 text-emerald-700', icon: 'text-emerald-500' },
-                purple: { chip: 'bg-purple-50 text-purple-700', icon: 'text-purple-500' },
-                amber: { chip: 'bg-amber-50 text-amber-700', icon: 'text-amber-500' }
-            };
-            const a = accentMap[accent] || accentMap.emerald;
-
-            return `
-                <div class="mb-6">
-                    <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-                        <h4 class="font-display font-bold text-base flex items-center gap-2 text-slate-800">
-                            <i class="fas ${iconClass} ${a.icon}"></i>${title}
-                        </h4>
-                        <div class="flex flex-wrap gap-2 text-xs">
-                            <span class="db-badge bg-slate-100 text-slate-600">Value: UGX ${formatMoney(totalAmount)}</span>
-                            <span class="db-badge bg-emerald-50 text-emerald-700">Collected: UGX ${formatMoney(totalPaid)}</span>
-                            <span class="db-badge bg-rose-50 text-rose-600">Outstanding: UGX ${formatMoney(totalAmount - totalPaid)}</span>
-                            <span class="db-badge ${collectionRate >= 80 ? 'bg-emerald-50 text-emerald-700' : collectionRate >= 50 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}">${collectionRate}% collected</span>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto rounded-xl border border-slate-100 db-scroll">
-                        <table class="w-full text-xs">
-                            <thead class="db-table">
-                                <tr>
-                                    <th class="p-2.5 text-left">Item Name</th>
-                                    <th class="p-2.5 text-right">Required Qty</th>
-                                    <th class="p-2.5 text-right">Unit Price</th>
-                                    <th class="p-2.5 text-right">Total Amount</th>
-                                    <th class="p-2.5 text-right">Cash Collected</th>
-                                    <th class="p-2.5 text-right">Items Brought</th>
-                                    <th class="p-2.5 text-right">Total Collected</th>
-                                    <th class="p-2.5 text-right">Outstanding</th>
-                                    <th class="p-2.5 text-center">Fully Paid</th>
-                                    <th class="p-2.5 text-center">Partial</th>
-                                    <th class="p-2.5 text-center">Unpaid</th>
-                                    <th class="p-2.5 text-center">Collection Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                ${correctedItems.map(item => {
-                                    const maxPossibleItems = item.count * item.quantity;
-                                    const itemsBroughtDisplay = `${item.totalItemsBrought} / ${maxPossibleItems}`;
-                                    return `
-                                        <tr class="hover:bg-slate-50 transition-colors">
-                                            <td class="p-2.5 font-semibold text-slate-700"><i class="fas fa-box-open text-slate-300 mr-1.5"></i>${escapeHtml(item.name)}</td>
-                                            <td class="p-2.5 text-right font-mono-num text-slate-500">${item.quantity}</td>
-                                            <td class="p-2.5 text-right font-mono-num text-slate-500">UGX ${formatMoney(item.unitPrice)}</td>
-                                            <td class="p-2.5 text-right font-mono-num text-slate-600 font-semibold">UGX ${formatMoney(item.totalAmount)}</td>
-                                            <td class="p-2.5 text-right font-mono-num text-slate-500">UGX ${formatMoney(item.totalCashCollected)}</td>
-                                            <td class="p-2.5 text-right font-mono-num text-indigo-600">${itemsBroughtDisplay}</td>
-                                            <td class="p-2.5 text-right font-mono-num font-bold text-emerald-600">UGX ${formatMoney(item.totalPaid)}</td>
-                                            <td class="p-2.5 text-right font-mono-num font-bold text-rose-600">UGX ${formatMoney(item.totalOutstanding)}</td>
-                                            <td class="p-2.5 text-center"><span class="db-badge bg-emerald-50 text-emerald-700">${item.studentsPaid}</span></td>
-                                            <td class="p-2.5 text-center"><span class="db-badge bg-amber-50 text-amber-700">${item.studentsPartial}</span></td>
-                                            <td class="p-2.5 text-center"><span class="db-badge bg-rose-50 text-rose-700">${item.studentsUnpaid}</span></td>
-                                            <td class="p-2.5 text-center">
-                                                <div class="flex flex-col items-center gap-1">
-                                                    <span class="text-sm font-bold font-mono-num ${rateColorText(item.collectionRate)}">${item.collectionRate.toFixed(1)}%</span>
-                                                    <div class="db-progress-track h-1.5 w-16"><div class="db-progress-fill ${rateColorBar(item.collectionRate)} h-1.5" style="width:${item.collectionRate}%"></div></div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                            <tfoot class="bg-slate-50 font-semibold border-t border-slate-200">
-                                <tr>
-                                    <td class="p-2.5 text-right text-slate-500" colspan="3">TOTAL</td>
-                                    <td class="p-2.5 text-right font-mono-num text-slate-700">UGX ${formatMoney(totalAmount)}</td>
-                                    <td class="p-2.5 text-right font-mono-num text-slate-600">UGX ${formatMoney(correctedItems.reduce((s, i) => s + i.totalCashCollected, 0))}</td>
-                                    <td class="p-2.5 text-right font-mono-num text-indigo-600">${correctedItems.reduce((s, i) => s + i.totalItemsBrought, 0)} / ${correctedItems.reduce((s, i) => s + (i.count * i.quantity), 0)}</td>
-                                    <td class="p-2.5 text-right font-mono-num text-emerald-600">UGX ${formatMoney(totalPaid)}</td>
-                                    <td class="p-2.5 text-right font-mono-num text-rose-600">UGX ${formatMoney(totalAmount - totalPaid)}</td>
-                                    <td colspan="3" class="p-2.5 text-center text-slate-500">${collectionRate}% Collected</td>
-                                    <td class="p-2.5"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
-
-        // ==================== BUILD FEE STRUCTURE CARDS ====================
-        let structuresHtml = '';
-        for (const fs of feeStructureStats) {
-            const levelDisplay = fs.level === 'Nursery' ? 'Nursery Level' : fs.level === 'LowerPrimary' ? 'Lower Primary' : fs.level === 'UpperPrimary' ? 'Upper Primary' : fs.level;
-            const safeFsId = fs.id.replace(/[^a-zA-Z0-9]/g, '_');
-
-            structuresHtml += `
-                <div class="db-card overflow-hidden db-fade-in">
-                    <div class="p-6 text-white" style="background:linear-gradient(115deg,#0B1324,#1E2A44 55%,#4F5FE8);">
-                        <div class="flex justify-between items-center flex-wrap gap-3">
-                            <div>
-                                <h3 class="font-display font-bold text-2xl">${escapeHtml(fs.name)}</h3>
-                                <p class="text-sm opacity-80 mt-0.5">${levelDisplay} &middot; ${fs.totalStudents} Students</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-3xl font-bold font-mono-num ${fs.overallRate >= 80 ? 'text-emerald-300' : fs.overallRate >= 50 ? 'text-amber-300' : 'text-rose-300'}">${fs.overallRate}%</p>
-                                <p class="text-[11px] opacity-70 uppercase tracking-wide">Overall Collection Rate</p>
-                            </div>
-                        </div>
-                        <div class="db-progress-track h-2 mt-4" style="background:rgba(255,255,255,.15)"><div class="db-progress-fill bg-white h-2" style="width:${Math.min(100, fs.overallRate)}%"></div></div>
-                    </div>
-
-                    <div class="p-5">
-                        <!-- ================= FEE TYPE CARDS ================= -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <div class="rounded-2xl p-4 border border-indigo-100 bg-indigo-50/50">
-                                <h4 class="font-display font-bold text-sm text-indigo-700 flex items-center gap-1.5"><i class="fas fa-money-bill-wave"></i>Tuition</h4>
-                                <p class="text-xl font-bold font-mono-num text-indigo-600 mt-1">UGX ${formatMoney(fs.tuitionCollected)}</p>
-                                <p class="text-[11px] text-slate-400 font-mono-num">of UGX ${formatMoney(fs.tuitionExpected)}</p>
-                                <div class="db-progress-track h-1.5 mt-2"><div class="db-progress-fill bg-indigo-500 h-1.5" style="width:${Math.min(100, fs.tuitionRate)}%"></div></div>
-                                <p class="text-[11px] text-slate-500 font-medium mt-1.5">${fs.tuitionRate}% collected</p>
-                            </div>
-                            <div class="rounded-2xl p-4 border border-emerald-100 bg-emerald-50/50">
-                                <h4 class="font-display font-bold text-sm text-emerald-700 flex items-center gap-1.5"><i class="fas fa-calendar-days"></i>Termly</h4>
-                                <p class="text-xl font-bold font-mono-num text-emerald-600 mt-1">UGX ${formatMoney(fs.termlyCollected)}</p>
-                                <p class="text-[11px] text-slate-400 font-mono-num">of UGX ${formatMoney(fs.termlyExpected)}</p>
-                                <div class="db-progress-track h-1.5 mt-2"><div class="db-progress-fill bg-emerald-500 h-1.5" style="width:${Math.min(100, fs.termlyRate)}%"></div></div>
-                                <p class="text-[11px] text-slate-400 mt-1.5">Charged every term</p>
-                            </div>
-                            <div class="rounded-2xl p-4 border border-purple-100 bg-purple-50/50">
-                                <h4 class="font-display font-bold text-sm text-purple-700 flex items-center gap-1.5"><i class="fas fa-star"></i>One-Time</h4>
-                                <p class="text-xl font-bold font-mono-num text-purple-600 mt-1">UGX ${formatMoney(fs.oneTimeCollected)}</p>
-                                <p class="text-[11px] text-slate-400 font-mono-num">of UGX ${formatMoney(fs.oneTimeExpected)}</p>
-                                <div class="db-progress-track h-1.5 mt-2"><div class="db-progress-fill bg-purple-500 h-1.5" style="width:${Math.min(100, fs.oneTimeRate)}%"></div></div>
-                                <p class="text-[11px] text-slate-400 mt-1.5">${isFirstTerm ? 'Charged this term' : 'Not charged this term'}</p>
-                            </div>
-                            <div class="rounded-2xl p-4 border border-amber-100 bg-amber-50/50">
-                                <h4 class="font-display font-bold text-sm text-amber-700 flex items-center gap-1.5"><i class="fas fa-calendar-week"></i>Yearly</h4>
-                                <p class="text-xl font-bold font-mono-num text-amber-600 mt-1">UGX ${formatMoney(fs.yearlyCollected)}</p>
-                                <p class="text-[11px] text-slate-400 font-mono-num">of UGX ${formatMoney(fs.yearlyExpected)}</p>
-                                <div class="db-progress-track h-1.5 mt-2"><div class="db-progress-fill bg-amber-500 h-1.5" style="width:${Math.min(100, fs.yearlyRate)}%"></div></div>
-                                <p class="text-[11px] text-slate-400 mt-1.5">${isFirstTerm ? 'Charged this term' : 'Not charged this term'}</p>
-                            </div>
-                        </div>
-
-                        <!-- ================= ITEM STATISTICS ================= -->
-                        <div class="mb-6">
-                            <div class="rounded-2xl p-4 mb-4" style="background:linear-gradient(115deg,#EEF1FF,#EAFBF7);">
-                                <h3 class="font-display font-bold text-base flex items-center gap-2 text-slate-800"><i class="fas fa-boxes-stacked text-indigo-500"></i>Item-Level Statistics</h3>
-                                <p class="text-xs text-slate-500 mt-0.5">Total quantities and values for each item across all students</p>
-                            </div>
-                            ${renderItemStatistics(fs.itemStats, 'termly', 'Termly Items', 'fa-calendar-days', 'emerald')}
-                            ${renderItemStatistics(fs.itemStats, 'one_time', 'One-Time Items', 'fa-star', 'purple')}
-                            ${renderItemStatistics(fs.itemStats, 'yearly', 'Yearly Items', 'fa-calendar-week', 'amber')}
-                        </div>
-
-                        <!-- ================= BURSARY IMPACT ================= -->
-                        ${fs.totalDiscount > 0 ? `
-                            <div class="rounded-2xl p-4 mb-6 border border-amber-100 bg-amber-50/40">
-                                <h4 class="font-display font-bold text-base mb-3 flex items-center gap-2 text-slate-800"><i class="fas fa-ticket text-amber-500"></i>Bursary Impact</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <div class="db-card p-3 text-center"><p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Total Discount</p><p class="text-xl font-bold font-mono-num text-emerald-600 mt-1">UGX ${formatMoney(fs.totalDiscount)}</p></div>
-                                    <div class="db-card p-3 text-center"><p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Students with Bursary</p><p class="text-xl font-bold font-mono-num text-purple-600 mt-1">${fs.studentsWithBursary} / ${fs.totalStudents}</p></div>
-                                    <div class="db-card p-3">
-                                        <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-2">Bursaries Applied</p>
-                                        ${Object.entries(fs.bursariesApplied).map(([name, data]) => `
-                                            <div class="flex justify-between text-xs py-1"><span class="text-slate-600 font-medium"><i class="fas fa-award text-amber-400 mr-1"></i>${escapeHtml(name)}</span><span class="text-slate-500 font-mono-num">${data.count} students &middot; UGX ${formatMoney(data.totalDiscount)}</span></div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            </div>
-                        ` : ''}
-
-                        <!-- ================= STUDENTS TABLE ================= -->
-                        <div>
-                            <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-                                <h4 class="font-display font-bold text-base flex items-center gap-2 text-slate-800"><i class="fas fa-user-graduate text-indigo-500"></i>Students Assigned</h4>
-                                <div class="relative">
-                                    <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                                    <input type="text"
-                                           id="searchInput_${safeFsId}"
-                                           class="searchStudentInput pl-10 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm w-64 focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 outline-none transition"
-                                           data-table-id="studentsTable_${safeFsId}"
-                                           placeholder="Search by name or admission...">
-                                </div>
-                            </div>
-                            <div class="overflow-x-auto rounded-xl border border-slate-100 db-scroll">
-                                <table class="w-full text-sm" id="studentsTable_${safeFsId}">
-                                    <thead class="db-table">
-                                        <tr>
-                                            <th class="p-2.5 text-left">Admission</th>
-                                            <th class="p-2.5 text-left">Student</th>
-                                            <th class="p-2.5 text-left">Class</th>
-                                            <th class="p-2.5 text-right">Tuition</th>
-                                            <th class="p-2.5 text-right">Termly</th>
-                                            <th class="p-2.5 text-right">Total Paid</th>
-                                            <th class="p-2.5 text-right">Balance</th>
-                                            <th class="p-2.5 text-left">Status</th>
-                                            <th class="p-2.5 text-center">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100">
-                                        ${fs.students.map(s => `
-                                            <tr class="hover:bg-slate-50 transition-colors student-row"
-                                                data-name="${(s.firstName + ' ' + s.lastName).toLowerCase()}"
-                                                data-admission="${s.admissionNumber.toLowerCase()}">
-                                                <td class="p-2.5 font-mono-num text-xs text-slate-500">${s.admissionNumber}</td>
-                                                <td class="p-2.5 font-semibold text-slate-700">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
-                                                <td class="p-2.5"><span class="db-badge bg-purple-50 text-purple-700">${s.currentClass}</span></td>
-                                                <td class="p-2.5 text-right font-mono-num">
-                                                    <span class="text-slate-700 font-semibold">UGX ${formatMoney(s.tuitionPaid)}</span>
-                                                    <div class="text-[10px] text-slate-400">/ ${formatMoney(s.expectedTuition)}</div>
-                                                    ${s.discountDisplay ? `<div class="text-[10px] text-emerald-500 font-sans font-medium"><i class="fas fa-award mr-0.5"></i>${s.discountDisplay}</div>` : ''}
-                                                </td>
-                                                <td class="p-2.5 text-right font-mono-num">
-                                                    <span class="text-slate-700 font-semibold">UGX ${formatMoney(s.termlyPaid)}</span>
-                                                    <div class="text-[10px] text-slate-400">/ ${formatMoney(s.expectedTermly)}</div>
-                                                </td>
-                                                <td class="p-2.5 text-right font-mono-num font-bold text-emerald-600">UGX ${formatMoney(s.totalPaid)}</td>
-                                                <td class="p-2.5 text-right font-mono-num font-bold ${s.totalBalance > 0 ? 'text-rose-600' : s.totalBalance < 0 ? 'text-sky-600' : 'text-emerald-600'}">
-                                                    ${s.totalBalance > 0 ? `UGX ${formatMoney(s.totalBalance)}` : s.totalBalance < 0 ? `Credit ${formatMoney(Math.abs(s.totalBalance))}` : 'UGX 0'}
-                                                </td>
-                                                <td class="p-2.5"><span class="db-badge ${s.statusColor}">${s.statusIcon} ${s.status}</span></td>
-                                                <td class="p-2.5 text-center">
-                                                    <div class="flex justify-center gap-1">
-                                                        <button onclick="viewStudentDetailsList('${s.id}')" class="text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="View"><i class="fas fa-eye text-xs"></i></button>
-                                                        <button onclick="makePaymentForStudentStats('${s.id}')" class="text-emerald-500 hover:text-white hover:bg-emerald-500 w-7 h-7 rounded-lg transition flex items-center justify-center" title="Pay"><i class="fas fa-receipt text-xs"></i></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // ==================== BUILD FULL PAGE ====================
-        const html = `
-            <div class="db-app-bg -m-4 p-4 space-y-6 pb-8 rounded-2xl">
-
-                <!-- ================= HERO ================= -->
-                <div class="db-hero db-fade-in">
-                    <div class="db-hero-edge"></div>
-                    <div class="relative z-10 flex justify-between items-center flex-wrap gap-4">
-                        <div>
-                            <p class="db-eyebrow" style="color:rgba(255,255,255,.72)">${termName} &middot; ${currentYear}</p>
-                            <h1 class="font-display text-3xl font-bold tracking-tight mt-0.5"><i class="fas fa-chart-pie mr-2 opacity-80"></i>Fee Structure Statistics</h1>
-                            <p class="text-sm text-white/80 mt-1">${!isFirstTerm ? 'Only Tuition and Termly fees are charged this term' : 'One-Time and Yearly fees are charged this term'}</p>
-                        </div>
-                        <div class="flex gap-2 flex-wrap">
-                            <button onclick="showFeeManagement()" class="db-chip px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center gap-2"><i class="fas fa-arrow-left"></i>Back to Fee Management</button>
-                            <button onclick="window.print()" class="bg-white text-teal-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md"><i class="fas fa-print"></i>Print Report</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ================= SUMMARY KPI CARDS ================= -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <div class="db-metric">
-                        <span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 opacity-80"></span>
-                        <div class="flex justify-between items-start">
-                            <div><p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Fee Structures</p><p class="db-metric-value text-2xl font-bold text-slate-800 mt-1">${totalStructures}</p></div>
-                            <div class="db-metric-icon bg-indigo-50 text-indigo-600"><i class="fas fa-layer-group"></i></div>
-                        </div>
-                    </div>
-                    <div class="db-metric">
-                        <span class="absolute left-0 top-0 bottom-0 w-1 bg-teal-500 opacity-80"></span>
-                        <div class="flex justify-between items-start">
-                            <div><p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Students</p><p class="db-metric-value text-2xl font-bold text-slate-800 mt-1">${totalStudents}</p></div>
-                            <div class="db-metric-icon bg-teal-50 text-teal-600"><i class="fas fa-users"></i></div>
-                        </div>
-                    </div>
-                    <div class="db-metric">
-                        <span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 opacity-80"></span>
-                        <div class="flex justify-between items-start">
-                            <div><p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Expected</p><p class="db-metric-value text-lg font-bold text-slate-800 mt-1">UGX ${formatMoney(totalExpected)}</p></div>
-                            <div class="db-metric-icon bg-amber-50 text-amber-600"><i class="fas fa-file-invoice"></i></div>
-                        </div>
-                    </div>
-                    <div class="db-metric">
-                        <span class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 opacity-80"></span>
-                        <div class="flex justify-between items-start">
-                            <div><p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Collected</p><p class="db-metric-value text-lg font-bold text-slate-800 mt-1">UGX ${formatMoney(totalCollected)}</p></div>
-                            <div class="db-metric-icon bg-emerald-50 text-emerald-600"><i class="fas fa-circle-check"></i></div>
-                        </div>
-                    </div>
-                    <div class="db-metric">
-                        <span class="absolute left-0 top-0 bottom-0 w-1 bg-sky-500 opacity-80"></span>
-                        <div class="flex justify-between items-start">
-                            <div><p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Collection Rate</p><p class="db-metric-value text-2xl font-bold text-slate-800 mt-1">${totalCollectionRate}%</p></div>
-                            <div class="db-metric-icon bg-sky-50 text-sky-600"><i class="fas fa-chart-line"></i></div>
-                        </div>
-                        <div class="db-progress-track h-1.5 mt-2.5"><div class="db-progress-fill bg-sky-500 h-1.5" style="width:${totalCollectionRate}%"></div></div>
-                    </div>
-                </div>
-
-                <!-- ================= FEE STRUCTURE LIST ================= -->
-                <div id="feeStructuresListContainer" class="space-y-6">
-                    ${structuresHtml || `
-                        <div class="db-card p-10 text-center">
-                            <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-300 flex items-center justify-center mx-auto mb-3"><i class="fas fa-file-invoice-dollar text-2xl"></i></div>
-                            <p class="text-slate-500 font-medium">No fee structures found</p>
-                        </div>
-                    `}
-                </div>
-            </div>
-        `;
-
-        mainContent.innerHTML = html;
-
-        // Attach search event listeners
-        setTimeout(() => {
-            const searchInputs = document.querySelectorAll('.searchStudentInput');
-            searchInputs.forEach(input => {
-                input.addEventListener('keyup', function () {
-                    const searchTerm = this.value.toLowerCase().trim();
-                    const tableId = this.getAttribute('data-table-id');
-                    const table = document.getElementById(tableId);
-                    if (!table) return;
-
-                    const rows = table.querySelectorAll('tbody tr.student-row');
-                    rows.forEach(row => {
-                        const name = row.getAttribute('data-name') || '';
-                        const admission = row.getAttribute('data-admission') || '';
-                        const matches = searchTerm === '' || name.includes(searchTerm) || admission.includes(searchTerm);
-                        row.style.display = matches ? '' : 'none';
-                    });
-                });
-            });
-        }, 100);
-
-    } catch (error) {
-        console.error('Error:', error);
-        if (mainContent) {
-            mainContent.innerHTML = `
-                <div class="db-app-bg -m-4 p-4 min-h-[60vh] flex items-center justify-center rounded-2xl">
-                    <div class="db-card p-10 text-center max-w-lg">
-                        <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-triangle-exclamation text-xl"></i>
-                        </div>
-                        <p class="text-slate-800 font-semibold text-lg font-display">Couldn't load statistics</p>
-                        <p class="text-slate-500 text-sm mt-1.5">${error.message}</p>
-                        <button onclick="showFeeStructureStatistics()" class="mt-5 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition"><i class="fas fa-rotate-right mr-2"></i>Retry</button>
-                    </div>
-                </div>
-            `;
-        }
-    }
-}
-
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function makePaymentForStudentStats(studentId) {
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) feeLink.click();
-    else showFeeManagement();
-    setTimeout(() => {
-        const select = document.getElementById('collectStudentSelect');
-        if (select) { select.value = studentId; select.dispatchEvent(new Event('change')); }
-        document.querySelector('.fee-tab[data-tab="collect"]')?.click();
-    }, 500);
-}
-
-// Helper function to escape HTML
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Make sure functions are global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-
-// Make sure this function is globally available
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-
-function makePaymentForStudentStats(studentId) {
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) feeLink.click();
-    else showFeeManagement();
-    setTimeout(() => {
-        const select = document.getElementById('collectStudentSelect');
-        if (select) { select.value = studentId; select.dispatchEvent(new Event('change')); }
-        document.querySelector('.fee-tab[data-tab="collect"]')?.click();
-    }, 500);
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-
-console.log('Fee Structure Statistics v21.0 - Ready!');
-
-function makePaymentForStudentStats(studentId) {
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) feeLink.click();
-    else showFeeManagement();
-    setTimeout(() => {
-        const select = document.getElementById('collectStudentSelect');
-        if (select) { select.value = studentId; select.dispatchEvent(new Event('change')); }
-        document.querySelector('.fee-tab[data-tab="collect"]')?.click();
-    }, 500);
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-
-console.log('Fee Structure Statistics v21.0 - Ready!');
-
-// ==================== RENDER FEE STRUCTURE STATS CARD ====================
-
-
-
-// ==================== INITIALIZE STATS FILTERS ====================
-
-function initializeStatsFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    const applyFilters = () => {
-        const searchTerm = (searchInput?.value || '').toLowerCase().trim();
-        const levelValue = levelFilter?.value || '';
-        const statusValue = statusFilter?.value || '';
-        
-        const allStructures = window.feeStructureStatsData || [];
-        
-        let filtered = allStructures.filter(fs => {
-            let matchSearch = true;
-            if (searchTerm) matchSearch = fs.name.toLowerCase().includes(searchTerm);
-            
-            let matchLevel = true;
-            if (levelValue) matchLevel = fs.level === levelValue;
-            
-            let matchStatus = true;
-            if (statusValue) {
-                const rate = parseFloat(fs.overallRate);
-                switch(statusValue) {
-                    case 'has_students': matchStatus = fs.totalStudents > 0; break;
-                    case 'no_students': matchStatus = fs.totalStudents === 0; break;
-                    case 'high': matchStatus = rate >= 80; break;
-                    case 'medium': matchStatus = rate >= 50 && rate < 80; break;
-                    case 'low': matchStatus = rate < 50; break;
-                    default: matchStatus = true;
-                }
-            }
-            
-            return matchSearch && matchLevel && matchStatus;
-        });
-        
-        const container = document.getElementById('feeStructuresListContainer');
-        const filteredCountSpan = document.getElementById('filteredCount');
-        
-        if (container) {
-            if (filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="bg-yellow-50 p-12 text-center rounded-xl border-2 border-dashed border-yellow-300">
-                        <i class="fas fa-search text-yellow-500 text-5xl mb-4"></i>
-                        <h3 class="text-xl font-semibold text-yellow-700 mb-2">No Fee Structures Found</h3>
-                        <p class="text-yellow-600">Try adjusting your search or filter criteria</p>
-                    </div>
-                `;
-            } else {
-                const { currentTerm } = currentAcademicSettings;
-                const isFirstTerm = currentTerm === 1;
-                container.innerHTML = filtered.map(fs => renderFeeStructureStatsCard(fs, isFirstTerm, (amt) => {
-                    const num = Math.abs(Math.round(amt || 0));
-                    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-                    if (num >= 10000) return `${Math.round(num / 1000)}K`;
-                    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-                    return num.toLocaleString();
-                })).join('');
-            }
-        }
-        
-        if (filteredCountSpan) filteredCountSpan.innerText = filtered.length;
-    };
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', applyFilters);
-        searchInput.addEventListener('keyup', applyFilters);
-    }
-    if (levelFilter) levelFilter.addEventListener('change', applyFilters);
-    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
-    
-    applyFilters();
-}
-
-// ==================== RESET FILTERS ====================
-
-function resetFeeStructureFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (levelFilter) levelFilter.value = '';
-    if (statusFilter) statusFilter.value = '';
-    
-    initializeStatsFilters();
-}
-
-// ==================== FILTER STUDENT TABLE IN STATS ====================
-
-function filterStudentTableInStats(fsId, searchTerm) {
-    const table = document.getElementById(`studentTable_${fsId}`);
-    if (!table) return;
-    
-    const rows = table.querySelectorAll('tbody tr');
-    const term = (searchTerm || '').toLowerCase().trim();
-    
-    rows.forEach(row => {
-        const studentName = row.getAttribute('data-student-name') || '';
-        const admission = row.getAttribute('data-admission') || '';
-        const matches = term === '' || studentName.includes(term) || admission.includes(term);
-        row.style.display = matches ? '' : 'none';
-    });
-}
-
-// ==================== MAKE PAYMENT FOR STUDENT STATS ====================
-
-function makePaymentForStudentStats(studentId) {
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) {
-        feeLink.click();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-            const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
-            if (collectTab) collectTab.click();
-        }, 500);
-    } else {
-        showFeeManagement();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-        }, 800);
-    }
-}
-
-// ==================== ESCAPE HTML ====================
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Make all functions global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.resetFeeStructureFilters = resetFeeStructureFilters;
-window.filterStudentTableInStats = filterStudentTableInStats;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-
-console.log('Fee Structure Statistics v15.0 - Fully Loaded!');
-
-// ==================== RENDER COMPLETE FEE STATS CARD ====================
-
-function renderCompleteFeeStatsCard(fs, currentTerm, isFirstTerm) {
-    const hasStudents = fs.totalStudents > 0;
-    const overallRate = parseFloat(fs.overallRate);
-    const rateColor = overallRate >= 80 ? 'text-green-600' : overallRate >= 50 ? 'text-yellow-600' : 'text-red-600';
-    const rateBg = overallRate >= 80 ? 'bg-green-500' : overallRate >= 50 ? 'bg-yellow-500' : 'bg-red-500';
-    
-    // Level display
-    let levelDisplay = '';
-    if (fs.level === 'Nursery') levelDisplay = 'Nursery Level';
-    else if (fs.level === 'LowerPrimary') levelDisplay = 'Lower Primary (P.1-P.3)';
-    else if (fs.level === 'UpperPrimary') levelDisplay = 'Upper Primary (P.4-P.7)';
-    else levelDisplay = fs.level;
-    
-    return `
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden border ${hasStudents ? 'border-gray-200' : 'border-gray-300'}">
-            <!-- Header -->
-            <div class="bg-gradient-to-r from-gray-800 to-gray-900 p-5 text-white">
-                <div class="flex justify-between items-center flex-wrap gap-3">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <i class="fas fa-file-invoice-dollar text-2xl"></i>
-                            <h3 class="font-bold text-2xl">${escapeHtml(fs.name)}</h3>
-                            ${!hasStudents ? '<span class="ml-2 text-xs bg-gray-600 px-2 py-0.5 rounded">No Students</span>' : ''}
-                        </div>
-                        <p class="text-sm opacity-75">
-                            <i class="fas fa-layer-group"></i> ${levelDisplay} | 
-                            <i class="fas fa-users"></i> ${fs.totalStudents} Student${fs.totalStudents !== 1 ? 's' : ''}
-                        </p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-3xl font-bold ${rateColor}">${fs.overallRate}%</p>
-                        <p class="text-xs opacity-75">Overall Collection Rate</p>
-                    </div>
-                </div>
-                <div class="mt-3 w-full bg-white/20 rounded-full h-2">
-                    <div class="${rateBg} rounded-full h-2" style="width: ${fs.overallRate}%"></div>
-                </div>
-            </div>
-            
-            <div class="p-5">
-                <!-- All Four Fee Type Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <!-- Tuition Card -->
-                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <h4 class="font-bold text-blue-700"><i class="fas fa-money-bill-wave mr-1"></i> Tuition Fee</h4>
-                            <span class="text-sm font-semibold text-blue-600">${fs.tuitionRate}%</span>
-                        </div>
-                        <p class="text-2xl font-bold text-blue-600">UGX ${Math.round(fs.tuitionCollected).toLocaleString()}</p>
-                        <p class="text-xs text-gray-500">of UGX ${Math.round(fs.tuitionExpected).toLocaleString()}</p>
-                        <div class="w-full bg-blue-200 rounded-full h-1.5 mt-2"><div class="bg-blue-600 rounded-full h-1.5" style="width: ${fs.tuitionRate}%"></div></div>
-                        <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.tuitionOutstanding).toLocaleString()}</p>
-                    </div>
-                    
-                    <!-- One-Time Card (only show if has items and first term) -->
-                    ${fs.oneTimeTotal > 0 && isFirstTerm ? `
-                        <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-purple-700"><i class="fas fa-star mr-1"></i> One-Time Fees</h4>
-                                <span class="text-sm font-semibold text-purple-600">${fs.oneTimeRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-purple-600">UGX ${Math.round(fs.oneTimeCollected).toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${Math.round(fs.oneTimeTotal).toLocaleString()}</p>
-                            <div class="w-full bg-purple-200 rounded-full h-1.5 mt-2"><div class="bg-purple-600 rounded-full h-1.5" style="width: ${fs.oneTimeRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.oneTimeOutstanding).toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged once per year (first term only)</p>
-                        </div>
-                    ` : fs.oneTimeTotal > 0 && !isFirstTerm ? `
-                        <div class="bg-gray-100 rounded-xl p-4 border border-gray-200 text-center">
-                            <h4 class="font-bold text-gray-600"><i class="fas fa-star mr-1"></i> One-Time Fees</h4>
-                            <p class="text-sm text-gray-500 mt-2">Not charged in Term ${currentTerm}</p>
-                            <p class="text-xs text-gray-400">Charged only in first term (UGX ${Math.round(fs.oneTimeTotal).toLocaleString()})</p>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Termly Card -->
-                    ${fs.termlyTotal > 0 ? `
-                        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-green-700"><i class="fas fa-calendar-alt mr-1"></i> Termly Fees</h4>
-                                <span class="text-sm font-semibold text-green-600">${fs.termlyRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-green-600">UGX ${Math.round(fs.termlyCollected).toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${Math.round(fs.termlyTotal).toLocaleString()}</p>
-                            <div class="w-full bg-green-200 rounded-full h-1.5 mt-2"><div class="bg-green-600 rounded-full h-1.5" style="width: ${fs.termlyRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.termlyOutstanding).toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged every term</p>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Yearly Card -->
-                    ${fs.yearlyTotal > 0 && isFirstTerm ? `
-                        <div class="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-orange-700"><i class="fas fa-calendar-week mr-1"></i> Yearly Fees</h4>
-                                <span class="text-sm font-semibold text-orange-600">${fs.yearlyRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-orange-600">UGX ${Math.round(fs.yearlyCollected).toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${Math.round(fs.yearlyTotal).toLocaleString()}</p>
-                            <div class="w-full bg-orange-200 rounded-full h-1.5 mt-2"><div class="bg-orange-600 rounded-full h-1.5" style="width: ${fs.yearlyRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.yearlyOutstanding).toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged once per year (first term only)</p>
-                        </div>
-                    ` : fs.yearlyTotal > 0 && !isFirstTerm ? `
-                        <div class="bg-gray-100 rounded-xl p-4 border border-gray-200 text-center">
-                            <h4 class="font-bold text-gray-600"><i class="fas fa-calendar-week mr-1"></i> Yearly Fees</h4>
-                            <p class="text-sm text-gray-500 mt-2">Not charged in Term ${currentTerm}</p>
-                            <p class="text-xs text-gray-400">Charged only in first term (UGX ${Math.round(fs.yearlyTotal).toLocaleString()})</p>
-                        </div>
-                    ` : ''}
-                </div>
-                
-                <!-- Bursary Impact Section -->
-                ${fs.bursaryStats.totalDiscount > 0 ? `
-                    <div class="bg-yellow-50 rounded-xl p-4 mb-6 border border-yellow-200">
-                        <h4 class="font-bold text-lg mb-3 flex items-center">
-                            <i class="fas fa-ticket-alt text-yellow-600 mr-2"></i> Bursary Impact
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-white rounded-lg p-3 text-center">
-                                <p class="text-sm text-gray-600">Total Discount Given</p>
-                                <p class="text-2xl font-bold text-green-600">UGX ${Math.round(fs.bursaryStats.totalDiscount).toLocaleString()}</p>
-                            </div>
-                            <div class="bg-white rounded-lg p-3 text-center">
-                                <p class="text-sm text-gray-600">Students with Bursary</p>
-                                <p class="text-2xl font-bold text-purple-600">${fs.bursaryStats.studentsWithBursary} / ${fs.totalStudents}</p>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <p class="text-sm text-gray-600 mb-2">Bursaries Applied:</p>
-                                <div class="space-y-1">
-                                    ${Object.entries(fs.bursaryStats.bursariesApplied).map(([name, data]) => `
-                                        <div class="flex justify-between text-sm">
-                                            <span>🎖️ ${escapeHtml(name)}</span>
-                                            <span>${data.count} students (UGX ${Math.round(data.totalDiscount).toLocaleString()})</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <!-- Students Table Section with Search -->
-                <div class="mt-6">
-                    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-                        <h4 class="font-bold text-lg flex items-center">
-                            <i class="fas fa-users text-blue-600 mr-2"></i> Students Assigned to ${escapeHtml(fs.name)}
-                            <span class="ml-2 text-sm font-normal text-gray-500">(${fs.totalStudents} students)</span>
-                        </h4>
-                        ${fs.totalStudents > 0 ? `
-                            <div class="flex gap-2">
-                                <div class="relative">
-                                    <i class="fas fa-search absolute left-3 top-2 text-gray-400 text-sm"></i>
-                                    <input type="text" id="studentSearch_${fs.id}" placeholder="Search by name or admission..." 
-                                           class="pl-8 pr-3 py-1.5 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-blue-500"
-                                           oninput="filterStudentTableInStats('${fs.id}', this.value)">
-                                </div>
-                                <button onclick="printFeeStructureReportComplete('${fs.id}')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700">
-                                    <i class="fas fa-print"></i> Print Report
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
-                    
-                    ${fs.totalStudents > 0 ? `
-                        <div class="overflow-x-auto border rounded-lg" id="studentTableContainer_${fs.id}">
-                            <table class="w-full text-sm" id="studentTable_${fs.id}">
-                                <thead class="bg-gray-100 sticky top-0">
-                                    <tr>
-                                        <th class="p-2 text-left">Admission</th>
-                                        <th class="p-2 text-left">Student Name</th>
-                                        <th class="p-2 text-left">Class</th>
-                                        <th class="p-2 text-right">💰 Tuition</th>
-                                        ${fs.termlyTotal > 0 ? '<th class="p-2 text-right">📅 Termly</th>' : ''}
-                                        ${isFirstTerm && fs.oneTimeTotal > 0 ? '<th class="p-2 text-right">⭐ One-Time</th>' : ''}
-                                        ${isFirstTerm && fs.yearlyTotal > 0 ? '<th class="p-2 text-right">📆 Yearly</th>' : ''}
-                                        <th class="p-2 text-right">Total Paid</th>
-                                        <th class="p-2 text-right">Balance</th>
-                                        <th class="p-2">Status</th>
-                                        <th class="p-2 text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${fs.students.map(s => renderStudentStatsTableRow(s, fs, isFirstTerm)).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : `
-                        <div class="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border">
-                            <i class="fas fa-users-slash text-3xl mb-2"></i>
-                            <p>No students assigned to this fee structure</p>
-                            <p class="text-xs mt-1">Assign this fee structure to students to see statistics</p>
-                        </div>
-                    `}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// ==================== RENDER STUDENT STATS TABLE ROW ====================
-
-function renderStudentStatsTableRow(student, fs, isFirstTerm) {
-    return `
-        <tr class="border-b hover:bg-gray-50 student-row"
-            data-student-name="${(student.firstName + ' ' + student.lastName).toLowerCase()}"
-            data-admission="${student.admissionNumber.toLowerCase()}">
-            <td class="p-2 font-mono text-xs">${student.admissionNumber}</td>
-            <td class="p-2 font-medium">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
-            <td class="p-2">${student.currentClass}</td>
-            <td class="p-2 text-right">
-                UGX ${Math.round(student.tuitionPaid).toLocaleString()}<br>
-                <span class="text-xs text-gray-400">/ ${Math.round(student.expectedTuition).toLocaleString()}</span>
-                ${student.appliedBursary ? `<div class="text-xs text-green-600">🎖️ ${student.discountDisplay}</div>` : ''}
-            </td>
-            ${fs.termlyTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${Math.round(student.termlyPaid).toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${Math.round(student.expectedTermly).toLocaleString()}</span>
-                </td>
-            ` : ''}
-            ${isFirstTerm && fs.oneTimeTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${Math.round(student.oneTimePaid).toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${Math.round(student.expectedOneTime).toLocaleString()}</span>
-                </td>
-            ` : ''}
-            ${isFirstTerm && fs.yearlyTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${Math.round(student.yearlyPaid).toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${Math.round(student.expectedYearly).toLocaleString()}</span>
-                </td>
-            ` : ''}
-            <td class="p-2 text-right font-semibold text-green-600">UGX ${Math.round(student.totalPaid).toLocaleString()}</td>
-            <td class="p-2 text-right font-bold ${student.totalBalance > 0 ? 'text-red-600' : student.totalBalance < 0 ? 'text-blue-600' : 'text-green-600'}">
-                ${student.totalBalance > 0 ? `UGX ${Math.round(student.totalBalance).toLocaleString()}` : 
-                  student.totalBalance < 0 ? `Credit: UGX ${Math.round(Math.abs(student.totalBalance)).toLocaleString()}` : 'UGX 0'}
-            </td>
-            <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs ${student.statusColor}">${student.statusIcon} ${student.status}</span></td>
-            <td class="p-2 text-center">
-                <button onclick="event.stopPropagation(); viewStudentFullFeeDetailsEnhanced('${student.id}')" class="text-blue-600 hover:text-blue-800 mx-1" title="View Details">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button onclick="event.stopPropagation(); makePaymentForStudentStats('${student.id}')" class="text-green-600 hover:text-green-800 mx-1" title="Make Payment">
-                    <i class="fas fa-receipt"></i>
-                </button>
-            </td>
-        </tr>
-    `;
-}
-
-// ==================== FILTER STUDENT TABLE IN STATS ====================
-
-function filterStudentTableInStats(fsId, searchTerm) {
-    const table = document.getElementById(`studentTable_${fsId}`);
-    if (!table) return;
-    
-    const rows = table.querySelectorAll('tbody tr');
-    const term = (searchTerm || '').toLowerCase().trim();
-    
-    rows.forEach(row => {
-        const studentName = row.getAttribute('data-student-name') || '';
-        const admission = row.getAttribute('data-admission') || '';
-        const matches = term === '' || studentName.includes(term) || admission.includes(term);
-        row.style.display = matches ? '' : 'none';
-    });
-}
-
-// ==================== PRINT FEE STRUCTURE REPORT COMPLETE ====================
-
-async function printFeeStructureReportComplete(fsId) {
-    const fs = window.feeStructureStatsData?.find(f => f.id === fsId);
-    if (!fs) {
-        alert('Fee structure not found');
-        return;
-    }
-    
-    const schoolRes = await fetch('/api/school');
-    const schoolData = await schoolRes.json();
-    const school = schoolData.school || {};
-    const { currentYear, currentTerm } = currentAcademicSettings;
-    const termName = getTermName(currentTerm);
-    const isFirstTerm = currentTerm === 1;
-    
-    const printWindow = window.open('', '_blank');
-    
-    let levelDisplay = '';
-    if (fs.level === 'Nursery') levelDisplay = 'Nursery Level';
-    else if (fs.level === 'LowerPrimary') levelDisplay = 'Lower Primary (P.1-P.3)';
-    else if (fs.level === 'UpperPrimary') levelDisplay = 'Upper Primary (P.4-P.7)';
-    else levelDisplay = fs.level;
-    
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Fee Structure Report - ${escapeHtml(fs.name)}</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; background: #f0f0f0; }
-                .report { max-width: 1200px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-                .header { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 30px; text-align: center; }
-                .title { font-size: 28px; font-weight: bold; margin-bottom: 8px; }
-                .subtitle { font-size: 16px; opacity: 0.9; margin-bottom: 5px; }
-                .date { font-size: 12px; opacity: 0.7; margin-top: 10px; }
-                .content { padding: 30px; }
-                .section { margin-bottom: 30px; }
-                .section-title { font-size: 20px; font-weight: bold; border-left: 4px solid #2a5298; padding-left: 15px; margin-bottom: 20px; color: #333; }
-                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
-                .stat-card { background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #e0e0e0; }
-                .stat-label { font-size: 12px; color: #666; margin-bottom: 5px; }
-                .stat-value { font-size: 24px; font-weight: bold; color: #2a5298; }
-                .stat-sub { font-size: 11px; color: #888; margin-top: 5px; }
-                .rate-bar { width: 100%; background: #e0e0e0; border-radius: 10px; height: 6px; margin-top: 10px; overflow: hidden; }
-                .rate-fill { background: #2a5298; height: 100%; border-radius: 10px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-                th { background: #f1f3f5; font-weight: 600; }
-                .text-right { text-align: right; }
-                .text-center { text-align: center; }
-                .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #e0e0e0; }
-                .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
-                .badge-green { background: #d4edda; color: #155724; }
-                .badge-yellow { background: #fff3cd; color: #856404; }
-                .badge-red { background: #f8d7da; color: #721c24; }
-                .badge-blue { background: #d1ecf1; color: #0c5460; }
-                @media print {
-                    body { padding: 0; background: white; }
-                    .no-print { display: none; }
-                    .report { box-shadow: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="report">
-                <div class="header">
-                    <div class="title">FEE STRUCTURE REPORT</div>
-                    <div class="subtitle">${escapeHtml(school.schoolName || 'School Name')}</div>
-                    <div class="subtitle">${escapeHtml(fs.name)} - ${levelDisplay}</div>
-                    <div class="date">Generated: ${new Date().toLocaleString()} | ${termName} ${currentYear}</div>
-                </div>
-                <div class="content">
-                    <!-- Summary Cards -->
-                    <div class="section">
-                        <h3 class="section-title">📊 Collection Summary</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-label">Total Students</div>
-                                <div class="stat-value">${fs.totalStudents}</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Total Expected</div>
-                                <div class="stat-value">UGX ${Math.round(fs.overallExpected).toLocaleString()}</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Total Collected</div>
-                                <div class="stat-value">UGX ${Math.round(fs.overallCollected).toLocaleString()}</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Collection Rate</div>
-                                <div class="stat-value">${fs.overallRate}%</div>
-                                <div class="rate-bar"><div class="rate-fill" style="width: ${fs.overallRate}%"></div></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Fee Breakdown by Type -->
-                    <div class="section">
-                        <h3 class="section-title">💰 Fee Breakdown by Type</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-label">Tuition Fee</div>
-                                <div class="stat-value">UGX ${Math.round(fs.tuitionCollected).toLocaleString()}</div>
-                                <div class="stat-sub">of UGX ${Math.round(fs.tuitionExpected).toLocaleString()}</div>
-                                <div class="rate-bar"><div class="rate-fill" style="width: ${fs.tuitionRate}%"></div></div>
-                                <div class="stat-sub">Collection: ${fs.tuitionRate}%</div>
-                            </div>
-                            ${fs.termlyTotal > 0 ? `
-                                <div class="stat-card">
-                                    <div class="stat-label">Termly Fees</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.termlyCollected).toLocaleString()}</div>
-                                    <div class="stat-sub">of UGX ${Math.round(fs.termlyTotal).toLocaleString()}</div>
-                                    <div class="rate-bar"><div class="rate-fill" style="width: ${fs.termlyRate}%"></div></div>
-                                    <div class="stat-sub">Collection: ${fs.termlyRate}%</div>
-                                </div>
-                            ` : ''}
-                            ${isFirstTerm && fs.oneTimeTotal > 0 ? `
-                                <div class="stat-card">
-                                    <div class="stat-label">One-Time Fees</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.oneTimeCollected).toLocaleString()}</div>
-                                    <div class="stat-sub">of UGX ${Math.round(fs.oneTimeTotal).toLocaleString()}</div>
-                                    <div class="rate-bar"><div class="rate-fill" style="width: ${fs.oneTimeRate}%"></div></div>
-                                    <div class="stat-sub">Collection: ${fs.oneTimeRate}%</div>
-                                </div>
-                            ` : ''}
-                            ${isFirstTerm && fs.yearlyTotal > 0 ? `
-                                <div class="stat-card">
-                                    <div class="stat-label">Yearly Fees</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.yearlyCollected).toLocaleString()}</div>
-                                    <div class="stat-sub">of UGX ${Math.round(fs.yearlyTotal).toLocaleString()}</div>
-                                    <div class="rate-bar"><div class="rate-fill" style="width: ${fs.yearlyRate}%"></div></div>
-                                    <div class="stat-sub">Collection: ${fs.yearlyRate}%</div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    
-                    <!-- Bursary Info -->
-                    ${fs.bursaryStats.totalDiscount > 0 ? `
-                        <div class="section">
-                            <h3 class="section-title">🎖️ Bursary Information</h3>
-                            <div class="stats-grid">
-                                <div class="stat-card">
-                                    <div class="stat-label">Total Discount Given</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.bursaryStats.totalDiscount).toLocaleString()}</div>
-                                </div>
-                                <div class="stat-card">
-                                    <div class="stat-label">Students with Bursary</div>
-                                    <div class="stat-value">${fs.bursaryStats.studentsWithBursary} / ${fs.totalStudents}</div>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Students List -->
-                    ${fs.totalStudents > 0 ? `
-                        <div class="section">
-                            <h3 class="section-title">👨‍🎓 Students List</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Admission No.</th>
-                                        <th>Student Name</th>
-                                        <th>Class</th>
-                                        <th class="text-right">Tuition Paid</th>
-                                        ${fs.termlyTotal > 0 ? '<th class="text-right">Termly Paid</th>' : ''}
-                                        <th class="text-right">Total Paid</th>
-                                        <th class="text-right">Balance</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${fs.students.map(s => `
-                                        <tr>
-                                            <td>${s.admissionNumber}</td>
-                                            <td>${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
-                                            <td>${s.currentClass}</td>
-                                            <td class="text-right">UGX ${Math.round(s.tuitionPaid).toLocaleString()}</td>
-                                            ${fs.termlyTotal > 0 ? `<td class="text-right">UGX ${Math.round(s.termlyPaid).toLocaleString()}</td>` : ''}
-                                            <td class="text-right">UGX ${Math.round(s.totalPaid).toLocaleString()}</td>
-                                            <td class="text-right">${s.totalBalance > 0 ? `UGX ${Math.round(s.totalBalance).toLocaleString()}` : 'UGX 0'}</td>
-                                            <td class="text-center"><span class="badge ${s.totalBalance <= 0 ? 'badge-green' : (s.totalBalance > s.totalExpected ? 'badge-red' : 'badge-yellow')}">${s.status}</span></td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="footer">
-                    This is a computer-generated report. For any queries, please contact the accounts office.<br>
-                    Generated by School Management System
-                </div>
-            </div>
-            <div class="no-print" style="text-align:center;margin-top:20px;">
-                <button onclick="window.print()" style="padding:10px 20px;background:#2a5298;color:white;border:none;border-radius:5px;cursor:pointer;margin-right:10px;">🖨️ Print</button>
-                <button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;">Close</button>
-            </div>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-}
-
-// ==================== INITIALIZE STATS FILTERS COMPLETE ====================
-
-function initializeStatsFiltersComplete() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    const applyFilters = () => {
-        const searchTerm = (searchInput?.value || '').toLowerCase().trim();
-        const levelValue = levelFilter?.value || '';
-        const statusValue = statusFilter?.value || '';
-        
-        const allStructures = window.feeStructureStatsData || [];
-        
-        let filtered = allStructures.filter(fs => {
-            let matchSearch = true;
-            if (searchTerm) matchSearch = fs.name.toLowerCase().includes(searchTerm);
-            
-            let matchLevel = true;
-            if (levelValue) matchLevel = fs.level === levelValue;
-            
-            let matchStatus = true;
-            if (statusValue) {
-                const rate = parseFloat(fs.overallRate);
-                switch(statusValue) {
-                    case 'has_students': matchStatus = fs.totalStudents > 0; break;
-                    case 'no_students': matchStatus = fs.totalStudents === 0; break;
-                    case 'high': matchStatus = rate >= 80; break;
-                    case 'medium': matchStatus = rate >= 50 && rate < 80; break;
-                    case 'low': matchStatus = rate < 50; break;
-                    default: matchStatus = true;
-                }
-            }
-            
-            return matchSearch && matchLevel && matchStatus;
-        });
-        
-        const container = document.getElementById('feeStructuresListContainer');
-        const filteredCountSpan = document.getElementById('filteredCount');
-        const totalCountSpan = document.getElementById('totalCount');
-        const { currentTerm } = currentAcademicSettings;
-        const isFirstTerm = currentTerm === 1;
-        
-        if (container) {
-            if (filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="bg-yellow-50 p-12 text-center rounded-xl border-2 border-dashed border-yellow-300">
-                        <i class="fas fa-search text-yellow-500 text-5xl mb-4"></i>
-                        <h3 class="text-xl font-semibold text-yellow-700 mb-2">No Fee Structures Found</h3>
-                        <p class="text-yellow-600">Try adjusting your search or filter criteria</p>
-                    </div>
-                `;
-            } else {
-                container.innerHTML = filtered.map(fs => renderCompleteFeeStatsCard(fs, currentTerm, isFirstTerm)).join('');
-            }
-        }
-        
-        if (filteredCountSpan) filteredCountSpan.innerText = filtered.length;
-        if (totalCountSpan) totalCountSpan.innerText = allStructures.length;
-    };
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', applyFilters);
-        searchInput.addEventListener('keyup', applyFilters);
-    }
-    if (levelFilter) levelFilter.addEventListener('change', applyFilters);
-    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
-    
-    applyFilters();
-}
-
-// ==================== RESET FILTERS ====================
-
-function resetFeeStructureStatsFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (levelFilter) levelFilter.value = '';
-    if (statusFilter) statusFilter.value = '';
-    
-    initializeStatsFiltersComplete();
-}
-
-// ==================== HELPER FUNCTIONS ====================
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Make all functions global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.resetFeeStructureStatsFilters = resetFeeStructureStatsFilters;
-window.filterStudentTableInStats = filterStudentTableInStats;
-window.printFeeStructureReportComplete = printFeeStructureReportComplete;
-window.viewStudentFullFeeDetailsEnhanced = viewStudentFullFeeDetailsEnhanced;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-
-console.log('Fee Structure Statistics v12.0 loaded - Complete data accuracy with all fee types!');
-
-// ==================== UPDATE ITEM LEVEL DETAILS ====================
-
-function updateItemLevelDetails(feeStructureStats, feeStructure, termRecord, isFirstTerm) {
-    const periods = ['one_time', 'termly', 'yearly'];
-    
-    periods.forEach(period => {
-        const shouldInclude = period !== 'one_time' && period !== 'yearly' ? true : isFirstTerm;
-        if (!shouldInclude) return;
-        
-        const activities = feeStructure[`${period}Activities`] || [];
-        
-        activities.forEach(activity => {
-            (activity.items || []).forEach(item => {
-                const paidRecord = (termRecord.activityItemsPaid?.[period] || []).find(p => p.itemId === item.id);
-                const unitPrice = item.unitPrice || (item.totalAmount / (item.quantity || 1));
-                const paidAmount = paidRecord?.amountPaid || 0;
-                const itemsBrought = paidRecord?.itemsBrought || 0;
-                const totalPaid = paidAmount + (itemsBrought * unitPrice);
-                
-                if (!feeStructureStats.itemDetails[period][item.id]) {
-                    feeStructureStats.itemDetails[period][item.id] = {
-                        itemName: item.name,
-                        componentName: activity.name,
-                        quantity: item.quantity || 1,
-                        unitPrice: unitPrice,
-                        totalAmount: item.totalAmount || 0,
-                        totalCollected: 0,
-                        totalOutstanding: 0,
-                        studentsPaid: 0,
-                        studentsPartial: 0,
-                        studentsUnpaid: 0
-                    };
-                }
-                
-                feeStructureStats.itemDetails[period][item.id].totalCollected += totalPaid;
-                feeStructureStats.itemDetails[period][item.id].totalOutstanding += (item.totalAmount - totalPaid);
-                
-                if (totalPaid >= item.totalAmount) {
-                    feeStructureStats.itemDetails[period][item.id].studentsPaid++;
-                } else if (totalPaid > 0) {
-                    feeStructureStats.itemDetails[period][item.id].studentsPartial++;
-                } else {
-                    feeStructureStats.itemDetails[period][item.id].studentsUnpaid++;
-                }
-            });
-        });
-    });
-}
-
-// ==================== RENDER ENHANCED FEE STATS CARD ====================
-
-function renderEnhancedFeeStatsCard(fs, termName, currentYear, isFirstTerm) {
-    const hasStudents = fs.totalStudents > 0;
-    const overallRate = parseFloat(fs.overallRate);
-    const rateColor = overallRate >= 80 ? 'text-green-600' : overallRate >= 50 ? 'text-yellow-600' : 'text-red-600';
-    const rateBg = overallRate >= 80 ? 'bg-green-500' : overallRate >= 50 ? 'bg-yellow-500' : 'bg-red-500';
-    
-    // Determine level display name
-    let levelDisplay = '';
-    if (fs.level === 'Nursery') levelDisplay = 'Nursery Level';
-    else if (fs.level === 'LowerPrimary') levelDisplay = 'Lower Primary (P.1-P.3)';
-    else if (fs.level === 'UpperPrimary') levelDisplay = 'Upper Primary (P.4-P.7)';
-    else levelDisplay = fs.level;
-    
-    return `
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200" data-fs-id="${fs.id}">
-            <!-- Header -->
-            <div class="bg-gradient-to-r from-gray-800 to-gray-900 p-5 text-white">
-                <div class="flex justify-between items-center flex-wrap gap-3">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <i class="fas fa-file-invoice-dollar text-2xl"></i>
-                            <h3 class="font-bold text-2xl">${escapeHtml(fs.name)}</h3>
-                            ${!hasStudents ? '<span class="ml-2 text-xs bg-gray-600 px-2 py-0.5 rounded">No Students</span>' : ''}
-                        </div>
-                        <p class="text-sm opacity-75">
-                            <i class="fas fa-layer-group"></i> ${levelDisplay} | 
-                            <i class="fas fa-users"></i> ${fs.totalStudents} Student${fs.totalStudents !== 1 ? 's' : ''}
-                        </p>
-                    </div>
-                    <div class="flex gap-2">
-                        ${hasStudents ? `
-                            <button onclick="printFeeStructureReport('${fs.id}')" class="bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-sm hover:bg-white/30 transition">
-                                <i class="fas fa-print"></i> Print Report
-                            </button>
-                        ` : ''}
-                        <div class="text-right">
-                            <p class="text-3xl font-bold ${rateColor}">${fs.overallRate}%</p>
-                            <p class="text-xs opacity-75">Collection Rate</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-3 w-full bg-white/20 rounded-full h-2">
-                    <div class="${rateBg} rounded-full h-2" style="width: ${fs.overallRate}%"></div>
-                </div>
-            </div>
-            
-            <div class="p-5">
-                <!-- Fee Type Cards - ALL FOUR TYPES -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <!-- Tuition Card -->
-                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-bold text-blue-700"><i class="fas fa-money-bill-wave mr-1"></i> Tuition Fee</h4>
-                            <span class="text-sm font-semibold text-blue-600">${fs.tuitionRate}%</span>
-                        </div>
-                        <p class="text-2xl font-bold text-blue-600">UGX ${Math.round(fs.tuitionCollected).toLocaleString()}</p>
-                        <p class="text-xs text-gray-500">of UGX ${Math.round(fs.tuitionExpected).toLocaleString()}</p>
-                        <div class="w-full bg-blue-200 rounded-full h-1.5 mt-2"><div class="bg-blue-600 rounded-full h-1.5" style="width: ${fs.tuitionRate}%"></div></div>
-                        <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.tuitionOutstanding).toLocaleString()}</p>
-                    </div>
-                    
-                    <!-- One-Time Card (only if has items and first term or has outstanding) -->
-                    ${(fs.oneTimeExpected > 0) ? `
-                        <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="font-bold text-purple-700"><i class="fas fa-star mr-1"></i> One-Time Fees</h4>
-                                <span class="text-sm font-semibold text-purple-600">${fs.oneTimeRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-purple-600">UGX ${Math.round(fs.oneTimeCollected).toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${Math.round(fs.oneTimeExpected).toLocaleString()}</p>
-                            <div class="w-full bg-purple-200 rounded-full h-1.5 mt-2"><div class="bg-purple-600 rounded-full h-1.5" style="width: ${fs.oneTimeRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.oneTimeOutstanding).toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged once per year</p>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Termly Card -->
-                    ${fs.termlyExpected > 0 ? `
-                        <div class="bg-green-50 rounded-lg p-4 border border-green-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="font-bold text-green-700"><i class="fas fa-calendar-alt mr-1"></i> Termly Fees</h4>
-                                <span class="text-sm font-semibold text-green-600">${fs.termlyRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-green-600">UGX ${Math.round(fs.termlyCollected).toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${Math.round(fs.termlyExpected).toLocaleString()}</p>
-                            <div class="w-full bg-green-200 rounded-full h-1.5 mt-2"><div class="bg-green-600 rounded-full h-1.5" style="width: ${fs.termlyRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.termlyOutstanding).toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged every term</p>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Yearly Card -->
-                    ${(fs.yearlyExpected > 0) ? `
-                        <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="font-bold text-orange-700"><i class="fas fa-calendar-week mr-1"></i> Yearly Fees</h4>
-                                <span class="text-sm font-semibold text-orange-600">${fs.yearlyRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-orange-600">UGX ${Math.round(fs.yearlyCollected).toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${Math.round(fs.yearlyExpected).toLocaleString()}</p>
-                            <div class="w-full bg-orange-200 rounded-full h-1.5 mt-2"><div class="bg-orange-600 rounded-full h-1.5" style="width: ${fs.yearlyRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${Math.round(fs.yearlyOutstanding).toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged once per year</p>
-                        </div>
-                    ` : ''}
-                </div>
-                
-                <!-- Bursary Impact -->
-                ${fs.bursaryStats.totalDiscount > 0 ? `
-                    <div class="bg-yellow-50 rounded-lg p-4 mb-6 border border-yellow-200">
-                        <h4 class="font-bold text-lg mb-3 flex items-center">
-                            <i class="fas fa-ticket-alt text-yellow-600 mr-2"></i> Bursary Impact
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-white rounded-lg p-3 text-center">
-                                <p class="text-sm text-gray-600">Total Discount Given</p>
-                                <p class="text-2xl font-bold text-green-600">UGX ${Math.round(fs.bursaryStats.totalDiscount).toLocaleString()}</p>
-                            </div>
-                            <div class="bg-white rounded-lg p-3 text-center">
-                                <p class="text-sm text-gray-600">Students with Bursary</p>
-                                <p class="text-2xl font-bold text-purple-600">${fs.bursaryStats.studentsWithBursary} / ${fs.totalStudents}</p>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <p class="text-sm text-gray-600 mb-2">Bursaries Applied:</p>
-                                <div class="space-y-1">
-                                    ${Object.entries(fs.bursaryStats.bursariesApplied).map(([name, data]) => `
-                                        <div class="flex justify-between text-sm">
-                                            <span>🎖️ ${escapeHtml(name)}</span>
-                                            <span>${data.count} students (UGX ${Math.round(data.totalDiscount).toLocaleString()})</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <!-- Students Section with Search -->
-                <div class="mt-6">
-                    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-                        <h4 class="font-bold text-lg flex items-center">
-                            <i class="fas fa-users text-blue-600 mr-2"></i> Students Assigned to ${escapeHtml(fs.name)}
-                            <span class="ml-2 text-sm font-normal text-gray-500">(${fs.totalStudents} students)</span>
-                        </h4>
-                        ${fs.totalStudents > 0 ? `
-                            <div class="relative">
-                                <i class="fas fa-search absolute left-3 top-2 text-gray-400 text-sm"></i>
-                                <input type="text" id="studentSearch_${fs.id}" placeholder="Search by name or admission..." 
-                                       class="pl-8 pr-3 py-1.5 border rounded-lg text-sm w-64 focus:ring-2 focus:ring-blue-500"
-                                       oninput="filterStudentTable('${fs.id}', this.value)">
-                            </div>
-                        ` : ''}
-                    </div>
-                    
-                    ${fs.totalStudents > 0 ? `
-                        <div class="overflow-x-auto border rounded-lg">
-                            <table class="w-full text-sm" id="studentTable_${fs.id}">
-                                <thead class="bg-gray-100 sticky top-0">
-                                    <tr>
-                                        <th class="p-2 text-left">Admission</th>
-                                        <th class="p-2 text-left">Student Name</th>
-                                        <th class="p-2 text-left">Class</th>
-                                        <th class="p-2 text-right">💰 Tuition</th>
-                                        ${fs.termlyExpected > 0 ? '<th class="p-2 text-right">📅 Termly</th>' : ''}
-                                        <th class="p-2 text-right">Total Paid</th>
-                                        <th class="p-2 text-right">Balance</th>
-                                        <th class="p-2">Status</th>
-                                        <th class="p-2 text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${fs.students.map(s => `
-                                        <tr class="border-b hover:bg-gray-50 cursor-pointer student-row" 
-                                            data-student-name="${(s.firstName + ' ' + s.lastName).toLowerCase()}"
-                                            data-admission="${s.admissionNumber.toLowerCase()}">
-                                            <td class="p-2 font-mono text-xs">${s.admissionNumber}</td>
-                                            <td class="p-2 font-medium">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
-                                            <td class="p-2">${s.currentClass}</td>
-                                            <td class="p-2 text-right">
-                                                UGX ${Math.round(s.tuitionPaid).toLocaleString()}<br>
-                                                <span class="text-xs text-gray-400">/ ${Math.round(s.expectedTuition).toLocaleString()}</span>
-                                                ${s.appliedBursary ? `<div class="text-xs text-green-600">🎖️ -${s.discountDisplay}</div>` : ''}
-                                            </td>
-                                            ${fs.termlyExpected > 0 ? `
-                                                <td class="p-2 text-right">
-                                                    UGX ${Math.round(s.termlyPaid).toLocaleString()}<br>
-                                                    <span class="text-xs text-gray-400">/ ${Math.round(s.expectedTermly).toLocaleString()}</span>
-                                                </td>
-                                            ` : ''}
-                                            <td class="p-2 text-right font-semibold text-green-600">UGX ${Math.round(s.totalPaid).toLocaleString()}</td>
-                                            <td class="p-2 text-right font-bold ${s.totalBalance > 0 ? 'text-red-600' : 'text-green-600'}">
-                                                ${s.totalBalance > 0 ? `UGX ${Math.round(s.totalBalance).toLocaleString()}` : 
-                                                  s.totalBalance < 0 ? `Credit: UGX ${Math.round(Math.abs(s.totalBalance)).toLocaleString()}` : 'UGX 0'}
-                                            </td>
-                                            <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs ${s.statusColor}">${s.status}</span></td>
-                                            <td class="p-2 text-center">
-                                                <button onclick="event.stopPropagation(); viewStudentFullFeeDetailsEnhanced('${s.id}')" class="text-blue-600 hover:text-blue-800 mx-1" title="View Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button onclick="event.stopPropagation(); makePaymentForStudentStats('${s.id}')" class="text-green-600 hover:text-green-800 mx-1" title="Make Payment">
-                                                    <i class="fas fa-receipt"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : `
-                        <div class="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border">
-                            <i class="fas fa-users-slash text-3xl mb-2"></i>
-                            <p>No students assigned to this fee structure</p>
-                        </div>
-                    `}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// ==================== FILTER STUDENT TABLE ====================
-
-function filterStudentTable(fsId, searchTerm) {
-    const table = document.getElementById(`studentTable_${fsId}`);
-    if (!table) return;
-    
-    const rows = table.querySelectorAll('tbody tr');
-    const term = searchTerm.toLowerCase().trim();
-    
-    rows.forEach(row => {
-        const studentName = row.getAttribute('data-student-name') || '';
-        const admission = row.getAttribute('data-admission') || '';
-        const matches = term === '' || studentName.includes(term) || admission.includes(term);
-        row.style.display = matches ? '' : 'none';
-    });
-}
-
-// ==================== PRINT FEE STRUCTURE REPORT ====================
-
-async function printFeeStructureReport(fsId) {
-    const fs = window.feeStructureStatsData?.find(f => f.id === fsId);
-    if (!fs) {
-        alert('Fee structure not found');
-        return;
-    }
-    
-    const schoolRes = await fetch('/api/school');
-    const schoolData = await schoolRes.json();
-    const school = schoolData.school || {};
-    const { currentYear, currentTerm } = currentAcademicSettings;
-    const termName = getTermName(currentTerm);
-    
-    const printWindow = window.open('', '_blank');
-    
-    const levelDisplay = fs.level === 'Nursery' ? 'Nursery Level' : 
-                         fs.level === 'LowerPrimary' ? 'Lower Primary (P.1-P.3)' : 
-                         fs.level === 'UpperPrimary' ? 'Upper Primary (P.4-P.7)' : fs.level;
-    
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Fee Structure Report - ${escapeHtml(fs.name)}</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; background: #f0f0f0; }
-                .report { max-width: 1200px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-                .header { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 30px; text-align: center; }
-                .title { font-size: 28px; font-weight: bold; margin-bottom: 8px; }
-                .subtitle { font-size: 16px; opacity: 0.9; margin-bottom: 5px; }
-                .date { font-size: 12px; opacity: 0.7; margin-top: 10px; }
-                .content { padding: 30px; }
-                .section { margin-bottom: 30px; }
-                .section-title { font-size: 20px; font-weight: bold; border-left: 4px solid #2a5298; padding-left: 15px; margin-bottom: 20px; color: #333; }
-                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
-                .stat-card { background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #e0e0e0; }
-                .stat-label { font-size: 12px; color: #666; margin-bottom: 5px; }
-                .stat-value { font-size: 24px; font-weight: bold; color: #2a5298; }
-                .stat-sub { font-size: 11px; color: #888; margin-top: 5px; }
-                .rate-bar { width: 100%; background: #e0e0e0; border-radius: 10px; height: 6px; margin-top: 10px; overflow: hidden; }
-                .rate-fill { background: #2a5298; height: 100%; border-radius: 10px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-                th { background: #f1f3f5; font-weight: 600; }
-                .text-right { text-align: right; }
-                .text-center { text-align: center; }
-                .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #e0e0e0; }
-                .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
-                .badge-green { background: #d4edda; color: #155724; }
-                .badge-yellow { background: #fff3cd; color: #856404; }
-                .badge-red { background: #f8d7da; color: #721c24; }
-                .badge-blue { background: #d1ecf1; color: #0c5460; }
-                @media print {
-                    body { padding: 0; background: white; }
-                    .no-print { display: none; }
-                    .report { box-shadow: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="report">
-                <div class="header">
-                    <div class="title">FEE STRUCTURE REPORT</div>
-                    <div class="subtitle">${escapeHtml(school.schoolName || 'School Name')}</div>
-                    <div class="subtitle">${escapeHtml(fs.name)} - ${levelDisplay}</div>
-                    <div class="date">Generated: ${new Date().toLocaleString()} | ${termName} ${currentYear}</div>
-                </div>
-                <div class="content">
-                    <!-- Summary Cards -->
-                    <div class="section">
-                        <h3 class="section-title">📊 Collection Summary</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-label">Total Students</div>
-                                <div class="stat-value">${fs.totalStudents}</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Total Expected</div>
-                                <div class="stat-value">UGX ${Math.round(fs.overallExpected).toLocaleString()}</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Total Collected</div>
-                                <div class="stat-value">UGX ${Math.round(fs.overallCollected).toLocaleString()}</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Collection Rate</div>
-                                <div class="stat-value">${fs.overallRate}%</div>
-                                <div class="rate-bar"><div class="rate-fill" style="width: ${fs.overallRate}%"></div></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Fee Breakdown -->
-                    <div class="section">
-                        <h3 class="section-title">💰 Fee Breakdown by Type</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-label">Tuition Fee</div>
-                                <div class="stat-value">UGX ${Math.round(fs.tuitionCollected).toLocaleString()}</div>
-                                <div class="stat-sub">of UGX ${Math.round(fs.tuitionExpected).toLocaleString()}</div>
-                                <div class="stat-sub" style="color:#dc3545">Outstanding: UGX ${Math.round(fs.tuitionOutstanding).toLocaleString()}</div>
-                                <div class="rate-bar"><div class="rate-fill" style="width: ${fs.tuitionRate}%"></div></div>
-                                <div class="stat-sub">Collection: ${fs.tuitionRate}%</div>
-                            </div>
-                            ${fs.termlyExpected > 0 ? `
-                                <div class="stat-card">
-                                    <div class="stat-label">Termly Fees</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.termlyCollected).toLocaleString()}</div>
-                                    <div class="stat-sub">of UGX ${Math.round(fs.termlyExpected).toLocaleString()}</div>
-                                    <div class="stat-sub" style="color:#dc3545">Outstanding: UGX ${Math.round(fs.termlyOutstanding).toLocaleString()}</div>
-                                    <div class="rate-bar"><div class="rate-fill" style="width: ${fs.termlyRate}%"></div></div>
-                                    <div class="stat-sub">Collection: ${fs.termlyRate}%</div>
-                                </div>
-                            ` : ''}
-                            ${fs.oneTimeExpected > 0 ? `
-                                <div class="stat-card">
-                                    <div class="stat-label">One-Time Fees</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.oneTimeCollected).toLocaleString()}</div>
-                                    <div class="stat-sub">of UGX ${Math.round(fs.oneTimeExpected).toLocaleString()}</div>
-                                    <div class="stat-sub" style="color:#dc3545">Outstanding: UGX ${Math.round(fs.oneTimeOutstanding).toLocaleString()}</div>
-                                    <div class="rate-bar"><div class="rate-fill" style="width: ${fs.oneTimeRate}%"></div></div>
-                                    <div class="stat-sub">Collection: ${fs.oneTimeRate}%</div>
-                                </div>
-                            ` : ''}
-                            ${fs.yearlyExpected > 0 ? `
-                                <div class="stat-card">
-                                    <div class="stat-label">Yearly Fees</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.yearlyCollected).toLocaleString()}</div>
-                                    <div class="stat-sub">of UGX ${Math.round(fs.yearlyExpected).toLocaleString()}</div>
-                                    <div class="stat-sub" style="color:#dc3545">Outstanding: UGX ${Math.round(fs.yearlyOutstanding).toLocaleString()}</div>
-                                    <div class="rate-bar"><div class="rate-fill" style="width: ${fs.yearlyRate}%"></div></div>
-                                    <div class="stat-sub">Collection: ${fs.yearlyRate}%</div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    
-                    <!-- Bursary Info -->
-                    ${fs.bursaryStats.totalDiscount > 0 ? `
-                        <div class="section">
-                            <h3 class="section-title">🎖️ Bursary Information</h3>
-                            <div class="stats-grid">
-                                <div class="stat-card">
-                                    <div class="stat-label">Total Discount Given</div>
-                                    <div class="stat-value">UGX ${Math.round(fs.bursaryStats.totalDiscount).toLocaleString()}</div>
-                                </div>
-                                <div class="stat-card">
-                                    <div class="stat-label">Students with Bursary</div>
-                                    <div class="stat-value">${fs.bursaryStats.studentsWithBursary} / ${fs.totalStudents}</div>
-                                </div>
-                            </div>
-                            <div class="stats-grid">
-                                ${Object.entries(fs.bursaryStats.bursariesApplied).map(([name, data]) => `
-                                    <div class="stat-card">
-                                        <div class="stat-label">${escapeHtml(name)}</div>
-                                        <div class="stat-value">${data.count} students</div>
-                                        <div class="stat-sub">Total Discount: UGX ${Math.round(data.totalDiscount).toLocaleString()}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <!-- Students List -->
-                    ${fs.totalStudents > 0 ? `
-                        <div class="section">
-                            <h3 class="section-title">👨‍🎓 Students List</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Admission No.</th>
-                                        <th>Student Name</th>
-                                        <th>Class</th>
-                                        <th class="text-right">Tuition Paid</th>
-                                        ${fs.termlyExpected > 0 ? '<th class="text-right">Termly Paid</th>' : ''}
-                                        <th class="text-right">Total Paid</th>
-                                        <th class="text-right">Balance</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${fs.students.map(s => `
-                                        <tr>
-                                            <td>${s.admissionNumber}</td>
-                                            <td>${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
-                                            <td>${s.currentClass}</td>
-                                            <td class="text-right">UGX ${Math.round(s.tuitionPaid).toLocaleString()}</td>
-                                            ${fs.termlyExpected > 0 ? `<td class="text-right">UGX ${Math.round(s.termlyPaid).toLocaleString()}</td>` : ''}
-                                            <td class="text-right">UGX ${Math.round(s.totalPaid).toLocaleString()}</td>
-                                            <td class="text-right">${s.totalBalance > 0 ? `UGX ${Math.round(s.totalBalance).toLocaleString()}` : 'UGX 0'}</td>
-                                            <td class="text-center"><span class="badge ${s.totalBalance <= 0 ? 'badge-green' : (s.totalBalance > s.totalExpected ? 'badge-red' : 'badge-yellow')}">${s.status}</span></td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="footer">
-                    This is a computer-generated report. For any queries, please contact the accounts office.<br>
-                    Generated by School Management System
-                </div>
-            </div>
-            <div class="no-print" style="text-align:center;margin-top:20px;">
-                <button onclick="window.print()" style="padding:10px 20px;background:#2a5298;color:white;border:none;border-radius:5px;cursor:pointer;margin-right:10px;">🖨️ Print</button>
-                <button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;">Close</button>
-            </div>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-}
-
-// ==================== INITIALIZE STATS FILTERS ====================
-
-function initializeStatsFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    const filterFunction = () => applyStatsFilters();
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', filterFunction);
-        searchInput.addEventListener('keyup', filterFunction);
-    }
-    if (levelFilter) levelFilter.addEventListener('change', filterFunction);
-    if (statusFilter) statusFilter.addEventListener('change', filterFunction);
-    
-    applyStatsFilters();
-}
-
-function applyStatsFilters() {
-    const searchTerm = (document.getElementById('statsSearchInput')?.value || '').toLowerCase().trim();
-    const levelValue = document.getElementById('statsLevelFilter')?.value || '';
-    const statusValue = document.getElementById('statsStatusFilter')?.value || '';
-    
-    const allStructures = window.feeStructureStatsData || [];
-    
-    let filtered = allStructures.filter(fs => {
-        let matchesName = true;
-        if (searchTerm) matchesName = fs.name.toLowerCase().includes(searchTerm);
-        
-        let matchesLevel = true;
-        if (levelValue) matchesLevel = fs.level === levelValue;
-        
-        let matchesStatus = true;
-        if (statusValue) {
-            const rate = parseFloat(fs.overallRate);
-            switch(statusValue) {
-                case 'has_students': matchesStatus = fs.totalStudents > 0; break;
-                case 'no_students': matchesStatus = fs.totalStudents === 0; break;
-                case 'high': matchesStatus = rate >= 80; break;
-                case 'medium': matchesStatus = rate >= 50 && rate < 80; break;
-                case 'low': matchesStatus = rate < 50; break;
-                default: matchesStatus = true;
-            }
-        }
-        return matchesName && matchesLevel && matchesStatus;
-    });
-    
-    const container = document.getElementById('feeStructuresListContainer');
-    const filteredCountSpan = document.getElementById('filteredCount');
-    const totalCountSpan = document.getElementById('totalCount');
-    const { currentYear, currentTerm } = currentAcademicSettings;
-    const termName = getTermName(currentTerm);
-    const isFirstTerm = currentTerm === 1;
-    
-    if (container) {
-        if (filtered.length === 0) {
-            container.innerHTML = `<div class="bg-yellow-50 p-12 text-center rounded-xl border-2 border-dashed border-yellow-300">
-                <i class="fas fa-search text-yellow-500 text-5xl mb-4"></i>
-                <h3 class="text-xl font-semibold text-yellow-700 mb-2">No Fee Structures Found</h3>
-                <p class="text-yellow-600">Try adjusting your search or filter criteria</p>
-            </div>`;
-        } else {
-            container.innerHTML = filtered.map(fs => renderEnhancedFeeStatsCard(fs, termName, currentYear, isFirstTerm)).join('');
-        }
-    }
-    
-    if (filteredCountSpan) filteredCountSpan.innerText = filtered.length;
-    if (totalCountSpan) totalCountSpan.innerText = allStructures.length;
-}
-
-function resetFeeStructureFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (levelFilter) levelFilter.value = '';
-    if (statusFilter) statusFilter.value = '';
-    
-    applyStatsFilters();
-}
-
-// Make functions global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.resetFeeStructureFilters = resetFeeStructureFilters;
-window.filterStudentTable = filterStudentTable;
-window.printFeeStructureReport = printFeeStructureReport;
-window.viewStudentFullFeeDetailsEnhanced = viewStudentFullFeeDetailsEnhanced;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-
-// ==================== RENDER COMPLETE FEE STRUCTURE STATS CARD ====================
-
-
-
-// ==================== INITIALIZE STATS FILTERS ====================
+console.log('✅ Dashboard v14.0 loaded — data sourced live from /api/reports/comprehensive (same engine as the Reports page), with "doesn\'t pay" students excluded from every status-group/item/class total');// ==================== INITIALIZE STATS FILTERS ====================
 
 function initializeStatsFilters() {
     const searchInput = document.getElementById('statsSearchInput');
