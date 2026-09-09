@@ -66102,7 +66102,7 @@ async function generateReportV3() {
         //     var insightRate = document.getElementById('reportInsightRate');
         //     if (insightRecords) rptCountUp(insightRecords, students.length);
         //     if (insightRate) rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
-        // }
+        }
     }
 
     renderReportResultsV3(result.data); // same `result.data`, same students array
