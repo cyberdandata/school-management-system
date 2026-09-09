@@ -66081,35 +66081,36 @@ async function generateReportV3() {
         var result = await response.json();
 
         if (result.success) {
-            reportData = result.data;
-            renderReportResultsV3(result.data);
+    reportData = result.data;
+    var students = result.data.students || [];
 
-            var lastRun = document.getElementById('reportLastRun');
-            if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
-
-            var totals = result.data.totals || {};
-            var insightStrip = document.getElementById('reportInsightStrip');
-            if (insightStrip) {
-                insightStrip.classList.remove('hidden');
-                var count = (result.data.students || []).length;
-                var rate = parseFloat(totals.overallCollectionRate || 0);
-                var insightText = document.getElementById('reportInsightText');
-                if (insightText) {
-                    insightText.textContent = count === 0
-                        ? 'No students match this combination of filters.'
-                        : 'Showing ' + count + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
-                }
-                var insightRecords = document.getElementById('reportInsightRecords');
-                var insightRate = document.getElementById('reportInsightRate');
-                if (insightRecords && typeof rptCountUp === 'function') rptCountUp(insightRecords, count);
-                if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
+    // Single source of truth for "did we get anything back"
+    if (students.length === 0) {
+        var insightStrip = document.getElementById('reportInsightStrip');
+        if (insightStrip) insightStrip.classList.add('hidden');
+    } else {
+        var totals = result.data.totals || {};
+        var insightStrip = document.getElementById('reportInsightStrip');
+        if (insightStrip) {
+            insightStrip.classList.remove('hidden');
+            var rate = parseFloat(totals.overallCollectionRate || 0);
+            var insightText = document.getElementById('reportInsightText');
+            if (insightText) {
+                insightText.textContent = 'Showing ' + students.length + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
             }
-
-            rptLastAppliedSignature = rptFilterSignature();
-            rptSetGenerateDirty(false);
-        } else {
-            rptShowToast('Error: ' + (result.error || 'Unknown error'), 'error');
+            var insightRecords = document.getElementById('reportInsightRecords');
+            var insightRate = document.getElementById('reportInsightRate');
+            if (insightRecords) rptCountUp(insightRecords, students.length);
+            if (insightRate) rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
         }
+    }
+
+    renderReportResultsV3(result.data); // same `result.data`, same students array
+    rptLastAppliedSignature = rptFilterSignature();
+    rptSetGenerateDirty(false);
+} else {
+    rptShowToast('Error: ' + (result.error || 'Unknown error'), 'error');
+}
     } catch (error) {
         console.error('Error generating report:', error);
         rptShowToast('Error generating report: ' + error.message, 'error');
