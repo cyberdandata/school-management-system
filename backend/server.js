@@ -7175,7 +7175,7 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 // ================================================================
 
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v15.1 - DEFAULT FEE STRUCTURE FALLBACK ===');
+    console.log('=== COMPREHENSIVE REPORT v16.0 - DEBUG LOGGING ===');
 
     try {
         // ================================================================
@@ -7265,8 +7265,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const feeStructuresMap = {};
         feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
 
+        console.log(`📦 Maps built: ${Object.keys(classesMap).length} classes, ${Object.keys(assignmentsMap).length} assignments, ${Object.keys(feeStructuresMap).length} fee structures`);
+
         // ================================================================
-        // STEP 4: HELPER FUNCTIONS (unchanged)
+        // STEP 4: HELPER FUNCTIONS (unchanged, but we'll include them)
         // ================================================================
 
         function getPeriodLabel(year, term, isCurrent) {
@@ -7569,7 +7571,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         }
 
         // ================================================================
-        // STEP 6: PROCESS STUDENTS
+        // STEP 6: PROCESS STUDENTS – WITH DEBUG LOGGING
         // ================================================================
         console.log('👨‍🎓 Processing students...');
 
@@ -7592,9 +7594,20 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const allStatusGroups = new Set();
         const allPeriodKeys = [];
         let studentsWithoutFeeStructure = 0;
+        let skippedByFeeFilter = 0;
+        let skippedByLevelFilter = 0;
+        let skippedByClassFilter = 0;
+        let skippedByStudentFilter = 0;
+        let skippedByStatusGroupFilter = 0;
+        let skippedByItemFilter = 0;
+        let skippedByPaymentStatus = 0;
+        let processedCount = 0;
 
         const currentYear = parseInt(targetYear);
         const currentTerm = parseInt(targetTerm);
+
+        // Log initial count
+        console.log(`📌 Starting with ${students.length} students`);
 
         for (const student of students) {
             if (!student || !student.id) continue;
@@ -7625,7 +7638,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
 
             // ----- FEE STRUCTURE FILTER -----
-            if (feeStructureId && feeStructure.id !== feeStructureId) continue;
+            if (feeStructureId && feeStructure.id !== feeStructureId) {
+                skippedByFeeFilter++;
+                continue;
+            }
 
             // ----- LEVEL FILTER -----
             let currentClass = 'Not Assigned';
@@ -7636,16 +7652,25 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             } else if (student.currentClass) {
                 currentClass = student.currentClass;
             }
-            if (level && classLevel !== level) continue;
+            if (level && classLevel !== level) {
+                skippedByLevelFilter++;
+                continue;
+            }
 
             // ----- CLASS FILTER (multi) -----
             if (classIds.length > 0) {
                 const studentClassId = student.currentClassId || null;
-                if (!studentClassId || !classIds.includes(studentClassId)) continue;
+                if (!studentClassId || !classIds.includes(studentClassId)) {
+                    skippedByClassFilter++;
+                    continue;
+                }
             }
 
             // ----- STUDENT FILTER -----
-            if (studentId && student.id !== studentId) continue;
+            if (studentId && student.id !== studentId) {
+                skippedByStudentFilter++;
+                continue;
+            }
 
             // ================================================================
             // Get ALL periods for the student (for scoping rules)
@@ -7995,7 +8020,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             if (statusGroups.length > 0) {
                 const studentGroupNames = Object.keys(studentStatusGroups);
                 const hasAnyGroup = statusGroups.some(g => studentGroupNames.includes(g));
-                if (!hasAnyGroup) continue;
+                if (!hasAnyGroup) {
+                    skippedByStatusGroupFilter++;
+                    continue;
+                }
             }
 
             if (itemNames.length > 0) {
@@ -8009,7 +8037,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         }
                     }
                 }
-                if (!hasAnyItem) continue;
+                if (!hasAnyItem) {
+                    skippedByItemFilter++;
+                    continue;
+                }
             }
 
             // ============================================================
@@ -8066,10 +8097,13 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 paymentDueCount++;
             }
 
-            if (paymentStatus && overallStatus !== paymentStatus) continue;
+            if (paymentStatus && overallStatus !== paymentStatus) {
+                skippedByPaymentStatus++;
+                continue;
+            }
 
             // ============================================================
-            // BUILD STUDENT OBJECT
+            // BUILD STUDENT OBJECT – push to processedStudents
             // ============================================================
             processedStudents.push({
                 id: student.id,
@@ -8121,30 +8155,35 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     isCurrent: p.year === currentYear && p.term === currentTerm
                 }))
             });
+
+            processedCount++;
         }
+
+        // ================================================================
+        // LOG FILTER COUNTS
+        // ================================================================
+        console.log('📊 Filter summary:');
+        console.log(`   Total students: ${students.length}`);
+        console.log(`   Skipped by fee structure filter: ${skippedByFeeFilter}`);
+        console.log(`   Skipped by level filter: ${skippedByLevelFilter}`);
+        console.log(`   Skipped by class filter: ${skippedByClassFilter}`);
+        console.log(`   Skipped by student filter: ${skippedByStudentFilter}`);
+        console.log(`   Skipped by status group filter: ${skippedByStatusGroupFilter}`);
+        console.log(`   Skipped by item filter: ${skippedByItemFilter}`);
+        console.log(`   Skipped by payment status: ${skippedByPaymentStatus}`);
+        console.log(`   Students without fee structure (default used): ${studentsWithoutFeeStructure}`);
+        console.log(`   Students successfully processed: ${processedCount}`);
 
         // ================================================================
         // STEP 7: CALCULATE FINAL TOTALS
         // ================================================================
-        console.log('📊 Final Totals:', {
-            students: processedStudents.length,
-            studentsWithoutFeeStructure: studentsWithoutFeeStructure,
-            tuitionExpected: totalTuitionExpected,
-            tuitionCollected: totalTuitionCollected,
-            activityCashExpected: totalActivityCashExpected,
-            activityCashPaid: totalActivityCashPaid,
-            totalExpected: totalExpected,
-            totalPaid: totalPaid,
-            totalBalance: totalBalance
-        });
-
         allPeriodKeys.sort();
 
         const tuitionRate = totalTuitionExpected > 0 ? (totalTuitionCollected / totalTuitionExpected * 100) : 0;
         const overallCollectionRate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
 
         // ================================================================
-        // BUILD STATUS GROUP TOTALS
+        // BUILD STATUS GROUP TOTALS (unchanged)
         // ================================================================
         const statusGroupTotals = {};
         for (const student of processedStudents) {
