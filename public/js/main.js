@@ -65130,283 +65130,73 @@ function rptShowToast(message, icon) {
     }, 2400);
 }
 
-// =====================================================================
-// COMPREHENSIVE REPORTS PAGE — v5.1 (Multi-Select Filter Redesign)
-// - Level / Class / Fee Structure / Status Group / Item / Payment Status
-//   are all checkbox multi-selects now (pick as many as you like).
-// - New "Class" filter: picking a class pulls in both its Day and
-//   Boarding students automatically (it filters on the student's real
-//   enrolled class, separate from the Fee Structure filter).
-// - Tuition defaults OFF. Academic Period defaults to "Current Period".
-// - The old "Excel Export Sections" checkboxes are gone (unused).
-// - FIX: field/label lists are now functions (not top-level vars) so
-//   they can never be undefined due to script load-order issues.
-// =====================================================================
-
 // ---------------------------------------------------------------------------
-// 0. CONFIG — which filters are multi-select, and their chip labels
-//    (functions, not top-level vars, so they can never be "undefined"
-//    due to load-order/hoisting issues)
-// ---------------------------------------------------------------------------
-function rptMultiFields() {
-    return [
-        'reportLevelFilter',
-        'reportClassFilter',
-        'reportFeeStructureFilter',
-        'reportStatusGroupFilter',
-        'reportItemFilter',
-        'reportPaymentStatusFilter'
-    ];
-}
-
-function rptMultiLabels() {
-    return {
-        reportLevelFilter: '🎓 Level',
-        reportClassFilter: '🏫 Class',
-        reportFeeStructureFilter: '📄 Fee Structure',
-        reportStatusGroupFilter: '🏷️ Status Group',
-        reportItemFilter: '📦 Item',
-        reportPaymentStatusFilter: '💳 Payment Status'
-    };
-}
-
-var rptLastAppliedSignature = null;
-var rptCurrentRecords = [];
-var rptSortState = { column: null, direction: 'asc' };
-
-// ---------------------------------------------------------------------------
-// 1. STYLES — small, scoped, injected once
-// ---------------------------------------------------------------------------
-function injectRptMultiSelectStyles() {
-    if (document.getElementById('rpt-multiselect-styles')) return;
-    var style = document.createElement('style');
-    style.id = 'rpt-multiselect-styles';
-    style.textContent = `
-        .rpt-multiselect { position: relative; }
-        .rpt-multiselect-btn {
-            width: 100%; text-align: left; background: #fff;
-            border: 1px solid #e2e8f0; border-radius: 0.75rem;
-            padding: 0.625rem 0.75rem; font-size: 0.875rem; color: #334155;
-            display: flex; align-items: center; justify-content: space-between;
-            cursor: pointer; transition: border-color .15s, box-shadow .15s;
-        }
-        .rpt-multiselect-btn:hover { border-color: #99f6e4; }
-        .rpt-multiselect.is-open .rpt-multiselect-btn {
-            border-color: #2dd4bf; box-shadow: 0 0 0 3px rgba(45,212,191,.15);
-        }
-        .rpt-ms-count {
-            background:#0d9488; color:#fff; font-size:0.65rem; font-weight:700;
-            border-radius:9999px; padding:1px 7px; margin-left:6px;
-        }
-        .rpt-multiselect-panel {
-            position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0;
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 0.75rem;
-            box-shadow: 0 12px 28px -8px rgba(15,23,42,.18); padding: 0.5rem;
-            max-height: 280px; display: flex; flex-direction: column;
-        }
-        .rpt-multiselect-panel.hidden { display: none; }
-        .rpt-multiselect-search input {
-            width: 100%; padding: 0.4rem 0.6rem; font-size: 0.8rem;
-            border: 1px solid #e2e8f0; border-radius: 0.5rem; outline: none;
-        }
-        .rpt-multiselect-search input:focus { border-color: #2dd4bf; }
-        .rpt-multiselect-actions { display:flex; gap:.4rem; margin: 0.4rem 0; }
-        .rpt-multiselect-actions button {
-            flex:1; font-size: 0.7rem; font-weight:600; padding: 0.3rem 0;
-            border-radius: 0.4rem; background:#f1f5f9; color:#475569; cursor:pointer;
-            border: none;
-        }
-        .rpt-multiselect-actions button:hover { background:#e2e8f0; }
-        .rpt-multiselect-options { overflow-y:auto; flex:1; }
-        .rpt-ms-opt {
-            display:flex; align-items:center; gap:0.5rem; padding: 0.35rem 0.4rem;
-            border-radius: 0.4rem; font-size: 0.82rem; color:#334155; cursor:pointer;
-        }
-        .rpt-ms-opt:hover { background:#f0fdfa; }
-        .rpt-ms-opt input { accent-color:#0d9488; width:14px; height:14px; flex-shrink:0; }
-        .rpt-field { animation: rptFieldIn .35s ease both; }
-        @keyframes rptFieldIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none; } }
-    `;
-    document.head.appendChild(style);
-}
-
-// ---------------------------------------------------------------------------
-// 2. MULTI-SELECT COMPONENT — markup + interaction
-// ---------------------------------------------------------------------------
-function rptAttrEscape(v) {
-    return String(v == null ? '' : v).replace(/"/g, '&quot;');
-}
-
-function rptBuildMultiSelect(id, options, placeholder) {
-    options = options || [];
-    var optsHtml = options.map(function (o) {
-        return '<label class="rpt-ms-opt"><input type="checkbox" class="rpt-ms-checkbox" value="' +
-            rptAttrEscape(o.value) + '" onchange="rptOnMultiChange(\'' + id + '\')"> <span>' +
-            rptEscapeHtml(o.label) + '</span></label>';
-    }).join('');
-
-    return '' +
-        '<div class="rpt-multiselect" id="' + id + '_wrap">' +
-            '<button type="button" class="rpt-multiselect-btn" onclick="rptToggleMultiSelect(\'' + id + '\')">' +
-                '<span id="' + id + '_label" data-placeholder="' + rptAttrEscape(placeholder) + '">' + rptEscapeHtml(placeholder) + '</span>' +
-                '<i class="fas fa-chevron-down text-xs text-slate-400"></i>' +
-            '</button>' +
-            '<div class="rpt-multiselect-panel hidden" id="' + id + '_panel">' +
-                '<div class="rpt-multiselect-search"><input type="text" placeholder="Search..." oninput="rptFilterMultiOptions(\'' + id + '\', this.value)"></div>' +
-                '<div class="rpt-multiselect-actions">' +
-                    '<button type="button" onclick="rptMultiSelectAll(\'' + id + '\', true)">Select all</button>' +
-                    '<button type="button" onclick="rptMultiSelectAll(\'' + id + '\', false)">Clear</button>' +
-                '</div>' +
-                '<div class="rpt-multiselect-options" id="' + id + '_options">' + optsHtml + '</div>' +
-            '</div>' +
-        '</div>';
-}
-
-function rptToggleMultiSelect(id) {
-    var wrap = document.getElementById(id + '_wrap');
-    var panel = document.getElementById(id + '_panel');
-    if (!wrap || !panel) return;
-    var isOpen = !panel.classList.contains('hidden');
-    document.querySelectorAll('.rpt-multiselect-panel').forEach(function (p) { p.classList.add('hidden'); });
-    document.querySelectorAll('.rpt-multiselect').forEach(function (w) { w.classList.remove('is-open'); });
-    if (!isOpen) {
-        panel.classList.remove('hidden');
-        wrap.classList.add('is-open');
-    }
-}
-
-document.addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('.rpt-multiselect')) return;
-    document.querySelectorAll('.rpt-multiselect-panel').forEach(function (p) { p.classList.add('hidden'); });
-    document.querySelectorAll('.rpt-multiselect').forEach(function (w) { w.classList.remove('is-open'); });
-});
-
-function rptFilterMultiOptions(id, term) {
-    term = (term || '').toLowerCase().trim();
-    var container = document.getElementById(id + '_options');
-    if (!container) return;
-    var labels = container.querySelectorAll('.rpt-ms-opt');
-    labels.forEach(function (lab) {
-        var text = lab.textContent.toLowerCase();
-        lab.style.display = (!term || text.indexOf(term) !== -1) ? '' : 'none';
-    });
-}
-
-function rptMultiSelectAll(id, select) {
-    var container = document.getElementById(id + '_options');
-    if (!container) return;
-    var boxes = container.querySelectorAll('.rpt-ms-checkbox');
-    boxes.forEach(function (box) {
-        var opt = box.closest('.rpt-ms-opt');
-        var visible = !opt || opt.style.display !== 'none';
-        if (visible) box.checked = select;
-    });
-    rptOnMultiChange(id);
-}
-
-function rptGetMultiValues(id) {
-    var container = document.getElementById(id + '_options');
-    if (!container) return [];
-    var boxes = container.querySelectorAll('.rpt-ms-checkbox:checked');
-    return Array.prototype.map.call(boxes, function (b) { return b.value; }) || [];
-}
-
-function rptSetMultiValues(id, values) {
-    values = values || [];
-    var container = document.getElementById(id + '_options');
-    if (!container) return;
-    var boxes = container.querySelectorAll('.rpt-ms-checkbox');
-    boxes.forEach(function (box) { box.checked = values.indexOf(box.value) !== -1; });
-    rptUpdateMultiLabel(id);
-}
-
-function rptOptionLabelFor(id, value) {
-    var container = document.getElementById(id + '_options');
-    if (!container) return value;
-    var boxes = container.querySelectorAll('.rpt-ms-checkbox');
-    for (var i = 0; i < boxes.length; i++) {
-        if (boxes[i].value === value) {
-            var span = boxes[i].parentElement.querySelector('span');
-            return span ? span.textContent : value;
-        }
-    }
-    return value;
-}
-
-function rptUpdateMultiLabel(id) {
-    var labelEl = document.getElementById(id + '_label');
-    if (!labelEl) return;
-    var placeholder = labelEl.getAttribute('data-placeholder') || labelEl.textContent;
-    var values = rptGetMultiValues(id);
-    if (values.length === 0) {
-        labelEl.textContent = placeholder;
-    } else if (values.length === 1) {
-        labelEl.textContent = rptOptionLabelFor(id, values[0]);
-    } else {
-        labelEl.innerHTML = values.length + ' selected<span class="rpt-ms-count">' + values.length + '</span>';
-    }
-}
-
-function rptOnMultiChange(id) {
-    rptUpdateMultiLabel(id);
-    rptOnAnyFilterChange();
-}
-
-// ---------------------------------------------------------------------------
-// 3. MAIN PAGE RENDER
+// 2. MAIN PAGE RENDER
 // ---------------------------------------------------------------------------
 function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) {
     var mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
 
-    filterOptions = filterOptions || {};
-
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
-    if (typeof injectReportsDesignSystem === 'function') injectReportsDesignSystem();
-    injectRptMultiSelectStyles();
+    injectReportsDesignSystem();
 
     var escapeHtmlFn = rptEscapeHtml;
 
+    // ---- Build filter option lists (same data, refreshed markup) ----
+    var classOptionsHtml = '<option value="all">📚 All Classes</option>';
+    for (var c = 0; c < filterOptions.classes.length; c++) {
+        var cls = filterOptions.classes[c];
+        classOptionsHtml += '<option value="' + cls.id + '">' + escapeHtmlFn(cls.name) + '</option>';
+    }
+
+    var levelOptionsHtml = '<option value="all">🎓 All Levels</option>';
     var levelLabels = { 'Nursery': '🎨 Nursery', 'LowerPrimary': '📚 Lower Primary', 'UpperPrimary': '🎓 Upper Primary' };
-
-    var levelOptions = (filterOptions.levels || []).map(function (lvl) {
-        return { value: lvl, label: levelLabels[lvl] || lvl };
-    });
-
-    var classOptions = (filterOptions.classes || []).map(function (c) {
-        var lvlShort = (levelLabels[c.level] || c.level || '').replace(/^\S+\s/, '');
-        return { value: c.name, label: c.name + (lvlShort ? ' · ' + lvlShort : '') };
-    });
+    for (var l = 0; l < filterOptions.levels.length; l++) {
+        var level = filterOptions.levels[l];
+        levelOptionsHtml += '<option value="' + level + '">' + (levelLabels[level] || level) + '</option>';
+    }
 
     var studentOptionsHtml = '<option value="all">👤 All Students</option>';
-    (filterOptions.students || []).forEach(function (stu) {
+    for (var s = 0; s < filterOptions.students.length; s++) {
+        var stu = filterOptions.students[s];
         studentOptionsHtml += '<option value="' + stu.id + '">' + escapeHtmlFn(stu.name) + ' (' + stu.admissionNumber + ')</option>';
-    });
+    }
 
-    var feeStructureOptions = (filterOptions.feeStructures || []).map(function (fs) {
-        return { value: fs.id, label: fs.name + ' (' + fs.level + ')' };
-    });
+    var feeStructureOptionsHtml = '<option value="all">📄 All Fee Structures</option>';
+    for (var fs = 0; fs < filterOptions.feeStructures.length; fs++) {
+        var fstruct = filterOptions.feeStructures[fs];
+        feeStructureOptionsHtml += '<option value="' + fstruct.id + '">' + escapeHtmlFn(fstruct.name) + ' (' + fstruct.level + ')</option>';
+    }
 
-    var statusGroupOptions = (filterOptions.statusGroups || []).map(function (g) {
-        return { value: g, label: g === 'schoolastic requirement' ? 'Scholastic Requirements' : g };
-    });
+    var statusGroupOptionsHtml = '<option value="all">🏷️ All Status Groups</option><option value="none">🚫 None (Tuition Only)</option>';
+    for (var sg = 0; sg < filterOptions.statusGroups.length; sg++) {
+        var group = filterOptions.statusGroups[sg];
+        var displayName = group === 'schoolastic requirement' ? 'Scholastic' : group;
+        statusGroupOptionsHtml += '<option value="' + group + '">' + escapeHtmlFn(displayName) + '</option>';
+    }
 
-    var itemOptions = (filterOptions.scholasticItems || []).map(function (it) {
-        return { value: it, label: it };
-    });
+    var itemOptionsHtml = '<option value="all">📦 All Items</option>';
+    for (var it = 0; it < filterOptions.scholasticItems.length; it++) {
+        var item = filterOptions.scholasticItems[it];
+        itemOptionsHtml += '<option value="' + item + '">' + escapeHtmlFn(item) + '</option>';
+    }
 
-    var statusIcon = { 'Fully Paid': '✅', 'Payment Due': '⚠️', 'No Payment': '📋', 'Credit Balance': '💰' };
-    var paymentStatusOptions = (filterOptions.paymentStatuses || []).map(function (st) {
-        return { value: st, label: (statusIcon[st] || '') + ' ' + st };
-    });
+    var paymentStatusHtml = '<option value="all">💳 All Payment Status</option>';
+    for (var ps = 0; ps < filterOptions.paymentStatuses.length; ps++) {
+        var status = filterOptions.paymentStatuses[ps];
+        var icon = status === 'Fully Paid' ? '✅' :
+                   status === 'Payment Due' ? '⚠️' :
+                   status === 'No Payment' ? '📋' : '💰';
+        paymentStatusHtml += '<option value="' + status + '">' + icon + ' ' + status + '</option>';
+    }
 
-    // ---- Academic period filter — defaults to Current Period ----
+    // ---- Academic period filter ----
     var availableYears = [];
     for (var y = currentYear - 2; y <= currentYear + 1; y++) availableYears.push(y);
 
     var periodOptionsHtml = '';
     periodOptionsHtml += '<option value="all">📅 All Periods</option>';
-    periodOptionsHtml += '<option value="current" selected>📌 Current Period</option>';
+    periodOptionsHtml += '<option value="current">📌 Current Period</option>';
     for (var yy = 0; yy < availableYears.length; yy++) {
         var year = availableYears[yy];
         var label = year === currentYear ? year + ' (Current)' : year;
@@ -65414,12 +65204,14 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
         for (var t = 1; t <= 3; t++) {
             var termLabel = getTermName(t);
             var isCurrent = (year === currentYear && t === currentTerm);
-            var currentLabelSuffix = isCurrent ? ' ⭐' : '';
-            periodOptionsHtml += '<option value="' + year + '_' + t + '">' + termLabel + ' ' + year + currentLabelSuffix + '</option>';
+            var currentLabel = isCurrent ? ' ⭐' : '';
+            periodOptionsHtml += '<option value="' + year + '_' + t + '">' + termLabel + ' ' + year + currentLabel + '</option>';
         }
         periodOptionsHtml += '</optgroup>';
     }
 
+    // Each field carries a stagger delay via inline style so the whole
+    // form reveals in a quick cascade on first paint, not all at once.
     function field(delayStep, labelHtml, innerHtml, helpHtml) {
         return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms">' +
             '<label class="block text-sm font-medium mb-1 text-slate-600">' + labelHtml + '</label>' +
@@ -65461,7 +65253,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                         <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-filter text-sm"></i></div>
                         <div>
                             <h3 class="font-display font-bold text-slate-800">Filters</h3>
-                            <p class="text-xs text-slate-400">Tick as many options per filter as you like, then hit Generate</p>
+                            <p class="text-xs text-slate-400">Narrow things down, then hit Generate</p>
                         </div>
                     </div>
                     <span id="reportFilterCountBadge" class="text-xs font-semibold text-slate-400">No filters applied</span>
@@ -65471,45 +65263,67 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                     <form id="reportFilterForm" class="space-y-4" onsubmit="return false;">
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 
-                            ${field(0, '🎓 Level', rptBuildMultiSelect('reportLevelFilter', levelOptions, 'All Levels'))}
+                            ${field(0, '🎓 Level',
+                                `<select id="reportLevelFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${levelOptionsHtml}</select>`)}
 
-                            ${field(1, '🏫 Class', rptBuildMultiSelect('reportClassFilter', classOptions, 'All Classes'), 'Picking a class includes both its Day and Boarding students')}
+                            ${field(1, '👤 Student',
+                                `<div class="relative">
+                                    <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                                    <input type="text" id="reportStudentSearch" placeholder="Search by name or admission no..."
+                                           class="rpt-input w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none text-sm">
+                                </div>
+                                <select id="reportStudentFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 mt-2 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${studentOptionsHtml}</select>`)}
 
-                            ${field(2, '👤 Student',
-                                '<div class="relative">' +
-                                    '<i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>' +
-                                    '<input type="text" id="reportStudentSearch" placeholder="Search by name or admission no..." class="rpt-input w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none text-sm">' +
-                                '</div>' +
-                                '<select id="reportStudentFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 mt-2 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">' + studentOptionsHtml + '</select>')}
+                            ${field(2, '📄 Fee Structure',
+                                `<select id="reportFeeStructureFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${feeStructureOptionsHtml}</select>`)}
 
-                            ${field(3, '📄 Fee Structure', rptBuildMultiSelect('reportFeeStructureFilter', feeStructureOptions, 'All Fee Structures'))}
+                            ${field(3, '🏷️ Status Group',
+                                `<select id="reportStatusGroupFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${statusGroupOptionsHtml}</select>`,
+                                'Pick "None" to see tuition only')}
 
-                            ${field(4, '🏷️ Status Group', rptBuildMultiSelect('reportStatusGroupFilter', statusGroupOptions, 'All Status Groups'), 'Select several — e.g. LTBalance + Scholastic Requirements')}
+                            ${field(4, '📦 Item',
+                                `<select id="reportItemFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${itemOptionsHtml}</select>`)}
 
-                            ${field(5, '📦 Item', rptBuildMultiSelect('reportItemFilter', itemOptions, 'All Items'))}
+                            ${field(5, '💰 Tuition',
+                                `<div class="flex items-center gap-3 mt-1">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="reportTuitionFilter" class="sr-only peer" checked>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                                        <span class="ml-2 text-sm font-medium text-slate-700" id="tuitionToggleLabel">Include Tuition</span>
+                                    </label>
+                                </div>`,
+                                'Toggle tuition in or out of the totals')}
 
-                            ${field(6, '💰 Tuition',
-                                '<div class="flex items-center gap-3 mt-1">' +
-                                    '<label class="relative inline-flex items-center cursor-pointer">' +
-                                        '<input type="checkbox" id="reportTuitionFilter" class="sr-only peer">' +
-                                        '<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>' +
-                                        '<span class="ml-2 text-sm font-medium text-slate-700" id="tuitionToggleLabel">Exclude Tuition</span>' +
-                                    '</label>' +
-                                '</div>',
-                                'Off by default — flip on to fold tuition into the totals')}
+                            ${field(6, '💳 Payment Status',
+                                `<select id="reportPaymentStatusFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${paymentStatusHtml}</select>`)}
 
-                            ${field(7, '💳 Payment Status', rptBuildMultiSelect('reportPaymentStatusFilter', paymentStatusOptions, 'All Payment Status'))}
+                            ${field(7, '📅 Academic Period',
+                                `<select id="reportPeriodFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${periodOptionsHtml}</select>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeAllPeriods" class="sr-only peer" checked>
+                                        <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
+                                        <span class="ml-2 text-xs font-medium text-slate-700">Include all periods</span>
+                                    </label>
+                                </div>`,
+                                'One term, or the whole history — your call')}
 
-                            ${field(8, '📅 Academic Period',
-                                '<select id="reportPeriodFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">' + periodOptionsHtml + '</select>' +
-                                '<div class="flex items-center gap-2 mt-2">' +
-                                    '<label class="relative inline-flex items-center cursor-pointer">' +
-                                        '<input type="checkbox" id="reportIncludeAllPeriods" class="sr-only peer">' +
-                                        '<div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>' +
-                                        '<span class="ml-2 text-xs font-medium text-slate-700">Include all periods</span>' +
-                                    '</label>' +
-                                '</div>',
-                                'Defaults to the current term — switch periods or include full history any time')}
+                            ${field(8, '📊 Excel Export Sections',
+                                `<div class="space-y-2 mt-1 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeMainTable" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Main report table
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludePeriodBreakdown" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Period breakdown summary
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeSummaryStats" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Summary statistics
+                                    </label>
+                                </div>`,
+                                'Choose which sections appear in the exported Excel file — all on by default')}
 
                             <div class="rpt-field flex flex-wrap gap-2 items-end" style="animation-delay:405ms">
                                 <button type="submit" id="rptGenerateBtn" class="rpt-generate-btn rpt-btn-press bg-teal-600 text-white px-4 py-2.5 rounded-xl hover:bg-teal-700 font-semibold flex-1 flex items-center justify-center gap-2">
@@ -65521,8 +65335,10 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                             </div>
                         </div>
 
-                        <!-- ============ ACTIVE FILTERS RIBBON ============ -->
-                        <div id="reportActiveFiltersRow" class="flex flex-wrap items-center gap-2 pt-1 min-h-[2rem]"></div>
+                        <!-- ============ ACTIVE FILTERS RIBBON (signature element) ============ -->
+                        <div id="reportActiveFiltersRow" class="flex flex-wrap items-center gap-2 pt-1 min-h-[2rem]">
+                            <!-- populated live by JS as selections change -->
+                        </div>
 
                         <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
                             <button type="button" onclick="exportReportToCSV()" class="rpt-btn-press bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 font-semibold flex items-center gap-2">
@@ -65576,7 +65392,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                             </div>
                             <p class="font-semibold text-slate-500">Nothing generated yet</p>
                             <p class="text-sm mt-1 text-slate-400">Set your filters above and hit <span class="font-semibold text-teal-600">Generate</span> to pull the data</p>
-                            <p class="text-xs mt-3 text-slate-300"><i class="fas fa-circle-info mr-1"></i>Showing the current period by default — tick "Include all periods" for full history</p>
+                            <p class="text-xs mt-3 text-slate-300"><i class="fas fa-circle-info mr-1"></i>Choose "All Periods" to see balances tracked across terms</p>
                         </div>
                     </div>
                 </div>
@@ -65589,10 +65405,23 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
 }
 
 // ---------------------------------------------------------------------------
-// 4. FILTER INTERACTIVITY — chips, dirty-state pulse, student search
+// 3. FILTER INTERACTIVITY — active-filter chips, dirty-state pulse,
+//    student search, tuition toggle label, period lock.
 // ---------------------------------------------------------------------------
+var rptLastAppliedSignature = null;
+
 function attachReportFilterListeners() {
     var filterForm = document.getElementById('reportFilterForm');
+    var filterIds = [
+        'reportLevelFilter', 'reportStudentFilter', 'reportFeeStructureFilter',
+        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
+        'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
+    ];
+    var filterLabels = {
+        reportLevelFilter: '🎓 Level', reportStudentFilter: '👤 Student', reportFeeStructureFilter: '📄 Fee Structure',
+        reportStatusGroupFilter: '🏷️ Status Group', reportItemFilter: '📦 Item', reportPaymentStatusFilter: '💳 Payment Status',
+        reportPeriodFilter: '📅 Period'
+    };
 
     if (filterForm) {
         filterForm.addEventListener('submit', function (e) {
@@ -65608,29 +65437,30 @@ function attachReportFilterListeners() {
     if (tuitionToggle && tuitionLabel) {
         tuitionToggle.addEventListener('change', function () {
             tuitionLabel.textContent = this.checked ? 'Include Tuition' : 'Exclude Tuition';
-            rptOnAnyFilterChange();
         });
     }
 
     var periodFilter = document.getElementById('reportPeriodFilter');
-    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
-    if (periodFilter && includeAllPeriods) {
-        var syncPeriodLock = function (triggerChange) {
-            if (periodFilter.value === 'all') {
-                includeAllPeriods.checked = true;
-                includeAllPeriods.disabled = true;
-                includeAllPeriods.parentElement.style.opacity = '0.5';
-            } else {
-                includeAllPeriods.checked = false;
-                includeAllPeriods.disabled = false;
-                includeAllPeriods.parentElement.style.opacity = '1';
-            }
-            if (triggerChange !== false) rptOnAnyFilterChange();
-        };
-        periodFilter.addEventListener('change', function () { syncPeriodLock(true); });
-        includeAllPeriods.addEventListener('change', function () { rptOnAnyFilterChange(); });
-        syncPeriodLock(false);
-    }
+var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
+if (periodFilter && includeAllPeriods) {
+    var syncPeriodLock = function () {
+        if (periodFilter.value === 'all') {
+            // "All Periods" always means the full history
+            includeAllPeriods.checked = true;
+            includeAllPeriods.disabled = true;
+            includeAllPeriods.parentElement.style.opacity = '0.5';
+        } else {
+            // Picking a specific term (or "Current Period") narrows the
+            // report to just that period by default. The checkbox becomes
+            // an explicit opt-in for "show history up to this point" instead.
+            includeAllPeriods.checked = false;
+            includeAllPeriods.disabled = false;
+            includeAllPeriods.parentElement.style.opacity = '1';
+        }
+    };
+    periodFilter.addEventListener('change', syncPeriodLock);
+    syncPeriodLock();
+}
 
     var studentSearch = document.getElementById('reportStudentSearch');
     var studentSelect = document.getElementById('reportStudentFilter');
@@ -65638,33 +65468,44 @@ function attachReportFilterListeners() {
         studentSearch.addEventListener('input', function () {
             var searchTerm = this.value.toLowerCase().trim();
             var options = studentSelect.options;
+            var firstVisible = null;
             for (var i = 0; i < options.length; i++) {
                 var text = options[i].text.toLowerCase();
-                options[i].style.display = (searchTerm === '' || text.indexOf(searchTerm) !== -1) ? '' : 'none';
+                var match = searchTerm === '' || text.includes(searchTerm);
+                options[i].style.display = match ? '' : 'none';
+                if (match && !firstVisible) firstVisible = options[i].value;
             }
+            if (firstVisible && !studentSelect.value) studentSelect.value = firstVisible;
         });
     }
-    if (studentSelect) studentSelect.addEventListener('change', rptOnAnyFilterChange);
 
-    rptUpdateActiveFilterChips();
-    rptSetGenerateDirty(false);
-}
+    // Wire every filter control to refresh the active-filter chip ribbon
+    // and flag the Generate button as "dirty" (pending changes) the moment
+    // a selection no longer matches what was last applied.
+    filterIds.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
+        el.addEventListener(evt, function () {
+            rptUpdateActiveFilterChips(filterIds, filterLabels);
+            rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
+        });
+    });
 
-function rptOnAnyFilterChange() {
-    rptUpdateActiveFilterChips();
-    rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
+    rptUpdateActiveFilterChips(filterIds, filterLabels);
 }
 
 function rptFilterSignature() {
-    var fields = rptMultiFields() || [];
-    var multi = fields.map(function (id) {
-        return id + ':' + (rptGetMultiValues(id) || []).slice().sort().join(',');
+    var ids = [
+        'reportLevelFilter', 'reportStudentFilter', 'reportFeeStructureFilter',
+        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
+        'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
+    ];
+    return ids.map(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return '';
+        return el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value;
     }).join('|');
-    var studentVal = (document.getElementById('reportStudentFilter') || {}).value || 'all';
-    var tuitionVal = (document.getElementById('reportTuitionFilter') || {}).checked ? '1' : '0';
-    var periodVal = (document.getElementById('reportPeriodFilter') || {}).value || 'current';
-    var allPeriodsVal = (document.getElementById('reportIncludeAllPeriods') || {}).checked ? '1' : '0';
-    return multi + '||' + studentVal + '|' + tuitionVal + '|' + periodVal + '|' + allPeriodsVal;
 }
 
 function rptSetGenerateDirty(isDirty) {
@@ -65675,36 +65516,19 @@ function rptSetGenerateDirty(isDirty) {
     if (label) label.textContent = isDirty ? 'Generate (changes pending)' : 'Generate';
 }
 
-function rptUpdateActiveFilterChips() {
+function rptUpdateActiveFilterChips(filterIds, filterLabels) {
     var row = document.getElementById('reportActiveFiltersRow');
     var badge = document.getElementById('reportFilterCountBadge');
     if (!row) return;
 
     var chips = [];
-    var fields = rptMultiFields() || [];
-    var labels = rptMultiLabels() || {};
-
-    fields.forEach(function (id) {
-        var values = rptGetMultiValues(id) || [];
-        if (!values.length) return;
-        var text = values.length === 1 ? rptOptionLabelFor(id, values[0]) : (values.length + ' selected');
-        chips.push({ id: id, label: labels[id] || id, text: text });
+    filterIds.forEach(function (id) {
+        if (!filterLabels[id]) return; // skip tuition/period-lock toggles from the chip row
+        var el = document.getElementById(id);
+        if (!el || el.value === 'all' || el.value === '') return;
+        var text = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+        chips.push({ id: id, label: filterLabels[id], text: text });
     });
-
-    var studentEl = document.getElementById('reportStudentFilter');
-    if (studentEl && studentEl.value !== 'all') {
-        chips.push({ id: 'reportStudentFilter', label: '👤 Student', text: studentEl.options[studentEl.selectedIndex].text });
-    }
-
-    var tuitionEl = document.getElementById('reportTuitionFilter');
-    if (tuitionEl && tuitionEl.checked) {
-        chips.push({ id: 'reportTuitionFilter', label: '💰 Tuition', text: 'Included' });
-    }
-
-    var periodEl = document.getElementById('reportPeriodFilter');
-    if (periodEl && periodEl.value !== 'current') {
-        chips.push({ id: 'reportPeriodFilter', label: '📅 Period', text: periodEl.options[periodEl.selectedIndex].text });
-    }
 
     if (chips.length === 0) {
         row.innerHTML = '<span class="text-xs text-slate-300 italic">No filters active — showing everything by default</span>';
@@ -65723,34 +65547,30 @@ function rptUpdateActiveFilterChips() {
 }
 
 function rptClearFilter(id) {
-    var fields = rptMultiFields() || [];
-    if (fields.indexOf(id) !== -1) {
-        rptSetMultiValues(id, []);
-        rptOnAnyFilterChange();
-        return;
-    }
-    if (id === 'reportTuitionFilter') {
-        var tEl = document.getElementById(id);
-        if (tEl) { tEl.checked = false; tEl.dispatchEvent(new Event('change')); }
-        return;
-    }
-    if (id === 'reportPeriodFilter') {
-        var pEl = document.getElementById(id);
-        if (pEl) { pEl.value = 'current'; pEl.dispatchEvent(new Event('change')); }
-        return;
-    }
     var el = document.getElementById(id);
-    if (el) { el.value = 'all'; el.dispatchEvent(new Event('change')); }
+    if (!el) return;
+    el.value = 'all';
+    el.dispatchEvent(new Event('change'));
 }
 
 // ---------------------------------------------------------------------------
-// 5. RESULTS RENDERER
+// 4. RESULTS RENDERER — call this from generateReportV3() once you have the
+//    filtered records. Handles sorting, in-table search, insight strip,
+//    count-up stats, and a friendly empty state.
+//
+//    records: [{ studentName, admissionNumber, className, period,
+//                 feeStructureName, statusGroup, itemName,
+//                 expected, paid, balance, status }, ...]
 // ---------------------------------------------------------------------------
+var rptCurrentRecords = [];
+var rptSortState = { column: null, direction: 'asc' };
+
 function renderReportResultsV3(records, meta) {
     records = records || [];
     rptCurrentRecords = records;
     meta = meta || {};
 
+    var container = document.getElementById('reportResultsContainer');
     var countEl = document.getElementById('reportRecordCount');
     var insightStrip = document.getElementById('reportInsightStrip');
     var lastRun = document.getElementById('reportLastRun');
@@ -65759,8 +65579,8 @@ function renderReportResultsV3(records, meta) {
         lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
     }
 
-    var totalExpected = meta.totalExpected != null ? meta.totalExpected : records.reduce(function (s, r) { return s + (r.expected || 0); }, 0);
-    var totalPaid = meta.totalPaid != null ? meta.totalPaid : records.reduce(function (s, r) { return s + (r.paid || 0); }, 0);
+    var totalExpected = meta.totalExpected != null ? meta.totalExpected : records.reduce((s, r) => s + (r.expected || 0), 0);
+    var totalPaid = meta.totalPaid != null ? meta.totalPaid : records.reduce((s, r) => s + (r.paid || 0), 0);
     var totalBalance = totalExpected - totalPaid;
     var rate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
 
@@ -65791,45 +65611,45 @@ function renderReportResultsV3(records, meta) {
     if (!tableContainer) return;
 
     if (records.length === 0) {
-        tableContainer.innerHTML =
-            '<div class="text-center py-14 text-slate-400">' +
-                '<div class="w-16 h-16 rounded-2xl bg-rose-50 text-rose-300 flex items-center justify-center mx-auto mb-4 text-2xl">' +
-                    '<i class="fas fa-inbox"></i>' +
-                '</div>' +
-                '<p class="font-semibold text-slate-500">No records match these filters</p>' +
-                '<p class="text-sm mt-1 text-slate-400">Try clearing a filter from the ribbon above, or widen the academic period</p>' +
-            '</div>';
+        tableContainer.innerHTML = `
+            <div class="text-center py-14 text-slate-400">
+                <div class="w-16 h-16 rounded-2xl bg-rose-50 text-rose-300 flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fas fa-inbox"></i>
+                </div>
+                <p class="font-semibold text-slate-500">No records match these filters</p>
+                <p class="text-sm mt-1 text-slate-400">Try clearing a filter from the ribbon above, or widen the academic period</p>
+            </div>`;
         return;
     }
 
-    tableContainer.innerHTML =
-        '<div class="flex flex-wrap gap-3 mb-4">' +
-            '<div class="relative flex-1 min-w-[220px]">' +
-                '<i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>' +
-                '<input type="text" id="reportRowSearch" placeholder="Search results..." class="rpt-input w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">' +
-            '</div>' +
-            '<span class="text-xs text-slate-400 self-center"><span id="reportVisibleCount">' + records.length + '</span> of ' + records.length + ' shown</span>' +
-        '</div>' +
-        '<div class="overflow-x-auto max-h-[28rem] overflow-y-auto db-scroll rounded-xl border border-slate-100">' +
-            '<table class="w-full text-sm" id="reportResultsTable">' +
-                '<thead class="db-table"><tr>' +
-                    '<th class="p-3 text-left cursor-pointer" onclick="rptSortResults(\'studentName\')">Student <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-left cursor-pointer" onclick="rptSortResults(\'className\')">Class <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-left cursor-pointer" onclick="rptSortResults(\'feeStructureName\')">Fee Structure <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-left cursor-pointer" onclick="rptSortResults(\'statusGroup\')">Group / Item <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-left cursor-pointer" onclick="rptSortResults(\'period\')">Period <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-right cursor-pointer" onclick="rptSortResults(\'expected\')">Expected <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-right cursor-pointer" onclick="rptSortResults(\'paid\')">Paid <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-right cursor-pointer" onclick="rptSortResults(\'balance\')">Balance <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                    '<th class="p-3 text-center cursor-pointer" onclick="rptSortResults(\'status\')">Status <i class="fas fa-sort ml-1 opacity-40"></i></th>' +
-                '</tr></thead>' +
-                '<tbody class="divide-y divide-slate-100" id="reportResultsBody"></tbody>' +
-            '</table>' +
-        '</div>' +
-        '<div class="mt-4 flex justify-between items-center text-sm text-slate-500 border-t border-slate-100 pt-3">' +
-            '<span>Totals across <b class="text-slate-700">' + records.length + '</b> record(s)</span>' +
-            '<span class="font-mono-num">Expected: <b>UGX ' + rptFormatMoney(totalExpected) + '</b> &middot; Collected: <b class="text-emerald-600">UGX ' + rptFormatMoney(totalPaid) + '</b> &middot; Outstanding: <b class="text-rose-600">UGX ' + rptFormatMoney(totalBalance) + '</b></span>' +
-        '</div>';
+    tableContainer.innerHTML = `
+        <div class="flex flex-wrap gap-3 mb-4">
+            <div class="relative flex-1 min-w-[220px]">
+                <i class="fas fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="reportRowSearch" placeholder="Search results..." class="rpt-input w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none">
+            </div>
+            <span class="text-xs text-slate-400 self-center"><span id="reportVisibleCount">${records.length}</span> of ${records.length} shown</span>
+        </div>
+        <div class="overflow-x-auto max-h-[28rem] overflow-y-auto db-scroll rounded-xl border border-slate-100">
+            <table class="w-full text-sm" id="reportResultsTable">
+                <thead class="db-table"><tr>
+                    <th class="p-3 text-left cursor-pointer" onclick="rptSortResults('studentName')">Student <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-left cursor-pointer" onclick="rptSortResults('className')">Class <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-left cursor-pointer" onclick="rptSortResults('feeStructureName')">Fee Structure <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-left cursor-pointer" onclick="rptSortResults('period')">Period <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-right cursor-pointer" onclick="rptSortResults('expected')">Expected <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-right cursor-pointer" onclick="rptSortResults('paid')">Paid <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-right cursor-pointer" onclick="rptSortResults('balance')">Balance <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                    <th class="p-3 text-center cursor-pointer" onclick="rptSortResults('status')">Status <i class="fas fa-sort ml-1 opacity-40"></i></th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-100" id="reportResultsBody"></tbody>
+            </table>
+        </div>
+        <div class="mt-4 flex justify-between items-center text-sm text-slate-500 border-t border-slate-100 pt-3">
+            <span>Totals across <b class="text-slate-700">${records.length}</b> record(s)</span>
+            <span class="font-mono-num">Expected: <b>UGX ${rptFormatMoney(totalExpected)}</b> &middot; Collected: <b class="text-emerald-600">UGX ${rptFormatMoney(totalPaid)}</b> &middot; Outstanding: <b class="text-rose-600">UGX ${rptFormatMoney(totalBalance)}</b></span>
+        </div>
+    `;
 
     rptRenderResultRows(records);
 
@@ -65837,13 +65657,12 @@ function renderReportResultsV3(records, meta) {
     if (searchInput) {
         searchInput.addEventListener('input', function () {
             var term = this.value.toLowerCase().trim();
-            var filtered = !term ? rptCurrentRecords : rptCurrentRecords.filter(function (r) {
-                return (r.studentName || '').toLowerCase().indexOf(term) !== -1 ||
-                    (r.className || '').toLowerCase().indexOf(term) !== -1 ||
-                    (r.feeStructureName || '').toLowerCase().indexOf(term) !== -1 ||
-                    (r.itemName || '').toLowerCase().indexOf(term) !== -1 ||
-                    (r.admissionNumber || '').toLowerCase().indexOf(term) !== -1;
-            });
+            var filtered = !term ? rptCurrentRecords : rptCurrentRecords.filter(r =>
+                (r.studentName || '').toLowerCase().includes(term) ||
+                (r.className || '').toLowerCase().includes(term) ||
+                (r.feeStructureName || '').toLowerCase().includes(term) ||
+                (r.admissionNumber || '').toLowerCase().includes(term)
+            );
             rptRenderResultRows(filtered);
             var visibleCount = document.getElementById('reportVisibleCount');
             if (visibleCount) visibleCount.textContent = filtered.length;
@@ -65855,26 +65674,26 @@ function rptRenderResultRows(records) {
     var body = document.getElementById('reportResultsBody');
     if (!body) return;
 
+    // Cap the staggered-reveal animation to the first ~30 rows so large
+    // result sets don't feel sluggish — the rest still render, just instantly.
     body.innerHTML = records.map(function (r, i) {
         var expected = r.expected || 0;
         var paid = r.paid || 0;
         var balance = r.balance != null ? r.balance : (expected - paid);
         var revealStyle = i < 30 ? ' style="animation-delay:' + (i * 18) + 'ms"' : '';
         var revealClass = i < 30 ? ' rpt-row-reveal' : '';
-        var groupItem = (r.statusGroup || '') + (r.itemName && r.itemName !== r.statusGroup ? ' — ' + r.itemName : '');
 
-        return '' +
-            '<tr class="rpt-row hover:bg-slate-50' + revealClass + '"' + revealStyle + '>' +
-                '<td class="p-3 font-medium text-slate-700">' + rptEscapeHtml(r.studentName || '—') + '<div class="text-[11px] text-slate-400">' + rptEscapeHtml(r.admissionNumber || '') + '</div></td>' +
-                '<td class="p-3 text-slate-600">' + rptEscapeHtml(r.className || '—') + '</td>' +
-                '<td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">' + rptEscapeHtml(r.feeStructureName || '—') + '</span></td>' +
-                '<td class="p-3 text-slate-600 text-xs">' + rptEscapeHtml(groupItem || '—') + '</td>' +
-                '<td class="p-3 text-slate-500 text-xs">' + rptEscapeHtml(r.period || '—') + '</td>' +
-                '<td class="p-3 text-right font-mono-num text-slate-600">UGX ' + rptFormatMoney(expected) + '</td>' +
-                '<td class="p-3 text-right font-mono-num font-semibold text-emerald-600">UGX ' + rptFormatMoney(paid) + '</td>' +
-                '<td class="p-3 text-right font-mono-num font-semibold ' + (balance > 0 ? 'text-rose-600' : 'text-slate-400') + '">UGX ' + rptFormatMoney(balance) + '</td>' +
-                '<td class="p-3 text-center">' + rptStatusBadge(r.status) + '</td>' +
-            '</tr>';
+        return `
+            <tr class="rpt-row hover:bg-slate-50${revealClass}"${revealStyle}>
+                <td class="p-3 font-medium text-slate-700">${rptEscapeHtml(r.studentName || '—')}<div class="text-[11px] text-slate-400">${rptEscapeHtml(r.admissionNumber || '')}</div></td>
+                <td class="p-3 text-slate-600">${rptEscapeHtml(r.className || '—')}</td>
+                <td class="p-3"><span class="db-badge bg-indigo-50 text-indigo-700">${rptEscapeHtml(r.feeStructureName || '—')}</span></td>
+                <td class="p-3 text-slate-500 text-xs">${rptEscapeHtml(r.period || '—')}</td>
+                <td class="p-3 text-right font-mono-num text-slate-600">UGX ${rptFormatMoney(expected)}</td>
+                <td class="p-3 text-right font-mono-num font-semibold text-emerald-600">UGX ${rptFormatMoney(paid)}</td>
+                <td class="p-3 text-right font-mono-num font-semibold ${balance > 0 ? 'text-rose-600' : 'text-slate-400'}">UGX ${rptFormatMoney(balance)}</td>
+                <td class="p-3 text-center">${rptStatusBadge(r.status)}</td>
+            </tr>`;
     }).join('');
 }
 
@@ -65895,7 +65714,9 @@ function rptSortResults(column) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. LOADING STATE
+// 5. LOADING STATE — call while generateReportV3() is fetching, so the
+//    Generate button and the table both show a tasteful shimmer instead of
+//    freezing the page.
 // ---------------------------------------------------------------------------
 function rptShowLoadingState() {
     var btn = document.getElementById('rptGenerateBtn');
@@ -65903,7 +65724,7 @@ function rptShowLoadingState() {
         btn.disabled = true;
         btn.classList.remove('is-dirty');
         var label = btn.querySelector('span');
-        if (label) label.textContent = 'Generating...';
+        if (label) label.dataset.prev = label.textContent, label.textContent = 'Generating...';
         var icon = btn.querySelector('i');
         if (icon) icon.className = 'fas fa-spinner fa-spin';
     }
@@ -65911,7 +65732,7 @@ function rptShowLoadingState() {
     var tableContainer = document.getElementById('reportTableContainer');
     if (tableContainer) {
         tableContainer.innerHTML = '<div class="space-y-2">' +
-            new Array(6).fill('<div class="rpt-skeleton-row h-10 rounded-lg"></div>').join('') +
+            Array(6).fill('<div class="rpt-skeleton-row h-10 rounded-lg"></div>').join('') +
             '</div>';
     }
 }
@@ -65928,7 +65749,9 @@ function rptHideLoadingState() {
 }
 
 // ---------------------------------------------------------------------------
-// 7. EXPORT / PRINT TOASTS
+// 6. EXPORT / PRINT TOASTS — wrap the app's existing exportReportToCSV /
+//    printReportV3 if present, so the user gets friendly confirmation
+//    without changing what those functions actually do.
 // ---------------------------------------------------------------------------
 (function wrapReportActions() {
     var originalExport = window.exportReportToCSV;
@@ -65945,89 +65768,54 @@ function rptHideLoadingState() {
 })();
 
 // ---------------------------------------------------------------------------
-// 8. GENERATE REPORT — fetches the full period dataset once, then applies
-//    every multi-select filter client-side (class/level/fee-structure/
-//    status-group/item/payment-status can each hold several values).
+// 7. GLOBAL EXPORTS
 // ---------------------------------------------------------------------------
-function rptBuildRecords(students, filters, termLabel, yearLabel) {
-    students = students || [];
-    filters = filters || {};
-    var statusGroups = filters.statusGroups || [];
-    var items = filters.items || [];
-    var includeTuition = !!filters.includeTuition;
-    var records = [];
-    var totalExpected = 0, totalPaid = 0;
-    var periodText = termLabel + ' ' + yearLabel;
+window.renderReportsPageV3 = renderReportsPageV3;
+window.renderReportResultsV3 = renderReportResultsV3;
+window.rptShowLoadingState = rptShowLoadingState;
+window.rptHideLoadingState = rptHideLoadingState;
+window.rptClearFilter = rptClearFilter;
+window.rptSortResults = rptSortResults;
+window.injectReportsDesignSystem = injectReportsDesignSystem;
 
-    students.forEach(function (student) {
-        var studentName = ((student.firstName || '') + ' ' + (student.lastName || '')).trim();
+console.log('✅ Reports v4.0 (Modern Edition) loaded — teal/indigo ledger design system + live insight ribbon');
 
-        if (includeTuition) {
-            var t = student.tuition || {};
-            var exp = t.expected || 0, paid = t.paid || 0;
-            records.push({
-                studentName: studentName, admissionNumber: student.admissionNumber,
-                className: student.currentClass, feeStructureName: student.feeStructureName,
-                period: periodText, statusGroup: 'Tuition', itemName: 'Tuition',
-                expected: exp, paid: paid, balance: Math.max(0, exp - paid),
-                status: t.status || student.overallStatus
-            });
-            totalExpected += exp; totalPaid += paid;
-        }
-
-        var groups = student.statusGroups || {};
-        Object.keys(groups).forEach(function (gName) {
-            if (statusGroups.length && statusGroups.indexOf(gName) === -1) return;
-            var group = groups[gName] || {};
-            var groupItems = group.items || {};
-            Object.keys(groupItems).forEach(function (iName) {
-                if (items.length && items.indexOf(iName) === -1) return;
-                var itemData = groupItems[iName] || {};
-                var exp2 = itemData.amountExpected || 0;
-                var paid2 = itemData.totalAmountCollected || 0;
-                var bal2 = Math.max(0, exp2 - paid2);
-                var status2 = itemData.isFullyPaid ? 'Fully Paid' : (paid2 > 0 ? 'Payment Due' : 'No Payment');
-                records.push({
-                    studentName: studentName, admissionNumber: student.admissionNumber,
-                    className: student.currentClass, feeStructureName: student.feeStructureName,
-                    period: periodText, statusGroup: gName, itemName: iName,
-                    expected: exp2, paid: paid2, balance: bal2, status: status2
-                });
-                totalExpected += exp2; totalPaid += paid2;
-            });
-        });
-    });
-
-    return { records: records, totalExpected: totalExpected, totalPaid: totalPaid };
-}
+// ==================== GENERATE REPORT ====================
 
 async function generateReportV3() {
-    var levels = rptGetMultiValues('reportLevelFilter');
-    var classNames = rptGetMultiValues('reportClassFilter');
-    var feeStructureIds = rptGetMultiValues('reportFeeStructureFilter');
-    var statusGroups = rptGetMultiValues('reportStatusGroupFilter');
-    var items = rptGetMultiValues('reportItemFilter');
-    var paymentStatuses = rptGetMultiValues('reportPaymentStatusFilter');
-    var studentId = (document.getElementById('reportStudentFilter') || {}).value || 'all';
-    var includeTuition = (document.getElementById('reportTuitionFilter') || {}).checked === true;
+    var level = document.getElementById('reportLevelFilter')?.value || 'all';
+    var studentId = document.getElementById('reportStudentFilter')?.value || 'all';
+    var feeStructureId = document.getElementById('reportFeeStructureFilter')?.value || 'all';
+    var statusGroup = document.getElementById('reportStatusGroupFilter')?.value || 'all';
+    var itemName = document.getElementById('reportItemFilter')?.value || 'all';
+    var includeTuition = document.getElementById('reportTuitionFilter')?.checked !== false;
+    var paymentStatus = document.getElementById('reportPaymentStatusFilter')?.value || 'all';
 
-    var periodFilter = (document.getElementById('reportPeriodFilter') || {}).value || 'current';
-    var includeAllPeriods = (document.getElementById('reportIncludeAllPeriods') || {}).checked === true;
-    var academicYear = null, academicTerm = null;
-    if (periodFilter === 'all') {
-        includeAllPeriods = true;
-    } else if (periodFilter !== 'current') {
+    var periodFilter = document.getElementById('reportPeriodFilter')?.value || 'all';
+    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods')?.checked !== false;
+    var academicYear = null;
+    var academicTerm = null;
+
+    if (periodFilter !== 'all' && periodFilter !== 'current') {
         var parts = periodFilter.split('_');
-        if (parts.length === 2) { academicYear = parseInt(parts[0]); academicTerm = parseInt(parts[1]); }
+        if (parts.length === 2) {
+            academicYear = parseInt(parts[0]);
+            academicTerm = parseInt(parts[1]);
+        }
     }
 
     if (typeof rptShowLoadingState === 'function') rptShowLoadingState();
 
     try {
         var params = new URLSearchParams({
-            level: 'all', studentId: studentId, feeStructureId: 'all',
-            statusGroup: 'all', itemName: 'all', paymentStatus: 'all',
-            includeTuition: 'true', includeAllPeriods: includeAllPeriods ? 'true' : 'false'
+            level: level,
+            studentId: studentId,
+            feeStructureId: feeStructureId,
+            statusGroup: statusGroup,
+            itemName: itemName,
+            paymentStatus: paymentStatus,
+            includeTuition: includeTuition ? 'true' : 'false',
+            includeAllPeriods: includeAllPeriods ? 'true' : 'false'
         });
         if (academicYear) params.append('academicYear', academicYear);
         if (academicTerm) params.append('academicTerm', academicTerm);
@@ -66035,32 +65823,36 @@ async function generateReportV3() {
         var response = await fetch('/api/reports/comprehensive?' + params.toString());
         var result = await response.json();
 
-        if (!result.success) {
+        if (result.success) {
+            reportData = result.data;
+            renderReportResultsV3(result.data);
+
+            var lastRun = document.getElementById('reportLastRun');
+            if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
+
+            var totals = result.data.totals || {};
+            var insightStrip = document.getElementById('reportInsightStrip');
+            if (insightStrip) {
+                insightStrip.classList.remove('hidden');
+                var count = (result.data.students || []).length;
+                var rate = parseFloat(totals.overallCollectionRate || 0);
+                var insightText = document.getElementById('reportInsightText');
+                if (insightText) {
+                    insightText.textContent = count === 0
+                        ? 'No students match this combination of filters.'
+                        : 'Showing ' + count + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
+                }
+                var insightRecords = document.getElementById('reportInsightRecords');
+                var insightRate = document.getElementById('reportInsightRate');
+                if (insightRecords && typeof rptCountUp === 'function') rptCountUp(insightRecords, count);
+                if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
+            }
+
+            if (typeof rptFilterSignature === 'function') rptLastAppliedSignature = rptFilterSignature();
+            if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(false);
+        } else {
             showToast('Error: ' + (result.error || 'Unknown error'), 'error');
-            return;
         }
-
-        reportData = result.data;
-        var students = result.data.students || [];
-
-        if (levels.length) students = students.filter(function (s) { return levels.indexOf(s.classLevel) !== -1; });
-        if (classNames.length) students = students.filter(function (s) { return classNames.indexOf(s.currentClass) !== -1; });
-        if (feeStructureIds.length) students = students.filter(function (s) { return feeStructureIds.indexOf(s.feeStructureId) !== -1; });
-        if (paymentStatuses.length) students = students.filter(function (s) { return paymentStatuses.indexOf(s.overallStatus) !== -1; });
-
-        var meta = result.data.metadata || {};
-        var termLabel = (typeof getTermName === 'function') ? getTermName(meta.currentTerm) : ('Term ' + meta.currentTerm);
-        var yearLabel = meta.currentYear;
-
-        var built = rptBuildRecords(students, { statusGroups: statusGroups, items: items, includeTuition: includeTuition }, termLabel, yearLabel);
-
-        renderReportResultsV3(built.records, { totalExpected: built.totalExpected, totalPaid: built.totalPaid });
-
-        var lastRun = document.getElementById('reportLastRun');
-        if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
-
-        rptLastAppliedSignature = rptFilterSignature();
-        rptSetGenerateDirty(false);
     } catch (error) {
         console.error('Error generating report:', error);
         showToast('Error generating report: ' + error.message, 'error');
@@ -66069,37 +65861,36 @@ async function generateReportV3() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// 9. RESET FILTERS
-// ---------------------------------------------------------------------------
+// ==================== RESET FILTERS ====================
+
 function resetReportFilters() {
-    (rptMultiFields() || []).forEach(function (id) { rptSetMultiValues(id, []); });
-
-    var studentSelect = document.getElementById('reportStudentFilter');
-    if (studentSelect) {
-        studentSelect.value = 'all';
-        var opts = studentSelect.options;
-        for (var i = 0; i < opts.length; i++) opts[i].style.display = '';
-    }
-    var studentSearch = document.getElementById('reportStudentSearch');
-    if (studentSearch) studentSearch.value = '';
-
-    var tuitionToggle = document.getElementById('reportTuitionFilter');
-    if (tuitionToggle) tuitionToggle.checked = false;
-    var tuitionLabel = document.getElementById('tuitionToggleLabel');
-    if (tuitionLabel) tuitionLabel.textContent = 'Exclude Tuition';
-
-    var periodFilter = document.getElementById('reportPeriodFilter');
-    if (periodFilter) periodFilter.value = 'current';
+    document.getElementById('reportLevelFilter').value = 'all';
+    document.getElementById('reportStudentFilter').value = 'all';
+    document.getElementById('reportStudentSearch').value = '';
+    document.getElementById('reportFeeStructureFilter').value = 'all';
+    document.getElementById('reportStatusGroupFilter').value = 'all';
+    document.getElementById('reportItemFilter').value = 'all';
+    document.getElementById('reportPaymentStatusFilter').value = 'all';
+    document.getElementById('reportPeriodFilter').value = 'all';
+    
     var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
     if (includeAllPeriods) {
-        includeAllPeriods.checked = false;
-        includeAllPeriods.disabled = false;
-        includeAllPeriods.parentElement.style.opacity = '1';
+        includeAllPeriods.checked = true;
+        includeAllPeriods.disabled = true;
+        includeAllPeriods.parentElement.style.opacity = '0.5';
     }
-
-    rptUpdateActiveFilterChips();
-    rptSetGenerateDirty(true);
+    
+    var tuitionToggle = document.getElementById('reportTuitionFilter');
+    if (tuitionToggle) tuitionToggle.checked = true;
+    var tuitionLabel = document.getElementById('tuitionToggleLabel');
+    if (tuitionLabel) tuitionLabel.textContent = 'Include Tuition';
+    
+    var studentSelect = document.getElementById('reportStudentFilter');
+    var options = studentSelect.options;
+    for (var i = 0; i < options.length; i++) {
+        options[i].style.display = '';
+    }
+    
     showToast('Filters have been reset', 'info');
     generateReportV3();
 }
@@ -66115,45 +65906,33 @@ function showToast(message, type) {
     toast.className = 'fixed bottom-4 right-4 ' + bgColor + ' text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-sm';
     toast.innerHTML = message.replace(/\n/g, '<br>');
     document.body.appendChild(toast);
-    setTimeout(function () { toast.remove(); }, 4000);
+    setTimeout(function() { toast.remove(); }, 4000);
 }
 
-// ---------------------------------------------------------------------------
-// 10. GLOBAL EXPORTS
-// ---------------------------------------------------------------------------
-window.renderReportsPageV3 = renderReportsPageV3;
-window.renderReportResultsV3 = renderReportResultsV3;
-window.rptShowLoadingState = rptShowLoadingState;
-window.rptHideLoadingState = rptHideLoadingState;
-window.rptClearFilter = rptClearFilter;
-window.rptSortResults = rptSortResults;
-window.rptToggleMultiSelect = rptToggleMultiSelect;
-window.rptFilterMultiOptions = rptFilterMultiOptions;
-window.rptMultiSelectAll = rptMultiSelectAll;
-window.rptOnMultiChange = rptOnMultiChange;
+// ========== MAKE FUNCTIONS GLOBAL ==========
+window.showReports = showReports;
 window.generateReportV3 = generateReportV3;
+window.exportReportToCSV = exportReportToCSV;
+window.printReportV3 = printReportV3;
 window.resetReportFilters = resetReportFilters;
 window.refreshReport = refreshReport;
+window.toggleItemHistory = toggleItemHistory;
+window.togglePeriodBreakdown = togglePeriodBreakdown;
+window.getTermName = getTermName;
+window.getTermShort = getTermShort;
 window.showToast = showToast;
+window.escapeHtml = escapeHtml;
+window.formatMoney = formatMoney;
 
-if (typeof injectReportsDesignSystem === 'function') window.injectReportsDesignSystem = injectReportsDesignSystem;
-if (typeof exportReportToCSV === 'function') window.exportReportToCSV = exportReportToCSV;
-if (typeof printReportV3 === 'function') window.printReportV3 = printReportV3;
-if (typeof showReports === 'function') window.showReports = showReports;
-if (typeof toggleItemHistory === 'function') window.toggleItemHistory = toggleItemHistory;
-if (typeof togglePeriodBreakdown === 'function') window.togglePeriodBreakdown = togglePeriodBreakdown;
-if (typeof getTermName === 'function') window.getTermName = getTermName;
-if (typeof getTermShort === 'function') window.getTermShort = getTermShort;
-if (typeof escapeHtml === 'function') window.escapeHtml = escapeHtml;
-if (typeof formatMoney === 'function') window.formatMoney = formatMoney;
+console.log('✅ Comprehensive Reports System v7.0 - Professional Multi-Period Report Loaded!');
+console.log('   📊 Professional table layout with proper organization');
+console.log('   📅 Multi-period tracking with period breakdown');
+console.log('   🏷️ All status groups including cash-only items');
+console.log('   ⚡ Customization indicators and reasons');
+console.log('   🖨️ Print-ready with professional styling');
+console.log('   📄 Export includes all period data');
+// ==================== TOGGLE ITEM HISTORY (FIXED) ====================
 
-console.log('✅ Comprehensive Reports v5.1 (Multi-Select Filter Redesign, load-order fix) loaded');
-console.log('   🏫 New Class filter (Day + Boarding grouped automatically)');
-console.log('   ☑️ Level / Class / Fee Structure / Status Group / Item / Payment Status are now multi-select');
-console.log('   💰 Tuition excluded by default');
-console.log('   📅 Academic Period defaults to the Current Period');
-console.log('   🗑️ Removed unused Excel Export Sections checkboxes');
-console.log('   🛠️ Fixed: rptMultiFields()/rptMultiLabels() are functions now, immune to load-order issues');
 function toggleItemHistory(itemId) {
     // Initialize expandedItems if not exists
     if (typeof window.expandedItems === 'undefined') {
