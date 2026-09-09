@@ -65264,7 +65264,7 @@ function rptMselGetSelectedLabels(id) {
 // counts, Class filter added, Excel Export Sections removed, Tuition
 // defaults OFF, Academic Period defaults to the current term.
 // ============================================================================
-
+   var escapeHtmlFn = rptEscapeHtml;
 function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) {
     var mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
@@ -65273,7 +65273,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
     injectReportsDesignSystem();
     injectMultiSelectStyles();
 
-    var escapeHtmlFn = rptEscapeHtml;
+    // var escapeHtmlFn = rptEscapeHtml;
     rptMselState = {}; // reset all multi-select state on fresh page render
 
     // ---- Build option arrays for each multi-select ----
