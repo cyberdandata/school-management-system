@@ -82987,28 +82987,39 @@ function buildItemPeriodsPlain(itemData, metric) {
 // A student who does not owe anything on the selected item/group
 // is dropped from the report entirely — no placeholder row.
 function getVisibleStudents(students, filters) {
-    var filterItem = filters.itemName || 'all';
-    var filterGroup = filters.statusGroup || 'all';
+    var filterGroups = filters.statusGroup || 'all';
+    var filterItems = filters.itemName || 'all';
 
-    if (filterItem === 'all' && (filterGroup === 'all' || filterGroup === 'none')) {
-        return students.slice();
-    }
+    // Convert to arrays
+    var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
+    var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
     return students.filter(function (student) {
         var groups = student.statusGroups || {};
 
-        if (filterItem !== 'all') {
-            for (var groupName in groups) {
-                if (!groups.hasOwnProperty(groupName)) continue;
-                if (filterGroup !== 'all' && groupName !== filterGroup) continue;
-                if (groups[groupName].items && groups[groupName].items[filterItem]) return true;
-            }
-            return false;
+        // If no groups or items selected, include all
+        if (groupList.length === 0 && itemList.length === 0) return true;
+
+        // If groups are specified, student must have at least one of them
+        if (groupList.length > 0) {
+            var studentGroupNames = Object.keys(groups);
+            var hasGroup = groupList.some(function (g) { return studentGroupNames.indexOf(g) !== -1; });
+            if (!hasGroup) return false;
         }
 
-        if (filterGroup !== 'all' && filterGroup !== 'none') {
-            var group = groups[filterGroup];
-            return !!(group && group.items && Object.keys(group.items).length > 0);
+        // If items are specified, student must have at least one of them in any group
+        if (itemList.length > 0) {
+            var hasItem = false;
+            for (var gName in groups) {
+                if (groups[gName].items) {
+                    var itemNames = Object.keys(groups[gName].items);
+                    if (itemList.some(function (it) { return itemNames.indexOf(it) !== -1; })) {
+                        hasItem = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasItem) return false;
         }
 
         return true;
