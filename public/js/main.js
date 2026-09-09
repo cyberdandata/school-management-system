@@ -83060,28 +83060,60 @@ function buildSummaryCardsV3(students) {
 // ============================================================
 // 1. getVisibleStudents – supports arrays for groups/items
 // ============================================================
+// Helper: numeric order for classes (Baby Class → P.7)
+function getClassOrder(className) {
+    if (!className) return 999;
+    var name = className.trim();
+    var orderMap = {
+        'Baby Class': 1,
+        'Middle Class': 2,
+        'Top Class': 3,
+        'P.1': 4,
+        'P.2': 5,
+        'P.3': 6,
+        'P.4': 7,
+        'P.5': 8,
+        'P.6': 9,
+        'P.7': 10
+    };
+    // Exact match
+    if (orderMap[name] !== undefined) return orderMap[name];
+    // Case‑insensitive match
+    var lower = name.toLowerCase();
+    for (var key in orderMap) {
+        if (key.toLowerCase() === lower) return orderMap[key];
+    }
+    // Extract number from "P.1" or "Primary 1"
+    var match = name.match(/(\d+)/);
+    if (match) {
+        var num = parseInt(match[1]);
+        if (num >= 1 && num <= 7) return 3 + num; // P.1 → 4, P.7 → 10
+    }
+    // Keywords for nursery
+    if (lower.includes('baby')) return 1;
+    if (lower.includes('middle')) return 2;
+    if (lower.includes('top')) return 3;
+    return 999;
+}
+
+// Filter + sort students by class order, then by name
 function getVisibleStudents(students, filters) {
     var filterGroups = filters.statusGroup || 'all';
     var filterItems = filters.itemName || 'all';
 
-    // Convert to arrays
     var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
     var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
-    return students.filter(function (student) {
+    var filtered = students.filter(function (student) {
         var groups = student.statusGroups || {};
-
-        // If no groups or items selected, include all
         if (groupList.length === 0 && itemList.length === 0) return true;
 
-        // If groups are specified, student must have at least one of them
         if (groupList.length > 0) {
             var studentGroupNames = Object.keys(groups);
             var hasGroup = groupList.some(function (g) { return studentGroupNames.indexOf(g) !== -1; });
             if (!hasGroup) return false;
         }
 
-        // If items are specified, student must have at least one of them in any group
         if (itemList.length > 0) {
             var hasItem = false;
             for (var gName in groups) {
@@ -83095,9 +83127,20 @@ function getVisibleStudents(students, filters) {
             }
             if (!hasItem) return false;
         }
-
         return true;
     });
+
+    // Sort by class order (ascending), then by student name
+    filtered.sort(function (a, b) {
+        var orderA = getClassOrder(a.currentClass);
+        var orderB = getClassOrder(b.currentClass);
+        if (orderA !== orderB) return orderA - orderB;
+        var nameA = (a.firstName + ' ' + a.lastName).toLowerCase();
+        var nameB = (b.firstName + ' ' + b.lastName).toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+
+    return filtered;
 }
 
 // ============================================================
