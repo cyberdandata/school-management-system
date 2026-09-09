@@ -83398,6 +83398,32 @@ function buildItemPeriodsPlain(itemData, metric) {
         }
     }
     return parts.join('; ');
+}function getClassOrder(className) {
+    var orderMap = {
+        'Baby Class': 1,
+        'Middle Class': 2,
+        'Top Class': 3,
+        'P.1': 4,
+        'P.2': 5,
+        'P.3': 6,
+        'P.4': 7,
+        'P.5': 8,
+        'P.6': 9,
+        'P.7': 10
+    };
+    // Fallback: try to extract number from "P.1" or "Primary 1"
+    if (!orderMap[className]) {
+        var match = className.match(/(\d+)/);
+        if (match) {
+            var num = parseInt(match[1]);
+            if (num >= 1 && num <= 7) return 3 + num; // P.1 -> 4, P.7 -> 10
+        }
+        // For nursery without exact match, try keywords
+        if (className.toLowerCase().includes('baby')) return 1;
+        if (className.toLowerCase().includes('middle')) return 2;
+        if (className.toLowerCase().includes('top')) return 3;
+    }
+    return orderMap[className] || 999;
 }
 function buildTuitionPeriodsPlain(tuition) {
     var pb = tuition.periodBreakdown || {};
