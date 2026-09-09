@@ -66096,7 +66096,7 @@ async function generateReportV3() {
             var rate = parseFloat(totals.overallCollectionRate || 0);
             var insightText = document.getElementById('reportInsightText');
             if (insightText) {
-           //     insightText.textContent = 'Showing ' + students.length + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
+                insightText.textContent = 'Showing ' + students.length + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
             }
             var insightRecords = document.getElementById('reportInsightRecords');
             var insightRate = document.getElementById('reportInsightRate');
