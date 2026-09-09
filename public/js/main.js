@@ -65293,6 +65293,12 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
 
     var escapeHtml = rptEscapeHtml;
 
+    // ---- Store class name map for display in chips ----
+    window._reportClassMap = {};
+    filterOptions.classes.forEach(function (c) {
+        window._reportClassMap[c.id] = c.name;
+    });
+
     // ---- Build filter option lists ----
     // Class options for multi-select
     var classOptions = filterOptions.classes.map(function (c) {
