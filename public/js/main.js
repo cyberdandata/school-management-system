@@ -62935,7 +62935,6 @@ async function showTranscript() {
 // Version: 5.0 - Full status group and item-level reporting
 // ==================== COMPLETE REBUILT REPORT SYSTEM ====================
 // Version: 7.0 - Professional Multi-Period Report with Perfect Display
-
 // ========== GLOBAL VARIABLES ==========
 var reportFilterOptions = null;
 var reportData = null;
@@ -64971,6 +64970,12 @@ async function showReports() {
 // It renders the polished results table, sorting, in-table search, an
 // insight strip, and a count-up stats footer — call it once you have your
 // filtered records instead of hand-building a <table>.
+//
+// v5.1 CHANGE: Status Group filter now includes a "🚫 None (Tuition Only)"
+// option. Selecting it is mutually exclusive with every other status group
+// (and vice versa), clears/locks the Item filter (items don't apply when no
+// status group is selected), and is sent to the backend as
+// statusGroup=none so only tuition figures are computed and rendered.
 // =============================================================================
 
 // ---------------------------------------------------------------------------
@@ -65217,7 +65222,7 @@ function rptBuildMultiSelect(id, label, options, selected) {
         var opt = options[i];
         var checked = selected.indexOf(opt.value) !== -1 ? 'checked' : '';
         html += '<label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-sm">';
-        html += '<input type="checkbox" value="' + rptEscapeHtml(opt.value) + '" ' + checked + ' onchange="rptMultiChange(\'' + id + '\')">';
+        html += '<input type="checkbox" value="' + rptEscapeHtml(opt.value) + '" ' + checked + ' onchange="rptMultiChange(\'' + id + '\', this)">';
         html += '<span>' + rptEscapeHtml(opt.label) + '</span>';
         html += '</label>';
     }
@@ -65263,6 +65268,7 @@ function rptToggleMulti(id) {
     var dropdown = rptGetDropdown(id);
     var btn = container && container.querySelector('.rpt-multiselect-btn');
     if (!container || !dropdown || !btn) return;
+    if (btn.disabled) return; // locked (e.g. Item filter while Status Group = None)
 
     var wasOpen = dropdown.classList.contains('rpt-portal-open');
     rptCloseAllMultiDropdowns();
@@ -65283,10 +65289,28 @@ function rptToggleMulti(id) {
     window.addEventListener('resize', reposition);
 }
 
-function rptMultiChange(id) {
+function rptMultiChange(id, changedCheckbox) {
     var container = rptGetContainer(id);
     var dropdown = rptGetDropdown(id);
     if (!container || !dropdown) return;
+
+    // ---- Exclusive "None (Tuition Only)" handling for the Status Group filter ----
+    // Selecting "None" clears every other status group; selecting any other
+    // status group clears "None". The two can never be checked together, since
+    // "None" means "skip every status group and report tuition alone".
+    if (id === 'reportStatusGroupFilter') {
+        var noneCheckbox = dropdown.querySelector('input[value="none"]');
+        if (noneCheckbox && changedCheckbox) {
+            if (changedCheckbox.value === 'none' && changedCheckbox.checked) {
+                dropdown.querySelectorAll('input[type="checkbox"]:not([value="none"])').forEach(function (cb) {
+                    cb.checked = false;
+                });
+            } else if (changedCheckbox.value !== 'none' && changedCheckbox.checked) {
+                noneCheckbox.checked = false;
+            }
+        }
+    }
+
     var checks = dropdown.querySelectorAll('input[type="checkbox"]:checked');
     var values = [];
     checks.forEach(function (cb) { values.push(cb.value); });
@@ -65301,8 +65325,30 @@ function rptMultiChange(id) {
     } else {
         label.textContent = values.length + ' selected';
     }
+
+    // When "None (Tuition Only)" is the active Status Group selection, items
+    // don't apply to anything — clear and lock the Item filter to make that clear.
+    if (id === 'reportStatusGroupFilter') {
+        var isNoneActive = values.length === 1 && values[0] === 'none';
+        rptSetItemFilterDisabled(isNoneActive);
+        if (isNoneActive) {
+            rptClearMulti('reportItemFilter');
+        }
+    }
+
     container.dispatchEvent(new Event('change'));
     rptUpdateActiveFilterChips();
+}
+
+// Greys out and locks the Item filter while Status Group = "None (Tuition Only)",
+// since there are no items to filter by in a tuition-only report.
+function rptSetItemFilterDisabled(isDisabled) {
+    var container = rptGetContainer('reportItemFilter');
+    if (!container) return;
+    var btn = container.querySelector('.rpt-multiselect-btn');
+    if (btn) btn.disabled = isDisabled;
+    container.style.opacity = isDisabled ? '0.5' : '1';
+    container.style.pointerEvents = isDisabled ? 'none' : 'auto';
 }
 
 function rptGetMultiSelected(id) {
@@ -65375,11 +65421,14 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
         feeStructureOptionsHtml += '<option value="' + fstruct.id + '">' + escapeHtml(fstruct.name) + ' (' + fstruct.level + ')</option>';
     }
 
-    // Status Group options for multi-select
-    var statusGroupOptions = filterOptions.statusGroups.map(function (g) {
-        var display = g === 'schoolastic requirement' ? 'Scholastic' : g;
-        return { value: g, label: display };
-    });
+    // Status Group options for multi-select (includes a "None" option for
+    // Tuition-only reports — mutually exclusive with every other group).
+    var statusGroupOptions = [{ value: 'none', label: '🚫 None (Tuition Only)' }].concat(
+        filterOptions.statusGroups.map(function (g) {
+            var display = g === 'schoolastic requirement' ? 'Scholastic' : g;
+            return { value: g, label: display };
+        })
+    );
 
     // Item options for multi-select
     var itemOptions = filterOptions.scholasticItems.map(function (it) {
@@ -65490,12 +65539,12 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
 
                             ${field(4, '🏷️ Status Group',
                                 rptBuildMultiSelect('reportStatusGroupFilter', 'All Status Groups', statusGroupOptions, []),
-                                'Pick one or more status groups – leave empty for all'
+                                'Pick one or more status groups, or choose "None (Tuition Only)" to report tuition alone – leave empty for all'
                             )}
 
                             ${field(5, '📦 Item',
                                 rptBuildMultiSelect('reportItemFilter', 'All Items', itemOptions, []),
-                                'Pick one or more items – leave empty for all'
+                                'Pick one or more items – leave empty for all (disabled when Status Group is "None")'
                             )}
 
                             ${field(6, '💰 Tuition',
@@ -65771,6 +65820,9 @@ function rptUpdateActiveFilterChips() {
         if (id === 'reportClassFilter') {
             // Map IDs to class names
             displayVals = vals.map(function (v) { return classMap[v] || v; });
+        } else if (id === 'reportStatusGroupFilter') {
+            // Friendlier label for the "None" (Tuition Only) option
+            displayVals = vals.map(function (v) { return v === 'none' ? 'None (Tuition Only)' : v; });
         }
         chips.push({ id: id, label: multiLabels[id] || id, text: displayVals.join(', ') });
     });
@@ -65794,6 +65846,10 @@ function rptUpdateActiveFilterChips() {
 function rptClearFilter(id) {
     if (id.startsWith('reportClassFilter') || id.startsWith('reportStatusGroupFilter') || id.startsWith('reportItemFilter')) {
         rptClearMulti(id);
+        if (id.startsWith('reportStatusGroupFilter')) {
+            // Clearing Status Group means "None" is no longer selected — re-enable Item filter.
+            rptSetItemFilterDisabled(false);
+        }
         return;
     }
     var el = document.getElementById(id);
@@ -66037,7 +66093,11 @@ async function generateReportV3() {
         }
     }
 
-    // Multi‑select values: join with commas
+    // Multi‑select values: join with commas.
+    // NOTE: "reportStatusGroupFilter" may resolve to the single value 'none' —
+    // that's the Tuition-Only marker and is sent through to the backend as-is
+    // (the exclusivity logic in rptMultiChange guarantees it never appears
+    // alongside any other status group).
     var classIds = rptGetMultiSelected('reportClassFilter');
     var statusGroups = rptGetMultiSelected('reportStatusGroupFilter');
     var items = rptGetMultiSelected('reportItemFilter');
@@ -66132,6 +66192,8 @@ function resetReportFilters() {
     ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'].forEach(function (id) {
         rptClearMulti(id);
     });
+    // Status Group is back to "no selection" (not "None") — re-enable the Item filter.
+    rptSetItemFilterDisabled(false);
 
     var studentSelect = document.getElementById('reportStudentFilter');
     var options = studentSelect.options;
@@ -66177,6 +66239,7 @@ function injectReportsDesignSystem() {
     transition: background 0.1s;
 }
 .rpt-multiselect-dropdown label:hover { background: #f1f5f9; }
+.rpt-multiselect-btn:disabled { cursor: not-allowed; }
 
         /* Force all ancestors to allow overflow */
         .rpt-filter-card,
@@ -66219,12 +66282,13 @@ window.rptGetMultiSelected = rptGetMultiSelected;
 window.rptClearMulti = rptClearMulti;
 window.rptToggleMulti = rptToggleMulti;
 window.rptMultiChange = rptMultiChange;
+window.rptSetItemFilterDisabled = rptSetItemFilterDisabled;
 window.rptEscapeHtml = rptEscapeHtml;
 window.rptFormatMoney = rptFormatMoney;
 window.rptGetTermName = rptGetTermName;
 window.rptGetTermShort = rptGetTermShort;
 
-console.log('✅ Reports v5.0 (Multi‑Select & Defaults) loaded — class, status group & item filters now support multiple selections.');
+console.log('✅ Reports v5.1 (Multi‑Select + None/Tuition-Only) loaded — class, status group & item filters support multiple selections, and Status Group now offers a "None (Tuition Only)" option.');
 function toggleItemHistory(itemId) {
     // Initialize expandedItems if not exists
     if (typeof window.expandedItems === 'undefined') {
