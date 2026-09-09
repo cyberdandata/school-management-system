@@ -65782,84 +65782,84 @@ console.log('✅ Reports v4.0 (Modern Edition) loaded — teal/indigo ledger des
 
 // ==================== GENERATE REPORT ====================
 
-async function generateReportV3() {
-    var level = document.getElementById('reportLevelFilter')?.value || 'all';
-    var studentId = document.getElementById('reportStudentFilter')?.value || 'all';
-    var feeStructureId = document.getElementById('reportFeeStructureFilter')?.value || 'all';
-    var statusGroup = document.getElementById('reportStatusGroupFilter')?.value || 'all';
-    var itemName = document.getElementById('reportItemFilter')?.value || 'all';
-    var includeTuition = document.getElementById('reportTuitionFilter')?.checked !== false;
-    var paymentStatus = document.getElementById('reportPaymentStatusFilter')?.value || 'all';
+// async function generateReportV3() {
+//     var level = document.getElementById('reportLevelFilter')?.value || 'all';
+//     var studentId = document.getElementById('reportStudentFilter')?.value || 'all';
+//     var feeStructureId = document.getElementById('reportFeeStructureFilter')?.value || 'all';
+//     var statusGroup = document.getElementById('reportStatusGroupFilter')?.value || 'all';
+//     var itemName = document.getElementById('reportItemFilter')?.value || 'all';
+//     var includeTuition = document.getElementById('reportTuitionFilter')?.checked !== false;
+//     var paymentStatus = document.getElementById('reportPaymentStatusFilter')?.value || 'all';
 
-    var periodFilter = document.getElementById('reportPeriodFilter')?.value || 'all';
-    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods')?.checked !== false;
-    var academicYear = null;
-    var academicTerm = null;
+//     var periodFilter = document.getElementById('reportPeriodFilter')?.value || 'all';
+//     var includeAllPeriods = document.getElementById('reportIncludeAllPeriods')?.checked !== false;
+//     var academicYear = null;
+//     var academicTerm = null;
 
-    if (periodFilter !== 'all' && periodFilter !== 'current') {
-        var parts = periodFilter.split('_');
-        if (parts.length === 2) {
-            academicYear = parseInt(parts[0]);
-            academicTerm = parseInt(parts[1]);
-        }
-    }
+//     if (periodFilter !== 'all' && periodFilter !== 'current') {
+//         var parts = periodFilter.split('_');
+//         if (parts.length === 2) {
+//             academicYear = parseInt(parts[0]);
+//             academicTerm = parseInt(parts[1]);
+//         }
+//     }
 
-    if (typeof rptShowLoadingState === 'function') rptShowLoadingState();
+//     if (typeof rptShowLoadingState === 'function') rptShowLoadingState();
 
-    try {
-        var params = new URLSearchParams({
-            level: level,
-            studentId: studentId,
-            feeStructureId: feeStructureId,
-            statusGroup: statusGroup,
-            itemName: itemName,
-            paymentStatus: paymentStatus,
-            includeTuition: includeTuition ? 'true' : 'false',
-            includeAllPeriods: includeAllPeriods ? 'true' : 'false'
-        });
-        if (academicYear) params.append('academicYear', academicYear);
-        if (academicTerm) params.append('academicTerm', academicTerm);
+//     try {
+//         var params = new URLSearchParams({
+//             level: level,
+//             studentId: studentId,
+//             feeStructureId: feeStructureId,
+//             statusGroup: statusGroup,
+//             itemName: itemName,
+//             paymentStatus: paymentStatus,
+//             includeTuition: includeTuition ? 'true' : 'false',
+//             includeAllPeriods: includeAllPeriods ? 'true' : 'false'
+//         });
+//         if (academicYear) params.append('academicYear', academicYear);
+//         if (academicTerm) params.append('academicTerm', academicTerm);
 
-        var response = await fetch('/api/reports/comprehensive?' + params.toString());
-        var result = await response.json();
+//         var response = await fetch('/api/reports/comprehensive?' + params.toString());
+//         var result = await response.json();
 
-        if (result.success) {
-            reportData = result.data;
-            renderReportResultsV3(result.data);
+//         if (result.success) {
+//             reportData = result.data;
+//             renderReportResultsV3(result.data);
 
-            var lastRun = document.getElementById('reportLastRun');
-            if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
+//             var lastRun = document.getElementById('reportLastRun');
+//             if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
 
-            var totals = result.data.totals || {};
-            var insightStrip = document.getElementById('reportInsightStrip');
-            if (insightStrip) {
-                insightStrip.classList.remove('hidden');
-                var count = (result.data.students || []).length;
-                var rate = parseFloat(totals.overallCollectionRate || 0);
-                var insightText = document.getElementById('reportInsightText');
-                if (insightText) {
-                    insightText.textContent = count === 0
-                        ? 'No students match this combination of filters.'
-                        : 'Showing ' + count + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
-                }
-                var insightRecords = document.getElementById('reportInsightRecords');
-                var insightRate = document.getElementById('reportInsightRate');
-                if (insightRecords && typeof rptCountUp === 'function') rptCountUp(insightRecords, count);
-                if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
-            }
+//             var totals = result.data.totals || {};
+//             var insightStrip = document.getElementById('reportInsightStrip');
+//             if (insightStrip) {
+//                 insightStrip.classList.remove('hidden');
+//                 var count = (result.data.students || []).length;
+//                 var rate = parseFloat(totals.overallCollectionRate || 0);
+//                 var insightText = document.getElementById('reportInsightText');
+//                 if (insightText) {
+//                     insightText.textContent = count === 0
+//                         ? 'No students match this combination of filters.'
+//                         : 'Showing ' + count + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
+//                 }
+//                 var insightRecords = document.getElementById('reportInsightRecords');
+//                 var insightRate = document.getElementById('reportInsightRate');
+//                 if (insightRecords && typeof rptCountUp === 'function') rptCountUp(insightRecords, count);
+//                 if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
+//             }
 
-            if (typeof rptFilterSignature === 'function') rptLastAppliedSignature = rptFilterSignature();
-            if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(false);
-        } else {
-            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
-        }
-    } catch (error) {
-        console.error('Error generating report:', error);
-        showToast('Error generating report: ' + error.message, 'error');
-    } finally {
-        if (typeof rptHideLoadingState === 'function') rptHideLoadingState();
-    }
-}
+//             if (typeof rptFilterSignature === 'function') rptLastAppliedSignature = rptFilterSignature();
+//             if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(false);
+//         } else {
+//             showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+//         }
+//     } catch (error) {
+//         console.error('Error generating report:', error);
+//         showToast('Error generating report: ' + error.message, 'error');
+//     } finally {
+//         if (typeof rptHideLoadingState === 'function') rptHideLoadingState();
+//     }
+// }
 
 // ==================== RESET FILTERS ====================
 
