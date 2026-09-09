@@ -66250,230 +66250,281 @@ function buildSummaryCardsV3(totals, studentCount) {
 // This guarantees the export numbers always match what's rendered, since both read from
 // the same underlying reportData object instead of two independently-computed paths.
 
+// ============================================================================
+// EXCEL EXPORT — FINAL — EXACT MATCH TO buildReportTable() / #reportTable
+//
+// This does NOT recompute anything. It reads the exact live #reportTable
+// DOM node that buildReportTable() already rendered — which means every
+// override function (getCustomizedItemValue, getCashValuesForItem, the
+// OR-logic branches, period scoping for one_time/yearly/termly, the
+// "Doesn't pay" cells) has ALREADY been applied by the time this runs.
+// We just copy what's on screen, cell for cell, including the merged
+// two-row header (Tuition/status-group column groups) and merged
+// "Doesn't pay" cells — turned into real Excel merges.
+//
+// Above the table we add the same header block used for printing:
+// School name, "Comprehensive Fee Report — Term Year", Generated-at +
+// Total Students, and the active Filters line.
+// ============================================================================
+
 function exportReportToCSV() {
-    if (!reportData || !reportData.students || reportData.students.length === 0) {
-        showToast('No report data to export. Please generate a report first.', 'error');
+    console.log('=== 📊 EXCEL EXPORT — exact match to #reportTable ===');
+
+    var tableEl = document.getElementById('reportTable');
+
+    // Rebuild the table first if it's not in the DOM yet but data exists
+    if (!tableEl && reportData && reportData.students && reportData.students.length > 0) {
+        try {
+            renderReportResultsV3(reportData);
+            tableEl = document.getElementById('reportTable');
+        } catch (e) {
+            console.error('Could not rebuild table for export:', e);
+        }
+    }
+
+    if (!tableEl) {
+        showToast('❌ No data to export. Please generate a report first.', 'error');
         return;
     }
 
-    const students = reportData.students;
-    const filters = reportData.filters || {};
-    const includeTuition = filters.includeTuition !== false;
-    const filterStatusGroup = filters.statusGroup || 'all';
-    const filterItem = filters.itemName || 'all';
-    const isTuitionOnly = filterStatusGroup === 'none';
-
-    // ---------------------------------------------------------------
-    // 1. DETERMINE STATUS GROUPS + ITEMS — same rules as the on-screen table
-    // ---------------------------------------------------------------
-    const allGroupNames = [];
-    students.forEach(s => {
-        Object.keys(s.statusGroups || {}).forEach(g => {
-            if (allGroupNames.indexOf(g) === -1) allGroupNames.push(g);
-        });
-    });
-
-    let statusGroupsToShow = [];
-    if (isTuitionOnly) {
-        statusGroupsToShow = [];
-    } else if (filterStatusGroup !== 'all') {
-        if (allGroupNames.indexOf(filterStatusGroup) !== -1) statusGroupsToShow = [filterStatusGroup];
-    } else {
-        statusGroupsToShow = allGroupNames.slice();
+    if (typeof XLSX === 'undefined') {
+        console.warn('⚠️ SheetJS (XLSX) not found — falling back to CSV. Add ' +
+            '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> ' +
+            'to your page for a real .xlsx export with merged header cells.');
     }
 
-    const priorityOrder = ['Tuition', 'Admission Fee', 'Scholastic Requirements', 'Uniform', 'Transportation', 'Development Fee'];
-    statusGroupsToShow.sort((a, b) => {
-        const aIdx = priorityOrder.indexOf(a);
-        const bIdx = priorityOrder.indexOf(b);
-        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-        if (aIdx !== -1) return -1;
-        if (bIdx !== -1) return 1;
-        return a.localeCompare(b);
-    });
+    // ------------------------------------------------------------------
+    // Header info — school, term, total students, generated time, filters
+    // ------------------------------------------------------------------
+    var school = (typeof currentSchoolInfo !== 'undefined' && currentSchoolInfo) ? currentSchoolInfo : {};
+    var schoolName = school.schoolName || 'School Report';
+    var currentYear = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentYear) || new Date().getFullYear();
+    var currentTerm = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentTerm) || 1;
+    var termName = (typeof getTermName === 'function') ? getTermName(currentTerm) : ('Term ' + currentTerm);
 
-    const itemsByGroup = {};
-    statusGroupsToShow.forEach(groupName => {
-        const names = [];
-        students.forEach(s => {
-            const group = (s.statusGroups || {})[groupName];
-            if (!group || !group.items) return;
-            Object.keys(group.items).forEach(itemName => {
-                if (filterItem !== 'all' && itemName !== filterItem) return;
-                if (names.indexOf(itemName) === -1) names.push(itemName);
-            });
+    var filters = (reportData && reportData.filters) || {};
+    var filterLines = [];
+    if (filters.level && filters.level !== 'all') filterLines.push('Level: ' + filters.level);
+    if (filters.statusGroup && filters.statusGroup !== 'all') filterLines.push('Status Group: ' + filters.statusGroup);
+    if (filters.itemName && filters.itemName !== 'all') filterLines.push('Item: ' + filters.itemName);
+    if (filters.paymentStatus && filters.paymentStatus !== 'all') filterLines.push('Payment Status: ' + filters.paymentStatus);
+    if (filters.feeStructureId && filters.feeStructureId !== 'all') filterLines.push('Fee Structure filtered');
+    if (filters.studentId && filters.studentId !== 'all') filterLines.push('Single student');
+
+    var recordCountEl = document.getElementById('reportRecordCount');
+    var studentCount = recordCountEl ? recordCountEl.innerText : (reportData && reportData.students ? reportData.students.length : '');
+
+    try {
+        // ----------------------------------------------------------------
+        // 1. Parse the exact rendered table (thead + tbody) into a grid +
+        //    merge list, honoring colspan/rowspan exactly like the browser
+        //    lays them out — reproduces the two-row header groups (Tuition
+        //    spanning 5 cols, each status group spanning items.length*2
+        //    cols) and the "Doesn't pay" colspan=2 cells identically.
+        // ----------------------------------------------------------------
+        var parsed = tableToGridWithMerges(tableEl);
+        var grid = parsed.grid;
+        var merges = parsed.merges;
+        var totalCols = grid.length > 0 ? grid[0].length : 1;
+
+        // ----------------------------------------------------------------
+        // 2. Header block rows (school / title / generated + count / filters)
+        // ----------------------------------------------------------------
+        var headerRows = [];
+        headerRows.push([schoolName]);
+        headerRows.push(['Comprehensive Fee Report — ' + termName + ' ' + currentYear]);
+        headerRows.push(['Generated: ' + new Date().toLocaleString() + '    |    Total Students: ' + studentCount]);
+        headerRows.push([filterLines.length ? ('Filters: ' + filterLines.join('  |  ')) : 'Filters: None applied']);
+        headerRows.push([]); // spacer row before the table starts
+
+        var headerOffset = headerRows.length;
+        var fullGrid = headerRows.concat(grid);
+
+        // Shift the table's own merges down by the header row count
+        var shiftedMerges = merges.map(function (m) {
+            return {
+                s: { r: m.s.r + headerOffset, c: m.s.c },
+                e: { r: m.e.r + headerOffset, c: m.e.c }
+            };
         });
-        names.sort();
-        if (names.length > 0) itemsByGroup[groupName] = names;
-    });
-    const groupsToRender = statusGroupsToShow.filter(g => itemsByGroup[g]);
 
-    // ---------------------------------------------------------------
-    // 2. TWO-ROW HEADER — mirrors the on-screen colspan/rowspan structure
-    // ---------------------------------------------------------------
-    const headerRow1 = ['', '', '', ''];
-    const headerRow2 = ['#', 'Admission Number', 'Student Name', 'Class'];
-
-    if (includeTuition) {
-        headerRow1.push('TUITION', '', '', '', '');
-        headerRow2.push('Expected', 'Paid', 'Balance', 'Status', 'Periods');
-    }
-    groupsToRender.forEach(groupName => {
-        itemsByGroup[groupName].forEach(itemName => {
-            headerRow1.push(`${groupName}: ${itemName}`, '', '', '', '');
-            headerRow2.push('Collected', 'Expected', 'Balance', 'Status', 'Periods');
-        });
-    });
-
-    // ---------------------------------------------------------------
-    // 3. DATA ROWS
-    // ---------------------------------------------------------------
-    const rows = [];
-    const itemTotalsAcc = {};
-    let totalTuitionExpected = 0, totalTuitionPaid = 0, totalTuitionBalance = 0;
-
-    students.forEach((student, idx) => {
-        const row = [
-            idx + 1,
-            student.admissionNumber || '',
-            `${student.firstName || ''} ${student.lastName || ''}`.trim(),
-            student.currentClass || ''
-        ];
-
-        if (includeTuition) {
-            const t = student.tuition || {};
-            const expected = t.expected || 0;
-            const paid = t.paid || 0;
-            const balance = t.balance != null ? t.balance : (expected - paid);
-
-            row.push(formatMoney(expected), formatMoney(paid), formatMoney(balance), t.status || '', buildTuitionPeriodsPlain(t));
-
-            totalTuitionExpected += expected;
-            totalTuitionPaid += paid;
-            totalTuitionBalance += balance;
+        // Merge each header/title/meta/filters row across the table's full width
+        if (totalCols > 1) {
+            for (var hr = headerRows.length - 1; hr >= 0; hr--) {
+                shiftedMerges.unshift({ s: { r: hr, c: 0 }, e: { r: hr, c: totalCols - 1 } });
+            }
         }
 
-        groupsToRender.forEach(groupName => {
-            const group = (student.statusGroups || {})[groupName];
-            itemsByGroup[groupName].forEach(itemName => {
-                const itemData = group && group.items ? group.items[itemName] : null;
-                const accKey = groupName + '::' + itemName;
+        var fileBaseName = (schoolName + '_Fee_Report_' + termName + '_' + currentYear).replace(/[^a-z0-9]+/gi, '_');
+        var timestamp = new Date().toISOString().slice(0, 10);
+        var fileName = fileBaseName + '_' + timestamp;
 
-                if (!itemData) {
-                    row.push('-', '-', '-', "Doesn't pay", '-');
-                    return;
-                }
-
-                const metric = getItemMetric(itemData);
-
-                if (!itemTotalsAcc[accKey]) {
-                    itemTotalsAcc[accKey] = metric.unit === 'combo'
-                        ? { unit: 'combo', qtyCollected: 0, amtCollected: 0, qtyExpected: 0, amtExpected: 0, qtyBalance: 0, amtBalance: 0 }
-                        : { unit: metric.unit, collected: 0, expected: 0, balance: 0 };
-                }
-                const acc = itemTotalsAcc[accKey];
-
-                let collectedStr, expectedStr, balanceStr;
-                if (metric.unit === 'combo') {
-                    acc.qtyCollected += metric.qtyCollected;
-                    acc.amtCollected += metric.amtCollected;
-                    acc.qtyExpected += metric.qtyExpected;
-                    acc.amtExpected += metric.amtExpected;
-                    acc.qtyBalance += metric.qtyBalance;
-                    acc.amtBalance += metric.amtBalance;
-                    collectedStr = formatComboCollected(metric);
-                    expectedStr = formatComboExpected(metric);
-                    balanceStr = formatComboBalance(metric);
-                } else {
-                    acc.collected += metric.collected;
-                    acc.expected += metric.expected;
-                    acc.balance += metric.balance;
-                    collectedStr = formatMetricValue(metric.unit, metric.collected);
-                    expectedStr = formatMetricValue(metric.unit, metric.expected);
-                    balanceStr = formatMetricValue(metric.unit, metric.balance);
-                }
-
-                const hasAnyPayment = metric.unit === 'combo'
-                    ? (metric.qtyCollected > 0 || metric.amtCollected > 0)
-                    : metric.collected > 0;
-                const status = itemData.isFullyPaid ? 'Fully Paid' : (hasAnyPayment ? 'Partial' : 'Unpaid');
-
-                row.push(collectedStr, expectedStr, balanceStr, status, buildItemPeriodsPlain(itemData, metric));
+        // ----------------------------------------------------------------
+        // 3. Write it out. Real merged cells in .xlsx via SheetJS; a
+        //    flattened, merge-filled CSV as a graceful fallback.
+        // ----------------------------------------------------------------
+        if (typeof XLSX !== 'undefined' && XLSX.utils) {
+            var ws = XLSX.utils.aoa_to_sheet(fullGrid);
+            ws['!merges'] = shiftedMerges.filter(function (m) {
+                return m.s.r !== m.e.r || m.s.c !== m.e.c;
             });
-        });
+            ws['!cols'] = (fullGrid[headerOffset] || []).map(function () { return { wch: 16 }; });
+            ws['!rows'] = fullGrid.map(function () { return { hpt: 18 }; });
 
-        rows.push(row);
-    });
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Fee Report');
+            XLSX.writeFile(wb, fileName + '.xlsx');
+            showToast('✅ Excel report exported: ' + fileName + '.xlsx', 'success');
+        } else {
+            var flatGrid = fillMergesForCsv(fullGrid, shiftedMerges);
+            var csvLines = flatGrid.map(function (row) {
+                return row.map(function (cell) {
+                    var val = (cell === null || cell === undefined) ? '' : String(cell);
+                    if (val.indexOf(',') !== -1 || val.indexOf('"') !== -1 || val.indexOf('\n') !== -1) {
+                        val = '"' + val.replace(/"/g, '""') + '"';
+                    }
+                    return val;
+                }).join(',');
+            });
+            var csvContent = csvLines.join('\r\n');
+            var blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement('a');
+            link.href = url;
+            link.download = fileName + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('⚠️ Exported as CSV (Excel library not loaded): ' + fileName + '.csv', 'info');
+        }
 
-    // ---------------------------------------------------------------
-    // 4. TOTALS ROW — same accumulation pattern the on-screen table uses
-    // ---------------------------------------------------------------
-    const totalsRow = ['', '', '', 'TOTALS'];
-    if (includeTuition) {
-        totalsRow.push(formatMoney(totalTuitionExpected), formatMoney(totalTuitionPaid), formatMoney(totalTuitionBalance), '', '');
+    } catch (error) {
+        console.error('❌ Export error:', error);
+        showToast('❌ Export failed: ' + error.message, 'error');
     }
-    groupsToRender.forEach(groupName => {
-        itemsByGroup[groupName].forEach(itemName => {
-            const acc = itemTotalsAcc[groupName + '::' + itemName];
-            if (!acc) {
-                totalsRow.push('0', '0', '0', '', '');
-                return;
-            }
-            if (acc.unit === 'combo') {
-                totalsRow.push(
-                    formatComboCollected({ qtyCollected: acc.qtyCollected, amtCollected: acc.amtCollected }),
-                    formatComboExpected({ qtyExpected: acc.qtyExpected, amtExpected: acc.amtExpected }),
-                    formatComboBalance({ qtyBalance: acc.qtyBalance, amtBalance: acc.amtBalance }),
-                    '', ''
-                );
-            } else {
-                totalsRow.push(
-                    formatMetricValue(acc.unit, acc.collected),
-                    formatMetricValue(acc.unit, acc.expected),
-                    formatMetricValue(acc.unit, acc.balance),
-                    '', ''
-                );
-            }
-        });
-    });
-
-    // ---------------------------------------------------------------
-    // 5. SUMMARY LINE — same figures shown in the on-screen rate footer
-    // ---------------------------------------------------------------
-    const t2 = reportData.totals || {};
-    const summaryLine = `Overall Collection Rate: ${t2.overallCollectionRate || 0}% | Students: ${students.length} | Tuition Rate: ${t2.tuitionRate || 0}%`;
-
-    // ---------------------------------------------------------------
-    // 6. BUILD CSV & DOWNLOAD
-    // ---------------------------------------------------------------
-    function csvEscape(value) {
-        const str = value === null || value === undefined ? '' : String(value);
-        return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
-    }
-
-    const lines = [];
-    lines.push(headerRow1.map(csvEscape).join(','));
-    lines.push(headerRow2.map(csvEscape).join(','));
-    rows.forEach(r => lines.push(r.map(csvEscape).join(',')));
-    lines.push(totalsRow.map(csvEscape).join(','));
-    lines.push('');
-    lines.push(csvEscape(summaryLine));
-
-    const csvContent = '\uFEFF' + lines.join('\r\n'); // BOM so Excel reads UTF-8 correctly
-
-    const meta = reportData.metadata || {};
-    const periodLabel = meta.currentYear && meta.currentTerm ? `${meta.currentYear}_T${meta.currentTerm}` : new Date().toISOString().slice(0, 10);
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Fee_Report_${periodLabel}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
 }
+
+// ============================================================================
+// tableToGridWithMerges — converts a live table into a 2D grid of visible
+// text plus a merge list, honoring colspan/rowspan exactly the way the
+// browser lays them out. This matches buildReportTable's two-row <thead>
+// with all its colspan groups, and the tbody's "Doesn't pay" colspan=2
+// cells and per-item "Collected/Balance" + "Periods" cell pairs.
+//
+// Interactive <button> elements (View History / View Periods toggles) are
+// stripped. The clone is attached off-screen but still rendered (not
+// display:none), so innerText correctly respects each row's current
+// collapsed/expanded state — matching exactly what's visible on screen.
+// ============================================================================
+function tableToGridWithMerges(tableEl) {
+    var clone = tableEl.cloneNode(true);
+
+    var buttons = clone.querySelectorAll('button');
+    for (var b = 0; b < buttons.length; b++) buttons[b].remove();
+
+    var holder = document.createElement('div');
+    holder.style.position = 'absolute';
+    holder.style.left = '-99999px';
+    holder.style.top = '0';
+    holder.style.visibility = 'hidden';
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+
+    var thead = clone.querySelector('thead');
+    var tbody = clone.querySelector('tbody');
+    var headerRows = thead ? Array.prototype.slice.call(thead.querySelectorAll('tr')) : [];
+    var bodyRows = tbody ? Array.prototype.slice.call(tbody.querySelectorAll('tr')) : [];
+    var allRows = headerRows.concat(bodyRows);
+
+    function getCellText(cell) {
+        var text = (cell.innerText || cell.textContent || '');
+        return text.replace(/\s+/g, ' ').trim();
+    }
+
+    var grid = [];
+    var merges = [];
+    var colTrack = {}; // col -> remaining rows still occupied by a rowspan above
+    var maxCols = 0;
+
+    for (var r = 0; r < allRows.length; r++) {
+        var cells = Array.prototype.slice.call(allRows[r].children);
+        var rowArr = [];
+        var col = 0, cellIdx = 0;
+
+        while (cellIdx < cells.length) {
+            while (colTrack[col] && colTrack[col] > 0) {
+                rowArr[col] = '';
+                colTrack[col]--;
+                if (colTrack[col] <= 0) delete colTrack[col];
+                col++;
+            }
+
+            var cell = cells[cellIdx];
+            var colspan = parseInt(cell.getAttribute('colspan'), 10) || 1;
+            var rowspan = parseInt(cell.getAttribute('rowspan'), 10) || 1;
+            var text = getCellText(cell);
+
+            rowArr[col] = text;
+            for (var c = 1; c < colspan; c++) rowArr[col + c] = '';
+
+            if (colspan > 1 || rowspan > 1) {
+                merges.push({ s: { r: r, c: col }, e: { r: r + rowspan - 1, c: col + colspan - 1 } });
+            }
+            if (rowspan > 1) {
+                for (var c2 = 0; c2 < colspan; c2++) {
+                    colTrack[col + c2] = (colTrack[col + c2] || 0) + (rowspan - 1);
+                }
+            }
+
+            col += colspan;
+            cellIdx++;
+        }
+
+        while (colTrack[col] && colTrack[col] > 0) {
+            rowArr[col] = '';
+            colTrack[col]--;
+            if (colTrack[col] <= 0) delete colTrack[col];
+            col++;
+        }
+
+        maxCols = Math.max(maxCols, col);
+        grid.push(rowArr);
+    }
+
+    for (var i = 0; i < grid.length; i++) {
+        for (var c3 = 0; c3 < maxCols; c3++) {
+            if (grid[i][c3] === undefined || grid[i][c3] === null) grid[i][c3] = '';
+        }
+        grid[i].length = maxCols;
+    }
+
+    document.body.removeChild(holder);
+    return { grid: grid, merges: merges };
+}
+
+// ============================================================================
+// fillMergesForCsv — CSV has no concept of merged cells. Instead of
+// repeating the merged value into every spanned column (which produces
+// duplicated text across a row), we leave the spanned cells blank after
+// the first — matching how Excel itself shows an unmerged range.
+// ============================================================================
+function fillMergesForCsv(grid, merges) {
+    var flat = grid.map(function (row) { return row.slice(); });
+    for (var m = 0; m < merges.length; m++) {
+        var merge = merges[m];
+        for (var r = merge.s.r; r <= merge.e.r; r++) {
+            for (var c = merge.s.c; c <= merge.e.c; c++) {
+                if (r === merge.s.r && c === merge.s.c) continue; // keep the top-left value
+                if (!flat[r]) flat[r] = [];
+                flat[r][c] = '';
+            }
+        }
+    }
+    return flat;
+}
+
+window.exportReportToCSV = exportReportToCSV;
 
 window.exportReportToCSV = exportReportToCSV;
 
