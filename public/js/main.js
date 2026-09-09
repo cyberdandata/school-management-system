@@ -83425,26 +83425,43 @@ function getVisibleStudents(students, filters) {
 // 2. buildReportTable – shows only selected groups/items
 // ============================================================
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
+    console.log('📋 buildReportTable called', {
+        students: students.length,
+        includeTuition: includeTuition,
+        filters: filters
+    });
+
     var filterGroups = filters.statusGroup || 'all';
     var filterItems = filters.itemName || 'all';
     var includeAllPeriods = !!filters.includeAllPeriods;
 
-    var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
-    var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
+    // If statusGroup is 'none', we are in tuition‑only mode:
+    // ignore all activity items; only show tuition columns.
+    var isTuitionOnly = (filterGroups === 'none');
 
+    // For the purpose of building the table, we always show all students
+    // (backend already applied class/level/student filters).
+    // But we might need to filter by paymentStatus (handled later).
+    // We'll use getVisibleStudents which should not filter out students when 'none'.
     var visibleStudents = getVisibleStudents(students, filters);
 
-    // Determine groups to show
+    // Determine which status groups to show in the table.
+    // If tuition‑only, we show none.
+    // Otherwise, show groups that exist in the data.
     var allGroupNames = [];
-    for (var s = 0; s < visibleStudents.length; s++) {
-        var groups = visibleStudents[s].statusGroups || {};
-        for (var g in groups) {
-            if (groups.hasOwnProperty(g) && allGroupNames.indexOf(g) === -1) allGroupNames.push(g);
+    if (!isTuitionOnly) {
+        for (var s = 0; s < visibleStudents.length; s++) {
+            var groups = visibleStudents[s].statusGroups || {};
+            for (var g in groups) {
+                if (groups.hasOwnProperty(g) && allGroupNames.indexOf(g) === -1) allGroupNames.push(g);
+            }
         }
     }
-    var statusGroupsToShow = (groupList.length > 0) ? groupList : allGroupNames;
+    var statusGroupsToShow = (filterGroups !== 'all' && filterGroups !== 'none' && filterGroups !== '') 
+        ? filterGroups.split(',').map(function (g) { return g.trim(); }).filter(function (g) { return g; })
+        : allGroupNames;
 
-    // Build items per group, filtered by selected items
+    // Build items per group, filtered by selected items.
     var itemsByGroup = {};
     for (var gi = 0; gi < statusGroupsToShow.length; gi++) {
         var groupName = statusGroupsToShow[gi];
@@ -83454,16 +83471,31 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             if (!group || !group.items) continue;
             for (var itemName in group.items) {
                 if (!group.items.hasOwnProperty(itemName)) continue;
-                if (itemList.length > 0 && itemList.indexOf(itemName) === -1) continue;
+                if (filterItems !== 'all' && filterItems !== '') {
+                    var itemList = filterItems.split(',').map(function (it) { return it.trim(); });
+                    if (itemList.indexOf(itemName) === -1) continue;
+                }
                 if (names.indexOf(itemName) === -1) names.push(itemName);
             }
         }
         names.sort();
         if (names.length > 0) itemsByGroup[groupName] = names;
     }
-    var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g] && itemsByGroup[g].length > 0; });
+    var groupsToRender = statusGroupsToShow.filter(function (g) {
+        return itemsByGroup[g] && itemsByGroup[g].length > 0;
+    });
 
-    // Build header rows – each cell now has explicit sticky styles
+    // Count total columns for colspan in totals row.
+    var totalCols = 4; // #, Admission, Student, Class
+    if (includeTuition) {
+        totalCols += includeAllPeriods ? 4 : 3; // Collected, Expected, Balance (+ Periods if all periods)
+    }
+    for (var g = 0; g < groupsToRender.length; g++) {
+        var items = itemsByGroup[groupsToRender[g]] || [];
+        totalCols += items.length * (includeAllPeriods ? 4 : 3);
+    }
+
+    // Build header rows
     var headerRow1 = [
         '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
         '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
@@ -83478,7 +83510,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Collected</th>');
         headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Expected</th>');
         headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Balance</th>');
-        if (includeAllPeriods) headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Periods</th>');
+        if (includeAllPeriods) {
+            headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Periods</th>');
+        }
     }
 
     for (var gi2 = 0; gi2 < groupsToRender.length; gi2++) {
@@ -83491,17 +83525,18 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Collected</th>');
             headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Expected</th>');
             headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Balance</th>');
-            if (includeAllPeriods) headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Periods</th>');
+            if (includeAllPeriods) {
+                headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Periods</th>');
+            }
         }
     }
 
-    // Wrap headers in a sticky thead
     var headerHtml = '<thead style="position:sticky;top:0;z-index:20;background:#fff;">' +
         '<tr>' + headerRow1.join('') + '</tr>' +
         '<tr>' + headerRow2.join('') + '</tr>' +
         '</thead>';
 
-    // --- Body rows (unchanged logic, but we keep the left-sticky columns) ---
+    // Body rows
     var bodyRows = '';
     var totalsAcc = { tuitionCollected: 0, tuitionExpected: 0, tuitionBalance: 0 };
     var itemTotalsAcc = {};
@@ -83509,24 +83544,29 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     for (var r = 0; r < visibleStudents.length; r++) {
         var student = visibleStudents[r];
         var row = '<tr class="border-b">';
-        // Left‑sticky columns (row number, admission, student name, class)
         row += '<td class="p-2 text-center border" style="position:sticky;left:0;z-index:10;background:#fff;">' + (r+1) + '</td>';
         row += '<td class="p-2 border font-mono text-xs" style="position:sticky;left:40px;z-index:10;background:#fff;">' + escapeHtml(student.admissionNumber) + '</td>';
-        row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName)+' '+escapeHtml(student.lastName) + '</td>';
+        row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName) + ' ' + escapeHtml(student.lastName) + '</td>';
         row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;background:#fff;border-right:2px solid #d1d5db;">' + escapeHtml(student.currentClass) + '</td>';
 
+        // Tuition columns
         if (includeTuition) {
             var t = student.tuition || {};
-            var tExpected = t.expected || 0, tPaid = t.paid || 0, tBalance = Math.max(0, tExpected - tPaid);
+            var tExpected = t.expected || 0;
+            var tPaid = t.paid || 0;
+            var tBalance = Math.max(0, tExpected - tPaid);
             row += '<td class="p-2 text-right border">' + formatMoney(tPaid) + '</td>';
             row += '<td class="p-2 text-right border">' + formatMoney(tExpected) + '</td>';
             row += '<td class="p-2 text-right border">' + formatMoney(tBalance) + '</td>';
-            if (includeAllPeriods) row += '<td class="p-2 border text-xs">' + buildTuitionPeriodsPlain(t) + '</td>';
+            if (includeAllPeriods) {
+                row += '<td class="p-2 border text-xs">' + buildTuitionPeriodsPlain(t) + '</td>';
+            }
             totalsAcc.tuitionCollected += tPaid;
             totalsAcc.tuitionExpected += tExpected;
             totalsAcc.tuitionBalance += tBalance;
         }
 
+        // Activity columns (only if groupsToRender not empty)
         for (var gi3 = 0; gi3 < groupsToRender.length; gi3++) {
             var gName2 = groupsToRender[gi3];
             var gItems2 = itemsByGroup[gName2];
@@ -83574,7 +83614,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
                     row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.expected) + '</td>';
                     row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.balance) + '</td>';
                 }
-                if (includeAllPeriods) row += '<td class="p-2 border text-xs">' + buildItemPeriodsPlain(itemData, metric) + '</td>';
+                if (includeAllPeriods) {
+                    row += '<td class="p-2 border text-xs">' + buildItemPeriodsPlain(itemData, metric) + '</td>';
+                }
             }
         }
 
@@ -83616,6 +83658,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     }
     totalRow += '</tr>';
 
+    // Build final HTML
     return '' +
         '<div class="overflow-auto" style="max-height:70vh;border:1px solid #e5e7eb;border-radius:8px;">' +
             '<table class="w-full text-sm border-collapse" id="reportTable">' +
