@@ -65555,22 +65555,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
             <!-- ======================= INSIGHT STRIP ======================= -->
             <div id="reportInsightStrip" class="hidden">
                 <div class="db-card overflow-hidden">
-                    <div class="p-4 flex flex-wrap items-center gap-4" style="background:linear-gradient(115deg,#EEF1FF,#EAFBF7);">
-                        <div class="w-10 h-10 rounded-xl bg-white text-teal-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                            <i class="fas fa-lightbulb"></i>
-                        </div>
-                        <p id="reportInsightText" class="text-sm text-slate-700 font-medium flex-1 min-w-[200px]"></p>
-                        <div class="flex gap-4 flex-wrap">
-                            <div class="text-center">
-                                <p id="reportInsightRecords" class="text-lg font-bold font-mono-num text-slate-800">0</p>
-                                <p class="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Records</p>
-                            </div>
-                            <div class="text-center">
-                                <p id="reportInsightRate" class="text-lg font-bold font-mono-num text-emerald-600">0%</p>
-                                <p class="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Collected</p>
-                            </div>
-                        </div>
-                    </div>
+                   
                 </div>
             </div>
 
