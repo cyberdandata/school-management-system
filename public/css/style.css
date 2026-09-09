@@ -3257,4 +3257,65 @@ html {
    ============================================================ */
 /* ============================================================
    END OF TAILWIND CSS BUNDLE
+   ============================================================ *//* ============================================================
+   MULTI‑SELECT DROPDOWN Z‑INDEX FIX
    ============================================================ */
+
+/* Make sure the parent container doesn't clip overflow */
+.rpt-field {
+    overflow: visible !important;
+}
+
+/* The multi-select wrapper must be positioned relative */
+.rpt-multiselect {
+    position: relative;
+    z-index: 50;
+}
+
+/* The actual dropdown panel – highest z‑index */
+.rpt-multiselect-dropdown {
+    position: absolute;
+    z-index: 9999 !important;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-height: 220px;
+    overflow-y: auto;
+    min-width: 220px;
+    padding: 0.5rem;
+    margin-top: 4px;
+    left: 0;
+    right: 0;
+}
+
+/* Ensure the filter card itself doesn't clip its children */
+.db-card {
+    overflow: visible !important;
+}
+
+/* The form inside the card also needs to allow overflow */
+#reportFilterForm {
+    overflow: visible !important;
+}
+
+/* The grid that holds the fields should not clip */
+#reportFilterForm .grid {
+    overflow: visible !important;
+}
+
+/* Optional: add a subtle scrollbar style */
+.rpt-multiselect-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+.rpt-multiselect-dropdown::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+.rpt-multiselect-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+}
+.rpt-multiselect-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
