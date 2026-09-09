@@ -66123,7 +66123,51 @@ function injectReportsDesignSystem() {
         @keyframes rptFadeIn { from { opacity:0; } to { opacity:1; } }
         .rpt-skeleton-row { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        .rpt-multiselect-dropdown { max-height: 200px; overflow-y: auto; }
+
+        /* ---- Multi‑select dropdown fixes ---- */
+        .rpt-multiselect {
+            position: relative;
+            z-index: 50;
+        }
+        .rpt-multiselect-dropdown {
+            position: absolute;
+            z-index: 9999 !important;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            max-height: 220px;
+            overflow-y: auto;
+            min-width: 200px;
+            padding: 8px;
+            margin-top: 4px;
+            left: 0;
+            right: 0;
+        }
+        .rpt-multiselect-dropdown label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .rpt-multiselect-dropdown label:hover {
+            background: #f1f5f9;
+        }
+
+        /* ---- Ensure the filter card does not clip the dropdown ---- */
+        .rpt-filter-card {
+            overflow: visible !important;
+        }
+        /* The grid cell that contains the multiselect should also not clip */
+        .rpt-field {
+            position: relative;
+            z-index: auto;
+            overflow: visible !important;
+        }
+
         .rpt-btn-press { transition: transform 0.1s, box-shadow 0.1s; }
         .rpt-btn-press:active { transform: scale(0.97); box-shadow: none; }
         .rpt-chip-x { transition: color 0.15s; }
