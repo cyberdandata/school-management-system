@@ -7175,7 +7175,7 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 // ================================================================
 
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v14.0 - TUITION-ONLY FIX ===');
+    console.log('=== COMPREHENSIVE REPORT v15.0 - TUITION-ONLY FIX + FALLBACK ===');
 
     try {
         // ================================================================
@@ -7198,21 +7198,12 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const filterTerm = req.query.academicTerm;
         const includeAllPeriods = req.query.includeAllPeriods;
 
-        // Helper to parse comma-separated values into array (trim, filter empty)
         function parseMultiParam(value) {
             if (!value || value === 'all' || value === 'none') return [];
             return value.split(',').map(s => s.trim()).filter(Boolean);
         }
 
-        // ================================================================
-        // FIX #1: "none" is a distinct, meaningful signal (Tuition Only) —
-        // it must NOT be silently swallowed into the same bucket as "all".
-        // Capture it explicitly before parseMultiParam collapses it away,
-        // and force statusGroups/itemNames to genuinely empty in that case
-        // so nothing downstream can accidentally re-include scholastic items.
-        // ================================================================
         const isTuitionOnlyStatusGroup = rawStatusGroup === 'none';
-
         const classIds = parseMultiParam(rawClassId);
         const statusGroups = isTuitionOnlyStatusGroup ? [] : parseMultiParam(rawStatusGroup);
         const itemNames = isTuitionOnlyStatusGroup ? [] : parseMultiParam(rawItemName);
@@ -7281,26 +7272,21 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // 4.1: Get Current Period
         const isFirstTerm = targetTerm === 1;
 
-        // 4.2: Get Period Label
         function getPeriodLabel(year, term, isCurrent) {
-            const termNames = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
             const termShort = { 1: 'T1', 2: 'T2', 3: 'T3' };
             const label = `${termShort[term] || 'T' + term} ${year}`;
             return isCurrent ? `${label} ⭐ CURRENT` : label;
         }
 
-        // 4.3: Get Term Name
         function getTermName(term) {
             const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
             return names[term] || `Term ${term}`;
         }
 
-        // 4.4: Format Money
         function formatMoney(amount) {
             return Math.round(amount || 0).toLocaleString('en-US');
         }
 
-        // 4.5: Get Customized Item Value
         function getCustomizedItemValue(student, itemId, defaultAmount, defaultQuantity, defaultPaymentOption, defaultUnitPrice) {
             if (!student) {
                 return {
@@ -7365,19 +7351,14 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             };
         }
 
-        // ================================================================
-        // PERIOD-AWARE REMOVAL CHECK
-        // ================================================================
         function isItemRemovedForPeriod(student, itemId, year, term) {
             if (!student || !student.removedItems) return false;
             const removed = student.removedItems[itemId];
             if (!removed || removed.isActive === false) return false;
-            // Legacy removals without period stamp: treat as removed everywhere
             if (removed.academicYear === undefined || removed.term === undefined) return true;
             return removed.academicYear === parseInt(year) && removed.term === parseInt(term);
         }
 
-        // 4.6: Get Period-Scoped Payments
         function getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData) {
             const studentPayments = allPaymentsData.filter(p => p && p.studentId === studentId);
             if (periodType === 'one_time') {
@@ -7395,7 +7376,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
         }
 
-        // 4.7: getPaidAmountsForItem
         function getPaidAmountsForItem(studentId, componentName, itemName, periodType, year, term, allPaymentsData) {
             const scopedPayments = getPeriodScopedPayments(studentId, periodType, year, term, allPaymentsData);
             let cashPaid = 0;
@@ -7497,7 +7477,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
 
-        // 4.8: Calculate Item Totals with OR Logic
         function calculateItemTotalsWithORLogic(qtyRequired, amountExpected, paymentOption, cashPaid, itemsBrought) {
             const finalItemsBrought = Math.min(itemsBrought, qtyRequired);
             let cashExpected = 0;
@@ -7615,6 +7594,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         let totalStudentsWithCustomizations = 0;
         const allStatusGroups = new Set();
         const allPeriodKeys = [];
+        let skippedNoFeeStructure = 0;
 
         const currentYear = parseInt(targetYear);
         const currentTerm = parseInt(targetTerm);
@@ -7622,9 +7602,22 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         for (const student of students) {
             if (!student || !student.id) continue;
 
+            // ---- FIND FEE STRUCTURE ----
             const assignment = assignmentsMap[student.id] || {};
-            const feeStructure = feeStructuresMap[assignment.feeStructureId];
-            if (!feeStructure) continue;
+            let feeStructure = feeStructuresMap[assignment.feeStructureId];
+
+            // FALLBACK: if no assignment, try student's own assignedFeeStructureId
+            if (!feeStructure && student.assignedFeeStructureId) {
+                feeStructure = feeStructuresMap[student.assignedFeeStructureId];
+                if (feeStructure) {
+                    console.log(`🔄 Fallback: using student's assignedFeeStructureId for ${student.firstName} ${student.lastName}`);
+                }
+            }
+
+            if (!feeStructure) {
+                skippedNoFeeStructure++;
+                continue;
+            }
 
             // ----- FEE STRUCTURE FILTER -----
             if (feeStructureId && feeStructure.id !== feeStructureId) continue;
@@ -7690,7 +7683,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
 
             // ============================================================
-            // CALCULATE TUITION (unchanged)
+            // CALCULATE TUITION
             // ============================================================
             let originalTuition = feeStructure.tuition || 0;
             let tuitionExpected = originalTuition;
@@ -7789,15 +7782,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
 
             // ============================================================
-            // BUILD STATUS GROUPS WITH PERIOD-AWARE REMOVAL
-            //
-            // FIX #2: renamed from `statusGroups` (which used to shadow the
-            // outer filter array of the same name, silently breaking the
-            // "statusGroups.length > 0" filter check below) to
-            // `studentStatusGroups`. This block is also now skipped entirely
-            // when isTuitionOnlyStatusGroup is true, so scholastic/activity
-            // items are never computed, attached to the student, or folded
-            // into totals for a Tuition Only report.
+            // BUILD STATUS GROUPS (only if NOT tuition-only)
             // ============================================================
             const studentStatusGroups = {};
             let studentTotalCashExpected = 0;
@@ -7834,9 +7819,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         const effectivePaymentOption = customValues.paymentOption;
                         const isCustomized = customValues.isCustomized;
 
-                        // ============================================================
-                        // FIRST PASS: resolve every requested period for THIS item
-                        // ============================================================
                         let totalQtyCollected = 0;
                         let totalAmtCollected = 0;
                         let totalCashExpected = 0;
@@ -7858,7 +7840,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                                 shouldInclude = (period.term === maxTerm);
                             }
 
-                            // PERIOD-AWARE REMOVAL
                             if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
                                 shouldInclude = false;
                             }
@@ -7926,9 +7907,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             totalCashPaid += totals.cashPaid;
                         }
 
-                        // ============================================================
-                        // "DOESN'T PAY" & ZERO-EXPECTED TEST
-                        // ============================================================
                         const hasPayment = totalQtyCollected > 0 || totalAmtCollected > 0;
                         let hasZeroExpected = false;
                         if (effectivePaymentOption === 'cash_only') {
@@ -7940,12 +7918,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         }
 
                         if ((!anyPeriodApplicable || hasZeroExpected) && !hasPayment) {
-                            continue; // skip this item entirely
+                            continue;
                         }
 
-                        // ============================================================
-                        // Item genuinely applies — commit it
-                        // ============================================================
                         allStatusGroups.add(groupName);
 
                         if (!studentStatusGroups[groupName]) {
@@ -7995,7 +7970,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         itemData.totalAmountCollected = totalAmtCollected;
                         itemData.isFullyPaid = itemData.totalRemaining <= 0 && totalAmtCollected >= effectiveAmount;
 
-                        // Update group totals
                         studentStatusGroups[groupName].totalRequired += effectiveQuantity;
                         studentStatusGroups[groupName].totalCollected += totalQtyCollected;
                         studentStatusGroups[groupName].totalRemaining += itemData.totalRemaining;
@@ -8012,14 +7986,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
 
             // ============================================================
             // APPLY STATUS GROUP & ITEM FILTERS (multi)
-            //
-            // FIX #2 (cont'd): these now correctly reference the outer
-            // `statusGroups` / `itemNames` filter arrays, and
-            // `studentStatusGroups` for what the student actually has.
-            // When isTuitionOnlyStatusGroup is true, both arrays are empty
-            // (see FIX #1), so neither filter block runs — exactly right,
-            // since a Tuition Only report has no status groups to match
-            // against in the first place.
             // ============================================================
             if (statusGroups.length > 0) {
                 const studentGroupNames = Object.keys(studentStatusGroups);
@@ -8043,12 +8009,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
 
             // ============================================================
             // CALCULATE STUDENT TOTALS
-            //
-            // For a Tuition Only report, studentTotalCashExpected/Paid are
-            // still 0 (the activityComponents block above never ran), so
-            // these totals — and Overall Collection Rate below — correctly
-            // reduce to tuition-only figures instead of secretly including
-            // scholastic/activity cash.
             // ============================================================
             const studentTotalExpected = tuitionExpected + studentTotalCashExpected;
             const studentTotalPaid = tuitionPaid + studentTotalCashPaid;
@@ -8101,7 +8061,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 paymentDueCount++;
             }
 
-            // Payment status filter (exact match)
             if (paymentStatus && overallStatus !== paymentStatus) continue;
 
             // ============================================================
@@ -8132,7 +8091,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     periodsIncluded: Object.keys(tuitionPeriodBreakdown).length
                 },
 
-                // FIX #2: correctly the per-student groups, never the outer filter array
                 statusGroups: studentStatusGroups,
 
                 totalExpected: studentTotalExpected,
@@ -8165,6 +8123,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // ================================================================
         console.log('📊 Final Totals:', {
             students: processedStudents.length,
+            skippedNoFeeStructure: skippedNoFeeStructure,
             tuitionExpected: totalTuitionExpected,
             tuitionCollected: totalTuitionCollected,
             activityCashExpected: totalActivityCashExpected,
@@ -8174,6 +8133,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             totalBalance: totalBalance
         });
 
+        if (skippedNoFeeStructure > 0) {
+            console.warn(`⚠️ ${skippedNoFeeStructure} students skipped because no fee structure was found.`);
+        }
+
         allPeriodKeys.sort();
 
         const tuitionRate = totalTuitionExpected > 0 ? (totalTuitionCollected / totalTuitionExpected * 100) : 0;
@@ -8181,11 +8144,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
 
         // ================================================================
         // BUILD STATUS GROUP TOTALS
-        //
-        // For a Tuition Only report every student's `statusGroups` object is
-        // empty (the activityComponents block was skipped), so this loop
-        // naturally produces an empty statusGroupTotals — nothing extra
-        // needed here.
         // ================================================================
         const statusGroupTotals = {};
         for (const student of processedStudents) {
@@ -8255,12 +8213,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
 
         // ================================================================
         // STEP 8: BUILD RESPONSE
-        //
-        // FIX #1 (cont'd): report the real "none" value back to the
-        // frontend, instead of always saying 'all'. This is what lets the
-        // frontend's `isTuitionOnly = filterStatusGroup === 'none'` check
-        // in buildReportTable() actually fire and skip rendering scholastic
-        // item columns.
         // ================================================================
         const response = {
             success: true,
@@ -8307,7 +8259,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     generatedAt: new Date().toISOString(),
                     statusGroups: Array.from(allStatusGroups),
                     periodsIncluded: allPeriodKeys,
-                    tuitionPeriodCount: allPeriodKeys.length
+                    tuitionPeriodCount: allPeriodKeys.length,
+                    skippedNoFeeStructure: skippedNoFeeStructure
                 },
                 allPayments: allPayments
             }
@@ -8318,7 +8271,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         console.log(`💰 Total Paid: UGX ${formatMoney(totalPaid)}`);
         console.log(`💰 Total Balance: UGX ${formatMoney(totalBalance)}`);
         console.log(`📊 Collection Rate: ${overallCollectionRate.toFixed(1)}%`);
-        console.log(`💵 Activity Cash Paid: UGX ${formatMoney(totalActivityCashPaid)}`);
 
         res.json(response);
 
