@@ -65712,18 +65712,25 @@ function rptUpdateActiveFilterChips() {
         chips.push({ id: 'reportTuitionFilter', label: '💰 Tuition', text: tuition.checked ? 'Included' : 'Excluded' });
     }
 
-    // Multi‑selects
+    // Multi‑selects: map class IDs to names
     var multiIds = ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'];
     var multiLabels = {
         reportClassFilter: '📚 Class',
         reportStatusGroupFilter: '🏷️ Status Group',
         reportItemFilter: '📦 Item'
     };
+    var classMap = window._reportClassMap || {};
+
     multiIds.forEach(function (id) {
         var vals = rptGetMultiSelected(id);
-        if (vals.length > 0) {
-            chips.push({ id: id, label: multiLabels[id] || id, text: vals.join(', ') });
+        if (vals.length === 0) return;
+
+        var displayVals = vals;
+        if (id === 'reportClassFilter') {
+            // Map IDs to class names
+            displayVals = vals.map(function (v) { return classMap[v] || v; });
         }
+        chips.push({ id: id, label: multiLabels[id] || id, text: displayVals.join(', ') });
     });
 
     if (chips.length === 0) {
