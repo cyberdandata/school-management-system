@@ -83379,19 +83379,23 @@ function getVisibleStudents(students, filters) {
     var filterGroups = filters.statusGroup || 'all';
     var filterItems = filters.itemName || 'all';
 
+    // If 'none', treat as no group filter (tuition only)
     var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
     var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
     var filtered = students.filter(function (student) {
         var groups = student.statusGroups || {};
+        // If no filters, include all
         if (groupList.length === 0 && itemList.length === 0) return true;
 
+        // Group filter: student must have at least one selected group
         if (groupList.length > 0) {
             var studentGroupNames = Object.keys(groups);
             var hasGroup = groupList.some(function (g) { return studentGroupNames.indexOf(g) !== -1; });
             if (!hasGroup) return false;
         }
 
+        // Item filter: student must have at least one selected item in any group
         if (itemList.length > 0) {
             var hasItem = false;
             for (var gName in groups) {
