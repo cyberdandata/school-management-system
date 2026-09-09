@@ -7175,7 +7175,7 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 // ================================================================
 
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v12.1 - ZERO-EXPECTED ITEMS FILTERED ===');
+    console.log('=== COMPREHENSIVE REPORT v13.0 - MULTI-SELECT SUPPORT ===');
     
     try {
         // ================================================================
@@ -7185,32 +7185,50 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const defaultYear = settings.currentAcademicYear || new Date().getFullYear();
         const defaultTerm = settings.currentTerm || 1;
         
-        const { 
-            classId, level, studentId, 
-            statusGroup: filterStatusGroup, 
-            itemName: filterItemName, 
-            paymentStatus,
-            feeStructureId,
-            includeTuition,
-            academicYear: filterYear,
-            academicTerm: filterTerm,
-            includeAllPeriods
-        } = req.query;
-        
+        // Parse query parameters (including multi-value)
+        const rawClassId = req.query.classId;
+        const rawStatusGroup = req.query.statusGroup;
+        const rawItemName = req.query.itemName;
+        const rawPaymentStatus = req.query.paymentStatus;
+        const rawFeeStructureId = req.query.feeStructureId;
+        const rawLevel = req.query.level;
+        const rawStudentId = req.query.studentId;
+        const includeTuition = req.query.includeTuition;
+        const filterYear = req.query.academicYear;
+        const filterTerm = req.query.academicTerm;
+        const includeAllPeriods = req.query.includeAllPeriods;
+
+        // Helper to parse comma-separated values into array (trim, filter empty)
+        function parseMultiParam(value) {
+            if (!value || value === 'all' || value === 'none') return [];
+            return value.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        const classIds = parseMultiParam(rawClassId);
+        const statusGroups = parseMultiParam(rawStatusGroup);
+        const itemNames = parseMultiParam(rawItemName);
+        const paymentStatus = (rawPaymentStatus && rawPaymentStatus !== 'all') ? rawPaymentStatus : null;
+        const feeStructureId = (rawFeeStructureId && rawFeeStructureId !== 'all') ? rawFeeStructureId : null;
+        const level = (rawLevel && rawLevel !== 'all') ? rawLevel : null;
+        const studentId = (rawStudentId && rawStudentId !== 'all') ? rawStudentId : null;
         const includeTuitionBool = includeTuition !== 'false' && includeTuition !== 'off';
         const includeAllPeriodsBool = includeAllPeriods === 'true';
         
         let targetYear = filterYear ? parseInt(filterYear) : defaultYear;
         let targetTerm = filterTerm ? parseInt(filterTerm) : defaultTerm;
         
-        console.log('📋 Report Parameters:', {
+        console.log('📋 Report Parameters (multi):', {
             targetYear,
             targetTerm,
-            classId: classId || 'all',
+            classIds: classIds.length ? classIds : 'all',
             level: level || 'all',
-            filterStatusGroup: filterStatusGroup || 'all',
+            statusGroups: statusGroups.length ? statusGroups : 'all',
+            itemNames: itemNames.length ? itemNames : 'all',
             includeTuition: includeTuitionBool,
-            includeAllPeriods: includeAllPeriodsBool
+            includeAllPeriods: includeAllPeriodsBool,
+            paymentStatus: paymentStatus || 'all',
+            feeStructureId: feeStructureId || 'all',
+            studentId: studentId || 'all'
         });
 
         // ================================================================
@@ -7248,7 +7266,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
 
         // ================================================================
-        // STEP 4: HELPER FUNCTIONS
+        // STEP 4: HELPER FUNCTIONS (unchanged)
         // ================================================================
 
         // 4.1: Get Current Period
@@ -7512,67 +7530,59 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // STEP 5: GET ALL PERIODS FOR STUDENT
         // ================================================================
         function getAllPeriodsForStudent(studentId) {
-        const currentYear = parseInt(targetYear);
-        const currentTerm = parseInt(targetTerm);
+            const currentYear = parseInt(targetYear);
+            const currentTerm = parseInt(targetTerm);
 
-        // ================================================================
-        // DETERMINE START PERIOD FROM ENROLLMENT DATE
-        // ================================================================
-        const student = students.find(s => s && s.id === studentId);
+            const student = students.find(s => s && s.id === studentId);
 
-        let startYear = currentYear;
-        let startTerm = currentTerm;
+            let startYear = currentYear;
+            let startTerm = currentTerm;
 
-        if (student && student.enrollmentDate) {
-            const enrollTerm = getTermForDate(student.enrollmentDate);
-            const enrollYear = getAcademicYearForDate(student.enrollmentDate);
-            if (enrollTerm && enrollYear &&
-                (enrollYear < currentYear || (enrollYear === currentYear && enrollTerm <= currentTerm))) {
-                startYear = enrollYear;
-                startTerm = enrollTerm;
-            }
-        }
-
-        // ================================================================
-        // WALK EVERY TERM FROM ENROLLMENT THROUGH THE CURRENT PERIOD
-        // ================================================================
-        const periods = new Map();
-        let y = startYear;
-        let t = startTerm;
-
-        while (y < currentYear || (y === currentYear && t <= currentTerm)) {
-            const key = `${y}_${t}`;
-            if (!periods.has(key)) {
-                periods.set(key, { year: y, term: t, payments: [] });
-            }
-            t++;
-            if (t > 3) {
-                t = 1;
-                y++;
-            }
-        }
-
-        // ================================================================
-        // ATTACH MATCHING PAYMENTS TO EACH PERIOD
-        // ================================================================
-        allPayments.forEach(p => {
-            if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
-                const year = parseInt(p.academicYear);
-                const term = parseInt(p.term);
-                const key = `${year}_${term}`;
-                if (periods.has(key)) {
-                    periods.get(key).payments.push(p);
+            if (student && student.enrollmentDate) {
+                const enrollTerm = getTermForDate(student.enrollmentDate);
+                const enrollYear = getAcademicYearForDate(student.enrollmentDate);
+                if (enrollTerm && enrollYear &&
+                    (enrollYear < currentYear || (enrollYear === currentYear && enrollTerm <= currentTerm))) {
+                    startYear = enrollYear;
+                    startTerm = enrollTerm;
                 }
             }
-        });
 
-        return Array.from(periods.entries())
-            .map(([key, data]) => ({ ...data, periodKey: key }))
-            .sort((a, b) => {
-                if (a.year !== b.year) return b.year - a.year;
-                return b.term - a.term;
+            const periods = new Map();
+            let y = startYear;
+            let t = startTerm;
+
+            while (y < currentYear || (y === currentYear && t <= currentTerm)) {
+                const key = `${y}_${t}`;
+                if (!periods.has(key)) {
+                    periods.set(key, { year: y, term: t, payments: [] });
+                }
+                t++;
+                if (t > 3) {
+                    t = 1;
+                    y++;
+                }
+            }
+
+            allPayments.forEach(p => {
+                if (p && p.studentId === studentId && p.academicYear && p.term !== undefined && p.term !== null) {
+                    const year = parseInt(p.academicYear);
+                    const term = parseInt(p.term);
+                    const key = `${year}_${term}`;
+                    if (periods.has(key)) {
+                        periods.get(key).payments.push(p);
+                    }
+                }
             });
-    }
+
+            return Array.from(periods.entries())
+                .map(([key, data]) => ({ ...data, periodKey: key }))
+                .sort((a, b) => {
+                    if (a.year !== b.year) return b.year - a.year;
+                    return b.term - a.term;
+                });
+        }
+
         // ================================================================
         // STEP 6: PROCESS STUDENTS
         // ================================================================
@@ -7607,8 +7617,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             const feeStructure = feeStructuresMap[assignment.feeStructureId];
             if (!feeStructure) continue;
             
-            if (feeStructureId && feeStructureId !== 'all' && feeStructure.id !== feeStructureId) continue;
+            // ----- FEE STRUCTURE FILTER -----
+            if (feeStructureId && feeStructure.id !== feeStructureId) continue;
             
+            // ----- LEVEL FILTER -----
             let currentClass = 'Not Assigned';
             let classLevel = 'Unknown';
             if (student.currentClassId && classesMap[student.currentClassId]) {
@@ -7617,10 +7629,16 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             } else if (student.currentClass) {
                 currentClass = student.currentClass;
             }
+            if (level && classLevel !== level) continue;
             
-            if (classId && classId !== 'all' && currentClass !== classId) continue;
-            if (level && level !== 'all' && classLevel !== level) continue;
-            if (studentId && studentId !== 'all' && student.id !== studentId) continue;
+            // ----- CLASS FILTER (multi) -----
+            if (classIds.length > 0) {
+                const studentClassId = student.currentClassId || null;
+                if (!studentClassId || !classIds.includes(studentClassId)) continue;
+            }
+            
+            // ----- STUDENT FILTER -----
+            if (studentId && student.id !== studentId) continue;
             
             // ================================================================
             // Get ALL periods for the student (for scoping rules)
@@ -7771,7 +7789,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             let studentCustomizedItems = 0;
             let studentHasCustomizations = false;
             
-                       if (feeStructure.activityComponents) {
+            if (feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     if (!component) continue;
 
@@ -7801,8 +7819,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
 
                         // ============================================================
                         // FIRST PASS: resolve every requested period for THIS item
-                        // before touching any total. This is what lets us decide,
-                        // correctly, whether the item applies to this student at all.
                         // ============================================================
                         let totalQtyCollected = 0;
                         let totalAmtCollected = 0;
@@ -7825,9 +7841,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                                 shouldInclude = (period.term === maxTerm);
                             }
 
-                            // ================================================================
                             // PERIOD-AWARE REMOVAL
-                            // ================================================================
                             if (shouldInclude && isItemRemovedForPeriod(student, itemId, period.year, period.term)) {
                                 shouldInclude = false;
                             }
@@ -7896,25 +7910,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         }
 
                         // ============================================================
-                        // "DOESN'T PAY" TEST — same rule the report table's per-cell
-                        // "—" (Doesn't pay) uses. If the item was not applicable in a
-                        // single requested period AND the student never paid/brought
-                        // anything toward it, it never counts for this student.
+                        // "DOESN'T PAY" & ZERO-EXPECTED TEST
                         // ============================================================
                         const hasPayment = totalQtyCollected > 0 || totalAmtCollected > 0;
-
-                        // ============================================================
-                        // ★ NEW IN v12.1 — ZERO-EXPECTED TEST ★
-                        // If, after applying customizations, this item genuinely
-                        // expects NOTHING from this student for its payment option
-                        // (cash_only with amount<=0, item_only with quantity<=0, or
-                        // either with both<=0), AND the student has never paid or
-                        // brought anything toward it, the item never counts for this
-                        // student — same treatment as "doesn't apply in any period".
-                        // This keeps students like "LTBalance Expected 0 / Collected 0
-                        // / Balance 0" out of the report and out of item/group filters
-                        // entirely, instead of showing a hollow 0/0/0 row.
-                        // ============================================================
                         let hasZeroExpected = false;
                         if (effectivePaymentOption === 'cash_only') {
                             hasZeroExpected = effectiveAmount <= 0;
@@ -7925,11 +7923,11 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         }
 
                         if ((!anyPeriodApplicable || hasZeroExpected) && !hasPayment) {
-                            continue; // removed / zero-expected for this student — skip entirely
+                            continue; // skip this item entirely
                         }
 
                         // ============================================================
-                        // Item genuinely applies to this student — only now commit it.
+                        // Item genuinely applies — commit it
                         // ============================================================
                         allStatusGroups.add(groupName);
 
@@ -7980,10 +7978,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         itemData.totalAmountCollected = totalAmtCollected;
                         itemData.isFullyPaid = itemData.totalRemaining <= 0 && totalAmtCollected >= effectiveAmount;
 
-                        // ============================================================
-                        // UPDATE GROUP TOTALS — only ever reached for an item that
-                        // genuinely applies to this student.
-                        // ============================================================
+                        // Update group totals
                         statusGroups[groupName].totalRequired += effectiveQuantity;
                         statusGroups[groupName].totalCollected += totalQtyCollected;
                         statusGroups[groupName].totalRemaining += itemData.totalRemaining;
@@ -7996,6 +7991,31 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         studentTotalCashRemaining += (totalCashExpected - totalCashPaid);
                     }
                 }
+            }
+            
+            // ============================================================
+            // APPLY STATUS GROUP & ITEM FILTERS (multi)
+            // ============================================================
+            // Status group filter: student must have at least one of the selected groups
+            if (statusGroups.length > 0) {
+                const studentGroups = Object.keys(statusGroups);
+                const hasAnyGroup = statusGroups.some(g => studentGroups.includes(g));
+                if (!hasAnyGroup) continue;
+            }
+            
+            // Item filter: student must have at least one of the selected items in any group
+            if (itemNames.length > 0) {
+                let hasAnyItem = false;
+                for (const gName in statusGroups) {
+                    if (statusGroups[gName].items) {
+                        const itemKeys = Object.keys(statusGroups[gName].items);
+                        if (itemNames.some(item => itemKeys.includes(item))) {
+                            hasAnyItem = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasAnyItem) continue;
             }
             
             // ============================================================
@@ -8052,26 +8072,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 paymentDueCount++;
             }
             
-            if (paymentStatus && paymentStatus !== 'all') {
-                if (overallStatus !== paymentStatus) continue;
-            }
+            // Payment status filter (exact match)
+            if (paymentStatus && overallStatus !== paymentStatus) continue;
             
-
-            // Exclude students who don't owe anything on the filtered item/group
-if (filterItemName && filterItemName !== 'all') {
-    let hasFilteredItem = false;
-    for (const gName in statusGroups) {
-        if (filterStatusGroup && filterStatusGroup !== 'all' && gName !== filterStatusGroup) continue;
-        if (statusGroups[gName].items && statusGroups[gName].items[filterItemName]) {
-            hasFilteredItem = true;
-            break;
-        }
-    }
-    if (!hasFilteredItem) continue;
-} else if (filterStatusGroup && filterStatusGroup !== 'all' && filterStatusGroup !== 'none') {
-    const g = statusGroups[filterStatusGroup];
-    if (!g || !g.items || Object.keys(g.items).length === 0) continue;
-}
             // ============================================================
             // BUILD STUDENT OBJECT
             // ============================================================
@@ -8245,12 +8248,12 @@ if (filterItemName && filterItemName !== 'all') {
                 },
                 statusGroupTotals: statusGroupTotals,
                 filters: {
-                    classId: classId || 'all',
+                    classId: classIds.length ? classIds.join(',') : 'all',
                     level: level || 'all',
                     studentId: studentId || 'all',
                     feeStructureId: feeStructureId || 'all',
-                    statusGroup: filterStatusGroup || 'all',
-                    itemName: filterItemName || 'all',
+                    statusGroup: statusGroups.length ? statusGroups.join(',') : 'all',
+                    itemName: itemNames.length ? itemNames.join(',') : 'all',
                     paymentStatus: paymentStatus || 'all',
                     includeTuition: includeTuitionBool,
                     academicYear: targetYear,
