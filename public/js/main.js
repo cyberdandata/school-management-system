@@ -83185,7 +83185,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     }
     var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g] && itemsByGroup[g].length > 0; });
 
-    // Build header rows
+    // Build header rows – each cell now has explicit sticky styles
     var headerRow1 = [
         '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
         '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
@@ -83196,30 +83196,34 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
     if (includeTuition) {
         var tuitionCols = includeAllPeriods ? 4 : 3;
-        headerRow1.push('<th class="p-2 border bg-blue-100" colspan="' + tuitionCols + '">Tuition</th>');
-        headerRow2.push('<th class="p-2 border bg-blue-50">Collected</th>');
-        headerRow2.push('<th class="p-2 border bg-blue-50">Expected</th>');
-        headerRow2.push('<th class="p-2 border bg-blue-50">Balance</th>');
-        if (includeAllPeriods) headerRow2.push('<th class="p-2 border bg-blue-50">Periods</th>');
+        headerRow1.push('<th class="p-2 border bg-blue-100" colspan="' + tuitionCols + '" style="position:sticky;top:0;z-index:20;">Tuition</th>');
+        headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Collected</th>');
+        headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Expected</th>');
+        headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Balance</th>');
+        if (includeAllPeriods) headerRow2.push('<th class="p-2 border bg-blue-50" style="position:sticky;top:0;z-index:20;">Periods</th>');
     }
 
     for (var gi2 = 0; gi2 < groupsToRender.length; gi2++) {
         var gName = groupsToRender[gi2];
         var gItems = itemsByGroup[gName];
         var colsPerItem = includeAllPeriods ? 4 : 3;
-        headerRow1.push('<th class="p-2 border bg-purple-50" colspan="' + (gItems.length * colsPerItem) + '">' + escapeHtml(gName) + '</th>');
+        headerRow1.push('<th class="p-2 border bg-purple-50" colspan="' + (gItems.length * colsPerItem) + '" style="position:sticky;top:0;z-index:20;">' + escapeHtml(gName) + '</th>');
         for (var ii = 0; ii < gItems.length; ii++) {
             var label = escapeHtml(gItems[ii]);
-            headerRow2.push('<th class="p-2 border bg-purple-50 text-xs">' + label + ' Collected</th>');
-            headerRow2.push('<th class="p-2 border bg-purple-50 text-xs">' + label + ' Expected</th>');
-            headerRow2.push('<th class="p-2 border bg-purple-50 text-xs">' + label + ' Balance</th>');
-            if (includeAllPeriods) headerRow2.push('<th class="p-2 border bg-purple-50 text-xs">' + label + ' Periods</th>');
+            headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Collected</th>');
+            headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Expected</th>');
+            headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Balance</th>');
+            if (includeAllPeriods) headerRow2.push('<th class="p-2 border bg-purple-50 text-xs" style="position:sticky;top:0;z-index:20;">' + label + ' Periods</th>');
         }
     }
 
-    var headerHtml = '<thead><tr>' + headerRow1.join('') + '</tr><tr>' + headerRow2.join('') + '</tr></thead>';
+    // Wrap headers in a sticky thead
+    var headerHtml = '<thead style="position:sticky;top:0;z-index:20;background:#fff;">' +
+        '<tr>' + headerRow1.join('') + '</tr>' +
+        '<tr>' + headerRow2.join('') + '</tr>' +
+        '</thead>';
 
-    // Body rows
+    // --- Body rows (unchanged logic, but we keep the left-sticky columns) ---
     var bodyRows = '';
     var totalsAcc = { tuitionCollected: 0, tuitionExpected: 0, tuitionBalance: 0 };
     var itemTotalsAcc = {};
@@ -83227,6 +83231,7 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
     for (var r = 0; r < visibleStudents.length; r++) {
         var student = visibleStudents[r];
         var row = '<tr class="border-b">';
+        // Left‑sticky columns (row number, admission, student name, class)
         row += '<td class="p-2 text-center border" style="position:sticky;left:0;z-index:10;background:#fff;">' + (r+1) + '</td>';
         row += '<td class="p-2 border font-mono text-xs" style="position:sticky;left:40px;z-index:10;background:#fff;">' + escapeHtml(student.admissionNumber) + '</td>';
         row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName)+' '+escapeHtml(student.lastName) + '</td>';
