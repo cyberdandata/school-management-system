@@ -7763,23 +7763,18 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             
             let tuitionStatus = 'Payment Due';
             let tuitionStatusColor = 'bg-yellow-100 text-yellow-800';
-            let tuitionStatusIcon = '⚠️';
             if (tuitionBalance < -10) {
                 tuitionStatus = 'Credit Balance';
                 tuitionStatusColor = 'bg-blue-100 text-blue-800';
-                tuitionStatusIcon = '💰';
             } else if (Math.abs(tuitionBalance) <= 10 && tuitionPaid > 0) {
                 tuitionStatus = 'Fully Paid';
                 tuitionStatusColor = 'bg-green-100 text-green-800';
-                tuitionStatusIcon = '✅';
             } else if (tuitionPaid === 0 && tuitionExpected > 0) {
                 tuitionStatus = 'No Payment';
                 tuitionStatusColor = 'bg-gray-100 text-gray-800';
-                tuitionStatusIcon = '📋';
             } else if (tuitionBalance > 0) {
                 tuitionStatus = 'Payment Due';
                 tuitionStatusColor = 'bg-yellow-100 text-yellow-800';
-                tuitionStatusIcon = '⚠️';
             }
             
             // ============================================================
@@ -8048,31 +8043,31 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             totalCustomizedItems += studentCustomizedItems;
             
             // ============================================================
-            // DETERMINE OVERALL STATUS
+            // DETERMINE OVERALL STATUS (no emojis, with Partially Paid)
             // ============================================================
             let overallStatus = 'Payment Due';
             let statusColor = 'bg-yellow-100 text-yellow-800';
-            let statusIcon = '⚠️';
             
             if (studentTotalBalance < 0) {
                 overallStatus = 'Credit Balance';
                 statusColor = 'bg-blue-100 text-blue-800';
-                statusIcon = '💰';
                 creditBalanceCount++;
             } else if (Math.abs(studentTotalBalance) <= 10 && studentTotalPaid > 0) {
                 overallStatus = 'Fully Paid';
                 statusColor = 'bg-green-100 text-green-800';
-                statusIcon = '✅';
                 fullyPaidCount++;
             } else if (studentTotalPaid === 0 && studentTotalExpected > 0) {
                 overallStatus = 'No Payment';
                 statusColor = 'bg-gray-100 text-gray-800';
-                statusIcon = '📋';
                 noPaymentCount++;
+            } else if (studentTotalBalance > 0 && studentTotalPaid > 0) {
+                // Partially Paid – they've paid something but still owe
+                overallStatus = 'Partially Paid';
+                statusColor = 'bg-orange-100 text-orange-800';
+                paymentDueCount++; // still counts as balance due (or you can create a separate counter)
             } else if (studentTotalBalance > 0) {
                 overallStatus = 'Payment Due';
                 statusColor = 'bg-yellow-100 text-yellow-800';
-                statusIcon = '⚠️';
                 paymentDueCount++;
             }
             
@@ -8101,7 +8096,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     isCustomBursary: isCustomBursary,
                     status: tuitionStatus,
                     statusColor: tuitionStatusColor,
-                    statusIcon: tuitionStatusIcon,
                     paymentHistories: tuitionPaymentHistories,
                     periodBreakdown: tuitionPeriodBreakdown,
                     periodsIncluded: Object.keys(tuitionPeriodBreakdown).length
@@ -8117,7 +8111,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 
                 overallStatus: overallStatus,
                 statusColor: statusColor,
-                statusIcon: statusIcon,
                 
                 customizedItemsCount: studentCustomizedItems,
                 hasCustomizations: studentHasCustomizations,
