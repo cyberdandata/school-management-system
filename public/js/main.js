@@ -65201,6 +65201,9 @@ function rptShowToast(message, type) {
 // ---------------------------------------------------------------------------
 // 2. MULTI‑SELECT DROPDOWN COMPONENT
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// MULTI-SELECT (portal-based, avoids all overflow/stacking-context clipping)
+// ---------------------------------------------------------------------------
 function rptBuildMultiSelect(id, label, options, selected) {
     selected = selected || [];
     var html = '<div class="rpt-multiselect" data-field="' + id + '">';
@@ -65222,64 +65225,111 @@ function rptBuildMultiSelect(id, label, options, selected) {
     return html;
 }
 
-function rptToggleMulti(id) {
-    var dropdown = document.querySelector('.rpt-multiselect[data-field="' + id + '"] .rpt-multiselect-dropdown');
-    if (dropdown) dropdown.classList.toggle('hidden');
-    // Close others
-    document.querySelectorAll('.rpt-multiselect-dropdown').forEach(function (el) {
-        if (el !== dropdown) el.classList.add('hidden');
+function rptGetContainer(id) {
+    return document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
+}
+function rptGetDropdown(id) {
+    return document.querySelector('.rpt-multiselect-dropdown[data-field="' + id + '"]');
+}
+
+function rptPositionMultiDropdown(dropdown, btn) {
+    var rect = btn.getBoundingClientRect();
+    var maxHeight = Math.min(260, window.innerHeight - rect.bottom - 12);
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.top = (rect.bottom + 4) + 'px';
+    dropdown.style.width = rect.width + 'px';
+    dropdown.style.maxHeight = Math.max(maxHeight, 120) + 'px';
+    dropdown.style.zIndex = '2147483647';
+}
+
+function rptCloseAllMultiDropdowns() {
+    document.querySelectorAll('.rpt-multiselect-dropdown.rpt-portal-open').forEach(function (dd) {
+        dd.classList.add('hidden');
+        dd.classList.remove('rpt-portal-open');
+        if (dd._rptReposition) {
+            window.removeEventListener('scroll', dd._rptReposition, true);
+            window.removeEventListener('resize', dd._rptReposition);
+            dd._rptReposition = null;
+        }
+        if (dd._rptHomeParent && dd.parentElement === document.body) {
+            dd._rptHomeParent.appendChild(dd); // put it back where it came from
+        }
     });
 }
 
+function rptToggleMulti(id) {
+    var container = rptGetContainer(id);
+    var dropdown = rptGetDropdown(id);
+    var btn = container && container.querySelector('.rpt-multiselect-btn');
+    if (!container || !dropdown || !btn) return;
+
+    var wasOpen = dropdown.classList.contains('rpt-portal-open');
+    rptCloseAllMultiDropdowns();
+    if (wasOpen) return; // this call was just closing it
+
+    if (dropdown.parentElement !== document.body) {
+        dropdown._rptHomeParent = container;
+        document.body.appendChild(dropdown);
+    }
+
+    rptPositionMultiDropdown(dropdown, btn);
+    dropdown.classList.remove('hidden');
+    dropdown.classList.add('rpt-multiselect-dropdown-open', 'rpt-portal-open');
+
+    var reposition = function () { rptPositionMultiDropdown(dropdown, btn); };
+    dropdown._rptReposition = reposition;
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+}
+
 function rptMultiChange(id) {
-    var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
-    var checks = container.querySelectorAll('input[type="checkbox"]:checked');
+    var container = rptGetContainer(id);
+    var dropdown = rptGetDropdown(id);
+    if (!container || !dropdown) return;
+    var checks = dropdown.querySelectorAll('input[type="checkbox"]:checked');
     var values = [];
     checks.forEach(function (cb) { values.push(cb.value); });
-    // Store selected values as data attribute for later retrieval
     container.dataset.selected = JSON.stringify(values);
-    // Update label
+
     var label = container.querySelector('.rpt-multiselect-label');
     if (values.length === 0) {
         label.textContent = 'None selected';
     } else if (values.length === 1) {
-        var opt = container.querySelector('input[value="' + values[0] + '"]');
+        var opt = dropdown.querySelector('input[value="' + CSS.escape(values[0]) + '"]');
         label.textContent = opt ? opt.parentElement.textContent.trim() : values[0];
     } else {
         label.textContent = values.length + ' selected';
     }
-    // Trigger change event for filter tracking
-    var evt = new Event('change');
-    container.dispatchEvent(evt);
-    // Rebuild active chips
+    container.dispatchEvent(new Event('change'));
     rptUpdateActiveFilterChips();
 }
 
 function rptGetMultiSelected(id) {
-    var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
+    var container = rptGetContainer(id);
     if (!container) return [];
-    var data = container.dataset.selected;
-    if (data) return JSON.parse(data);
-    var checks = container.querySelectorAll('input[type="checkbox"]:checked');
+    if (container.dataset.selected) return JSON.parse(container.dataset.selected);
+    var dropdown = rptGetDropdown(id);
+    if (!dropdown) return [];
     var values = [];
-    checks.forEach(function (cb) { values.push(cb.value); });
+    dropdown.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) { values.push(cb.value); });
     return values;
 }
 
 function rptClearMulti(id) {
-    var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
-    if (!container) return;
-    container.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    var container = rptGetContainer(id);
+    var dropdown = rptGetDropdown(id);
+    if (!container || !dropdown) return;
+    dropdown.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
     container.dataset.selected = '[]';
     container.querySelector('.rpt-multiselect-label').textContent = 'None selected';
     rptUpdateActiveFilterChips();
 }
 
-// Close dropdowns on outside click
+// Close on outside click (checks both the trigger AND the portaled panel)
 document.addEventListener('click', function (e) {
-    if (!e.target.closest('.rpt-multiselect')) {
-        document.querySelectorAll('.rpt-multiselect-dropdown').forEach(function (el) { el.classList.add('hidden'); });
-    }
+    if (e.target.closest('.rpt-multiselect') || e.target.closest('.rpt-multiselect-dropdown')) return;
+    rptCloseAllMultiDropdowns();
 });
 
 // ---------------------------------------------------------------------------
