@@ -66227,7 +66227,7 @@ window.rptHideLoadingState = rptHideLoadingState;
 window.rptClearFilter = rptClearFilter;
 window.rptSortResults = rptSortResults;
 window.injectReportsDesignSystem = injectReportsDesignSystem;
-window.generateReportV3 = generateReportV3;
+// window.generateReportV3 = generateReportV3;
 window.resetReportFilters = resetReportFilters;
 window.refreshReport = refreshReport;
 window.rptGetMultiSelected = rptGetMultiSelected;
@@ -68632,7 +68632,7 @@ function showToast(message, type) {
 
 // ========== MAKE FUNCTIONS GLOBAL ==========
 window.showReports = showReports;
-window.generateReportV3 = generateReportV3;
+//window.generateReportV3 = generateReportV3;
 window.exportReportToCSV = exportReportToCSV;
 window.printReportV3 = printReportV3;
 window.resetReportFilters = resetReportFilters;
