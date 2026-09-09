@@ -83057,14 +83057,63 @@ function buildSummaryCardsV3(students) {
         '</div>';
 }
 
+// ============================================================
+// 1. getVisibleStudents – supports arrays for groups/items
+// ============================================================
+function getVisibleStudents(students, filters) {
+    var filterGroups = filters.statusGroup || 'all';
+    var filterItems = filters.itemName || 'all';
+
+    // Convert to arrays
+    var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
+    var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
+
+    return students.filter(function (student) {
+        var groups = student.statusGroups || {};
+
+        // If no groups or items selected, include all
+        if (groupList.length === 0 && itemList.length === 0) return true;
+
+        // If groups are specified, student must have at least one of them
+        if (groupList.length > 0) {
+            var studentGroupNames = Object.keys(groups);
+            var hasGroup = groupList.some(function (g) { return studentGroupNames.indexOf(g) !== -1; });
+            if (!hasGroup) return false;
+        }
+
+        // If items are specified, student must have at least one of them in any group
+        if (itemList.length > 0) {
+            var hasItem = false;
+            for (var gName in groups) {
+                if (groups[gName].items) {
+                    var itemNames = Object.keys(groups[gName].items);
+                    if (itemList.some(function (it) { return itemNames.indexOf(it) !== -1; })) {
+                        hasItem = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasItem) return false;
+        }
+
+        return true;
+    });
+}
+
+// ============================================================
+// 2. buildReportTable – shows only selected groups/items
+// ============================================================
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
-    var filterStatusGroup = filters.statusGroup || 'all';
-    var filterItem = filters.itemName || 'all';
-    var isTuitionOnly = filterStatusGroup === 'none';
+    var filterGroups = filters.statusGroup || 'all';
+    var filterItems = filters.itemName || 'all';
     var includeAllPeriods = !!filters.includeAllPeriods;
+
+    var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
+    var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
     var visibleStudents = getVisibleStudents(students, filters);
 
+    // Determine groups to show
     var allGroupNames = [];
     for (var s = 0; s < visibleStudents.length; s++) {
         var groups = visibleStudents[s].statusGroups || {};
@@ -83072,16 +83121,9 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             if (groups.hasOwnProperty(g) && allGroupNames.indexOf(g) === -1) allGroupNames.push(g);
         }
     }
+    var statusGroupsToShow = (groupList.length > 0) ? groupList : allGroupNames;
 
-    var statusGroupsToShow = [];
-    if (isTuitionOnly) {
-        statusGroupsToShow = [];
-    } else if (filterStatusGroup !== 'all') {
-        if (allGroupNames.indexOf(filterStatusGroup) !== -1) statusGroupsToShow = [filterStatusGroup];
-    } else {
-        statusGroupsToShow = allGroupNames;
-    }
-
+    // Build items per group, filtered by selected items
     var itemsByGroup = {};
     for (var gi = 0; gi < statusGroupsToShow.length; gi++) {
         var groupName = statusGroupsToShow[gi];
@@ -83091,22 +83133,22 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             if (!group || !group.items) continue;
             for (var itemName in group.items) {
                 if (!group.items.hasOwnProperty(itemName)) continue;
-                if (filterItem !== 'all' && itemName !== filterItem) continue;
+                if (itemList.length > 0 && itemList.indexOf(itemName) === -1) continue;
                 if (names.indexOf(itemName) === -1) names.push(itemName);
             }
         }
         names.sort();
         if (names.length > 0) itemsByGroup[groupName] = names;
     }
-    var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g]; });
+    var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g] && itemsByGroup[g].length > 0; });
 
-   // Header row 1 — make every header cell sticky on top
-var headerRow1 = [
-    '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
-    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
-    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:150px;z-index:30;">Student</th>',
-    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:300px;z-index:30;border-right:2px solid #9ca3af;">Class</th>'
-];
+    // Build header rows
+    var headerRow1 = [
+        '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
+        '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
+        '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:150px;z-index:30;">Student</th>',
+        '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:300px;z-index:30;border-right:2px solid #9ca3af;">Class</th>'
+    ];
     var headerRow2 = [];
 
     if (includeTuition) {
@@ -83134,6 +83176,7 @@ var headerRow1 = [
 
     var headerHtml = '<thead><tr>' + headerRow1.join('') + '</tr><tr>' + headerRow2.join('') + '</tr></thead>';
 
+    // Body rows
     var bodyRows = '';
     var totalsAcc = { tuitionCollected: 0, tuitionExpected: 0, tuitionBalance: 0 };
     var itemTotalsAcc = {};
@@ -83141,10 +83184,11 @@ var headerRow1 = [
     for (var r = 0; r < visibleStudents.length; r++) {
         var student = visibleStudents[r];
         var row = '<tr class="border-b">';
-   row += '<td class="p-2 text-center border" style="position:sticky;left:0;z-index:10;background:#fff;">' + (r+1) + '</td>';
-row += '<td class="p-2 border font-mono text-xs" style="position:sticky;left:40px;z-index:10;background:#fff;">' + escapeHtml(student.admissionNumber) + '</td>';
-row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName)+' '+escapeHtml(student.lastName) + '</td>';
-row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;background:#fff;border-right:2px solid #d1d5db;">' + escapeHtml(student.currentClass) + '</td>';
+        row += '<td class="p-2 text-center border" style="position:sticky;left:0;z-index:10;background:#fff;">' + (r+1) + '</td>';
+        row += '<td class="p-2 border font-mono text-xs" style="position:sticky;left:40px;z-index:10;background:#fff;">' + escapeHtml(student.admissionNumber) + '</td>';
+        row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName)+' '+escapeHtml(student.lastName) + '</td>';
+        row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;background:#fff;border-right:2px solid #d1d5db;">' + escapeHtml(student.currentClass) + '</td>';
+
         if (includeTuition) {
             var t = student.tuition || {};
             var tExpected = t.expected || 0, tPaid = t.paid || 0, tBalance = Math.max(0, tExpected - tPaid);
@@ -83212,6 +83256,7 @@ row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;back
         bodyRows += row;
     }
 
+    // Totals row
     var totalRow = '<tr class="bg-gray-100 font-semibold border-t-2">';
     totalRow += '<td class="p-2 border text-right" colspan="4">Totals</td>';
     if (includeTuition) {
@@ -83254,6 +83299,106 @@ row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;back
         '</div>';
 }
 
+// ============================================================
+// 3. renderReportResultsV3 – updated to use the new functions
+// ============================================================
+function renderReportResultsV3(data) {
+    var container = document.getElementById('reportTableContainer');
+    var recordCount = document.getElementById('reportRecordCount');
+    if (!container) return;
+
+    var students = data.students || [];
+    var filters = data.filters || {};
+    var includeTuition = filters.includeTuition !== false;
+
+    var visible = getVisibleStudents(students, filters);
+    if (recordCount) recordCount.innerText = visible.length;
+
+    if (visible.length === 0) {
+        container.innerHTML = '<div class="text-center py-12 text-gray-500">No records found matching your filters</div>';
+        return;
+    }
+
+    var summaryHtml = buildSummaryCardsV3(visible);
+    var tableHtml = buildReportTable(students, data.totals || {}, data.statusGroupTotals || {}, includeTuition, filters);
+    container.innerHTML = summaryHtml + tableHtml;
+}
+
+// ============================================================
+// 4. buildSummaryCardsV3 – unchanged
+// ============================================================
+function buildSummaryCardsV3(students) {
+    var fullyPaid = 0, due = 0, none = 0, credit = 0;
+    var tuitionExpected = 0, tuitionPaid = 0, totalExpected = 0, totalPaid = 0;
+
+    for (var i = 0; i < students.length; i++) {
+        var s = students[i];
+        if (s.overallStatus === 'Fully Paid') fullyPaid++;
+        else if (s.overallStatus === 'Credit Balance') credit++;
+        else if (s.overallStatus === 'No Payment') none++;
+        else due++;
+
+        tuitionExpected += (s.tuition && s.tuition.expected) || 0;
+        tuitionPaid += (s.tuition && s.tuition.paid) || 0;
+        totalExpected += s.totalExpected || 0;
+        totalPaid += s.totalPaid || 0;
+    }
+
+    var tuitionRate = tuitionExpected > 0 ? (tuitionPaid / tuitionExpected * 100) : 0;
+    var overallRate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
+
+    return '' +
+        '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">' +
+            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Students</p><p class="text-xl font-bold">' + students.length + '</p></div>' +
+            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Fully Paid</p><p class="text-xl font-bold">' + fullyPaid + '</p></div>' +
+            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Balance Due</p><p class="text-xl font-bold">' + due + '</p></div>' +
+            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">No Payment</p><p class="text-xl font-bold">' + none + '</p></div>' +
+            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Tuition %</p><p class="text-xl font-bold">' + tuitionRate.toFixed(1) + '</p></div>' +
+            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Overall %</p><p class="text-xl font-bold">' + overallRate.toFixed(1) + '</p></div>' +
+        '</div>';
+}
+
+// ============================================================
+// 5. Helper functions (if missing, include these)
+// ============================================================
+function buildTuitionPeriodsPlain(tuition) {
+    var pb = tuition.periodBreakdown || {};
+    var keys = Object.keys(pb).sort();
+    var parts = [];
+    for (var i = 0; i < keys.length; i++) {
+        var p = pb[keys[i]];
+        if (!p) continue;
+        parts.push(getTermShort(p.term) + ' ' + p.year + ': ' + formatMoney(p.paid) + '/' + formatMoney(p.expected));
+    }
+    return parts.join('; ');
+}
+
+function buildItemPeriodsPlain(itemData, metric) {
+    var pb = itemData.periodBreakdown || {};
+    var keys = Object.keys(pb).sort();
+    var parts = [];
+    for (var i = 0; i < keys.length; i++) {
+        var p = pb[keys[i]];
+        if (!p || p.isNotApplicable) continue;
+        var label = getTermShort(p.term) + ' ' + p.year + ': ';
+
+        if (metric.unit === 'combo') {
+            var qc = p.qtyCollected || 0, ac = p.amtCollected || 0;
+            var qe = qc + (p.qtyRemaining || 0), ae = ac + (p.amtRemaining || 0);
+            var collectedStr = (qc > 0 && ac > 0) ? (qc + ' or ' + formatMoney(ac))
+                              : (qc > 0 ? String(qc) : (ac > 0 ? formatMoney(ac) : '0'));
+            var expectedStr = qe + ' or ' + formatMoney(ae);
+            parts.push(label + collectedStr + '/' + expectedStr);
+        } else {
+            var collected = metric.unit === 'money' ? (p.amtCollected || 0) : (p.qtyCollected || 0);
+            var expected = metric.unit === 'money'
+                ? ((p.amtCollected || 0) + (p.amtRemaining || 0))
+                : ((p.qtyCollected || 0) + (p.qtyRemaining || 0));
+            parts.push(label + formatMetricValue(metric.unit, collected) + '/' + formatMetricValue(metric.unit, expected));
+        }
+    }
+    return parts.join('; ');
+}
 function buildTuitionPeriodsPlain(tuition) {
     var pb = tuition.periodBreakdown || {};
     var keys = Object.keys(pb).sort();
