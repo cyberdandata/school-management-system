@@ -65366,7 +65366,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
     }
 
     function field(delayStep, labelHtml, innerHtml, helpHtml) {
-        return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms">' +
+        return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms z-index:50000;">' +
             '<label class="block text-sm font-medium mb-1 text-slate-600">' + labelHtml + '</label>' +
             innerHtml +
             (helpHtml ? '<p class="text-xs text-slate-400 mt-1">' + helpHtml + '</p>' : '') +
@@ -65400,7 +65400,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
             </div>
 
             <!-- ======================= FILTER CARD ======================= -->
-            <div class="db-card rpt-card-hover overflow-hidden">
+          <div class="db-card rpt-card-hover rpt-filter-card overflow-visible">
                 <div class="db-card-hd px-5 py-4 flex justify-between items-center flex-wrap gap-2">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-filter text-sm"></i></div>
