@@ -82994,7 +82994,7 @@ function getVisibleStudents(students, filters) {
     var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
     var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
-    return students.filter(function (student) {
+    var filtered = students.filter(function (student) {
         var groups = student.statusGroups || {};
 
         // If no groups or items selected, include all
@@ -83024,6 +83024,20 @@ function getVisibleStudents(students, filters) {
 
         return true;
     });
+
+    // Sort by class order (Baby Class → P.7), then by name
+    filtered.sort(function (a, b) {
+        var orderA = getClassOrder(a.currentClass);
+        var orderB = getClassOrder(b.currentClass);
+        if (orderA !== orderB) return orderA - orderB;
+
+        // Same class → sort by student name
+        var nameA = (a.firstName + ' ' + a.lastName).toLowerCase();
+        var nameB = (b.firstName + ' ' + b.lastName).toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+
+    return filtered;
 }
 
 function buildSummaryCardsV3(students) {
