@@ -7204,8 +7204,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return value.split(',').map(s => s.trim()).filter(Boolean);
         }
 
+        // --- FIX: dedicated flag for "None (Tuition Only)" ---
+        const isTuitionOnlyFilter = rawStatusGroup === 'none';
         const classIds = parseMultiParam(rawClassId);
-        const statusGroups = parseMultiParam(rawStatusGroup);
+        const statusGroups = parseMultiParam(rawStatusGroup);   // array of selected group names (if any)
         const itemNames = parseMultiParam(rawItemName);
         const paymentStatus = (rawPaymentStatus && rawPaymentStatus !== 'all') ? rawPaymentStatus : null;
         const feeStructureId = (rawFeeStructureId && rawFeeStructureId !== 'all') ? rawFeeStructureId : null;
@@ -7228,7 +7230,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             includeAllPeriods: includeAllPeriodsBool,
             paymentStatus: paymentStatus || 'all',
             feeStructureId: feeStructureId || 'all',
-            studentId: studentId || 'all'
+            studentId: studentId || 'all',
+            isTuitionOnlyFilter  // log the flag
         });
 
         // ================================================================
@@ -7782,14 +7785,16 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             // ============================================================
             // BUILD STATUS GROUPS WITH PERIOD-AWARE REMOVAL
             // ============================================================
-            const statusGroups = {};
+            // ---- FIX: rename accumulator to avoid shadowing ----
+            const studentStatusGroups = {};
             let studentTotalCashExpected = 0;
             let studentTotalCashPaid = 0;
             let studentTotalCashRemaining = 0;
             let studentCustomizedItems = 0;
             let studentHasCustomizations = false;
             
-            if (feeStructure.activityComponents) {
+            // ---- FIX: skip activity components when tuition-only ----
+            if (!isTuitionOnlyFilter && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     if (!component) continue;
 
@@ -7931,8 +7936,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         // ============================================================
                         allStatusGroups.add(groupName);
 
-                        if (!statusGroups[groupName]) {
-                            statusGroups[groupName] = {
+                        if (!studentStatusGroups[groupName]) {
+                            studentStatusGroups[groupName] = {
                                 name: groupName,
                                 periodTypes: new Set([periodType]),
                                 items: {},
@@ -7950,8 +7955,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             studentHasCustomizations = true;
                         }
 
-                        if (!statusGroups[groupName].items[item.name]) {
-                            statusGroups[groupName].items[item.name] = {
+                        if (!studentStatusGroups[groupName].items[item.name]) {
+                            studentStatusGroups[groupName].items[item.name] = {
                                 id: itemId,
                                 name: item.name,
                                 componentName: component.name,
@@ -7971,7 +7976,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             };
                         }
 
-                        const itemData = statusGroups[groupName].items[item.name];
+                        const itemData = studentStatusGroups[groupName].items[item.name];
                         itemData.periodBreakdown = localPeriodBreakdown;
                         itemData.totalCollected = totalQtyCollected;
                         itemData.totalRemaining = Math.max(0, effectiveQuantity - totalQtyCollected);
@@ -7979,12 +7984,12 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         itemData.isFullyPaid = itemData.totalRemaining <= 0 && totalAmtCollected >= effectiveAmount;
 
                         // Update group totals
-                        statusGroups[groupName].totalRequired += effectiveQuantity;
-                        statusGroups[groupName].totalCollected += totalQtyCollected;
-                        statusGroups[groupName].totalRemaining += itemData.totalRemaining;
-                        statusGroups[groupName].totalExpected += effectiveAmount;
-                        statusGroups[groupName].totalPaid += totalAmtCollected;
-                        statusGroups[groupName].totalBalance += Math.max(0, effectiveAmount - totalAmtCollected);
+                        studentStatusGroups[groupName].totalRequired += effectiveQuantity;
+                        studentStatusGroups[groupName].totalCollected += totalQtyCollected;
+                        studentStatusGroups[groupName].totalRemaining += itemData.totalRemaining;
+                        studentStatusGroups[groupName].totalExpected += effectiveAmount;
+                        studentStatusGroups[groupName].totalPaid += totalAmtCollected;
+                        studentStatusGroups[groupName].totalBalance += Math.max(0, effectiveAmount - totalAmtCollected);
 
                         studentTotalCashExpected += totalCashExpected;
                         studentTotalCashPaid += totalCashPaid;
@@ -7996,19 +8001,18 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             // ============================================================
             // APPLY STATUS GROUP & ITEM FILTERS (multi)
             // ============================================================
-            // Status group filter: student must have at least one of the selected groups
-            if (statusGroups.length > 0) {
-                const studentGroups = Object.keys(statusGroups);
+            // ---- FIX: only apply filters when not tuition-only ----
+            if (!isTuitionOnlyFilter && statusGroups.length > 0) {
+                const studentGroups = Object.keys(studentStatusGroups);
                 const hasAnyGroup = statusGroups.some(g => studentGroups.includes(g));
                 if (!hasAnyGroup) continue;
             }
             
-            // Item filter: student must have at least one of the selected items in any group
-            if (itemNames.length > 0) {
+            if (!isTuitionOnlyFilter && itemNames.length > 0) {
                 let hasAnyItem = false;
-                for (const gName in statusGroups) {
-                    if (statusGroups[gName].items) {
-                        const itemKeys = Object.keys(statusGroups[gName].items);
+                for (const gName in studentStatusGroups) {
+                    if (studentStatusGroups[gName].items) {
+                        const itemKeys = Object.keys(studentStatusGroups[gName].items);
                         if (itemNames.some(item => itemKeys.includes(item))) {
                             hasAnyItem = true;
                             break;
@@ -8103,7 +8107,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     periodsIncluded: Object.keys(tuitionPeriodBreakdown).length
                 },
                 
-                statusGroups: statusGroups,
+                // ---- FIX: use the renamed accumulator ----
+                statusGroups: studentStatusGroups,
                 
                 totalExpected: studentTotalExpected,
                 totalPaid: studentTotalPaid,
@@ -8258,7 +8263,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     includeTuition: includeTuitionBool,
                     academicYear: targetYear,
                     academicTerm: targetTerm,
-                    includeAllPeriods: includeAllPeriodsBool
+                    includeAllPeriods: includeAllPeriodsBool,
+                    // add the flag to the response for debugging
+                    isTuitionOnly: isTuitionOnlyFilter
                 },
                 metadata: {
                     currentYear: defaultYear,
