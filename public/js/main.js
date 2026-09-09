@@ -66098,11 +66098,11 @@ async function generateReportV3() {
             if (insightText) {
            //     insightText.textContent = 'Showing ' + students.length + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
             }
-            var insightRecords = document.getElementById('reportInsightRecords');
-            var insightRate = document.getElementById('reportInsightRate');
-            if (insightRecords) rptCountUp(insightRecords, students.length);
-            if (insightRate) rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
-        }
+        //     var insightRecords = document.getElementById('reportInsightRecords');
+        //     var insightRate = document.getElementById('reportInsightRate');
+        //     if (insightRecords) rptCountUp(insightRecords, students.length);
+        //     if (insightRate) rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
+        // }
     }
 
     renderReportResultsV3(result.data); // same `result.data`, same students array
