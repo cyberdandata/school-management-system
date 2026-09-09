@@ -83057,23 +83057,14 @@ function buildSummaryCardsV3(students) {
         '</div>';
 }
 
-// ============================================================
-// 1. getVisibleStudents – now supports arrays for groups/items
-// ============================================================
-// ============================================================
-// 2. buildReportTable – shows only selected groups/items
-// ============================================================
 function buildReportTable(students, totals, statusGroupTotals, includeTuition, filters) {
-    var filterGroups = filters.statusGroup || 'all';
-    var filterItems = filters.itemName || 'all';
+    var filterStatusGroup = filters.statusGroup || 'all';
+    var filterItem = filters.itemName || 'all';
+    var isTuitionOnly = filterStatusGroup === 'none';
     var includeAllPeriods = !!filters.includeAllPeriods;
-
-    var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
-    var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
     var visibleStudents = getVisibleStudents(students, filters);
 
-    // Determine which groups to display
     var allGroupNames = [];
     for (var s = 0; s < visibleStudents.length; s++) {
         var groups = visibleStudents[s].statusGroups || {};
@@ -83082,10 +83073,15 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
         }
     }
 
-    // If groups are selected, only show those; otherwise show all
-    var statusGroupsToShow = (groupList.length > 0) ? groupList : allGroupNames;
+    var statusGroupsToShow = [];
+    if (isTuitionOnly) {
+        statusGroupsToShow = [];
+    } else if (filterStatusGroup !== 'all') {
+        if (allGroupNames.indexOf(filterStatusGroup) !== -1) statusGroupsToShow = [filterStatusGroup];
+    } else {
+        statusGroupsToShow = allGroupNames;
+    }
 
-    // Build items per group, filtered by selected items
     var itemsByGroup = {};
     for (var gi = 0; gi < statusGroupsToShow.length; gi++) {
         var groupName = statusGroupsToShow[gi];
@@ -83095,23 +83091,22 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
             if (!group || !group.items) continue;
             for (var itemName in group.items) {
                 if (!group.items.hasOwnProperty(itemName)) continue;
-                if (itemList.length > 0 && itemList.indexOf(itemName) === -1) continue;
+                if (filterItem !== 'all' && itemName !== filterItem) continue;
                 if (names.indexOf(itemName) === -1) names.push(itemName);
             }
         }
         names.sort();
         if (names.length > 0) itemsByGroup[groupName] = names;
     }
+    var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g]; });
 
-    var groupsToRender = statusGroupsToShow.filter(function (g) { return itemsByGroup[g] && itemsByGroup[g].length > 0; });
-
-    // Build header rows (same as before, but now only for selected groups)
-    var headerRow1 = [
-        '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
-        '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
-        '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:150px;z-index:30;">Student</th>',
-        '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:300px;z-index:30;border-right:2px solid #9ca3af;">Class</th>'
-    ];
+   // Header row 1 — make every header cell sticky on top
+var headerRow1 = [
+    '<th class="p-2 border bg-gray-100" rowspan="2" style="position:sticky;top:0;left:0;z-index:30;">#</th>',
+    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:40px;z-index:30;">Admission</th>',
+    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:150px;z-index:30;">Student</th>',
+    '<th class="p-2 border bg-gray-100 text-left" rowspan="2" style="position:sticky;top:0;left:300px;z-index:30;border-right:2px solid #9ca3af;">Class</th>'
+];
     var headerRow2 = [];
 
     if (includeTuition) {
@@ -83139,77 +83134,126 @@ function buildReportTable(students, totals, statusGroupTotals, includeTuition, f
 
     var headerHtml = '<thead><tr>' + headerRow1.join('') + '</tr><tr>' + headerRow2.join('') + '</tr></thead>';
 
-    // ... (rest of the function remains the same: row generation, totals, etc.)
-    // We'll keep the existing row generation code unchanged – it already loops over groupsToRender and itemsByGroup.
-    // But we need to ensure the row generation uses groupsToRender and itemsByGroup as defined above.
-    // Since the rest of the function is long, I'll provide the full updated function below.
+    var bodyRows = '';
+    var totalsAcc = { tuitionCollected: 0, tuitionExpected: 0, tuitionBalance: 0 };
+    var itemTotalsAcc = {};
 
-    // (I'll paste the complete buildReportTable with the above header logic and the same body generation)
-}
+    for (var r = 0; r < visibleStudents.length; r++) {
+        var student = visibleStudents[r];
+        var row = '<tr class="border-b">';
+   row += '<td class="p-2 text-center border" style="position:sticky;left:0;z-index:10;background:#fff;">' + (r+1) + '</td>';
+row += '<td class="p-2 border font-mono text-xs" style="position:sticky;left:40px;z-index:10;background:#fff;">' + escapeHtml(student.admissionNumber) + '</td>';
+row += '<td class="p-2 border" style="position:sticky;left:150px;z-index:10;background:#fff;">' + escapeHtml(student.firstName)+' '+escapeHtml(student.lastName) + '</td>';
+row += '<td class="p-2 border" style="position:sticky;left:300px;z-index:10;background:#fff;border-right:2px solid #d1d5db;">' + escapeHtml(student.currentClass) + '</td>';
+        if (includeTuition) {
+            var t = student.tuition || {};
+            var tExpected = t.expected || 0, tPaid = t.paid || 0, tBalance = Math.max(0, tExpected - tPaid);
+            row += '<td class="p-2 text-right border">' + formatMoney(tPaid) + '</td>';
+            row += '<td class="p-2 text-right border">' + formatMoney(tExpected) + '</td>';
+            row += '<td class="p-2 text-right border">' + formatMoney(tBalance) + '</td>';
+            if (includeAllPeriods) row += '<td class="p-2 border text-xs">' + buildTuitionPeriodsPlain(t) + '</td>';
+            totalsAcc.tuitionCollected += tPaid;
+            totalsAcc.tuitionExpected += tExpected;
+            totalsAcc.tuitionBalance += tBalance;
+        }
 
-// ============================================================
-// 3. renderReportResultsV3 – updated to pass arrays in filters
-// ============================================================
-function renderReportResultsV3(data) {
-    var container = document.getElementById('reportTableContainer');
-    var recordCount = document.getElementById('reportRecordCount');
-    if (!container) return;
+        for (var gi3 = 0; gi3 < groupsToRender.length; gi3++) {
+            var gName2 = groupsToRender[gi3];
+            var gItems2 = itemsByGroup[gName2];
+            var studentGroup = (student.statusGroups || {})[gName2];
 
-    var students = data.students || [];
-    var filters = data.filters || {};
+            for (var ii2 = 0; ii2 < gItems2.length; ii2++) {
+                var itemName2 = gItems2[ii2];
+                var itemData = studentGroup && studentGroup.items ? studentGroup.items[itemName2] : null;
+                var accKey = gName2 + '::' + itemName2;
 
-    // Ensure filters have arrays (they may already be comma strings)
-    // We'll keep them as strings for backward compatibility, but getVisibleStudents will split them.
-    // No changes needed here.
+                if (!itemData) {
+                    row += '<td class="p-2 text-center border text-gray-300">-</td>';
+                    row += '<td class="p-2 text-center border text-gray-300">-</td>';
+                    row += '<td class="p-2 text-center border text-gray-300">-</td>';
+                    if (includeAllPeriods) row += '<td class="p-2 text-center border text-gray-300">-</td>';
+                    continue;
+                }
 
-    var includeTuition = filters.includeTuition !== false;
+                var metric = getItemMetric(itemData);
 
-    var visible = getVisibleStudents(students, filters);
-    if (recordCount) recordCount.innerText = visible.length;
+                if (!itemTotalsAcc[accKey]) {
+                    itemTotalsAcc[accKey] = metric.unit === 'combo'
+                        ? { unit: 'combo', qtyCollected: 0, amtCollected: 0, qtyExpected: 0, amtExpected: 0, qtyBalance: 0, amtBalance: 0 }
+                        : { unit: metric.unit, collected: 0, expected: 0, balance: 0 };
+                }
+                var acc = itemTotalsAcc[accKey];
 
-    if (visible.length === 0) {
-        container.innerHTML = '<div class="text-center py-12 text-gray-500">No records found matching your filters</div>';
-        return;
+                if (metric.unit === 'combo') {
+                    acc.qtyCollected += metric.qtyCollected;
+                    acc.amtCollected += metric.amtCollected;
+                    acc.qtyExpected += metric.qtyExpected;
+                    acc.amtExpected += metric.amtExpected;
+                    acc.qtyBalance += metric.qtyBalance;
+                    acc.amtBalance += metric.amtBalance;
+
+                    row += '<td class="p-2 text-right border">' + formatComboCollected(metric) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatComboExpected(metric) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatComboBalance(metric) + '</td>';
+                } else {
+                    acc.collected += metric.collected;
+                    acc.expected += metric.expected;
+                    acc.balance += metric.balance;
+
+                    row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.collected) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.expected) + '</td>';
+                    row += '<td class="p-2 text-right border">' + formatMetricValue(metric.unit, metric.balance) + '</td>';
+                }
+                if (includeAllPeriods) row += '<td class="p-2 border text-xs">' + buildItemPeriodsPlain(itemData, metric) + '</td>';
+            }
+        }
+
+        row += '</tr>';
+        bodyRows += row;
     }
 
-    var summaryHtml = buildSummaryCardsV3(visible);
-    var tableHtml = buildReportTable(students, data.totals || {}, data.statusGroupTotals || {}, includeTuition, filters);
-    container.innerHTML = summaryHtml + tableHtml;
-}
-
-// ============================================================
-// 4. buildSummaryCardsV3 – unchanged
-// ============================================================
-function buildSummaryCardsV3(students) {
-    var fullyPaid = 0, due = 0, none = 0, credit = 0;
-    var tuitionExpected = 0, tuitionPaid = 0, totalExpected = 0, totalPaid = 0;
-
-    for (var i = 0; i < students.length; i++) {
-        var s = students[i];
-        if (s.overallStatus === 'Fully Paid') fullyPaid++;
-        else if (s.overallStatus === 'Credit Balance') credit++;
-        else if (s.overallStatus === 'No Payment') none++;
-        else due++;
-
-        tuitionExpected += (s.tuition && s.tuition.expected) || 0;
-        tuitionPaid += (s.tuition && s.tuition.paid) || 0;
-        totalExpected += s.totalExpected || 0;
-        totalPaid += s.totalPaid || 0;
+    var totalRow = '<tr class="bg-gray-100 font-semibold border-t-2">';
+    totalRow += '<td class="p-2 border text-right" colspan="4">Totals</td>';
+    if (includeTuition) {
+        totalRow += '<td class="p-2 text-right border">' + formatMoney(totalsAcc.tuitionCollected) + '</td>';
+        totalRow += '<td class="p-2 text-right border">' + formatMoney(totalsAcc.tuitionExpected) + '</td>';
+        totalRow += '<td class="p-2 text-right border">' + formatMoney(totalsAcc.tuitionBalance) + '</td>';
+        if (includeAllPeriods) totalRow += '<td class="p-2 border"></td>';
     }
-
-    var tuitionRate = tuitionExpected > 0 ? (tuitionPaid / tuitionExpected * 100) : 0;
-    var overallRate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
+    for (var gi4 = 0; gi4 < groupsToRender.length; gi4++) {
+        var gName3 = groupsToRender[gi4];
+        var gItems3 = itemsByGroup[gName3];
+        for (var ii3 = 0; ii3 < gItems3.length; ii3++) {
+            var key = gName3 + '::' + gItems3[ii3];
+            var acc2 = itemTotalsAcc[key];
+            if (!acc2) {
+                totalRow += '<td class="p-2 text-right border">0</td><td class="p-2 text-right border">0</td><td class="p-2 text-right border">0</td>';
+                if (includeAllPeriods) totalRow += '<td class="p-2 border"></td>';
+                continue;
+            }
+            if (acc2.unit === 'combo') {
+                totalRow += '<td class="p-2 text-right border">' + formatComboCollected({ qtyCollected: acc2.qtyCollected, amtCollected: acc2.amtCollected }) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatComboExpected({ qtyExpected: acc2.qtyExpected, amtExpected: acc2.amtExpected }) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatComboBalance({ qtyBalance: acc2.qtyBalance, amtBalance: acc2.amtBalance }) + '</td>';
+            } else {
+                totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc2.unit, acc2.collected) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc2.unit, acc2.expected) + '</td>';
+                totalRow += '<td class="p-2 text-right border">' + formatMetricValue(acc2.unit, acc2.balance) + '</td>';
+            }
+            if (includeAllPeriods) totalRow += '<td class="p-2 border"></td>';
+        }
+    }
+    totalRow += '</tr>';
 
     return '' +
-        '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">' +
-            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Students</p><p class="text-xl font-bold">' + students.length + '</p></div>' +
-            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Fully Paid</p><p class="text-xl font-bold">' + fullyPaid + '</p></div>' +
-            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Balance Due</p><p class="text-xl font-bold">' + due + '</p></div>' +
-            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">No Payment</p><p class="text-xl font-bold">' + none + '</p></div>' +
-            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Tuition %</p><p class="text-xl font-bold">' + tuitionRate.toFixed(1) + '</p></div>' +
-            '<div class="bg-slate-50 rounded-lg p-3 text-center border"><p class="text-xs text-gray-500">Overall %</p><p class="text-xl font-bold">' + overallRate.toFixed(1) + '</p></div>' +
+        '<div class="overflow-auto" style="max-height:70vh;border:1px solid #e5e7eb;border-radius:8px;">' +
+            '<table class="w-full text-sm border-collapse" id="reportTable">' +
+                headerHtml +
+                '<tbody>' + bodyRows + totalRow + '</tbody>' +
+            '</table>' +
         '</div>';
 }
+
 function buildTuitionPeriodsPlain(tuition) {
     var pb = tuition.periodBreakdown || {};
     var keys = Object.keys(pb).sort();
