@@ -66176,39 +66176,21 @@ function injectReportsDesignSystem() {
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         /* ---- Multi‑select dropdown fixes (aggressive) ---- */
-        .rpt-multiselect {
-            position: relative;
-            z-index: 50;
-        }
-        .rpt-multiselect-dropdown {
-            position: absolute !important;
-            z-index: 99999 !important;
-            background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 0.75rem !important;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
-            max-height: 220px !important;
-            overflow-y: auto !important;
-            min-width: 200px !important;
-            padding: 8px !important;
-            margin-top: 4px !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            top: 100% !important;
-        }
-        .rpt-multiselect-dropdown label {
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            padding: 6px 10px !important;
-            border-radius: 6px !important;
-            cursor: pointer !important;
-            transition: background 0.1s !important;
-        }
-        .rpt-multiselect-dropdown label:hover {
-            background: #f1f5f9 !important;
-        }
+      .rpt-multiselect { position: relative; }
+.rpt-multiselect-dropdown {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    overflow-y: auto;
+    padding: 8px;
+}
+.rpt-multiselect-dropdown label {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 6px; cursor: pointer;
+    transition: background 0.1s;
+}
+.rpt-multiselect-dropdown label:hover { background: #f1f5f9; }
 
         /* Force all ancestors to allow overflow */
         .rpt-filter-card,
