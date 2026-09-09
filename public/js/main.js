@@ -65366,7 +65366,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
     }
 
     function field(delayStep, labelHtml, innerHtml, helpHtml) {
-        return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms z-index:50000;">' +
+        return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms">' +
             '<label class="block text-sm font-medium mb-1 text-slate-600">' + labelHtml + '</label>' +
             innerHtml +
             (helpHtml ? '<p class="text-xs text-slate-400 mt-1">' + helpHtml + '</p>' : '') +
