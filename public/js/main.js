@@ -65131,7 +65131,158 @@ function rptShowToast(message, icon) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. MAIN PAGE RENDER
+// 1. UTILITY HELPERS
+// ---------------------------------------------------------------------------
+function rptEscapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function rptFormatMoney(amount) {
+    return Math.round(amount || 0).toLocaleString('en-US');
+}
+
+function rptGetTermName(term) {
+    var names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+    return names[term] || 'Term ' + term;
+}
+
+function rptGetTermShort(term) {
+    var names = { 1: 'T1', 2: 'T2', 3: 'T3' };
+    return names[term] || 'T' + term;
+}
+
+function rptStatusBadge(status) {
+    var map = {
+        'Fully Paid': 'bg-green-100 text-green-700',
+        'Payment Due': 'bg-amber-100 text-amber-700',
+        'No Payment': 'bg-slate-100 text-slate-600',
+        'Credit Balance': 'bg-blue-100 text-blue-700'
+    };
+    var cls = map[status] || 'bg-slate-100 text-slate-600';
+    return '<span class="db-badge px-2 py-0.5 rounded-full text-xs font-medium ' + cls + '">' + (status || '—') + '</span>';
+}
+
+function rptCountUp(el, value, opts) {
+    if (!el) return;
+    opts = opts || {};
+    var suffix = opts.suffix || '';
+    var decimals = opts.decimals || 0;
+    var from = parseFloat(el.textContent.replace(/[^0-9.]/g, '')) || 0;
+    var to = parseFloat(value) || 0;
+    if (from === to) {
+        el.textContent = (typeof value === 'number' ? value.toFixed(decimals) : value) + suffix;
+        return;
+    }
+    var duration = 400;
+    var startTime = performance.now();
+
+    function update(now) {
+        var progress = Math.min(1, (now - startTime) / duration);
+        var current = from + (to - from) * progress;
+        el.textContent = current.toFixed(decimals) + suffix;
+        if (progress < 1) requestAnimationFrame(update);
+        else el.textContent = (typeof value === 'number' ? value.toFixed(decimals) : value) + suffix;
+    }
+    requestAnimationFrame(update);
+}
+
+function rptShowToast(message, type) {
+    var toast = document.createElement('div');
+    var bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+    toast.className = 'fixed bottom-4 right-4 ' + bgColor + ' text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-sm';
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    setTimeout(function () { toast.remove(); }, 4000);
+}
+
+// ---------------------------------------------------------------------------
+// 2. MULTI‑SELECT DROPDOWN COMPONENT
+// ---------------------------------------------------------------------------
+function rptBuildMultiSelect(id, label, options, selected) {
+    selected = selected || [];
+    var html = '<div class="rpt-multiselect" data-field="' + id + '">';
+    html += '<button type="button" class="rpt-multiselect-btn w-full border border-slate-200 rounded-xl px-3 py-2.5 text-left text-sm flex items-center justify-between bg-white hover:border-slate-300 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none" onclick="rptToggleMulti(\'' + id + '\')">';
+    html += '<span class="rpt-multiselect-label">' + label + '</span>';
+    html += '<i class="fas fa-chevron-down text-slate-400 text-xs"></i>';
+    html += '</button>';
+    html += '<div class="rpt-multiselect-dropdown hidden absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2">';
+    for (var i = 0; i < options.length; i++) {
+        var opt = options[i];
+        var checked = selected.indexOf(opt.value) !== -1 ? 'checked' : '';
+        html += '<label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-sm">';
+        html += '<input type="checkbox" value="' + rptEscapeHtml(opt.value) + '" ' + checked + ' onchange="rptMultiChange(\'' + id + '\')">';
+        html += '<span>' + rptEscapeHtml(opt.label) + '</span>';
+        html += '</label>';
+    }
+    html += '</div></div>';
+    return html;
+}
+
+function rptToggleMulti(id) {
+    var dropdown = document.querySelector('.rpt-multiselect[data-field="' + id + '"] .rpt-multiselect-dropdown');
+    if (dropdown) dropdown.classList.toggle('hidden');
+    // Close others
+    document.querySelectorAll('.rpt-multiselect-dropdown').forEach(function (el) {
+        if (el !== dropdown) el.classList.add('hidden');
+    });
+}
+
+function rptMultiChange(id) {
+    var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
+    var checks = container.querySelectorAll('input[type="checkbox"]:checked');
+    var values = [];
+    checks.forEach(function (cb) { values.push(cb.value); });
+    // Store selected values as data attribute for later retrieval
+    container.dataset.selected = JSON.stringify(values);
+    // Update label
+    var label = container.querySelector('.rpt-multiselect-label');
+    if (values.length === 0) {
+        label.textContent = 'None selected';
+    } else if (values.length === 1) {
+        var opt = container.querySelector('input[value="' + values[0] + '"]');
+        label.textContent = opt ? opt.parentElement.textContent.trim() : values[0];
+    } else {
+        label.textContent = values.length + ' selected';
+    }
+    // Trigger change event for filter tracking
+    var evt = new Event('change');
+    container.dispatchEvent(evt);
+    // Rebuild active chips
+    rptUpdateActiveFilterChips();
+}
+
+function rptGetMultiSelected(id) {
+    var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
+    if (!container) return [];
+    var data = container.dataset.selected;
+    if (data) return JSON.parse(data);
+    var checks = container.querySelectorAll('input[type="checkbox"]:checked');
+    var values = [];
+    checks.forEach(function (cb) { values.push(cb.value); });
+    return values;
+}
+
+function rptClearMulti(id) {
+    var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
+    if (!container) return;
+    container.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    container.dataset.selected = '[]';
+    container.querySelector('.rpt-multiselect-label').textContent = 'None selected';
+    rptUpdateActiveFilterChips();
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.rpt-multiselect')) {
+        document.querySelectorAll('.rpt-multiselect-dropdown').forEach(function (el) { el.classList.add('hidden'); });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 3. MAIN PAGE RENDER
 // ---------------------------------------------------------------------------
 function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) {
     var mainContent = document.getElementById('mainContent');
@@ -65140,14 +65291,13 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
     injectReportsDesignSystem();
 
-    var escapeHtmlFn = rptEscapeHtml;
+    var escapeHtml = rptEscapeHtml;
 
-    // ---- Build filter option lists (same data, refreshed markup) ----
-    var classOptionsHtml = '<option value="all">📚 All Classes</option>';
-    for (var c = 0; c < filterOptions.classes.length; c++) {
-        var cls = filterOptions.classes[c];
-        classOptionsHtml += '<option value="' + cls.id + '">' + escapeHtmlFn(cls.name) + '</option>';
-    }
+    // ---- Build filter option lists ----
+    // Class options for multi-select
+    var classOptions = filterOptions.classes.map(function (c) {
+        return { value: c.id, label: c.name };
+    });
 
     var levelOptionsHtml = '<option value="all">🎓 All Levels</option>';
     var levelLabels = { 'Nursery': '🎨 Nursery', 'LowerPrimary': '📚 Lower Primary', 'UpperPrimary': '🎓 Upper Primary' };
@@ -65159,27 +65309,25 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
     var studentOptionsHtml = '<option value="all">👤 All Students</option>';
     for (var s = 0; s < filterOptions.students.length; s++) {
         var stu = filterOptions.students[s];
-        studentOptionsHtml += '<option value="' + stu.id + '">' + escapeHtmlFn(stu.name) + ' (' + stu.admissionNumber + ')</option>';
+        studentOptionsHtml += '<option value="' + stu.id + '">' + escapeHtml(stu.name) + ' (' + stu.admissionNumber + ')</option>';
     }
 
     var feeStructureOptionsHtml = '<option value="all">📄 All Fee Structures</option>';
     for (var fs = 0; fs < filterOptions.feeStructures.length; fs++) {
         var fstruct = filterOptions.feeStructures[fs];
-        feeStructureOptionsHtml += '<option value="' + fstruct.id + '">' + escapeHtmlFn(fstruct.name) + ' (' + fstruct.level + ')</option>';
+        feeStructureOptionsHtml += '<option value="' + fstruct.id + '">' + escapeHtml(fstruct.name) + ' (' + fstruct.level + ')</option>';
     }
 
-    var statusGroupOptionsHtml = '<option value="all">🏷️ All Status Groups</option><option value="none">🚫 None (Tuition Only)</option>';
-    for (var sg = 0; sg < filterOptions.statusGroups.length; sg++) {
-        var group = filterOptions.statusGroups[sg];
-        var displayName = group === 'schoolastic requirement' ? 'Scholastic' : group;
-        statusGroupOptionsHtml += '<option value="' + group + '">' + escapeHtmlFn(displayName) + '</option>';
-    }
+    // Status Group options for multi-select
+    var statusGroupOptions = filterOptions.statusGroups.map(function (g) {
+        var display = g === 'schoolastic requirement' ? 'Scholastic' : g;
+        return { value: g, label: display };
+    });
 
-    var itemOptionsHtml = '<option value="all">📦 All Items</option>';
-    for (var it = 0; it < filterOptions.scholasticItems.length; it++) {
-        var item = filterOptions.scholasticItems[it];
-        itemOptionsHtml += '<option value="' + item + '">' + escapeHtmlFn(item) + '</option>';
-    }
+    // Item options for multi-select
+    var itemOptions = filterOptions.scholasticItems.map(function (it) {
+        return { value: it, label: it };
+    });
 
     var paymentStatusHtml = '<option value="all">💳 All Payment Status</option>';
     for (var ps = 0; ps < filterOptions.paymentStatuses.length; ps++) {
@@ -65196,22 +65344,21 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
 
     var periodOptionsHtml = '';
     periodOptionsHtml += '<option value="all">📅 All Periods</option>';
-    periodOptionsHtml += '<option value="current">📌 Current Period</option>';
+    periodOptionsHtml += '<option value="current" selected>📌 Current Period</option>';
     for (var yy = 0; yy < availableYears.length; yy++) {
         var year = availableYears[yy];
         var label = year === currentYear ? year + ' (Current)' : year;
         periodOptionsHtml += '<optgroup label="' + label + '">';
         for (var t = 1; t <= 3; t++) {
-            var termLabel = getTermName(t);
+            var termLabel = rptGetTermName(t);
             var isCurrent = (year === currentYear && t === currentTerm);
             var currentLabel = isCurrent ? ' ⭐' : '';
-            periodOptionsHtml += '<option value="' + year + '_' + t + '">' + termLabel + ' ' + year + currentLabel + '</option>';
+            var selected = (year === currentYear && t === currentTerm) ? 'selected' : '';
+            periodOptionsHtml += '<option value="' + year + '_' + t + '" ' + selected + '>' + termLabel + ' ' + year + currentLabel + '</option>';
         }
         periodOptionsHtml += '</optgroup>';
     }
 
-    // Each field carries a stagger delay via inline style so the whole
-    // form reveals in a quick cascade on first paint, not all at once.
     function field(delayStep, labelHtml, innerHtml, helpHtml) {
         return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms">' +
             '<label class="block text-sm font-medium mb-1 text-slate-600">' + labelHtml + '</label>' +
@@ -65228,7 +65375,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                 <div class="rpt-hero-edge"></div>
                 <div class="relative z-10 flex justify-between items-start flex-wrap gap-5">
                     <div>
-                        <p class="db-eyebrow" style="color:rgba(255,255,255,.75)">Multi-Period Ledger</p>
+                        <p class="db-eyebrow" style="color:rgba(255,255,255,.75)">Multi‑Period Ledger</p>
                         <h1 class="font-display text-3xl font-bold tracking-tight flex items-center gap-2">
                             <i class="fas fa-file-lines"></i>Comprehensive Reports
                         </h1>
@@ -65264,66 +65411,62 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 
                             ${field(0, '🎓 Level',
-                                `<select id="reportLevelFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${levelOptionsHtml}</select>`)}
+                                `<select id="reportLevelFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${levelOptionsHtml}</select>`)
+                            }
 
-                            ${field(1, '👤 Student',
+                            ${field(1, '📚 Class',
+                                rptBuildMultiSelect('reportClassFilter', 'All Classes', classOptions, [])
+                            )}
+
+                            ${field(2, '👤 Student',
                                 `<div class="relative">
                                     <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                                     <input type="text" id="reportStudentSearch" placeholder="Search by name or admission no..."
                                            class="rpt-input w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none text-sm">
                                 </div>
-                                <select id="reportStudentFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 mt-2 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${studentOptionsHtml}</select>`)}
+                                <select id="reportStudentFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 mt-2 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${studentOptionsHtml}</select>`
+                            )}
 
-                            ${field(2, '📄 Fee Structure',
-                                `<select id="reportFeeStructureFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${feeStructureOptionsHtml}</select>`)}
+                            ${field(3, '📄 Fee Structure',
+                                `<select id="reportFeeStructureFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${feeStructureOptionsHtml}</select>`
+                            )}
 
-                            ${field(3, '🏷️ Status Group',
-                                `<select id="reportStatusGroupFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${statusGroupOptionsHtml}</select>`,
-                                'Pick "None" to see tuition only')}
+                            ${field(4, '🏷️ Status Group',
+                                rptBuildMultiSelect('reportStatusGroupFilter', 'All Status Groups', statusGroupOptions, []),
+                                'Pick one or more status groups – leave empty for all'
+                            )}
 
-                            ${field(4, '📦 Item',
-                                `<select id="reportItemFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${itemOptionsHtml}</select>`)}
+                            ${field(5, '📦 Item',
+                                rptBuildMultiSelect('reportItemFilter', 'All Items', itemOptions, []),
+                                'Pick one or more items – leave empty for all'
+                            )}
 
-                            ${field(5, '💰 Tuition',
+                            ${field(6, '💰 Tuition',
                                 `<div class="flex items-center gap-3 mt-1">
                                     <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="reportTuitionFilter" class="sr-only peer" checked>
+                                        <input type="checkbox" id="reportTuitionFilter" class="sr-only peer">
                                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                                        <span class="ml-2 text-sm font-medium text-slate-700" id="tuitionToggleLabel">Include Tuition</span>
+                                        <span class="ml-2 text-sm font-medium text-slate-700" id="tuitionToggleLabel">Exclude Tuition</span>
                                     </label>
                                 </div>`,
-                                'Toggle tuition in or out of the totals')}
+                                'Toggle tuition in or out of the totals'
+                            )}
 
-                            ${field(6, '💳 Payment Status',
-                                `<select id="reportPaymentStatusFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${paymentStatusHtml}</select>`)}
+                            ${field(7, '💳 Payment Status',
+                                `<select id="reportPaymentStatusFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${paymentStatusHtml}</select>`
+                            )}
 
-                            ${field(7, '📅 Academic Period',
+                            ${field(8, '📅 Academic Period',
                                 `<select id="reportPeriodFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${periodOptionsHtml}</select>
                                 <div class="flex items-center gap-2 mt-2">
                                     <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="reportIncludeAllPeriods" class="sr-only peer" checked>
+                                        <input type="checkbox" id="reportIncludeAllPeriods" class="sr-only peer">
                                         <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
                                         <span class="ml-2 text-xs font-medium text-slate-700">Include all periods</span>
                                     </label>
                                 </div>`,
-                                'One term, or the whole history — your call')}
-
-                            ${field(8, '📊 Excel Export Sections',
-                                `<div class="space-y-2 mt-1 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                                        <input type="checkbox" id="reportIncludeMainTable" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
-                                        Main report table
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                                        <input type="checkbox" id="reportIncludePeriodBreakdown" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
-                                        Period breakdown summary
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                                        <input type="checkbox" id="reportIncludeSummaryStats" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
-                                        Summary statistics
-                                    </label>
-                                </div>`,
-                                'Choose which sections appear in the exported Excel file — all on by default')}
+                                'One term, or the whole history — your call'
+                            )}
 
                             <div class="rpt-field flex flex-wrap gap-2 items-end" style="animation-delay:405ms">
                                 <button type="submit" id="rptGenerateBtn" class="rpt-generate-btn rpt-btn-press bg-teal-600 text-white px-4 py-2.5 rounded-xl hover:bg-teal-700 font-semibold flex-1 flex items-center justify-center gap-2">
@@ -65335,7 +65478,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                             </div>
                         </div>
 
-                        <!-- ============ ACTIVE FILTERS RIBBON (signature element) ============ -->
+                        <!-- ============ ACTIVE FILTERS RIBBON ============ -->
                         <div id="reportActiveFiltersRow" class="flex flex-wrap items-center gap-2 pt-1 min-h-[2rem]">
                             <!-- populated live by JS as selections change -->
                         </div>
@@ -65405,8 +65548,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
 }
 
 // ---------------------------------------------------------------------------
-// 3. FILTER INTERACTIVITY — active-filter chips, dirty-state pulse,
-//    student search, tuition toggle label, period lock.
+// 4. FILTER INTERACTIVITY
 // ---------------------------------------------------------------------------
 var rptLastAppliedSignature = null;
 
@@ -65414,13 +65556,15 @@ function attachReportFilterListeners() {
     var filterForm = document.getElementById('reportFilterForm');
     var filterIds = [
         'reportLevelFilter', 'reportStudentFilter', 'reportFeeStructureFilter',
-        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
-        'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
+        'reportPaymentStatusFilter', 'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
     ];
+    // Multi‑select fields are not traditional inputs, but we can listen to their custom change events.
+    var multiIds = ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'];
     var filterLabels = {
         reportLevelFilter: '🎓 Level', reportStudentFilter: '👤 Student', reportFeeStructureFilter: '📄 Fee Structure',
         reportStatusGroupFilter: '🏷️ Status Group', reportItemFilter: '📦 Item', reportPaymentStatusFilter: '💳 Payment Status',
-        reportPeriodFilter: '📅 Period'
+        reportPeriodFilter: '📅 Period',
+        reportClassFilter: '📚 Class'
     };
 
     if (filterForm) {
@@ -65435,32 +65579,38 @@ function attachReportFilterListeners() {
     var tuitionToggle = document.getElementById('reportTuitionFilter');
     var tuitionLabel = document.getElementById('tuitionToggleLabel');
     if (tuitionToggle && tuitionLabel) {
+        tuitionToggle.checked = false;
+        tuitionLabel.textContent = 'Exclude Tuition';
         tuitionToggle.addEventListener('change', function () {
             tuitionLabel.textContent = this.checked ? 'Include Tuition' : 'Exclude Tuition';
+            rptUpdateActiveFilterChips();
+            rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
         });
     }
 
     var periodFilter = document.getElementById('reportPeriodFilter');
-var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
-if (periodFilter && includeAllPeriods) {
-    var syncPeriodLock = function () {
-        if (periodFilter.value === 'all') {
-            // "All Periods" always means the full history
-            includeAllPeriods.checked = true;
-            includeAllPeriods.disabled = true;
-            includeAllPeriods.parentElement.style.opacity = '0.5';
-        } else {
-            // Picking a specific term (or "Current Period") narrows the
-            // report to just that period by default. The checkbox becomes
-            // an explicit opt-in for "show history up to this point" instead.
-            includeAllPeriods.checked = false;
-            includeAllPeriods.disabled = false;
-            includeAllPeriods.parentElement.style.opacity = '1';
-        }
-    };
-    periodFilter.addEventListener('change', syncPeriodLock);
-    syncPeriodLock();
-}
+    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
+    if (periodFilter && includeAllPeriods) {
+        // Default: current period, includeAllPeriods off
+        includeAllPeriods.checked = false;
+        var syncPeriodLock = function () {
+            if (periodFilter.value === 'all') {
+                includeAllPeriods.checked = true;
+                includeAllPeriods.disabled = true;
+                includeAllPeriods.parentElement.style.opacity = '0.5';
+            } else {
+                includeAllPeriods.checked = false;
+                includeAllPeriods.disabled = false;
+                includeAllPeriods.parentElement.style.opacity = '1';
+            }
+        };
+        periodFilter.addEventListener('change', function () {
+            syncPeriodLock();
+            rptUpdateActiveFilterChips();
+            rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
+        });
+        syncPeriodLock();
+    }
 
     var studentSearch = document.getElementById('reportStudentSearch');
     var studentSelect = document.getElementById('reportStudentFilter');
@@ -65476,36 +65626,52 @@ if (periodFilter && includeAllPeriods) {
                 if (match && !firstVisible) firstVisible = options[i].value;
             }
             if (firstVisible && !studentSelect.value) studentSelect.value = firstVisible;
+            rptUpdateActiveFilterChips();
         });
     }
 
-    // Wire every filter control to refresh the active-filter chip ribbon
-    // and flag the Generate button as "dirty" (pending changes) the moment
-    // a selection no longer matches what was last applied.
+    // Single selects
     filterIds.forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         var evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
         el.addEventListener(evt, function () {
-            rptUpdateActiveFilterChips(filterIds, filterLabels);
+            rptUpdateActiveFilterChips();
             rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
         });
     });
 
-    rptUpdateActiveFilterChips(filterIds, filterLabels);
+    // Multi‑select custom components: listen to their custom change events
+    multiIds.forEach(function (id) {
+        var container = document.querySelector('.rpt-multiselect[data-field="' + id + '"]');
+        if (container) {
+            container.addEventListener('change', function () {
+                rptUpdateActiveFilterChips();
+                rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
+            });
+        }
+    });
+
+    rptUpdateActiveFilterChips();
 }
 
 function rptFilterSignature() {
-    var ids = [
+    var singleIds = [
         'reportLevelFilter', 'reportStudentFilter', 'reportFeeStructureFilter',
-        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
-        'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
+        'reportPaymentStatusFilter', 'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
     ];
-    return ids.map(function (id) {
+    var parts = singleIds.map(function (id) {
         var el = document.getElementById(id);
         if (!el) return '';
         return el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value;
-    }).join('|');
+    });
+    // Add multi‑select values
+    var multiIds = ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'];
+    multiIds.forEach(function (id) {
+        var vals = rptGetMultiSelected(id);
+        parts.push(vals.sort().join(','));
+    });
+    return parts.join('|');
 }
 
 function rptSetGenerateDirty(isDirty) {
@@ -65516,18 +65682,48 @@ function rptSetGenerateDirty(isDirty) {
     if (label) label.textContent = isDirty ? 'Generate (changes pending)' : 'Generate';
 }
 
-function rptUpdateActiveFilterChips(filterIds, filterLabels) {
+function rptUpdateActiveFilterChips() {
     var row = document.getElementById('reportActiveFiltersRow');
     var badge = document.getElementById('reportFilterCountBadge');
     if (!row) return;
 
     var chips = [];
-    filterIds.forEach(function (id) {
-        if (!filterLabels[id]) return; // skip tuition/period-lock toggles from the chip row
+
+    // Single selects
+    var singleMap = {
+        reportLevelFilter: '🎓 Level',
+        reportStudentFilter: '👤 Student',
+        reportFeeStructureFilter: '📄 Fee Structure',
+        reportPaymentStatusFilter: '💳 Payment Status',
+        reportPeriodFilter: '📅 Period'
+    };
+    for (var id in singleMap) {
         var el = document.getElementById(id);
-        if (!el || el.value === 'all' || el.value === '') return;
-        var text = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
-        chips.push({ id: id, label: filterLabels[id], text: text });
+        if (!el) continue;
+        if (el.value && el.value !== 'all' && el.value !== '') {
+            var text = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+            chips.push({ id: id, label: singleMap[id], text: text });
+        }
+    }
+
+    // Tuition toggle
+    var tuition = document.getElementById('reportTuitionFilter');
+    if (tuition) {
+        chips.push({ id: 'reportTuitionFilter', label: '💰 Tuition', text: tuition.checked ? 'Included' : 'Excluded' });
+    }
+
+    // Multi‑selects
+    var multiIds = ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'];
+    var multiLabels = {
+        reportClassFilter: '📚 Class',
+        reportStatusGroupFilter: '🏷️ Status Group',
+        reportItemFilter: '📦 Item'
+    };
+    multiIds.forEach(function (id) {
+        var vals = rptGetMultiSelected(id);
+        if (vals.length > 0) {
+            chips.push({ id: id, label: multiLabels[id] || id, text: vals.join(', ') });
+        }
     });
 
     if (chips.length === 0) {
@@ -65547,20 +65743,28 @@ function rptUpdateActiveFilterChips(filterIds, filterLabels) {
 }
 
 function rptClearFilter(id) {
+    if (id.startsWith('reportClassFilter') || id.startsWith('reportStatusGroupFilter') || id.startsWith('reportItemFilter')) {
+        rptClearMulti(id);
+        return;
+    }
     var el = document.getElementById(id);
     if (!el) return;
-    el.value = 'all';
+    if (el.type === 'checkbox') {
+        if (id === 'reportTuitionFilter') {
+            el.checked = false;
+            var label = document.getElementById('tuitionToggleLabel');
+            if (label) label.textContent = 'Exclude Tuition';
+        } else {
+            el.checked = false;
+        }
+    } else {
+        el.value = 'all';
+    }
     el.dispatchEvent(new Event('change'));
 }
 
 // ---------------------------------------------------------------------------
-// 4. RESULTS RENDERER — call this from generateReportV3() once you have the
-//    filtered records. Handles sorting, in-table search, insight strip,
-//    count-up stats, and a friendly empty state.
-//
-//    records: [{ studentName, admissionNumber, className, period,
-//                 feeStructureName, statusGroup, itemName,
-//                 expected, paid, balance, status }, ...]
+// 5. RESULTS RENDERER
 // ---------------------------------------------------------------------------
 var rptCurrentRecords = [];
 var rptSortState = { column: null, direction: 'asc' };
@@ -65579,8 +65783,8 @@ function renderReportResultsV3(records, meta) {
         lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
     }
 
-    var totalExpected = meta.totalExpected != null ? meta.totalExpected : records.reduce((s, r) => s + (r.expected || 0), 0);
-    var totalPaid = meta.totalPaid != null ? meta.totalPaid : records.reduce((s, r) => s + (r.paid || 0), 0);
+    var totalExpected = meta.totalExpected != null ? meta.totalExpected : records.reduce(function (s, r) { return s + (r.expected || 0); }, 0);
+    var totalPaid = meta.totalPaid != null ? meta.totalPaid : records.reduce(function (s, r) { return s + (r.paid || 0); }, 0);
     var totalBalance = totalExpected - totalPaid;
     var rate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
 
@@ -65657,12 +65861,12 @@ function renderReportResultsV3(records, meta) {
     if (searchInput) {
         searchInput.addEventListener('input', function () {
             var term = this.value.toLowerCase().trim();
-            var filtered = !term ? rptCurrentRecords : rptCurrentRecords.filter(r =>
-                (r.studentName || '').toLowerCase().includes(term) ||
-                (r.className || '').toLowerCase().includes(term) ||
-                (r.feeStructureName || '').toLowerCase().includes(term) ||
-                (r.admissionNumber || '').toLowerCase().includes(term)
-            );
+            var filtered = !term ? rptCurrentRecords : rptCurrentRecords.filter(function (r) {
+                return (r.studentName || '').toLowerCase().includes(term) ||
+                    (r.className || '').toLowerCase().includes(term) ||
+                    (r.feeStructureName || '').toLowerCase().includes(term) ||
+                    (r.admissionNumber || '').toLowerCase().includes(term);
+            });
             rptRenderResultRows(filtered);
             var visibleCount = document.getElementById('reportVisibleCount');
             if (visibleCount) visibleCount.textContent = filtered.length;
@@ -65674,8 +65878,6 @@ function rptRenderResultRows(records) {
     var body = document.getElementById('reportResultsBody');
     if (!body) return;
 
-    // Cap the staggered-reveal animation to the first ~30 rows so large
-    // result sets don't feel sluggish — the rest still render, just instantly.
     body.innerHTML = records.map(function (r, i) {
         var expected = r.expected || 0;
         var paid = r.paid || 0;
@@ -65714,9 +65916,7 @@ function rptSortResults(column) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. LOADING STATE — call while generateReportV3() is fetching, so the
-//    Generate button and the table both show a tasteful shimmer instead of
-//    freezing the page.
+// 6. LOADING STATE
 // ---------------------------------------------------------------------------
 function rptShowLoadingState() {
     var btn = document.getElementById('rptGenerateBtn');
@@ -65749,9 +65949,7 @@ function rptHideLoadingState() {
 }
 
 // ---------------------------------------------------------------------------
-// 6. EXPORT / PRINT TOASTS — wrap the app's existing exportReportToCSV /
-//    printReportV3 if present, so the user gets friendly confirmation
-//    without changing what those functions actually do.
+// 7. EXPORT / PRINT WRAPPERS
 // ---------------------------------------------------------------------------
 (function wrapReportActions() {
     var originalExport = window.exportReportToCSV;
@@ -65768,28 +65966,14 @@ function rptHideLoadingState() {
 })();
 
 // ---------------------------------------------------------------------------
-// 7. GLOBAL EXPORTS
+// 8. GENERATE REPORT
 // ---------------------------------------------------------------------------
-window.renderReportsPageV3 = renderReportsPageV3;
-window.renderReportResultsV3 = renderReportResultsV3;
-window.rptShowLoadingState = rptShowLoadingState;
-window.rptHideLoadingState = rptHideLoadingState;
-window.rptClearFilter = rptClearFilter;
-window.rptSortResults = rptSortResults;
-window.injectReportsDesignSystem = injectReportsDesignSystem;
-
-console.log('✅ Reports v4.0 (Modern Edition) loaded — teal/indigo ledger design system + live insight ribbon');
-
-// ==================== GENERATE REPORT ====================
-
 async function generateReportV3() {
     var level = document.getElementById('reportLevelFilter')?.value || 'all';
     var studentId = document.getElementById('reportStudentFilter')?.value || 'all';
     var feeStructureId = document.getElementById('reportFeeStructureFilter')?.value || 'all';
-    var statusGroup = document.getElementById('reportStatusGroupFilter')?.value || 'all';
-    var itemName = document.getElementById('reportItemFilter')?.value || 'all';
-    var includeTuition = document.getElementById('reportTuitionFilter')?.checked !== false;
     var paymentStatus = document.getElementById('reportPaymentStatusFilter')?.value || 'all';
+    var includeTuition = document.getElementById('reportTuitionFilter')?.checked !== false;
 
     var periodFilter = document.getElementById('reportPeriodFilter')?.value || 'all';
     var includeAllPeriods = document.getElementById('reportIncludeAllPeriods')?.checked !== false;
@@ -65804,6 +65988,11 @@ async function generateReportV3() {
         }
     }
 
+    // Multi‑select values: join with commas
+    var classIds = rptGetMultiSelected('reportClassFilter');
+    var statusGroups = rptGetMultiSelected('reportStatusGroupFilter');
+    var items = rptGetMultiSelected('reportItemFilter');
+
     if (typeof rptShowLoadingState === 'function') rptShowLoadingState();
 
     try {
@@ -65811,12 +66000,16 @@ async function generateReportV3() {
             level: level,
             studentId: studentId,
             feeStructureId: feeStructureId,
-            statusGroup: statusGroup,
-            itemName: itemName,
             paymentStatus: paymentStatus,
             includeTuition: includeTuition ? 'true' : 'false',
             includeAllPeriods: includeAllPeriods ? 'true' : 'false'
         });
+
+        // Add multi‑select values as comma‑separated strings
+        if (classIds.length > 0) params.append('classId', classIds.join(','));
+        if (statusGroups.length > 0) params.append('statusGroup', statusGroups.join(','));
+        if (items.length > 0) params.append('itemName', items.join(','));
+
         if (academicYear) params.append('academicYear', academicYear);
         if (academicTerm) params.append('academicTerm', academicTerm);
 
@@ -65848,91 +66041,108 @@ async function generateReportV3() {
                 if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
             }
 
-            if (typeof rptFilterSignature === 'function') rptLastAppliedSignature = rptFilterSignature();
-            if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(false);
+            rptLastAppliedSignature = rptFilterSignature();
+            rptSetGenerateDirty(false);
         } else {
-            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+            rptShowToast('Error: ' + (result.error || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error generating report:', error);
-        showToast('Error generating report: ' + error.message, 'error');
+        rptShowToast('Error generating report: ' + error.message, 'error');
     } finally {
         if (typeof rptHideLoadingState === 'function') rptHideLoadingState();
     }
 }
 
-// ==================== RESET FILTERS ====================
-
+// ---------------------------------------------------------------------------
+// 9. RESET FILTERS
+// ---------------------------------------------------------------------------
 function resetReportFilters() {
+    // Single selects
     document.getElementById('reportLevelFilter').value = 'all';
     document.getElementById('reportStudentFilter').value = 'all';
     document.getElementById('reportStudentSearch').value = '';
     document.getElementById('reportFeeStructureFilter').value = 'all';
-    document.getElementById('reportStatusGroupFilter').value = 'all';
-    document.getElementById('reportItemFilter').value = 'all';
     document.getElementById('reportPaymentStatusFilter').value = 'all';
-    document.getElementById('reportPeriodFilter').value = 'all';
-    
+    document.getElementById('reportPeriodFilter').value = 'current';
+
     var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
     if (includeAllPeriods) {
-        includeAllPeriods.checked = true;
+        includeAllPeriods.checked = false;
         includeAllPeriods.disabled = true;
         includeAllPeriods.parentElement.style.opacity = '0.5';
     }
-    
+
     var tuitionToggle = document.getElementById('reportTuitionFilter');
-    if (tuitionToggle) tuitionToggle.checked = true;
+    if (tuitionToggle) tuitionToggle.checked = false;
     var tuitionLabel = document.getElementById('tuitionToggleLabel');
-    if (tuitionLabel) tuitionLabel.textContent = 'Include Tuition';
-    
+    if (tuitionLabel) tuitionLabel.textContent = 'Exclude Tuition';
+
+    // Multi‑selects
+    ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'].forEach(function (id) {
+        rptClearMulti(id);
+    });
+
     var studentSelect = document.getElementById('reportStudentFilter');
     var options = studentSelect.options;
     for (var i = 0; i < options.length; i++) {
         options[i].style.display = '';
     }
-    
-    showToast('Filters have been reset', 'info');
+
+    rptShowToast('Filters have been reset', 'info');
     generateReportV3();
 }
 
 function refreshReport() {
-    showToast('🔄 Refreshing report...', 'info');
+    rptShowToast('🔄 Refreshing report...', 'info');
     generateReportV3();
 }
 
-function showToast(message, type) {
-    var toast = document.createElement('div');
-    var bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-    toast.className = 'fixed bottom-4 right-4 ' + bgColor + ' text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-sm';
-    toast.innerHTML = message.replace(/\n/g, '<br>');
-    document.body.appendChild(toast);
-    setTimeout(function() { toast.remove(); }, 4000);
+// ---------------------------------------------------------------------------
+// 10. GLOBAL EXPORTS & DESIGN SYSTEM INJECTION
+// ---------------------------------------------------------------------------
+function injectReportsDesignSystem() {
+    var style = document.createElement('style');
+    style.textContent = `
+        .rpt-field { animation: rptFadeUp 0.35s ease both; }
+        @keyframes rptFadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        .rpt-row-reveal { animation: rptFadeIn 0.2s ease both; }
+        @keyframes rptFadeIn { from { opacity:0; } to { opacity:1; } }
+        .rpt-skeleton-row { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .rpt-multiselect-dropdown { max-height: 200px; overflow-y: auto; }
+        .rpt-btn-press { transition: transform 0.1s, box-shadow 0.1s; }
+        .rpt-btn-press:active { transform: scale(0.97); box-shadow: none; }
+        .rpt-chip-x { transition: color 0.15s; }
+        .rpt-chip-x:hover { color: #0f766e !important; }
+        .db-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .db-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        .db-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        .db-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    `;
+    document.head.appendChild(style);
 }
 
-// ========== MAKE FUNCTIONS GLOBAL ==========
-window.showReports = showReports;
+window.renderReportsPageV3 = renderReportsPageV3;
+window.renderReportResultsV3 = renderReportResultsV3;
+window.rptShowLoadingState = rptShowLoadingState;
+window.rptHideLoadingState = rptHideLoadingState;
+window.rptClearFilter = rptClearFilter;
+window.rptSortResults = rptSortResults;
+window.injectReportsDesignSystem = injectReportsDesignSystem;
 window.generateReportV3 = generateReportV3;
-window.exportReportToCSV = exportReportToCSV;
-window.printReportV3 = printReportV3;
 window.resetReportFilters = resetReportFilters;
 window.refreshReport = refreshReport;
-window.toggleItemHistory = toggleItemHistory;
-window.togglePeriodBreakdown = togglePeriodBreakdown;
-window.getTermName = getTermName;
-window.getTermShort = getTermShort;
-window.showToast = showToast;
-window.escapeHtml = escapeHtml;
-window.formatMoney = formatMoney;
+window.rptGetMultiSelected = rptGetMultiSelected;
+window.rptClearMulti = rptClearMulti;
+window.rptToggleMulti = rptToggleMulti;
+window.rptMultiChange = rptMultiChange;
+window.rptEscapeHtml = rptEscapeHtml;
+window.rptFormatMoney = rptFormatMoney;
+window.rptGetTermName = rptGetTermName;
+window.rptGetTermShort = rptGetTermShort;
 
-console.log('✅ Comprehensive Reports System v7.0 - Professional Multi-Period Report Loaded!');
-console.log('   📊 Professional table layout with proper organization');
-console.log('   📅 Multi-period tracking with period breakdown');
-console.log('   🏷️ All status groups including cash-only items');
-console.log('   ⚡ Customization indicators and reasons');
-console.log('   🖨️ Print-ready with professional styling');
-console.log('   📄 Export includes all period data');
-// ==================== TOGGLE ITEM HISTORY (FIXED) ====================
-
+console.log('✅ Reports v5.0 (Multi‑Select & Defaults) loaded — class, status group & item filters now support multiple selections.');
 function toggleItemHistory(itemId) {
     // Initialize expandedItems if not exists
     if (typeof window.expandedItems === 'undefined') {
