@@ -64844,56 +64844,52 @@ function handleCellClick(e) {
 // ==================== RENDER REPORT RESULTS ====================
 
 function renderReportResultsV3(data) {
+    console.log('📊 renderReportResultsV3 called');
+    console.log('   students count:', data?.students?.length || 0);
+    console.log('   filters:', data?.filters || {});
+
     var container = document.getElementById('reportTableContainer');
     var recordCount = document.getElementById('reportRecordCount');
-    
-    if (!container) return;
-    
+    if (!container) {
+        console.warn('⚠️ reportTableContainer not found');
+        return;
+    }
+
     var students = data.students || [];
     var totals = data.totals || {};
     var statusGroupTotals = data.statusGroupTotals || {};
     var filters = data.filters || {};
     var includeTuition = filters.includeTuition !== false;
-    var metadata = data.metadata || {};
-    var periodsIncluded = metadata.periodsIncluded || [];
-    
-    if (typeof window.expandedItems === 'undefined') {
-        window.expandedItems = {};
-    }
-    if (typeof window.expandedPeriods === 'undefined') {
-        window.expandedPeriods = {};
-    }
-    
+
     if (recordCount) {
         recordCount.innerText = students.length;
     }
-    
+
+    // If no students, show empty state
     if (students.length === 0) {
         container.innerHTML = `
             <div class="text-center py-12 text-gray-500">
                 <i class="fas fa-inbox text-5xl mb-4 text-gray-300"></i>
                 <p>No records found matching your filters</p>
                 <p class="text-sm mt-2">Try adjusting your filter criteria</p>
-            </div>
-        `;
+            </div>`;
         return;
     }
-    
+
     try {
-        // Add periodsIncluded to filters for display
-        filters.periodsIncluded = periodsIncluded;
-        totals.periodsIncluded = periodsIncluded.length || 1;
-        
+        // Build the table using the existing buildReportTable function
         var summaryHtml = buildSummaryCardsV3(totals, students.length);
         var tableHtml = buildReportTable(students, totals, statusGroupTotals, includeTuition, filters);
-        
         container.innerHTML = summaryHtml + tableHtml;
-        attachExpandHandlers();
-        
+
+        // Re-attach expand handlers
+        if (typeof attachExpandHandlers === 'function') {
+            attachExpandHandlers();
+        }
+
         console.log('✅ Report rendered with', students.length, 'students');
-        console.log('📅 Periods:', periodsIncluded.join(', '));
     } catch (error) {
-        console.error('Error rendering report:', error);
+        console.error('❌ Error rendering report:', error);
         container.innerHTML = `
             <div class="bg-red-50 p-6 text-center rounded-lg border border-red-200">
                 <i class="fas fa-exclamation-triangle text-red-600 text-4xl mb-3"></i>
@@ -64902,11 +64898,9 @@ function renderReportResultsV3(data) {
                 <button onclick="generateReportV3()" class="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
                     <i class="fas fa-sync-alt"></i> Try Again
                 </button>
-            </div>
-        `;
+            </div>`;
     }
 }
-
 // ==================== SHOW REPORTS PAGE ====================
 
 async function showReports() {
