@@ -65208,7 +65208,8 @@ function rptBuildMultiSelect(id, label, options, selected) {
     html += '<span class="rpt-multiselect-label">' + label + '</span>';
     html += '<i class="fas fa-chevron-down text-slate-400 text-xs"></i>';
     html += '</button>';
-    html += '<div class="rpt-multiselect-dropdown hidden absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2">';
+    // NOTE: data-field on the dropdown itself, so we can find it after it's portaled
+    html += '<div class="rpt-multiselect-dropdown hidden" data-field="' + id + '">';
     for (var i = 0; i < options.length; i++) {
         var opt = options[i];
         var checked = selected.indexOf(opt.value) !== -1 ? 'checked' : '';
@@ -66541,11 +66542,10 @@ function buildSummaryCardsV3(totals, studentCount) {
 // ============================================================================
 
 function exportReportToCSV() {
-    console.log('=== 📊 EXCEL EXPORT — exact match to #reportTable ===');
+    console.log('=== 📊 EXCEL EXPORT — clean filters ===');
 
     var tableEl = document.getElementById('reportTable');
 
-    // Rebuild the table first if it's not in the DOM yet but data exists
     if (!tableEl && reportData && reportData.students && reportData.students.length > 0) {
         try {
             renderReportResultsV3(reportData);
@@ -66556,64 +66556,126 @@ function exportReportToCSV() {
     }
 
     if (!tableEl) {
-        showToast('❌ No data to export. Please generate a report first.', 'error');
+        showToast('No data to export. Please generate a report first.', 'error');
         return;
     }
 
     if (typeof XLSX === 'undefined') {
-        console.warn('⚠️ SheetJS (XLSX) not found — falling back to CSV. Add ' +
+        console.warn('SheetJS (XLSX) not found — falling back to CSV. Add ' +
             '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> ' +
             'to your page for a real .xlsx export with merged header cells.');
     }
 
-    // ------------------------------------------------------------------
-    // Header info — school, term, total students, generated time, filters
-    // ------------------------------------------------------------------
+    // --- School and academic info ---
     var school = (typeof currentSchoolInfo !== 'undefined' && currentSchoolInfo) ? currentSchoolInfo : {};
     var schoolName = school.schoolName || 'School Report';
     var currentYear = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentYear) || new Date().getFullYear();
     var currentTerm = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentTerm) || 1;
     var termName = (typeof getTermName === 'function') ? getTermName(currentTerm) : ('Term ' + currentTerm);
 
+    // --- Extract filters from reportData ---
     var filters = (reportData && reportData.filters) || {};
-    var filterLines = [];
-    if (filters.level && filters.level !== 'all') filterLines.push('Level: ' + filters.level);
-    if (filters.statusGroup && filters.statusGroup !== 'all') filterLines.push('Status Group: ' + filters.statusGroup);
-    if (filters.itemName && filters.itemName !== 'all') filterLines.push('Item: ' + filters.itemName);
-    if (filters.paymentStatus && filters.paymentStatus !== 'all') filterLines.push('Payment Status: ' + filters.paymentStatus);
-    if (filters.feeStructureId && filters.feeStructureId !== 'all') filterLines.push('Fee Structure filtered');
-    if (filters.studentId && filters.studentId !== 'all') filterLines.push('Single student');
+    var filterParts = [];
 
+    // 1. Academic Period
+    if (filters.academicYear && filters.academicTerm) {
+        var periodLabel = termName + ' ' + filters.academicYear;
+        if (filters.academicYear == currentYear && filters.academicTerm == currentTerm) periodLabel += ' (Current)';
+        filterParts.push('Period: ' + periodLabel);
+    } else if (filters.includeAllPeriods === 'true') {
+        filterParts.push('Period: All Periods');
+    } else {
+        filterParts.push('Period: Current Period');
+    }
+
+    // 2. Tuition
+    var tuitionText = (filters.includeTuition === true || filters.includeTuition === 'true') ? 'Included' : 'Excluded';
+    filterParts.push('Tuition: ' + tuitionText);
+
+    // 3. Level
+    if (filters.level && filters.level !== 'all') {
+        var levelDisplay = filters.level;
+        var levelMap = { 'Nursery': 'Nursery', 'LowerPrimary': 'Lower Primary', 'UpperPrimary': 'Upper Primary' };
+        filterParts.push('Level: ' + (levelMap[levelDisplay] || levelDisplay));
+    }
+
+    // 4. Class (multi‑select, map IDs to names)
+    if (filters.classId && filters.classId !== 'all') {
+        var classIds = filters.classId.split(',').map(s => s.trim());
+        var classMap = window._reportClassMap || {};
+        var classNames = classIds.map(function (id) { return classMap[id] || id; });
+        filterParts.push('Class: ' + classNames.join(', '));
+    }
+
+    // 5. Student
+    if (filters.studentId && filters.studentId !== 'all') {
+        var studentName = filters.studentId;
+        if (reportData && reportData.students) {
+            var found = reportData.students.find(function (s) { return s.id === filters.studentId; });
+            if (found) studentName = found.firstName + ' ' + found.lastName;
+        }
+        filterParts.push('Student: ' + studentName);
+    }
+
+    // 6. Fee Structure
+    if (filters.feeStructureId && filters.feeStructureId !== 'all') {
+        var feeName = filters.feeStructureId;
+        if (reportData && reportData.students && reportData.students.length > 0) {
+            var feeStruct = reportData.students.find(function (s) { return s.feeStructureId === filters.feeStructureId; });
+            if (feeStruct) feeName = feeStruct.feeStructureName || feeName;
+        }
+        filterParts.push('Fee Structure: ' + feeName);
+    }
+
+    // 7. Status Group (multi‑select)
+    if (filters.statusGroup && filters.statusGroup !== 'all' && filters.statusGroup !== 'none') {
+        var groups = filters.statusGroup.split(',').map(s => s.trim());
+        filterParts.push('Status Group: ' + groups.join(', '));
+    } else if (filters.statusGroup === 'none') {
+        filterParts.push('Status Group: None (Tuition Only)');
+    }
+
+    // 8. Item (multi‑select)
+    if (filters.itemName && filters.itemName !== 'all') {
+        var items = filters.itemName.split(',').map(s => s.trim());
+        filterParts.push('Item: ' + items.join(', '));
+    }
+
+    // 9. Payment Status
+    if (filters.paymentStatus && filters.paymentStatus !== 'all') {
+        filterParts.push('Payment Status: ' + filters.paymentStatus);
+    }
+
+    // 10. Include all periods (if explicitly true)
+    if (filters.includeAllPeriods === 'true') {
+        filterParts.push('Include all periods: Yes');
+    }
+
+    var filterDisplay = filterParts.join('  |  ');
+
+    // --- Record count ---
     var recordCountEl = document.getElementById('reportRecordCount');
     var studentCount = recordCountEl ? recordCountEl.innerText : (reportData && reportData.students ? reportData.students.length : '');
 
+    // --- Parse the table ---
     try {
-        // ----------------------------------------------------------------
-        // 1. Parse the exact rendered table (thead + tbody) into a grid +
-        //    merge list, honoring colspan/rowspan exactly like the browser
-        //    lays them out — reproduces the two-row header groups (Tuition
-        //    spanning 5 cols, each status group spanning items.length*2
-        //    cols) and the "Doesn't pay" colspan=2 cells identically.
-        // ----------------------------------------------------------------
         var parsed = tableToGridWithMerges(tableEl);
         var grid = parsed.grid;
         var merges = parsed.merges;
         var totalCols = grid.length > 0 ? grid[0].length : 1;
 
-        // ----------------------------------------------------------------
-        // 2. Header block rows (school / title / generated + count / filters)
-        // ----------------------------------------------------------------
+        // --- Build header rows (clean, no emojis) ---
         var headerRows = [];
         headerRows.push([schoolName]);
-        headerRows.push(['Comprehensive Fee Report — ' + termName + ' ' + currentYear]);
+        headerRows.push(['Comprehensive Fee Report - ' + termName + ' ' + currentYear]);
         headerRows.push(['Generated: ' + new Date().toLocaleString() + '    |    Total Students: ' + studentCount]);
-        headerRows.push([filterLines.length ? ('Filters: ' + filterLines.join('  |  ')) : 'Filters: None applied']);
-        headerRows.push([]); // spacer row before the table starts
+        headerRows.push(['Filters: ' + (filterDisplay || 'None applied')]);
+        headerRows.push([]); // spacer
 
         var headerOffset = headerRows.length;
         var fullGrid = headerRows.concat(grid);
 
-        // Shift the table's own merges down by the header row count
+        // Shift merges
         var shiftedMerges = merges.map(function (m) {
             return {
                 s: { r: m.s.r + headerOffset, c: m.s.c },
@@ -66621,7 +66683,7 @@ function exportReportToCSV() {
             };
         });
 
-        // Merge each header/title/meta/filters row across the table's full width
+        // Merge each header row across the full width
         if (totalCols > 1) {
             for (var hr = headerRows.length - 1; hr >= 0; hr--) {
                 shiftedMerges.unshift({ s: { r: hr, c: 0 }, e: { r: hr, c: totalCols - 1 } });
@@ -66632,10 +66694,7 @@ function exportReportToCSV() {
         var timestamp = new Date().toISOString().slice(0, 10);
         var fileName = fileBaseName + '_' + timestamp;
 
-        // ----------------------------------------------------------------
-        // 3. Write it out. Real merged cells in .xlsx via SheetJS; a
-        //    flattened, merge-filled CSV as a graceful fallback.
-        // ----------------------------------------------------------------
+        // --- Export as XLSX or CSV ---
         if (typeof XLSX !== 'undefined' && XLSX.utils) {
             var ws = XLSX.utils.aoa_to_sheet(fullGrid);
             ws['!merges'] = shiftedMerges.filter(function (m) {
@@ -66647,7 +66706,7 @@ function exportReportToCSV() {
             var wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Fee Report');
             XLSX.writeFile(wb, fileName + '.xlsx');
-            showToast('✅ Excel report exported: ' + fileName + '.xlsx', 'success');
+            showToast('Excel report exported: ' + fileName + '.xlsx', 'success');
         } else {
             var flatGrid = fillMergesForCsv(fullGrid, shiftedMerges);
             var csvLines = flatGrid.map(function (row) {
@@ -66669,12 +66728,12 @@ function exportReportToCSV() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            showToast('⚠️ Exported as CSV (Excel library not loaded): ' + fileName + '.csv', 'info');
+            showToast('Exported as CSV (Excel library not loaded): ' + fileName + '.csv', 'info');
         }
 
     } catch (error) {
-        console.error('❌ Export error:', error);
-        showToast('❌ Export failed: ' + error.message, 'error');
+        console.error('Export error:', error);
+        showToast('Export failed: ' + error.message, 'error');
     }
 }
 
@@ -67217,7 +67276,7 @@ function printReportV3() {
     var tableContainer = document.getElementById('reportTableContainer');
     var tableEl = document.getElementById('reportTable');
 
-    // If the table isn't in the DOM yet but we do have data, rebuild it first
+    // If the table isn't in the DOM yet but we have data, rebuild it first
     if ((!tableEl || !tableContainer) && reportData && reportData.students && reportData.students.length > 0) {
         try {
             renderReportResultsV3(reportData);
@@ -67233,26 +67292,107 @@ function printReportV3() {
         return;
     }
 
+    // --- Get school and academic info ---
     var school = (typeof currentSchoolInfo !== 'undefined' && currentSchoolInfo) ? currentSchoolInfo : {};
     var schoolName = school.schoolName || 'School Report';
     var currentYear = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentYear) || new Date().getFullYear();
     var currentTerm = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentTerm) || 1;
     var termName = (typeof getTermName === 'function') ? getTermName(currentTerm) : ('Term ' + currentTerm);
 
+    // --- Extract and format filters from reportData ---
     var filters = (reportData && reportData.filters) || {};
-    var filterLines = [];
-    if (filters.level && filters.level !== 'all') filterLines.push('Level: ' + filters.level);
-    if (filters.statusGroup && filters.statusGroup !== 'all') filterLines.push('Status Group: ' + filters.statusGroup);
-    if (filters.itemName && filters.itemName !== 'all') filterLines.push('Item: ' + filters.itemName);
-    if (filters.paymentStatus && filters.paymentStatus !== 'all') filterLines.push('Payment Status: ' + filters.paymentStatus);
+    var filterParts = [];
 
+    // 1. Academic Period
+    if (filters.academicYear && filters.academicTerm) {
+        var periodLabel = termName + ' ' + filters.academicYear;
+        if (filters.academicYear == currentYear && filters.academicTerm == currentTerm) periodLabel += ' ';
+        filterParts.push(' Period: ' + periodLabel);
+    } else if (filters.includeAllPeriods === 'true') {
+        filterParts.push(' Period: All Periods');
+    } else {
+        filterParts.push(' Period: Current Period');
+    }
+
+    // 2. Tuition
+    var tuitionText = (filters.includeTuition === true || filters.includeTuition === 'true') ? 'Included' : 'Excluded';
+    filterParts.push(' Tuition: ' + tuitionText);
+
+    // 3. Level
+    if (filters.level && filters.level !== 'all') {
+        var levelDisplay = filters.level;
+        // Map level codes to nice names if needed
+        var levelMap = { 'Nursery': ' Nursery', 'LowerPrimary': ' Lower Primary', 'UpperPrimary': ' Upper Primary' };
+        filterParts.push(' Level: ' + (levelMap[levelDisplay] || levelDisplay));
+    }
+
+    // 4. Class (multi‑select, map IDs to names)
+    if (filters.classId && filters.classId !== 'all') {
+        var classIds = filters.classId.split(',').map(s => s.trim());
+        var classMap = window._reportClassMap || {};
+        var classNames = classIds.map(function (id) { return classMap[id] || id; });
+        filterParts.push(' Class: ' + classNames.join(', '));
+    }
+
+    // 5. Student
+    if (filters.studentId && filters.studentId !== 'all') {
+        // Attempt to get student name from the filter options or from the data
+        var studentName = filters.studentId; // fallback
+        // Try to find student name in the report data
+        if (reportData && reportData.students) {
+            var found = reportData.students.find(function (s) { return s.id === filters.studentId; });
+            if (found) studentName = found.firstName + ' ' + found.lastName;
+        }
+        filterParts.push(' Student: ' + studentName);
+    }
+
+    // 6. Fee Structure
+    if (filters.feeStructureId && filters.feeStructureId !== 'all') {
+        // Try to get fee structure name from data
+        var feeName = filters.feeStructureId;
+        if (reportData && reportData.students && reportData.students.length > 0) {
+            var feeStruct = reportData.students.find(function (s) { return s.feeStructureId === filters.feeStructureId; });
+            if (feeStruct) feeName = feeStruct.feeStructureName || feeName;
+        }
+        filterParts.push(' Fee Structure: ' + feeName);
+    }
+
+    // 7. Status Group (multi‑select)
+    if (filters.statusGroup && filters.statusGroup !== 'all' && filters.statusGroup !== 'none') {
+        var groups = filters.statusGroup.split(',').map(s => s.trim());
+        filterParts.push(' Status Group: ' + groups.join(', '));
+    } else if (filters.statusGroup === 'none') {
+        filterParts.push(' Status Group: None (Tuition Only)');
+    }
+
+    // 8. Item (multi‑select)
+    if (filters.itemName && filters.itemName !== 'all') {
+        var items = filters.itemName.split(',').map(s => s.trim());
+        filterParts.push(' Item: ' + items.join(', '));
+    }
+
+    // 9. Payment Status
+    if (filters.paymentStatus && filters.paymentStatus !== 'all') {
+        filterParts.push(' Payment Status: ' + filters.paymentStatus);
+    }
+
+    // 10. Include all periods (if explicitly true)
+    if (filters.includeAllPeriods === 'true') {
+        filterParts.push(' Include all periods: Yes');
+    }
+
+    // Build the filter display string
+    var filterDisplay = filterParts.join(' &nbsp;|&nbsp; ');
+
+    // --- Record count ---
     var recordCountEl = document.getElementById('reportRecordCount');
     var studentCount = recordCountEl ? recordCountEl.innerText : (reportData && reportData.students ? reportData.students.length : '');
 
-    // Clone the table so the on-screen version is untouched, and strip sticky/scroll styling
+    // --- Clone table for print (remove sticky/scroll styles) ---
     var clonedTable = tableEl.cloneNode(true);
     clonedTable.removeAttribute('style');
-    var stickyEls = clonedTable.querySelectorAll('[style*="sticky"]');
+    // Remove all sticky and other interactive styles
+    var stickyEls = clonedTable.querySelectorAll('[style*="sticky"], [style*="position:sticky"]');
     stickyEls.forEach(function (el) {
         el.style.position = 'static';
         el.style.left = '';
@@ -67260,9 +67400,17 @@ function printReportV3() {
         el.style.boxShadow = 'none';
         el.style.background = '#fff';
     });
-    // Drop interactive expand/collapse controls — irrelevant on paper
+    // Remove any button/expand controls
     clonedTable.querySelectorAll('button').forEach(function (b) { b.remove(); });
+    // Ensure thead stays intact but not sticky
+    var thead = clonedTable.querySelector('thead');
+    if (thead) {
+        thead.style.position = 'static';
+        thead.style.top = '';
+        thead.style.zIndex = '';
+    }
 
+    // --- Open print window ---
     var printWindow = window.open('', '_blank', 'width=1200,height=800');
     if (!printWindow) {
         showToast('❌ Please allow pop-ups to print the report.', 'error');
@@ -67275,12 +67423,12 @@ function printReportV3() {
         '<style>' +
         '@page { size: A3 landscape; margin: 10mm; }' +
         '* { box-sizing: border-box; }' +
-        'body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }' +
+        'body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; padding: 10px; }' +
         '.print-header { text-align: center; margin-bottom: 12px; border-bottom: 2px solid #333; padding-bottom: 8px; }' +
         '.print-header h1 { margin: 0 0 4px; font-size: 20px; }' +
         '.print-header h2 { margin: 0; font-size: 14px; font-weight: normal; color: #444; }' +
-        '.print-meta { display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }' +
-        '.print-filters { font-size: 11px; color: #555; margin-bottom: 10px; }' +
+        '.print-meta { display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-bottom: 6px; flex-wrap: wrap; gap: 6px; }' +
+        '.print-filters { font-size: 11px; color: #333; background: #f9f9f9; padding: 6px 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #ddd; }' +
         'table { width: 100%; border-collapse: collapse; font-size: 9px; }' +
         'th, td { border: 1px solid #999; padding: 3px 5px; text-align: left; }' +
         'th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
@@ -67290,7 +67438,7 @@ function printReportV3() {
         '<div class="print-header"><h1>' + escapeHtml(schoolName) + '</h1>' +
         '<h2>Comprehensive Fee Report — ' + escapeHtml(termName) + ' ' + currentYear + '</h2></div>' +
         '<div class="print-meta"><span>Generated: ' + new Date().toLocaleString() + '</span><span>Students: ' + studentCount + '</span></div>' +
-        (filterLines.length ? '<div class="print-filters"><strong>Filters:</strong> ' + filterLines.map(escapeHtml).join(' &nbsp;|&nbsp; ') + '</div>' : '') +
+        (filterDisplay ? '<div class="print-filters"><strong>Filters:</strong> ' + filterDisplay + '</div>' : '') +
         clonedTable.outerHTML +
         '<div class="print-footer">Printed from School Management System</div>' +
         '</body></html>';
