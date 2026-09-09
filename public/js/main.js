@@ -65131,7 +65131,7 @@ function rptShowToast(message, icon) {
 }
 
 // =====================================================================
-// COMPREHENSIVE REPORTS PAGE — v5.0 (Multi-Select Filter Redesign)
+// COMPREHENSIVE REPORTS PAGE — v5.1 (Multi-Select Filter Redesign)
 // - Level / Class / Fee Structure / Status Group / Item / Payment Status
 //   are all checkbox multi-selects now (pick as many as you like).
 // - New "Class" filter: picking a class pulls in both its Day and
@@ -65139,28 +65139,36 @@ function rptShowToast(message, icon) {
 //   enrolled class, separate from the Fee Structure filter).
 // - Tuition defaults OFF. Academic Period defaults to "Current Period".
 // - The old "Excel Export Sections" checkboxes are gone (unused).
+// - FIX: field/label lists are now functions (not top-level vars) so
+//   they can never be undefined due to script load-order issues.
 // =====================================================================
 
 // ---------------------------------------------------------------------------
 // 0. CONFIG — which filters are multi-select, and their chip labels
+//    (functions, not top-level vars, so they can never be "undefined"
+//    due to load-order/hoisting issues)
 // ---------------------------------------------------------------------------
-var RPT_MULTI_FIELDS = [
-    'reportLevelFilter',
-    'reportClassFilter',
-    'reportFeeStructureFilter',
-    'reportStatusGroupFilter',
-    'reportItemFilter',
-    'reportPaymentStatusFilter'
-];
+function rptMultiFields() {
+    return [
+        'reportLevelFilter',
+        'reportClassFilter',
+        'reportFeeStructureFilter',
+        'reportStatusGroupFilter',
+        'reportItemFilter',
+        'reportPaymentStatusFilter'
+    ];
+}
 
-var RPT_MULTI_LABELS = {
-    reportLevelFilter: '🎓 Level',
-    reportClassFilter: '🏫 Class',
-    reportFeeStructureFilter: '📄 Fee Structure',
-    reportStatusGroupFilter: '🏷️ Status Group',
-    reportItemFilter: '📦 Item',
-    reportPaymentStatusFilter: '💳 Payment Status'
-};
+function rptMultiLabels() {
+    return {
+        reportLevelFilter: '🎓 Level',
+        reportClassFilter: '🏫 Class',
+        reportFeeStructureFilter: '📄 Fee Structure',
+        reportStatusGroupFilter: '🏷️ Status Group',
+        reportItemFilter: '📦 Item',
+        reportPaymentStatusFilter: '💳 Payment Status'
+    };
+}
 
 var rptLastAppliedSignature = null;
 var rptCurrentRecords = [];
@@ -65226,10 +65234,11 @@ function injectRptMultiSelectStyles() {
 // 2. MULTI-SELECT COMPONENT — markup + interaction
 // ---------------------------------------------------------------------------
 function rptAttrEscape(v) {
-    return String(v).replace(/"/g, '&quot;');
+    return String(v == null ? '' : v).replace(/"/g, '&quot;');
 }
 
 function rptBuildMultiSelect(id, options, placeholder) {
+    options = options || [];
     var optsHtml = options.map(function (o) {
         return '<label class="rpt-ms-opt"><input type="checkbox" class="rpt-ms-checkbox" value="' +
             rptAttrEscape(o.value) + '" onchange="rptOnMultiChange(\'' + id + '\')"> <span>' +
@@ -65299,10 +65308,11 @@ function rptGetMultiValues(id) {
     var container = document.getElementById(id + '_options');
     if (!container) return [];
     var boxes = container.querySelectorAll('.rpt-ms-checkbox:checked');
-    return Array.prototype.map.call(boxes, function (b) { return b.value; });
+    return Array.prototype.map.call(boxes, function (b) { return b.value; }) || [];
 }
 
 function rptSetMultiValues(id, values) {
+    values = values || [];
     var container = document.getElementById(id + '_options');
     if (!container) return;
     var boxes = container.querySelectorAll('.rpt-ms-checkbox');
@@ -65348,6 +65358,8 @@ function rptOnMultiChange(id) {
 function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) {
     var mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
+
+    filterOptions = filterOptions || {};
 
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
     if (typeof injectReportsDesignSystem === 'function') injectReportsDesignSystem();
@@ -65644,8 +65656,9 @@ function rptOnAnyFilterChange() {
 }
 
 function rptFilterSignature() {
-    var multi = RPT_MULTI_FIELDS.map(function (id) {
-        return id + ':' + rptGetMultiValues(id).slice().sort().join(',');
+    var fields = rptMultiFields() || [];
+    var multi = fields.map(function (id) {
+        return id + ':' + (rptGetMultiValues(id) || []).slice().sort().join(',');
     }).join('|');
     var studentVal = (document.getElementById('reportStudentFilter') || {}).value || 'all';
     var tuitionVal = (document.getElementById('reportTuitionFilter') || {}).checked ? '1' : '0';
@@ -65668,12 +65681,14 @@ function rptUpdateActiveFilterChips() {
     if (!row) return;
 
     var chips = [];
+    var fields = rptMultiFields() || [];
+    var labels = rptMultiLabels() || {};
 
-    RPT_MULTI_FIELDS.forEach(function (id) {
-        var values = rptGetMultiValues(id);
+    fields.forEach(function (id) {
+        var values = rptGetMultiValues(id) || [];
         if (!values.length) return;
         var text = values.length === 1 ? rptOptionLabelFor(id, values[0]) : (values.length + ' selected');
-        chips.push({ id: id, label: RPT_MULTI_LABELS[id], text: text });
+        chips.push({ id: id, label: labels[id] || id, text: text });
     });
 
     var studentEl = document.getElementById('reportStudentFilter');
@@ -65708,7 +65723,8 @@ function rptUpdateActiveFilterChips() {
 }
 
 function rptClearFilter(id) {
-    if (RPT_MULTI_FIELDS.indexOf(id) !== -1) {
+    var fields = rptMultiFields() || [];
+    if (fields.indexOf(id) !== -1) {
         rptSetMultiValues(id, []);
         rptOnAnyFilterChange();
         return;
@@ -65934,6 +65950,8 @@ function rptHideLoadingState() {
 //    status-group/item/payment-status can each hold several values).
 // ---------------------------------------------------------------------------
 function rptBuildRecords(students, filters, termLabel, yearLabel) {
+    students = students || [];
+    filters = filters || {};
     var statusGroups = filters.statusGroups || [];
     var items = filters.items || [];
     var includeTuition = !!filters.includeTuition;
@@ -65960,11 +65978,11 @@ function rptBuildRecords(students, filters, termLabel, yearLabel) {
         var groups = student.statusGroups || {};
         Object.keys(groups).forEach(function (gName) {
             if (statusGroups.length && statusGroups.indexOf(gName) === -1) return;
-            var group = groups[gName];
+            var group = groups[gName] || {};
             var groupItems = group.items || {};
             Object.keys(groupItems).forEach(function (iName) {
                 if (items.length && items.indexOf(iName) === -1) return;
-                var itemData = groupItems[iName];
+                var itemData = groupItems[iName] || {};
                 var exp2 = itemData.amountExpected || 0;
                 var paid2 = itemData.totalAmountCollected || 0;
                 var bal2 = Math.max(0, exp2 - paid2);
@@ -66055,7 +66073,7 @@ async function generateReportV3() {
 // 9. RESET FILTERS
 // ---------------------------------------------------------------------------
 function resetReportFilters() {
-    RPT_MULTI_FIELDS.forEach(function (id) { rptSetMultiValues(id, []); });
+    (rptMultiFields() || []).forEach(function (id) { rptSetMultiValues(id, []); });
 
     var studentSelect = document.getElementById('reportStudentFilter');
     if (studentSelect) {
@@ -66129,12 +66147,13 @@ if (typeof getTermShort === 'function') window.getTermShort = getTermShort;
 if (typeof escapeHtml === 'function') window.escapeHtml = escapeHtml;
 if (typeof formatMoney === 'function') window.formatMoney = formatMoney;
 
-console.log('✅ Comprehensive Reports v5.0 (Multi-Select Filter Redesign) loaded');
+console.log('✅ Comprehensive Reports v5.1 (Multi-Select Filter Redesign, load-order fix) loaded');
 console.log('   🏫 New Class filter (Day + Boarding grouped automatically)');
 console.log('   ☑️ Level / Class / Fee Structure / Status Group / Item / Payment Status are now multi-select');
 console.log('   💰 Tuition excluded by default');
 console.log('   📅 Academic Period defaults to the Current Period');
 console.log('   🗑️ Removed unused Excel Export Sections checkboxes');
+console.log('   🛠️ Fixed: rptMultiFields()/rptMultiLabels() are functions now, immune to load-order issues');
 function toggleItemHistory(itemId) {
     // Initialize expandedItems if not exists
     if (typeof window.expandedItems === 'undefined') {
