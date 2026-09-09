@@ -66242,1563 +66242,240 @@ function buildSummaryCardsV3(totals, studentCount) {
 // so Excel now agrees with the HTML report table.
 // ======================================================================
 
-function exportReportToCSV() {
-    console.log('=== 📊 EXCEL EXPORT v32.0 - FIELD-NAME + ONE-TIME FALLBACK FIXED ===');
+// ==================== EXPORT REPORT TO CSV (v2.0 — Matches Rendered Table Exactly) ====================
+// Reads directly from `reportData` (set by generateReportV3) and reuses the surviving
+// plain-text formatting helpers (getItemMetric, formatMetricValue, formatComboExpected/
+// Collected/Balance, buildItemPeriodsPlain, buildTuitionPeriodsPlain) — the same helpers
+// that consume the exact same itemData/tuition fields the on-screen table is built from.
+// This guarantees the export numbers always match what's rendered, since both read from
+// the same underlying reportData object instead of two independently-computed paths.
 
+function exportReportToCSV() {
     if (!reportData || !reportData.students || reportData.students.length === 0) {
-        showToast('❌ No data to export. Please generate a report first.', 'error');
+        showToast('No report data to export. Please generate a report first.', 'error');
         return;
     }
 
-    try {
-        var students = reportData.students || [];
-        var filters = reportData.filters || {};
-        var metadata = reportData.metadata || {};
-        var currentYear = currentAcademicSettings.currentYear || new Date().getFullYear();
-        var currentTerm = currentAcademicSettings.currentTerm || 1;
-        var includeTuition = filters.includeTuition !== false;
-        var filterStatusGroup = filters.statusGroup || 'all';
-        var filterItem = filters.itemName || 'all';
-        var isTuitionOnly = filterStatusGroup === 'none';
-        var periodsIncluded = metadata.periodsIncluded || [];
-        let  isCustomized;
+    const students = reportData.students;
+    const filters = reportData.filters || {};
+    const includeTuition = filters.includeTuition !== false;
+    const filterStatusGroup = filters.statusGroup || 'all';
+    const filterItem = filters.itemName || 'all';
+    const isTuitionOnly = filterStatusGroup === 'none';
 
-        // ================================================================
-        // EXCEL EXPORT SECTION TOGGLES (read from the filter panel)
-        // ================================================================
-        var includeMainTable = document.getElementById('reportIncludeMainTable') ? document.getElementById('reportIncludeMainTable').checked : true;
-        var includePeriodBreakdownSheet = document.getElementById('reportIncludePeriodBreakdown') ? document.getElementById('reportIncludePeriodBreakdown').checked : true;
-        var includeSummaryStatsSheet = document.getElementById('reportIncludeSummaryStats') ? document.getElementById('reportIncludeSummaryStats').checked : true;
-
-        if (!includeMainTable && !includePeriodBreakdownSheet && !includeSummaryStatsSheet) {
-            showToast('❌ Select at least one section to export.', 'error');
-            return;
-        }
-
-        // Determine oldest period and max term per year (scoping)
-        var oldestPeriodKey = null;
-        var maxTermByYear = {};
-        if (periodsIncluded && periodsIncluded.length > 0) {
-            var sorted = periodsIncluded.map(function(k) {
-                var parts = k.split('_');
-                return { key: k, year: parseInt(parts[0]), term: parseInt(parts[1]) };
-            }).sort(function(a, b) {
-                if (a.year !== b.year) return a.year - b.year;
-                return a.term - b.term;
-            });
-            oldestPeriodKey = sorted.length > 0 ? sorted[0].key : null;
-            for (var i = 0; i < sorted.length; i++) {
-                var p = sorted[i];
-                if (!maxTermByYear[p.year] || p.term > maxTermByYear[p.year]) {
-                    maxTermByYear[p.year] = p.term;
-                }
-            }
-        } else {
-            var defaultKey = currentYear + '_' + currentTerm;
-            periodsIncluded = [defaultKey];
-            oldestPeriodKey = defaultKey;
-            maxTermByYear[currentYear] = currentTerm;
-        }
-
-        // ================================================================
-        // HELPER FUNCTIONS
-        // ================================================================
-        function formatMoney(amount) {
-            var num = Math.round(amount || 0);
-            return num.toLocaleString('en-US');
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            var div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function getTermName(term) {
-            var names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
-            return names[term] || 'Term ' + term;
-        }
-
-        function getTermShort(term) {
-            var names = { 1: 'T1', 2: 'T2', 3: 'T3' };
-            return names[term] || 'T' + term;
-        }
-
-        function getStatusGroupDisplayName(name) {
-            if (!name) return 'Other';
-            if (name === 'schoolastic requirement') return 'Scholastic';
-            if (name === 'Admission Fee') return 'Admission';
-            if (name === 'Tuition') return 'Tuition';
-            if (name === 'Transportation') return 'Transportation';
-            if (name === 'Uniform') return 'Uniform';
-            if (name === 'Development Fee') return 'Development';
-            return name;
-        }
-
-        function safeGetComponentName(student, groupName) {
-            if (!student) return groupName || 'Unknown';
-            if (!student.statusGroups) return groupName || 'Unknown';
-            var group = student.statusGroups[groupName];
-            if (!group) return groupName || 'Unknown';
-            return group.componentName || groupName || 'Unknown';
-        }
-
-        // ================================================================
-        // FIX: Helper to determine if a period is fully paid
-        // (used for OR-logic items so we don't count remainings for periods that are satisfied)
-        // ================================================================
-        function isPeriodFullyPaid(pd, paymentOption, perPeriodAmt, perPeriodQty) {
-            if (pd.isFullyPaid) return true;
-            var amtCollected = pd.amtCollected || 0;
-            var qtyCollected = pd.qtyCollected || 0;
-            if (paymentOption === 'cash_only') {
-                return amtCollected >= perPeriodAmt && perPeriodAmt > 0;
-            } else if (paymentOption === 'item_only') {
-                return qtyCollected >= perPeriodQty && perPeriodQty > 0;
-            } else {
-                // OR logic: cash OR items
-                return (amtCollected >= perPeriodAmt && perPeriodAmt > 0) ||
-                       (qtyCollected >= perPeriodQty && perPeriodQty > 0);
-            }
-        }
-
-        // ================================================================
-        // Single definition of "does this group count toward ITEM totals"
-        // ================================================================
-        function isScholasticGroup(groupName) {
-            return !!groupName && groupName.toLowerCase().indexOf('scholastic') !== -1;
-        }
-
-        function getApplicablePeriodsForItem(periodType, periodBreakdown, oldestPeriodKey, maxTermByYear) {
-            if (!periodBreakdown || typeof periodBreakdown !== 'object') return [];
-            var applicable = [];
-            var keys = Object.keys(periodBreakdown);
-            for (var i = 0; i < keys.length; i++) {
-                var pk = keys[i];
-                var pd = periodBreakdown[pk];
-                if (!pd || pd.isNotApplicable) continue;
-                var parts = pk.split('_');
-                var year = parseInt(parts[0]);
-                var term = parseInt(parts[1]);
-                var include = false;
-                if (periodType === 'one_time') {
-                    include = (pk === oldestPeriodKey);
-                } else if (periodType === 'yearly') {
-                    include = (term === (maxTermByYear[year] || 0));
-                } else { // termly
-                    include = true;
-                }
-                if (include) {
-                    applicable.push({ periodKey: pk, data: pd });
-                }
-            }
-            return applicable;
-        }
-
-        // ================================================================
-        // ★★★ THE FIX ★★★
-        // resolveApplicablePeriods() is the ONE shared implementation used
-        // everywhere in this export (headers, per-student rows, totals row).
-        // It replaces three separate inline fallback blocks that used to
-        // read the WRONG field names (quantityCollected / amountCollected /
-        // quantityRemaining / amountRemaining — none of which exist on the
-        // server's item objects) and had NO fallback for one-time items
-        // that have never been paid.
-        //
-        // Corrected to match buildReportTable (the HTML report, which was
-        // already right):
-        //   - Reads the REAL server field names: totalCollected,
-        //     totalRemaining, totalAmountCollected.
-        //   - ALWAYS treats a one-time item as having applicable data
-        //     (isOneTime fallback), so an unpaid one-time item still shows
-        //     its real "Expected" amount instead of silently becoming 0.
-        //   - Mirrors the yearly-period fallback-key logic too, for
-        //     consistency with the HTML table.
-        // ================================================================
-        function resolveApplicablePeriods(itemData, periodType, oldestPeriodKey, maxTermByYear, currentYear, currentTerm) {
-            var periodBreakdown = itemData.periodBreakdown || {};
-            var applicablePeriods = getApplicablePeriodsForItem(periodType, periodBreakdown, oldestPeriodKey, maxTermByYear);
-
-            if (applicablePeriods.length === 0) {
-                var isOneTime = itemData.isOneTime || periodType === 'one_time';
-
-                // FIX: correct field names (totalCollected / totalRemaining /
-                // totalAmountCollected) — the old quantityCollected /
-                // amountCollected / quantityRemaining / amountRemaining
-                // never existed on this object, so hasData was always false.
-                var hasDirectData = (itemData.totalCollected > 0) ||
-                                     (itemData.totalRemaining > 0) ||
-                                     (itemData.totalAmountCollected > 0) ||
-                                     isOneTime; // <-- the missing fallback
-
-                if (hasDirectData) {
-                    var fallbackKey = oldestPeriodKey;
-                    if (periodType === 'yearly') {
-                        var currentYearStr = currentYear.toString();
-                        if (maxTermByYear[currentYearStr]) {
-                            fallbackKey = currentYearStr + '_' + maxTermByYear[currentYearStr];
-                        }
-                    }
-                    fallbackKey = fallbackKey || (currentYear + '_' + currentTerm);
-
-                    var amountExpected = itemData.amountExpected || 0;
-                    var totalAmountCollected = itemData.totalAmountCollected || 0;
-
-                    applicablePeriods.push({
-                        periodKey: fallbackKey,
-                        data: {
-                            qtyCollected: itemData.totalCollected || 0,
-                            qtyRemaining: itemData.totalRemaining || 0,
-                            amtCollected: totalAmountCollected,
-                            amtRemaining: Math.max(0, amountExpected - totalAmountCollected),
-                            isFullyPaid: itemData.isFullyPaid || false,
-                            isCurrent: false
-                        }
-                    });
-                }
-            }
-
-            return applicablePeriods;
-        }
-
-        // Determine which status groups to show
-        var allGroupNames = [];
-        for (var s = 0; s < students.length; s++) {
-            var student = students[s];
-            if (student && student.statusGroups) {
-                var gNames = Object.keys(student.statusGroups);
-                for (var g = 0; g < gNames.length; g++) {
-                    if (allGroupNames.indexOf(gNames[g]) === -1) {
-                        allGroupNames.push(gNames[g]);
-                    }
-                }
-            }
-        }
-
-        var statusGroupsToShow = [];
-        if (isTuitionOnly) {
-            statusGroupsToShow = [];
-        } else if (filterStatusGroup && filterStatusGroup !== 'all' && filterStatusGroup !== 'none') {
-            if (allGroupNames.indexOf(filterStatusGroup) !== -1) {
-                statusGroupsToShow = [filterStatusGroup];
-            }
-        } else {
-            statusGroupsToShow = allGroupNames;
-        }
-
-        var priorityOrder = ['Tuition', 'Admission Fee', 'Scholastic Requirements', 'Uniform', 'Transportation', 'Development Fee'];
-        statusGroupsToShow.sort(function(a, b) {
-            var aIdx = priorityOrder.indexOf(a);
-            var bIdx = priorityOrder.indexOf(b);
-            if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-            if (aIdx !== -1) return -1;
-            if (bIdx !== -1) return 1;
-            return a.localeCompare(b);
+    // ---------------------------------------------------------------
+    // 1. DETERMINE STATUS GROUPS + ITEMS — same rules as the on-screen table
+    // ---------------------------------------------------------------
+    const allGroupNames = [];
+    students.forEach(s => {
+        Object.keys(s.statusGroups || {}).forEach(g => {
+            if (allGroupNames.indexOf(g) === -1) allGroupNames.push(g);
         });
-
-        // ================================================================
-        // Build statusGroupItems (for column headers and totals row)
-        // ================================================================
-        var statusGroupItems = {};
-        var itemCustomizationMap = {};
-
-        for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
-            var groupName = statusGroupsToShow[sgIdx];
-            var items = {};
-            itemCustomizationMap[groupName] = {};
-
-            for (var s = 0; s < students.length; s++) {
-                var student = students[s];
-                if (!student || !student.statusGroups) continue;
-
-                var groupData = student.statusGroups[groupName];
-                if (!groupData || !groupData.items) continue;
-
-                var groupItems = groupData.items;
-                for (var itemName in groupItems) {
-                    if (!groupItems.hasOwnProperty(itemName)) continue;
-                    var itemData = groupItems[itemName];
-                    if (!itemData) continue;
-
-                    var itemId = itemData.id || itemName;
-                    if (student.removedItems && student.removedItems[itemId] && student.removedItems[itemId].isActive !== false) {
-                        continue;
-                    }
-
-                    var periodType = itemData.periodType || 'termly';
-                    var paymentOption = itemData.paymentOption || 'either';
-                    var unitPrice = itemData.unitPrice || 0;
-
-                    // FIX: shared, corrected resolver (was the buggy inline block)
-                    var applicablePeriods = resolveApplicablePeriods(itemData, periodType, oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
-
-                    if (applicablePeriods.length === 0) continue;
-
-                    var perPeriodQty = itemData.quantityRequired || 1;
-                    var perPeriodAmt = itemData.amountExpected || 0;
-
-                    var totalQtyRequired = 0;
-                    var totalAmtExpected = 0;
-                    var totalQtyCollected = 0;
-                    var totalAmtCollected = 0;
-                    var totalQtyRemaining = 0;
-                    var totalAmtRemaining = 0;
-
-                    for (var apIdx = 0; apIdx < applicablePeriods.length; apIdx++) {
-                        var ap = applicablePeriods[apIdx];
-                        var pd = ap.data;
-                        totalQtyRequired += perPeriodQty;
-                        totalAmtExpected += perPeriodAmt;
-                        totalQtyCollected += (pd.qtyCollected || 0);
-                        totalAmtCollected += (pd.amtCollected || 0);
-                        // Only add remaining if period is NOT fully paid (OR logic)
-                        var periodFullyPaid = isPeriodFullyPaid(pd, paymentOption, perPeriodAmt, perPeriodQty);
-                        totalQtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
-                        totalAmtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
-                    }
-
-                    if (!items[itemName]) {
-                        items[itemName] = {
-                            name: itemName,
-                            id: itemId,
-                            paymentOption: paymentOption,
-                            unitPrice: unitPrice,
-                            qtyRequired: 0,
-                            amountExpected: 0,
-                            qtyCollected: 0,
-                            amtCollected: 0,
-                            qtyRemaining: 0,
-                            amtRemaining: 0,
-                            studentIds: new Set(),
-                            isCustomized: itemData.isCustomized || false,
-                            customReason: itemData.customReason || null,
-                            isOneTime: (periodType === 'one_time'),
-                            componentName: safeGetComponentName(student, groupName),
-                            periodType: periodType,
-                            periodBreakdown: {},
-                            displayCashPaid: 0,
-                            displayItemsCollected: 0
-                        };
-                    }
-
-                    var itemRef = items[itemName];
-                    itemRef.studentIds.add(student.id);
-                    itemRef.qtyRequired += totalQtyRequired;
-                    itemRef.amountExpected += totalAmtExpected;
-                    itemRef.qtyCollected += totalQtyCollected;
-                    itemRef.amtCollected += totalAmtCollected;
-                    itemRef.qtyRemaining += totalQtyRemaining;
-                    itemRef.amtRemaining += totalAmtRemaining;
-                    itemRef.displayCashPaid += totalAmtCollected;
-                    itemRef.displayItemsCollected += totalQtyCollected;
-
-                    if (!itemRef.periodBreakdown) itemRef.periodBreakdown = {};
-                    for (var apIdx = 0; apIdx < applicablePeriods.length; apIdx++) {
-                        var ap = applicablePeriods[apIdx];
-                        var pk = ap.periodKey;
-                        var pd = ap.data;
-                        if (!itemRef.periodBreakdown[pk]) {
-                            itemRef.periodBreakdown[pk] = {
-                                qtyCollected: 0,
-                                qtyRemaining: 0,
-                                amtCollected: 0,
-                                amtRemaining: 0,
-                                isFullyPaid: false,
-                                isCurrent: pd.isCurrent || false
-                            };
-                        }
-                        itemRef.periodBreakdown[pk].qtyCollected += pd.qtyCollected || 0;
-                        // Only add remaining if period is NOT fully paid
-                        var periodFullyPaid = isPeriodFullyPaid(pd, paymentOption, perPeriodAmt, perPeriodQty);
-                        itemRef.periodBreakdown[pk].qtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
-                        itemRef.periodBreakdown[pk].amtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
-                        itemRef.periodBreakdown[pk].amtCollected += pd.amtCollected || 0;
-                        // Recompute isFullyPaid using OR logic
-                        var pAmtCollected = itemRef.periodBreakdown[pk].amtCollected || 0;
-                        var pQtyCollected = itemRef.periodBreakdown[pk].qtyCollected || 0;
-                        if (paymentOption === 'cash_only') {
-                            itemRef.periodBreakdown[pk].isFullyPaid = (pAmtCollected >= perPeriodAmt && perPeriodAmt > 0);
-                        } else if (paymentOption === 'item_only') {
-                            itemRef.periodBreakdown[pk].isFullyPaid = (pQtyCollected >= perPeriodQty && perPeriodQty > 0);
-                        } else {
-                            itemRef.periodBreakdown[pk].isFullyPaid = (pAmtCollected >= perPeriodAmt && perPeriodAmt > 0) ||
-                                                                     (pQtyCollected >= perPeriodQty && perPeriodQty > 0);
-                        }
-                    }
-
-                    if (isCustomized) {
-                        // (kept for structural parity; isCustomized was read above per item)
-                    }
-                }
-            }
-
-            var filteredItems = [];
-            var itemNames = Object.keys(items);
-            for (var i = 0; i < itemNames.length; i++) {
-                var itemName = itemNames[i];
-                if (filterItem && filterItem !== 'all' && itemName !== filterItem) continue;
-                var item = items[itemName];
-                if (item && (item.qtyRequired > 0 || item.amountExpected > 0 || item.qtyCollected > 0 || item.amtCollected > 0)) {
-                    filteredItems.push(itemName);
-                }
-            }
-            filteredItems.sort();
-            statusGroupItems[groupName] = filteredItems;
-        }
-
-        // Build headers
-        var headers = ['#', 'Admission', 'Student Name', 'Class'];
-        if (includeTuition) {
-            headers.push('Tuition Expected (All Periods)');
-            headers.push('Tuition Paid (All Periods)');
-            headers.push('Tuition Balance (All Periods)');
-            headers.push('Tuition Status (Aggregated)');
-            headers.push('Tuition Periods Breakdown');
-        }
-
-        for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
-            var groupName = statusGroupsToShow[sgIdx];
-            var displayName = getStatusGroupDisplayName(groupName);
-            var items = statusGroupItems[groupName] || [];
-            for (var i = 0; i < items.length; i++) {
-                var itemName = items[i];
-                var headerLabel = displayName + ' - ' + itemName;
-                headers.push(headerLabel + ' (Status)');
-                headers.push(headerLabel + ' (Detail)');
-                headers.push(headerLabel + ' (Periods)');
-            }
-        }
-        headers.push('Overall Status');
-
-        // ================================================================
-        // Build data rows.
-        // ================================================================
-        var allRows = [];
-        var verificationTotals = {
-            tuitionExpected: 0,
-            tuitionPaid: 0,
-            tuitionBalance: 0,
-            activityCashExpected: 0,
-            activityCashPaid: 0,
-            activityCashRemaining: 0,
-            totalExpected: 0,
-            totalPaid: 0,
-            totalBalance: 0
-        };
-        // Scholastic-only item counters (match the Student Detail modal)
-        var totalItemsRequired = 0;
-        var totalItemsBrought = 0;
-        var totalItemsRemaining = 0;
-        // Total scholastic items paid with cash (cash-covered)
-        var totalCashCoveredScholasticItems = 0;
-
-        // Per-student status tallies
-        var fullyPaidCount = 0;
-        var fullyBroughtCount = 0;
-        var paymentDueCount = 0;
-        var noPaymentCount = 0;
-        var creditBalanceCount = 0;
-
-        for (var s = 0; s < students.length; s++) {
-            var student = students[s];
-            if (!student) continue;
-
-            var row = [s + 1, student.admissionNumber || '', ((student.firstName || '') + ' ' + (student.lastName || '')).trim(), student.currentClass || ''];
-
-            // Per-student accumulators for THIS row
-            var studentTuitionExpected = 0;
-            var studentTuitionPaid = 0;
-            var studentTuitionBalance = 0;
-            var studentCashExpected = 0;
-            var studentCashPaid = 0;
-            var studentScholasticItemsRequired = 0;
-            var studentScholasticItemsBrought = 0;
-            var studentScholasticItemsRemaining = 0;
-            var studentCashCoveredItems = 0;
-
-            // ---------- Tuition ----------
-            if (includeTuition) {
-                var tuition = student.tuition || {};
-                var tuitionPeriodBreakdown = tuition.periodBreakdown || {};
-                var tuitionPeriodKeys = Object.keys(tuitionPeriodBreakdown).sort();
-                var tuitionExpectedTotal = 0;
-                var tuitionPaidTotal = 0;
-                var tuitionBalanceTotal = 0;
-                var periodStatuses = [];
-
-                for (var pk = 0; pk < tuitionPeriodKeys.length; pk++) {
-                    var pKey = tuitionPeriodKeys[pk];
-                    var pd = tuitionPeriodBreakdown[pKey];
-                    if (!pd) continue;
-                    tuitionExpectedTotal += pd.expected || 0;
-                    tuitionPaidTotal += pd.paid || 0;
-                    tuitionBalanceTotal += pd.balance || 0;
-                    var parts = pKey.split('_');
-                    var year = parts[0] || currentYear;
-                    var term = parseInt(parts[1]) || 1;
-                    var termShort = getTermShort(term);
-                    var isCurrent = (parseInt(year) === currentYear && term === currentTerm);
-                    var balanceText = pd.balance > 0 ? formatMoney(pd.balance) + ' due' : (pd.balance < 0 ? 'Credit: ' + formatMoney(Math.abs(pd.balance)) : '✓');
-                    var statusIcon = pd.isFullyPaid ? '✓' : (pd.balance > 0 ? '⚠️' : '💰');
-                    periodStatuses.push(termShort + ' ' + year + (isCurrent ? '⭐' : '') + ': ' +
-                        'Paid: UGX ' + formatMoney(pd.paid) + ' / ' + formatMoney(pd.expected) +
-                        ' (' + balanceText + ') ' + statusIcon);
-                }
-                if (tuitionPeriodKeys.length === 0) {
-                    tuitionExpectedTotal = tuition.expected || 0;
-                    tuitionPaidTotal = tuition.paid || 0;
-                    tuitionBalanceTotal = tuition.balance || 0;
-                    periodStatuses = ['Single period: UGX ' + formatMoney(tuitionPaidTotal) + ' / ' + formatMoney(tuitionExpectedTotal)];
-                }
-
-                var tuitionStatus = '❌ Unpaid';
-                if (tuitionBalanceTotal < -10) tuitionStatus = '💰 Credit Balance';
-                else if (Math.abs(tuitionBalanceTotal) <= 10 && tuitionPaidTotal > 0) tuitionStatus = '✅ Paid';
-                else if (tuitionPaidTotal === 0 && tuitionExpectedTotal > 0) tuitionStatus = '❌ Unpaid';
-                else if (tuitionBalanceTotal > 0) tuitionStatus = '⚠️ Partial';
-
-                row.push(tuitionExpectedTotal, tuitionPaidTotal, tuitionBalanceTotal, tuitionStatus, periodStatuses.join('; '));
-
-                studentTuitionExpected = tuitionExpectedTotal;
-                studentTuitionPaid = tuitionPaidTotal;
-                studentTuitionBalance = tuitionBalanceTotal;
-
-                verificationTotals.tuitionExpected += tuitionExpectedTotal;
-                verificationTotals.tuitionPaid += tuitionPaidTotal;
-                verificationTotals.tuitionBalance += tuitionBalanceTotal;
-            }
-
-            // ---------- Status Groups ----------
-            for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
-                var groupName = statusGroupsToShow[sgIdx];
-                var items = statusGroupItems[groupName] || [];
-                var groupData = student.statusGroups ? student.statusGroups[groupName] : null;
-                var groupIsScholastic = isScholasticGroup(groupName);
-
-                for (var i = 0; i < items.length; i++) {
-                    var itemName = items[i];
-                    var itemData = groupData && groupData.items ? groupData.items[itemName] : null;
-
-                    if (itemData) {
-                        var perStudentQtyRequired = 0;
-                        var perStudentAmtExpected = 0;
-                        var perStudentQtyCollected = 0;
-                        var perStudentAmtCollected = 0;
-                        var perStudentQtyRemaining = 0;
-                        var perStudentAmtRemaining = 0;
-                        var paymentOption = itemData.paymentOption || 'either';
-                        var unitPrice = itemData.unitPrice || 0;
-
-                        // FIX: shared, corrected resolver (was the buggy inline block)
-                        var applicablePeriods = resolveApplicablePeriods(itemData, itemData.periodType || 'termly', oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
-                        var periodBreakdown = itemData.periodBreakdown || {};
-
-                        var perPeriodQty = itemData.quantityRequired || 1;
-                        var perPeriodAmt = itemData.amountExpected || 0;
-
-                        for (var apIdx = 0; apIdx < applicablePeriods.length; apIdx++) {
-                            var ap = applicablePeriods[apIdx];
-                            var pd = ap.data;
-                            perStudentQtyRequired += perPeriodQty;
-                            perStudentAmtExpected += perPeriodAmt;
-                            perStudentQtyCollected += (pd.qtyCollected || 0);
-                            perStudentAmtCollected += (pd.amtCollected || 0);
-                            // Only add remaining if period is NOT fully paid
-                            var periodFullyPaid = isPeriodFullyPaid(pd, paymentOption, perPeriodAmt, perPeriodQty);
-                            perStudentQtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
-                            perStudentAmtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
-
-                            // Count cash-covered periods for scholastic, OR-logic items
-                            if (groupIsScholastic && paymentOption === 'either') {
-                                if (pd.amtCollected >= perPeriodAmt && perPeriodAmt > 0) {
-                                    studentCashCoveredItems++;
-                                    totalCashCoveredScholasticItems++;
-                                }
-                            }
-                        }
-
-                        if (applicablePeriods.length === 0) {
-                            // Genuinely nothing applies to this student for this item —
-                            // not even a one-time fallback. Show '—' as before.
-                            row.push('—', '—', '—');
-                            continue;
-                        }
-
-                        // Build status, detail, periods strings
-                        var statusText = '';
-                        var detailParts = [];
-
-                        if (paymentOption === 'cash_only') {
-                            if (perStudentAmtCollected >= perStudentAmtExpected && perStudentAmtExpected > 0) {
-                                statusText = '✅ Paid (Cash Only)';
-                            } else if (perStudentAmtCollected > 0) {
-                                statusText = '⚠️ Partial';
-                            } else {
-                                statusText = '❌ Unpaid';
-                            }
-                            detailParts.push('Cash: UGX ' + formatMoney(perStudentAmtCollected));
-                            detailParts.push('Expected: UGX ' + formatMoney(perStudentAmtExpected));
-                        } else if (paymentOption === 'item_only') {
-                            if (perStudentQtyCollected >= perStudentQtyRequired && perStudentQtyRequired > 0) {
-                                statusText = '✅ Brought (Items Only)';
-                            } else if (perStudentQtyCollected > 0) {
-                                statusText = '⚠️ Partially Brought';
-                            } else {
-                                statusText = '❌ Not Brought';
-                            }
-                            detailParts.push('Items: ' + perStudentQtyCollected + '/' + perStudentQtyRequired);
-                        } else {
-                            var cashFull = perStudentAmtCollected >= perStudentAmtExpected && perStudentAmtExpected > 0;
-                            var itemFull = perStudentQtyCollected >= perStudentQtyRequired && perStudentQtyRequired > 0;
-                            if (cashFull && itemFull) {
-                                statusText = '✅ Paid (Cash + Items)';
-                            } else if (cashFull) {
-                                statusText = '✅ Paid (Cash Only)';
-                            } else if (itemFull) {
-                                statusText = '✅ Brought (Items Only)';
-                            } else if (perStudentAmtCollected > 0 || perStudentQtyCollected > 0) {
-                                statusText = '⚠️ Partial';
-                            } else {
-                                statusText = '❌ Unpaid';
-                            }
-                            if (perStudentAmtCollected > 0) detailParts.push('Cash: UGX ' + formatMoney(perStudentAmtCollected));
-                            if (perStudentQtyCollected > 0) detailParts.push('Items: ' + perStudentQtyCollected);
-                            if (perStudentAmtExpected > 0) detailParts.push('Expected: UGX ' + formatMoney(perStudentAmtExpected));
-                            if (perStudentQtyRequired > 0) detailParts.push('Required: ' + perStudentQtyRequired);
-                        }
-
-                        var isFullyPaid = false;
-                        if (paymentOption === 'cash_only') {
-                            isFullyPaid = perStudentAmtCollected >= perStudentAmtExpected && perStudentAmtExpected > 0;
-                        } else if (paymentOption === 'item_only') {
-                            isFullyPaid = perStudentQtyCollected >= perStudentQtyRequired && perStudentQtyRequired > 0;
-                        } else {
-                            isFullyPaid = (perStudentAmtCollected >= perStudentAmtExpected && perStudentAmtExpected > 0) ||
-                                          (perStudentQtyCollected >= perStudentQtyRequired && perStudentQtyRequired > 0);
-                        }
-
-                        if (isFullyPaid) {
-                            if (paymentOption === 'cash_only') detailParts.push('✅ Fully Paid');
-                            else if (paymentOption === 'item_only') detailParts.push('✅ Fully Brought');
-                            else {
-                                var paidBy = (perStudentAmtCollected >= perStudentAmtExpected && perStudentAmtExpected > 0) ? 'Cash' : 'Items';
-                                detailParts.push('✅ Fully Paid (' + paidBy + ')');
-                            }
-                        } else if (perStudentAmtCollected > 0 || perStudentQtyCollected > 0) {
-                            detailParts.push('⚠️ Partial');
-                        } else {
-                            if (paymentOption === 'item_only') {
-                                detailParts.push('❌ Not Brought');
-                            } else {
-                                detailParts.push('❌ Unpaid');
-                            }
-                        }
-                        var detailText = detailParts.join(' | ');
-
-                        // Periods breakdown
-                        var periodBreakdownStrings = [];
-                        var periodKeys = Object.keys(periodBreakdown).sort();
-                        for (var pk = 0; pk < periodKeys.length; pk++) {
-                            var pKey = periodKeys[pk];
-                            var pd = periodBreakdown[pKey];
-                            if (!pd || pd.isNotApplicable) continue;
-                            var parts = pKey.split('_');
-                            var year = parts[0] || currentYear;
-                            var term = parseInt(parts[1]) || 1;
-                            var termName = getTermName(term);
-                            var isCurrent = (parseInt(year) === currentYear && term === currentTerm);
-                            var currentBadge = isCurrent ? '⭐' : '';
-                            var collectedDisplay = '';
-                            var remainingDisplay = '';
-                            var periodStatus = '';
-
-                            var pAmtCollected = pd.amtCollected || 0;
-                            var pQtyCollected = pd.qtyCollected || 0;
-                            var pAmtExpected = perPeriodAmt;
-                            var pQtyRequired = perPeriodQty;
-                            var pAmtRemaining = pd.amtRemaining || 0;
-                            var pQtyRemaining = pd.qtyRemaining || 0;
-                            var pIsFullyPaid = pd.isFullyPaid || false;
-                            if (!pIsFullyPaid) {
-                                if (paymentOption === 'cash_only') {
-                                    pIsFullyPaid = pAmtCollected >= pAmtExpected && pAmtExpected > 0;
-                                } else if (paymentOption === 'item_only') {
-                                    pIsFullyPaid = pQtyCollected >= pQtyRequired && pQtyRequired > 0;
-                                } else {
-                                    pIsFullyPaid = (pAmtCollected >= pAmtExpected && pAmtExpected > 0) ||
-                                                   (pQtyCollected >= pQtyRequired && pQtyRequired > 0);
-                                }
-                            }
-
-                            if (paymentOption === 'cash_only') {
-                                collectedDisplay = pAmtCollected > 0 ? '💵 UGX ' + formatMoney(pAmtCollected) : '—';
-                            } else if (paymentOption === 'item_only') {
-                                collectedDisplay = pQtyCollected > 0 ? '📦 ' + pQtyCollected + ' items' : '—';
-                            } else {
-                                var cParts = [];
-                                if (pAmtCollected > 0) cParts.push('💵 UGX ' + formatMoney(pAmtCollected));
-                                if (pQtyCollected > 0) cParts.push('📦 ' + pQtyCollected + ' items');
-                                collectedDisplay = cParts.length > 0 ? cParts.join(' | ') : '—';
-                            }
-
-                            if (pIsFullyPaid) {
-                                periodStatus = '✅ Paid';
-                                remainingDisplay = '✓';
-                            } else if (pAmtCollected > 0 || pQtyCollected > 0) {
-                                periodStatus = '⚠️ Partial';
-                                if (paymentOption === 'cash_only') {
-                                    remainingDisplay = pAmtRemaining > 0 ? '💵 UGX ' + formatMoney(pAmtRemaining) : '—';
-                                } else if (paymentOption === 'item_only') {
-                                    remainingDisplay = pQtyRemaining > 0 ? pQtyRemaining + ' items' : '—';
-                                } else {
-                                    var remParts = [];
-                                    if (pAmtRemaining > 0) remParts.push('💵 UGX ' + formatMoney(pAmtRemaining));
-                                    if (pQtyRemaining > 0) remParts.push(pQtyRemaining + ' items');
-                                    remainingDisplay = remParts.length > 0 ? remParts.join(' OR ') : '—';
-                                }
-                            } else {
-                                periodStatus = paymentOption === 'item_only' ? '❌ Not Brought' : '❌ Unpaid';
-                                if (paymentOption === 'cash_only') {
-                                    remainingDisplay = pAmtExpected > 0 ? '💵 UGX ' + formatMoney(pAmtExpected) : '—';
-                                } else if (paymentOption === 'item_only') {
-                                    remainingDisplay = pQtyRequired > 0 ? pQtyRequired + ' items' : '—';
-                                } else {
-                                    var remParts = [];
-                                    if (pAmtExpected > 0) remParts.push('💵 UGX ' + formatMoney(pAmtExpected));
-                                    if (pQtyRequired > 0) remParts.push(pQtyRequired + ' items');
-                                    remainingDisplay = remParts.length > 0 ? remParts.join(' OR ') : '—';
-                                }
-                            }
-
-                            periodBreakdownStrings.push(termName + ' ' + year + (currentBadge ? ' ' + currentBadge : '') +
-                                ': ' + periodStatus + ' | Collected: ' + collectedDisplay + ' | Remaining: ' + remainingDisplay);
-                        }
-                        // If the item was only shown because of the isOneTime fallback and
-                        // has NO real periodBreakdown entries at all, say so explicitly
-                        // instead of leaving the periods column blank.
-                        var periodBreakdownString = periodBreakdownStrings.length > 0
-                            ? periodBreakdownStrings.join('; ')
-                            : (itemData.isOneTime ? '⭐ One-Time (not yet activated for any period)' : '—');
-
-                        row.push(statusText, detailText, periodBreakdownString);
-
-                        // Accumulate cash and item totals (using corrected remainings)
-                        if (paymentOption !== 'item_only') {
-                            studentCashExpected += perStudentAmtExpected;
-                            studentCashPaid += perStudentAmtCollected;
-                            verificationTotals.activityCashExpected += perStudentAmtExpected;
-                            verificationTotals.activityCashPaid += perStudentAmtCollected;
-                            verificationTotals.activityCashRemaining += perStudentAmtRemaining;
-                        }
-                        if (paymentOption !== 'cash_only' && groupIsScholastic) {
-                            studentScholasticItemsRequired += perStudentQtyRequired;
-                            studentScholasticItemsBrought += perStudentQtyCollected;
-                            studentScholasticItemsRemaining += perStudentQtyRemaining;
-                            totalItemsRequired += perStudentQtyRequired;
-                            totalItemsBrought += perStudentQtyCollected;
-                            totalItemsRemaining += perStudentQtyRemaining;
-                        }
-
-                    } else {
-                        row.push('—', '—', '—');
-                    }
-                }
-            }
-
-            // ================================================================
-            // Overall Status derived from the SAME numbers accumulated above
-            // ================================================================
-            var studentTotalExpected = studentTuitionExpected + studentCashExpected;
-            var studentTotalPaid = studentTuitionPaid + studentCashPaid;
-            var studentTotalBalance = studentTotalExpected - studentTotalPaid;
-            var studentItemsFullyBrought = (studentScholasticItemsRequired === 0) ||
-                                            (studentScholasticItemsRemaining === 0);
-            var studentHasAnyPayment = (studentTotalPaid > 0) || (studentScholasticItemsBrought > 0);
-
-            var overallStatusText;
-            if (studentTotalBalance < -10) {
-                overallStatusText = '💰 Credit Balance';
-                creditBalanceCount++;
-            } else if (Math.abs(studentTotalBalance) <= 10 && studentItemsFullyBrought && studentTotalPaid > 0) {
-                overallStatusText = '✅ Fully Paid';
-                fullyPaidCount++;
-            } else if (!studentHasAnyPayment && studentTotalExpected > 0) {
-                overallStatusText = '❌ No Payment';
-                noPaymentCount++;
-            } else {
-                overallStatusText = '⚠️ Payment Due';
-                paymentDueCount++;
-            }
-
-            if (studentScholasticItemsRequired > 0 && studentScholasticItemsRemaining === 0) {
-                fullyBroughtCount++;
-            }
-
-            row.push(overallStatusText);
-            allRows.push(row);
-        }
-
-        // Calculate overall totals (now consistent with per-row values above)
-        verificationTotals.totalExpected = verificationTotals.tuitionExpected + verificationTotals.activityCashExpected;
-        verificationTotals.totalPaid = verificationTotals.tuitionPaid + verificationTotals.activityCashPaid;
-        verificationTotals.totalBalance = verificationTotals.tuitionBalance + verificationTotals.activityCashRemaining;
-        var overallRate = verificationTotals.totalExpected > 0 ? ((verificationTotals.totalPaid / verificationTotals.totalExpected) * 100) : 0;
-        var tuitionRate = verificationTotals.tuitionExpected > 0 ? ((verificationTotals.tuitionPaid / verificationTotals.tuitionExpected) * 100) : 0;
-        var itemsCollectionRate = totalItemsRequired > 0 ? ((totalItemsBrought / totalItemsRequired) * 100) : 0;
-
-        // ================================================================
-        // TOTALS ROW – Recompute using corrected remainings
-        // ================================================================
-        var totalsRow = ['TOTALS', '', '', ''];
-        if (includeTuition) {
-            totalsRow.push(verificationTotals.tuitionExpected);
-            totalsRow.push(verificationTotals.tuitionPaid);
-            totalsRow.push(verificationTotals.tuitionBalance);
-            totalsRow.push(tuitionRate.toFixed(1) + '%');
-
-            var tuitionPeriodAgg = {};
-            for (var s2 = 0; s2 < students.length; s2++) {
-                var stu = students[s2];
-                if (stu && stu.tuition && stu.tuition.periodBreakdown) {
-                    var pd2 = stu.tuition.periodBreakdown;
-                    for (var pk2 in pd2) {
-                        if (!tuitionPeriodAgg[pk2]) tuitionPeriodAgg[pk2] = { expected: 0, paid: 0, balance: 0 };
-                        tuitionPeriodAgg[pk2].expected += pd2[pk2].expected || 0;
-                        tuitionPeriodAgg[pk2].paid += pd2[pk2].paid || 0;
-                        tuitionPeriodAgg[pk2].balance += pd2[pk2].balance || 0;
-                    }
-                }
-            }
-            var tuitionPeriodKeysAll = Object.keys(tuitionPeriodAgg).sort();
-            var tuitionPeriodSummary = '';
-            if (tuitionPeriodKeysAll.length > 0) {
-                var parts2 = [];
-                for (var pk3 = 0; pk3 < tuitionPeriodKeysAll.length; pk3++) {
-                    var pKey2 = tuitionPeriodKeysAll[pk3];
-                    var pt = tuitionPeriodAgg[pKey2];
-                    var pParts2 = pKey2.split('_');
-                    var year2 = pParts2[0] || currentYear;
-                    var term2 = parseInt(pParts2[1]) || 1;
-                    var termShort2 = getTermShort(term2);
-                    var isCurrent2 = (parseInt(year2) === currentYear && term2 === currentTerm);
-                    var isFullyPaid2 = pt.balance <= 0 && pt.paid > 0;
-                    var statusIcon2 = isFullyPaid2 ? '✓' : (pt.balance > 0 ? '⚠️' : '💰');
-                    parts2.push(termShort2 + ' ' + year2 + (isCurrent2 ? '⭐' : '') + ': ' +
-                        formatMoney(pt.paid) + '/' + formatMoney(pt.expected) +
-                        (pt.balance > 0 ? ' (' + formatMoney(pt.balance) + ' due)' :
-                         pt.balance < 0 ? ' (Credit: ' + formatMoney(Math.abs(pt.balance)) + ')' : ' ✓') +
-                        ' ' + statusIcon2);
-                }
-                tuitionPeriodSummary = parts2.join('; ');
-            } else {
-                tuitionPeriodSummary = 'Single period: UGX ' + formatMoney(verificationTotals.tuitionPaid) + ' / ' + formatMoney(verificationTotals.tuitionExpected);
-            }
-            totalsRow.push(tuitionPeriodSummary);
-        }
-
-        // Build totals for each item by summing directly from student period breakdowns
-        for (var sgIdx = 0; sgIdx < statusGroupsToShow.length; sgIdx++) {
-            var groupName = statusGroupsToShow[sgIdx];
-            var items = statusGroupItems[groupName] || [];
-            for (var i = 0; i < items.length; i++) {
-                var itemName = items[i];
-                var totalQtyRequired = 0;
-                var totalQtyCollected = 0;
-                var totalQtyRemaining = 0;
-                var totalAmtExpected = 0;
-                var totalAmtCollected = 0;
-                var totalAmtRemaining = 0;
-                var paymentOption = 'either';
-                var periodBreakdownAgg = {};
-                var periodKeysAgg = [];
-                var perPeriodAmt = 0;
-                var perPeriodQty = 1;
-
-                for (var s3 = 0; s3 < students.length; s3++) {
-                    var student3 = students[s3];
-                    if (!student3) continue;
-                    var groupData3 = student3.statusGroups ? student3.statusGroups[groupName] : null;
-                    var itemData3 = groupData3 && groupData3.items ? groupData3.items[itemName] : null;
-                    if (itemData3) {
-                        var pOption = itemData3.paymentOption || 'either';
-                        paymentOption = pOption;
-
-                        // FIX: shared, corrected resolver (was the buggy inline block)
-                        var applicablePeriods = resolveApplicablePeriods(itemData3, itemData3.periodType || 'termly', oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
-
-                        var perPeriodQtyLocal = itemData3.quantityRequired || 1;
-                        var perPeriodAmtLocal = itemData3.amountExpected || 0;
-                        perPeriodAmt = perPeriodAmtLocal;
-                        perPeriodQty = perPeriodQtyLocal;
-
-                        for (var apIdx = 0; apIdx < applicablePeriods.length; apIdx++) {
-                            var ap = applicablePeriods[apIdx];
-                            var pd = ap.data;
-                            totalQtyRequired += perPeriodQtyLocal;
-                            totalAmtExpected += perPeriodAmtLocal;
-                            totalQtyCollected += (pd.qtyCollected || 0);
-                            totalAmtCollected += (pd.amtCollected || 0);
-                            // Only add remaining if period is NOT fully paid
-                            var periodFullyPaid = isPeriodFullyPaid(pd, paymentOption, perPeriodAmtLocal, perPeriodQtyLocal);
-                            totalQtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
-                            totalAmtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
-                            if (!periodBreakdownAgg[ap.periodKey]) {
-                                periodBreakdownAgg[ap.periodKey] = {
-                                    qtyCollected: 0,
-                                    qtyRemaining: 0,
-                                    amtCollected: 0,
-                                    amtRemaining: 0,
-                                    qtyExpected: 0,
-                                    amtExpected: 0,
-                                    isFullyPaid: false,
-                                    isCurrent: pd.isCurrent || false
-                                };
-                                if (periodKeysAgg.indexOf(ap.periodKey) === -1) periodKeysAgg.push(ap.periodKey);
-                            }
-                            periodBreakdownAgg[ap.periodKey].qtyCollected += pd.qtyCollected || 0;
-                            periodBreakdownAgg[ap.periodKey].qtyRemaining += periodFullyPaid ? 0 : (pd.qtyRemaining || 0);
-                            periodBreakdownAgg[ap.periodKey].amtRemaining += periodFullyPaid ? 0 : (pd.amtRemaining || 0);
-                            periodBreakdownAgg[ap.periodKey].amtCollected += pd.amtCollected || 0;
-                            periodBreakdownAgg[ap.periodKey].qtyExpected += perPeriodQtyLocal;
-                            periodBreakdownAgg[ap.periodKey].amtExpected += perPeriodAmtLocal;
-                        }
-                    }
-                }
-                periodKeysAgg.sort();
-
-                var totalsStatusText = '';
-                if (paymentOption === 'cash_only') {
-                    if (totalAmtCollected >= totalAmtExpected && totalAmtExpected > 0) totalsStatusText = '✅ Paid (Cash Only)';
-                    else if (totalAmtCollected > 0) totalsStatusText = '⚠️ Partial';
-                    else totalsStatusText = '❌ Unpaid';
-                } else if (paymentOption === 'item_only') {
-                    if (totalQtyCollected >= totalQtyRequired && totalQtyRequired > 0) totalsStatusText = '✅ Brought (Items Only)';
-                    else if (totalQtyCollected > 0) totalsStatusText = '⚠️ Partial';
-                    else totalsStatusText = '❌ Not Brought';
-                } else {
-                    var cashFull2 = totalAmtCollected >= totalAmtExpected && totalAmtExpected > 0;
-                    var itemFull2 = totalQtyCollected >= totalQtyRequired && totalQtyRequired > 0;
-                    if (cashFull2 && itemFull2) totalsStatusText = '✅ Paid (Cash + Items)';
-                    else if (cashFull2) totalsStatusText = '✅ Paid (Cash Only)';
-                    else if (itemFull2) totalsStatusText = '✅ Brought (Items Only)';
-                    else if (totalAmtCollected > 0 || totalQtyCollected > 0) totalsStatusText = '⚠️ Partial';
-                    else totalsStatusText = '❌ Unpaid';
-                }
-
-                var collectedDisplay2 = '';
-                if (paymentOption === 'cash_only') {
-                    collectedDisplay2 = totalAmtCollected > 0 ? '💵 Cash: UGX ' + formatMoney(totalAmtCollected) : '❌ None';
-                } else if (paymentOption === 'item_only') {
-                    collectedDisplay2 = totalQtyCollected > 0 ? '📦 Items: ' + totalQtyCollected : '❌ None';
-                } else {
-                    var parts3 = [];
-                    if (totalAmtCollected > 0) parts3.push('💵 Cash: UGX ' + formatMoney(totalAmtCollected));
-                    if (totalQtyCollected > 0) parts3.push('📦 Items: ' + totalQtyCollected);
-                    collectedDisplay2 = parts3.length > 0 ? parts3.join(' + ') : '❌ None';
-                }
-
-                var expectedDisplay2 = '';
-                if (paymentOption === 'cash_only') {
-                    expectedDisplay2 = '💵 UGX ' + formatMoney(totalAmtExpected);
-                } else if (paymentOption === 'item_only') {
-                    expectedDisplay2 = '📦 ' + totalQtyRequired + ' items';
-                } else {
-                    var eParts2 = [];
-                    if (totalAmtExpected > 0) eParts2.push('💵 UGX ' + formatMoney(totalAmtExpected));
-                    if (totalQtyRequired > 0) eParts2.push('📦 ' + totalQtyRequired + ' items');
-                    expectedDisplay2 = eParts2.length > 0 ? eParts2.join(' | ') : '—';
-                }
-
-                var remainingDisplay2 = '';
-                if (paymentOption === 'cash_only') {
-                    remainingDisplay2 = totalAmtRemaining > 0 ? '💵 UGX ' + formatMoney(totalAmtRemaining) : '✅ Fully Paid';
-                } else if (paymentOption === 'item_only') {
-                    remainingDisplay2 = totalQtyRemaining > 0 ? '📦 ' + totalQtyRemaining + ' items' : '✅ Fully Brought';
-                } else {
-                    var rParts2 = [];
-                    if (totalAmtRemaining > 0 && totalQtyRemaining > 0) rParts2.push('💵 UGX ' + formatMoney(totalAmtRemaining) + ' OR 📦 ' + totalQtyRemaining + ' items');
-                    else if (totalAmtRemaining > 0) rParts2.push('💵 UGX ' + formatMoney(totalAmtRemaining));
-                    else if (totalQtyRemaining > 0) rParts2.push('📦 ' + totalQtyRemaining + ' items');
-                    else rParts2.push('✅ Paid');
-                    remainingDisplay2 = rParts2.join(' ');
-                }
-
-                var optionLabel2 = paymentOption === 'cash_only' ? '💵 Cash Only' : (paymentOption === 'item_only' ? '📦 Item Only' : '🔄 Cash OR Items');
-                var totalsDetailText2 = '📥 Collected: ' + collectedDisplay2 + ' | 📋 Expected: ' + expectedDisplay2 + ' | ⏳ Remaining: ' + remainingDisplay2 + ' | 📊 Status: ' + totalsStatusText + ' | 📌 Option: ' + optionLabel2;
-
-                var totalsPeriodBreakdown2 = '';
-                if (periodKeysAgg.length > 0) {
-                    var periodParts2 = [];
-                    for (var pk5 = 0; pk5 < periodKeysAgg.length; pk5++) {
-                        var pKey5 = periodKeysAgg[pk5];
-                        var pt5 = periodBreakdownAgg[pKey5];
-                        var pParts5 = pKey5.split('_');
-                        var year5 = pParts5[0] || currentYear;
-                        var term5 = parseInt(pParts5[1]) || 1;
-                        var termShort5 = getTermShort(term5);
-                        var isCurrent5 = (parseInt(year5) === currentYear && term5 === currentTerm);
-                        var currentBadge5 = isCurrent5 ? '⭐' : '';
-                        var periodCollected5 = [];
-                        if (paymentOption === 'cash_only') {
-                            if (pt5.amtCollected > 0) periodCollected5.push('💵 UGX ' + formatMoney(pt5.amtCollected));
-                        } else if (paymentOption === 'item_only') {
-                            if (pt5.qtyCollected > 0) periodCollected5.push('📦 ' + pt5.qtyCollected + ' items');
-                        } else {
-                            if (pt5.amtCollected > 0) periodCollected5.push('💵 UGX ' + formatMoney(pt5.amtCollected));
-                            if (pt5.qtyCollected > 0) periodCollected5.push('📦 ' + pt5.qtyCollected + ' items');
-                        }
-                        var periodCollectedDisplay5 = periodCollected5.length > 0 ? periodCollected5.join(' + ') : '❌ None';
-
-                        var aggIsFullyPaid = pt5.isFullyPaid;
-                        if (!aggIsFullyPaid) {
-                            if (paymentOption === 'cash_only') {
-                                aggIsFullyPaid = pt5.amtCollected >= pt5.amtExpected && pt5.amtExpected > 0;
-                            } else if (paymentOption === 'item_only') {
-                                aggIsFullyPaid = pt5.qtyCollected >= pt5.qtyExpected && pt5.qtyExpected > 0;
-                            } else {
-                                aggIsFullyPaid = (pt5.amtCollected >= pt5.amtExpected && pt5.amtExpected > 0) ||
-                                                 (pt5.qtyCollected >= pt5.qtyExpected && pt5.qtyExpected > 0);
-                            }
-                        }
-
-                        var periodRemaining5 = [];
-                        if (aggIsFullyPaid) {
-                            periodRemaining5.push('✅ Paid');
-                        } else if (paymentOption === 'cash_only') {
-                            if (pt5.amtRemaining > 0) periodRemaining5.push('💵 UGX ' + formatMoney(pt5.amtRemaining));
-                            else periodRemaining5.push('—');
-                        } else if (paymentOption === 'item_only') {
-                            if (pt5.qtyRemaining > 0) periodRemaining5.push('📦 ' + pt5.qtyRemaining + ' items');
-                            else periodRemaining5.push('—');
-                        } else {
-                            if (pt5.amtRemaining > 0 && pt5.qtyRemaining > 0) periodRemaining5.push('💵 UGX ' + formatMoney(pt5.amtRemaining) + ' OR 📦 ' + pt5.qtyRemaining + ' items');
-                            else if (pt5.amtRemaining > 0) periodRemaining5.push('💵 UGX ' + formatMoney(pt5.amtRemaining));
-                            else if (pt5.qtyRemaining > 0) periodRemaining5.push('📦 ' + pt5.qtyRemaining + ' items');
-                            else periodRemaining5.push('—');
-                        }
-                        var periodRemainingDisplay5 = periodRemaining5.join(' ');
-                        periodParts2.push(termShort5 + ' ' + year5 + (currentBadge5 ? ' ' + currentBadge5 : '') +
-                            ': Collected: ' + periodCollectedDisplay5 + ' | Remaining: ' + periodRemainingDisplay5);
-                    }
-                    totalsPeriodBreakdown2 = periodParts2.join('; ');
-                } else {
-                    totalsPeriodBreakdown2 = '—';
-                }
-
-                totalsRow.push(totalsStatusText);
-                totalsRow.push(totalsDetailText2);
-                totalsRow.push(totalsPeriodBreakdown2);
-            }
-        }
-
-        totalsRow.push(overallRate.toFixed(2) + '%');
-        allRows.push(totalsRow);
-
-        // ================================================================
-        // Build HTML for Excel
-        // ================================================================
-        function formatCell(val) {
-            if (val === '' || val === null || val === undefined) return '&nbsp;';
-            if (typeof val === 'number') {
-                return val.toLocaleString('en-US');
-            }
-            return escapeHtml(val);
-        }
-
-        var schoolName = 'Eden Christian School';
-        var schoolMotto = 'Quality Education for All';
-        var schoolAddress = '';
-        var schoolPhone = '';
-        var schoolEmail = '';
-        try {
-            var schoolData = JSON.parse(localStorage.getItem('schoolData') || '{}');
-            if (schoolData.schoolName) schoolName = schoolData.schoolName;
-            if (schoolData.motto) schoolMotto = schoolData.motto;
-            if (schoolData.address) schoolAddress = schoolData.address;
-            if (schoolData.phone) schoolPhone = schoolData.phone;
-            if (schoolData.email) schoolEmail = schoolData.email;
-        } catch (e) { /* ignore */ }
-
-        var termName = getTermName(currentTerm);
-        var totalCols = headers.length;
-        var filterTexts = [];
-        if (filters.level && filters.level !== 'all') {
-            var levelLabels = { 'Nursery': 'Nursery', 'LowerPrimary': 'Lower Primary', 'UpperPrimary': 'Upper Primary' };
-            filterTexts.push('Level: ' + (levelLabels[filters.level] || filters.level));
-        }
-        if (filters.statusGroup && filters.statusGroup !== 'all' && filters.statusGroup !== 'none') {
-            filterTexts.push('Status Group: ' + getStatusGroupDisplayName(filters.statusGroup));
-        }
-        if (filters.itemName && filters.itemName !== 'all') {
-            filterTexts.push('Item: ' + filters.itemName);
-        }
-        if (filters.paymentStatus && filters.paymentStatus !== 'all') {
-            filterTexts.push('Payment: ' + filters.paymentStatus);
-        }
-        var filterText = filterTexts.length > 0 ? 'Filters: ' + filterTexts.join(' | ') : 'All Records';
-
-        var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
-        html += '<head><meta charset="UTF-8">';
-        html += '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Comprehensive Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorkbook></xml><![endif]-->';
-        html += '<style>';
-        html += 'body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10px; }';
-        html += 'table { border-collapse: collapse; font-size: 9px; width: 100%; }';
-        html += 'th, td { border: 1px solid #999; padding: 4px 6px; vertical-align: middle; }';
-        html += 'th { background-color: #1a3a5c; color: white; font-weight: bold; text-align: center; font-size: 9px; }';
-        html += '.header-title { font-size: 20px; font-weight: bold; text-align: center; border: none; color: #1a3a5c; }';
-        html += '.header-sub { font-size: 11px; text-align: center; border: none; color: #6b7280; }';
-        html += '.header-motto { font-size: 10px; text-align: center; border: none; color: #9ca3af; font-style: italic; }';
-        html += '.header-meta { font-size: 9px; text-align: center; border: none; color: #6b7280; }';
-        html += '.filter-info { font-size: 8px; text-align: center; border: none; color: #4b5563; background: #f3f4f6; padding: 4px; }';
-        html += '.tuition-aggregated { font-size: 8px; text-align: center; border: none; color: #2563eb; background: #eff6ff; padding: 2px; font-weight: bold; }';
-        html += '.or-logic-note { font-size: 8px; text-align: center; border: none; color: #d97706; background: #fffbeb; padding: 2px; }';
-        html += '.status-legend { font-size: 8px; text-align: center; border: none; color: #6b7280; background: #f9fafb; padding: 3px; }';
-        html += '.verification-note { font-size: 8px; text-align: center; border: none; color: #059669; background: #ecfdf5; padding: 3px; font-weight: bold; }';
-        html += '.data-source-note { font-size: 8px; text-align: center; border: none; color: #7c3aed; background: #f5f3ff; padding: 3px; }';
-        html += '.text-center { text-align: center; }';
-        html += '.text-right { text-align: right; }';
-        html += '.text-left { text-align: left; }';
-        html += '.font-bold { font-weight: bold; }';
-        html += '.money { mso-number-format:"#,##0.00"; text-align: right; }';
-        html += '.status-paid { color: #059669; font-weight: bold; }';
-        html += '.status-brought { color: #2563eb; font-weight: bold; }';
-        html += '.status-partial { color: #d97706; font-weight: bold; }';
-        html += '.status-unpaid { color: #dc2626; font-weight: bold; }';
-        html += '.status-credit { color: #2563eb; font-weight: bold; }';
-        html += '.status-na { color: #9ca3af; font-style: italic; }';
-        html += '.total-row { background-color: #e5e7eb; font-weight: bold; border-top: 2px solid #1a3a5c; }';
-        html += '.total-row td { padding: 5px 6px; }';
-        html += '.even-row { background-color: #f9fafb; }';
-        html += '.odd-row { background-color: #ffffff; }';
-        html += '.current-period { background-color: #eff6ff; }';
-        html += '.section-title { font-size: 14px; font-weight: bold; text-align: center; border: none; color: #1a3a5c; padding: 10px 0 4px 0; }';
-        html += '.section-sub { font-size: 10px; text-align: center; border: none; color: #6b7280; padding-bottom: 6px; }';
-        html += '.divider { border: none; height: 4px; }';
-        html += 'td { word-wrap: break-word; max-width: 200px; }';
-        html += 'th { word-wrap: break-word; }';
-        html += '.wrap-text { word-wrap: break-word; white-space: normal; }';
-        html += '.nowrap { white-space: nowrap; }';
-        html += '</style></head><body>';
-
-        // ================================================================
-        // SHEET 1: MAIN REPORT
-        // ================================================================
-        if (includeMainTable) {
-        html += '<table>';
-        html += '<tr><td colspan="' + totalCols + '" class="header-title">' + escapeHtml(schoolName) + '</td></tr>';
-        if (schoolMotto) html += '<tr><td colspan="' + totalCols + '" class="header-motto">' + escapeHtml(schoolMotto) + '</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="header-sub"><strong>COMPREHENSIVE FEE REPORT</strong></td></tr>';
-        if (schoolAddress || schoolPhone || schoolEmail) {
-            var contactParts = [];
-            if (schoolAddress) contactParts.push(escapeHtml(schoolAddress));
-            if (schoolPhone) contactParts.push('Tel: ' + escapeHtml(schoolPhone));
-            if (schoolEmail) contactParts.push('Email: ' + escapeHtml(schoolEmail));
-            html += '<tr><td colspan="' + totalCols + '" class="header-meta">' + contactParts.join(' | ') + '</td></tr>';
-        }
-        html += '<tr><td colspan="' + totalCols + '" class="header-meta">' + termName + ' ' + currentYear + ' | Generated: ' + new Date().toLocaleString() + ' | ' + students.length + ' students</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="header-meta">📅 Period Scoping: One-Time (oldest), Yearly (latest term per year), Termly (all)</td></tr>';
-        if (periodsIncluded.length > 0) {
-            html += '<tr><td colspan="' + totalCols + '" class="header-meta">📅 Periods: ' + periodsIncluded.join(', ') + '</td></tr>';
-        }
-        html += '<tr><td colspan="' + totalCols + '" class="tuition-aggregated">💰 TUITION AGGREGATED ACROSS ALL ' + (periodsIncluded.length || 1) + ' PERIOD(S)</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="or-logic-note">🔄 OR LOGIC: Cash OR Items (either method covers the requirement) | Items are NEVER converted to cash</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="status-legend">📌 STATUS KEY: ✅ Fully Paid = Cash | ✅ Brought = Items | ⚠️ Partial | ❌ Unpaid/Not Brought | 📦 Item totals count Scholastic groups only</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="data-source-note">📊 DATA SOURCE: Direct from payments (matches Student Detail Page) — one-time items with zero payments are now included, fixing the previous Excel/Dashboard under-count</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="filter-info">' + escapeHtml(filterText) + '</td></tr>';
-
-        html += '<tr><td colspan="' + totalCols + '" class="verification-note">';
-        html += '✅ VERIFIED (SUMMED ACROSS ALL PERIODS): Total Expected: UGX ' + formatMoney(verificationTotals.totalExpected) +
-                ' | Total Paid: UGX ' + formatMoney(verificationTotals.totalPaid) +
-                ' | Total Balance: UGX ' + formatMoney(verificationTotals.totalBalance) +
-                ' | Collection Rate: ' + overallRate.toFixed(1) + '%' +
-                ' | Activity Cash Paid: UGX ' + formatMoney(verificationTotals.activityCashPaid) +
-                ' | 📦 Scholastic Items: ' + totalItemsBrought + '/' + totalItemsRequired + ' brought (' + itemsCollectionRate.toFixed(1) + '%)' +
-                ' | 📦 Remaining: ' + totalItemsRemaining +
-                ' | 💳 Cash-Covered Scholastic Items: ' + totalCashCoveredScholasticItems;
-        html += '</td></tr>';
-        html += '<tr><td colspan="' + totalCols + '" class="divider"></td></tr>';
-
-        html += '<thead><tr>';
-        for (var h = 0; h < headers.length; h++) {
-            var headerText = headers[h];
-            var width = '';
-            if (headerText.includes('(Status)')) width = ' style="width:100px;"';
-            else if (headerText.includes('(Detail)')) width = ' style="width:180px;"';
-            else if (headerText.includes('(Periods)')) width = ' style="width:280px;"';
-            else if (headerText.includes('Tuition') && headerText.includes('All Periods')) width = ' style="width:120px;"';
-            else if (headerText.includes('Tuition Periods Breakdown')) width = ' style="width:300px;"';
-            else if (headerText === 'Student Name') width = ' style="width:150px;"';
-            else if (headerText === 'Admission') width = ' style="width:100px;"';
-            html += '<th' + width + '>' + escapeHtml(headerText) + '</th>';
-        }
-        html += '</tr></thead>';
-
-        html += '<tbody>';
-        for (var r = 0; r < allRows.length; r++) {
-            var row = allRows[r];
-            var isTotal = row[0] === 'TOTALS';
-            var rowClass = isTotal ? 'total-row' : (r % 2 === 0 ? 'even-row' : 'odd-row');
-            html += '<tr class="' + rowClass + '">';
-            for (var c = 0; c < row.length; c++) {
-                var val = row[c];
-                var cellClass = '';
-                if (typeof val === 'number') {
-                    cellClass = 'money';
-                } else if (typeof val === 'string') {
-                    if (val === '✅ Fully Paid' || val.includes('✅ Fully Paid')) cellClass = 'status-paid';
-                    else if (val === '✅ Brought' || val.includes('✅ Brought')) cellClass = 'status-brought';
-                    else if (val === '⚠️ Partial' || val.includes('⚠️ Partial')) cellClass = 'status-partial';
-                    else if (val === '❌ Unpaid' || val.includes('❌ Unpaid')) cellClass = 'status-unpaid';
-                    else if (val === '💰 Credit Balance' || val.includes('💰 Credit')) cellClass = 'status-credit';
-                    else if (val === '—' || val === 'N/A') cellClass = 'status-na';
-                    else if (val.includes('UGX') || val.includes('%')) cellClass = 'text-right';
-                }
-                if (cellClass) {
-                    html += '<td class="' + cellClass + '">' + formatCell(val) + '</td>';
-                } else {
-                    html += '<td>' + formatCell(val) + '</td>';
-                }
-            }
-            html += '</tr>';
-        }
-        html += '</tbody></table>';
-        } // end includeMainTable
-
-        // ================================================================
-        // SHEET 2: PERIOD BREAKDOWN
-        // ================================================================
-        if (includePeriodBreakdownSheet) {
-        html += '<br><br><br>';
-        html += '<table>';
-        html += '<tr><td colspan="7" class="section-title">📅 PERIOD BREAKDOWN SUMMARY</td></tr>';
-        html += '<tr><td colspan="7" class="section-sub">Detailed period-by-period breakdown - Direct from payment data</td></tr>';
-        html += '<tr><td colspan="7" class="divider"></td></tr>';
-        html += '<thead><tr>';
-        html += '<th style="width:15%;">Student</th>';
-        html += '<th style="width:15%;">Status Group</th>';
-        html += '<th style="width:15%;">Item</th>';
-        html += '<th style="width:15%;">Period</th>';
-        html += '<th style="width:20%;">Collected/Required</th>';
-        html += '<th style="width:10%;">Status</th>';
-        html += '<th style="width:10%;">Remaining</th>';
-        html += '</tr></thead><tbody>';
-
-        var periodRowCount = 0;
-        for (var s4 = 0; s4 < students.length; s4++) {
-            var student4 = students[s4];
-            if (!student4) continue;
-            var studentName4 = ((student4.firstName || '') + ' ' + (student4.lastName || '')).trim();
-
-            for (var sgIdx4 = 0; sgIdx4 < statusGroupsToShow.length; sgIdx4++) {
-                var groupName4 = statusGroupsToShow[sgIdx4];
-                var groupData4 = student4.statusGroups ? student4.statusGroups[groupName4] : null;
-                if (!groupData4) continue;
-                var items4 = statusGroupItems[groupName4] || [];
-
-                for (var i4 = 0; i4 < items4.length; i4++) {
-                    var itemName4 = items4[i4];
-                    var itemData4 = groupData4 && groupData4.items ? groupData4.items[itemName4] : null;
-                    if (!itemData4) continue;
-
-                    var periodType4 = itemData4.periodType || 'termly';
-                    var qtyRequired4 = itemData4.quantityRequired || 1;
-                    var amountExpected4 = itemData4.amountExpected || 0;
-                    var paymentOption4 = itemData4.paymentOption || 'either';
-                    var isOneTime4 = itemData4.isOneTime || false;
-
-                    // FIX: use the shared, corrected resolver so this sheet
-                    // shows the same periods (including the one-time fallback)
-                    // as the main table and the totals row.
-                    var resolvedPeriods4 = resolveApplicablePeriods(itemData4, periodType4, oldestPeriodKey, maxTermByYear, currentYear, currentTerm);
-                    var periodBreakdown4 = itemData4.periodBreakdown || {};
-                    var periodKeys4 = Object.keys(periodBreakdown4);
-
-                    if (periodKeys4.length === 0 && resolvedPeriods4.length > 0) {
-                        // The item only exists thanks to the resolver's fallback —
-                        // synthesize a periodBreakdown entry so it still shows here.
-                        for (var rp = 0; rp < resolvedPeriods4.length; rp++) {
-                            periodBreakdown4[resolvedPeriods4[rp].periodKey] = resolvedPeriods4[rp].data;
-                        }
-                        periodKeys4 = Object.keys(periodBreakdown4);
-                    }
-
-                    if (periodKeys4.length === 0) continue;
-                    periodKeys4.sort();
-
-                    for (var pk6 = 0; pk6 < periodKeys4.length; pk6++) {
-                        var pKey6 = periodKeys4[pk6];
-                        var pd6 = periodBreakdown4[pKey6];
-                        if (!pd6 || pd6.isNotApplicable) continue;
-                        var parts6 = pKey6.split('_');
-                        var year6 = parseInt(parts6[0]) || currentYear;
-                        var term6 = parseInt(parts6[1]) || 1;
-                        var termName6 = getTermName(term6);
-                        var isCurrent6 = (year6 === currentYear && term6 === currentTerm);
-                        var currentBadge6 = isCurrent6 ? ' ⭐' : '';
-
-                        var pQtyCollected = pd6.qtyCollected || 0;
-                        var pAmtCollected = pd6.amtCollected || 0;
-                        var pQtyRemaining = pd6.qtyRemaining || 0;
-                        var pAmtRemaining = pd6.amtRemaining || 0;
-                        var pIsFullyPaid = pd6.isFullyPaid || false;
-
-                        if (!pIsFullyPaid) {
-                            if (paymentOption4 === 'cash_only') {
-                                pIsFullyPaid = pAmtCollected >= amountExpected4 && amountExpected4 > 0;
-                            } else if (paymentOption4 === 'item_only') {
-                                pIsFullyPaid = pQtyCollected >= qtyRequired4 && qtyRequired4 > 0;
-                            } else {
-                                pIsFullyPaid = (pAmtCollected >= amountExpected4 && amountExpected4 > 0) ||
-                                               (pQtyCollected >= qtyRequired4 && qtyRequired4 > 0);
-                            }
-                        }
-
-                        var collectedRequired6 = '';
-                        var statusText6 = '';
-                        var remainingText6 = '';
-
-                        if (paymentOption4 === 'cash_only') {
-                            collectedRequired6 = pAmtCollected > 0 ? '💵 UGX ' + formatMoney(pAmtCollected) : 'UGX 0';
-                            if (pAmtCollected < amountExpected4 && amountExpected4 > 0) {
-                                collectedRequired6 += ' / ' + formatMoney(amountExpected4);
-                            }
-                        } else if (paymentOption4 === 'item_only') {
-                            collectedRequired6 = pQtyCollected > 0 ? '📦 ' + pQtyCollected + ' items' : '—';
-                            if (pQtyCollected < qtyRequired4 && qtyRequired4 > 0) {
-                                collectedRequired6 += ' / ' + qtyRequired4;
-                            }
-                        } else {
-                            var subParts6 = [];
-                            if (pAmtCollected > 0) subParts6.push('💵 UGX ' + formatMoney(pAmtCollected));
-                            if (pQtyCollected > 0) subParts6.push('📦 ' + pQtyCollected + ' items');
-                            collectedRequired6 = subParts6.length > 0 ? subParts6.join(' | ') : '—';
-                        }
-
-                        if (pIsFullyPaid) {
-                            statusText6 = '✅ Paid';
-                        } else if (pAmtCollected > 0 || pQtyCollected > 0) {
-                            statusText6 = '⚠️ Partial';
-                        } else {
-                            statusText6 = paymentOption4 === 'item_only' ? '❌ Not Brought' : '❌ Unpaid';
-                        }
-
-                        if (pIsFullyPaid) {
-                            remainingText6 = '✓';
-                        } else if (paymentOption4 === 'cash_only') {
-                            remainingText6 = pAmtRemaining > 0 ? '💵 UGX ' + formatMoney(pAmtRemaining) : '—';
-                        } else if (paymentOption4 === 'item_only') {
-                            remainingText6 = pQtyRemaining > 0 ? pQtyRemaining + ' items' : '—';
-                        } else {
-                            var remParts6 = [];
-                            if (pAmtRemaining > 0) remParts6.push('💵 UGX ' + formatMoney(pAmtRemaining));
-                            if (pQtyRemaining > 0) remParts6.push(pQtyRemaining + ' items');
-                            remainingText6 = remParts6.length > 0 ? remParts6.join(' OR ') : '—';
-                        }
-
-                        var customBadge6 = itemData4.isCustomized ? ' ⚡' : '';
-                        var oneTimeBadge6 = isOneTime4 ? ' ⭐' : '';
-                        var optionIcon6 = '';
-                        if (paymentOption4 === 'cash_only') optionIcon6 = ' 💵';
-                        else if (paymentOption4 === 'item_only') optionIcon6 = ' 📦';
-                        else optionIcon6 = ' 🔄';
-
-                        periodRowCount++;
-                        var rowClass6 = periodRowCount % 2 === 0 ? 'even-row' : 'odd-row';
-                        html += '<tr class="' + rowClass6 + (isCurrent6 ? ' current-period' : '') + '">';
-                        html += '<td>' + escapeHtml(studentName4) + '</td>';
-                        html += '<td>' + escapeHtml(getStatusGroupDisplayName(groupName4)) + '</td>';
-                        html += '<td>' + escapeHtml(itemName4) + customBadge6 + oneTimeBadge6 + optionIcon6 + '</td>';
-                        html += '<td>' + escapeHtml(termName6) + ' ' + year6 + currentBadge6 + '</td>';
-                        html += '<td class="text-center">' + collectedRequired6 + '</td>';
-                        html += '<td class="text-center">' + statusText6 + '</td>';
-                        html += '<td class="text-center">' + remainingText6 + '</td>';
-                        html += '</tr>';
-                    }
-                }
-            }
-        }
-        html += '</tbody></table>';
-        } // end includePeriodBreakdownSheet
-
-        // ================================================================
-        // SHEET 3: SUMMARY STATISTICS
-        // ================================================================
-        if (includeSummaryStatsSheet) {
-        html += '<br><br><br>';
-        html += '<table>';
-        html += '<tr><td colspan="2" class="section-title">📊 SUMMARY STATISTICS</td></tr>';
-        html += '<tr><td colspan="2" class="section-sub">Key metrics and totals - VERIFIED against source data</td></tr>';
-        html += '<tr><td colspan="2" class="divider"></td></tr>';
-        html += '<thead><tr><th style="width:60%;">Metric</th><th style="width:40%;">Value</th></tr></thead><tbody>';
-
-        var totalCustomizedStudents = 0;
-        var totalCustomizedItems = 0;
-        var allStatusGroupsUsed = new Set();
-        var totalItemsCount = 0;
-
-        for (var s5 = 0; s5 < students.length; s5++) {
-            var student5 = students[s5];
-            if (!student5) continue;
-            if (student5.customItemOverrides && Object.keys(student5.customItemOverrides).length > 0) {
-                totalCustomizedStudents++;
-                totalCustomizedItems += Object.keys(student5.customItemOverrides).length;
-            }
-        }
-
-        for (var sgIdx5 = 0; sgIdx5 < statusGroupsToShow.length; sgIdx5++) {
-            var groupName5 = statusGroupsToShow[sgIdx5];
-            var items5 = statusGroupItems[groupName5] || [];
-            if (items5.length > 0) {
-                allStatusGroupsUsed.add(groupName5);
-                totalItemsCount += items5.length;
-            }
-        }
-
-        var stats = [
-            ['📌 Total Students', students.length],
-            ['✅ Fully Paid (Cash + Items)', fullyPaidCount],
-            ['✅ Fully Brought (Scholastic Items)', fullyBroughtCount],
-            ['⚠️ Partial / Payment Due', paymentDueCount],
-            ['❌ No Payment', noPaymentCount],
-            ['💰 Credit Balance', creditBalanceCount],
-            ['', ''],
-            ['💰 Total Tuition Expected (All Periods)', 'UGX ' + formatMoney(verificationTotals.tuitionExpected)],
-            ['💰 Total Tuition Paid (All Periods)', 'UGX ' + formatMoney(verificationTotals.tuitionPaid)],
-            ['💰 Total Tuition Balance (All Periods)', 'UGX ' + formatMoney(verificationTotals.tuitionBalance)],
-            ['📈 Tuition Collection Rate', tuitionRate.toFixed(2) + '%'],
-            ['📅 Periods Included in Tuition', (periodsIncluded.length || 1)],
-            ['', ''],
-            ['💵 Activity Items - Cash Expected (OR Logic) - ALL PERIODS', 'UGX ' + formatMoney(verificationTotals.activityCashExpected)],
-            ['💵 Activity Items - Cash Paid (OR Logic) - ALL PERIODS', 'UGX ' + formatMoney(verificationTotals.activityCashPaid)],
-            ['💵 Activity Items - Cash Remaining - ALL PERIODS', 'UGX ' + formatMoney(verificationTotals.activityCashRemaining)],
-            ['', ''],
-            ['📦 Total Scholastic Items Required - ALL PERIODS', totalItemsRequired],
-            ['📦 Total Scholastic Items Brought - ALL PERIODS', totalItemsBrought],
-            ['📦 Total Scholastic Items Remaining - ALL PERIODS', totalItemsRemaining],
-            ['💳 Total Scholastic Items Paid with Cash (Cash-Covered) - ALL PERIODS', totalCashCoveredScholasticItems],
-            ['📊 Items Collection Rate', itemsCollectionRate.toFixed(2) + '%'],
-            ['', ''],
-            ['📦 Note', 'Only Scholastic-group items count toward item totals (matches Student Detail page); items are tracked separately - never valued as cash'],
-            ['🔄 OR Logic', 'Cash OR Items (either method covers the requirement)'],
-            ['', ''],
-            ['💳 Total Expected (All Fees, Cash Only) - ALL PERIODS', 'UGX ' + formatMoney(verificationTotals.totalExpected)],
-            ['💳 Total Paid (All Fees, Cash Only) - ALL PERIODS', 'UGX ' + formatMoney(verificationTotals.totalPaid)],
-            ['💳 Total Balance - ALL PERIODS', 'UGX ' + formatMoney(verificationTotals.totalBalance)],
-            ['📈 Overall Collection Rate (Cash Only) - ALL PERIODS', overallRate.toFixed(2) + '%'],
-            ['', ''],
-            ['⚡ Students with Customizations', totalCustomizedStudents],
-            ['⚡ Total Customized Items', totalCustomizedItems],
-            ['🏷️ Status Groups (in this report)', allStatusGroupsUsed.size],
-            ['📋 Total Items (in this report)', totalItemsCount],
-            ['', ''],
-            ['📌 STATUS KEY', ''],
-            ['✅ Fully Paid (Cash + Items)', 'Cash fully paid AND (if any) scholastic items fully brought'],
-            ['✅ Fully Brought (Items)', 'Scholastic items required are all delivered, regardless of cash'],
-            ['⚠️ Partial / Payment Due', 'Some payment or items received, but not complete'],
-            ['❌ No Payment', 'Nothing paid and nothing brought'],
-            ['💰 Credit', 'Overpayment / Credit balance'],
-            ['', ''],
-            ['🔍 VERIFICATION', ''],
-            ['✅ Data Source', 'Direct from payments (MATCHES Student Detail Page)'],
-            ['✅ OR Logic Applied', 'Cash OR Items (NOT converted)'],
-            ['✅ Period Types', 'Termly | Yearly | One-Time (scoped correctly)'],
-            ['✅ Item Status', 'Matched with viewStudentDetailsList'],
-            ['✅ Item Totals Scope', 'Scholastic groups only (matches Student Detail page)'],
-            ['✅ Status Counts Source', 'Derived from same per-row totals as Overall Status column'],
-            ['✅ Field-name bug fixed', 'Resolver now reads totalCollected/totalRemaining/totalAmountCollected — the real server field names'],
-            ['✅ One-Time fallback added', 'Unpaid one-time items now surface their Expected amount, same as the HTML report table'],
-            ['✅ All Periods Included', '✓'],
-            ['✅ Summary Correct (ALL PERIODS SUMMED)', '✓']
+    });
+
+    let statusGroupsToShow = [];
+    if (isTuitionOnly) {
+        statusGroupsToShow = [];
+    } else if (filterStatusGroup !== 'all') {
+        if (allGroupNames.indexOf(filterStatusGroup) !== -1) statusGroupsToShow = [filterStatusGroup];
+    } else {
+        statusGroupsToShow = allGroupNames.slice();
+    }
+
+    const priorityOrder = ['Tuition', 'Admission Fee', 'Scholastic Requirements', 'Uniform', 'Transportation', 'Development Fee'];
+    statusGroupsToShow.sort((a, b) => {
+        const aIdx = priorityOrder.indexOf(a);
+        const bIdx = priorityOrder.indexOf(b);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        return a.localeCompare(b);
+    });
+
+    const itemsByGroup = {};
+    statusGroupsToShow.forEach(groupName => {
+        const names = [];
+        students.forEach(s => {
+            const group = (s.statusGroups || {})[groupName];
+            if (!group || !group.items) return;
+            Object.keys(group.items).forEach(itemName => {
+                if (filterItem !== 'all' && itemName !== filterItem) return;
+                if (names.indexOf(itemName) === -1) names.push(itemName);
+            });
+        });
+        names.sort();
+        if (names.length > 0) itemsByGroup[groupName] = names;
+    });
+    const groupsToRender = statusGroupsToShow.filter(g => itemsByGroup[g]);
+
+    // ---------------------------------------------------------------
+    // 2. TWO-ROW HEADER — mirrors the on-screen colspan/rowspan structure
+    // ---------------------------------------------------------------
+    const headerRow1 = ['', '', '', ''];
+    const headerRow2 = ['#', 'Admission Number', 'Student Name', 'Class'];
+
+    if (includeTuition) {
+        headerRow1.push('TUITION', '', '', '', '');
+        headerRow2.push('Expected', 'Paid', 'Balance', 'Status', 'Periods');
+    }
+    groupsToRender.forEach(groupName => {
+        itemsByGroup[groupName].forEach(itemName => {
+            headerRow1.push(`${groupName}: ${itemName}`, '', '', '', '');
+            headerRow2.push('Collected', 'Expected', 'Balance', 'Status', 'Periods');
+        });
+    });
+
+    // ---------------------------------------------------------------
+    // 3. DATA ROWS
+    // ---------------------------------------------------------------
+    const rows = [];
+    const itemTotalsAcc = {};
+    let totalTuitionExpected = 0, totalTuitionPaid = 0, totalTuitionBalance = 0;
+
+    students.forEach((student, idx) => {
+        const row = [
+            idx + 1,
+            student.admissionNumber || '',
+            `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+            student.currentClass || ''
         ];
 
-        for (var i6 = 0; i6 < stats.length; i6++) {
-            var rowClass7 = i6 % 2 === 0 ? 'even-row' : 'odd-row';
-            html += '<tr class="' + rowClass7 + '">';
-            html += '<td><strong>' + escapeHtml(stats[i6][0]) + '</strong></td>';
-            var val7 = stats[i6][1];
-            if (typeof val7 === 'number' && stats[i6][0].includes('UGX')) {
-                html += '<td class="money">' + val7.toLocaleString('en-US') + '</td>';
-            } else if (typeof val7 === 'number') {
-                html += '<td>' + val7 + '</td>';
-            } else {
-                html += '<td>' + escapeHtml(String(val7)) + '</td>';
-            }
-            html += '</tr>';
+        if (includeTuition) {
+            const t = student.tuition || {};
+            const expected = t.expected || 0;
+            const paid = t.paid || 0;
+            const balance = t.balance != null ? t.balance : (expected - paid);
+
+            row.push(formatMoney(expected), formatMoney(paid), formatMoney(balance), t.status || '', buildTuitionPeriodsPlain(t));
+
+            totalTuitionExpected += expected;
+            totalTuitionPaid += paid;
+            totalTuitionBalance += balance;
         }
-        html += '</tbody></table>';
-        } // end includeSummaryStatsSheet
 
-        html += '</body></html>';
+        groupsToRender.forEach(groupName => {
+            const group = (student.statusGroups || {})[groupName];
+            itemsByGroup[groupName].forEach(itemName => {
+                const itemData = group && group.items ? group.items[itemName] : null;
+                const accKey = groupName + '::' + itemName;
 
-        // ================================================================
-        // DOWNLOAD
-        // ================================================================
-        var blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-        var link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-        var filename = 'Comprehensive_Report_' + timestamp + '.xls';
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
+                if (!itemData) {
+                    row.push('-', '-', '-', "Doesn't pay", '-');
+                    return;
+                }
 
-        // ================================================================
-        // SUCCESS MESSAGE
-        // ================================================================
-        var successMsg = '✅ Export completed successfully! (v32.0 — field-name + one-time fallback fixed)\n\n' +
-                         '📊 ' + students.length + ' students exported\n' +
-                         '📋 ' + headers.length + ' columns\n' +
-                         '📁 ' + filename + '\n\n' +
-                         '📊 VERIFICATION TOTALS (SUMMED ACROSS ALL PERIODS):\n' +
-                         '💰 Total Expected: UGX ' + formatMoney(verificationTotals.totalExpected) + '\n' +
-                         '💰 Total Paid: UGX ' + formatMoney(verificationTotals.totalPaid) + '\n' +
-                         '💰 Total Balance: UGX ' + formatMoney(verificationTotals.totalBalance) + '\n' +
-                         '📈 Collection Rate: ' + overallRate.toFixed(2) + '%\n' +
-                         '💵 Activity Cash Paid: UGX ' + formatMoney(verificationTotals.activityCashPaid) + '\n\n' +
-                         '📦 SCHOLASTIC ITEMS STATISTICS (SUMMED ACROSS ALL PERIODS):\n' +
-                         '📦 Total Items Required: ' + totalItemsRequired + '\n' +
-                         '📦 Total Items Brought: ' + totalItemsBrought + '\n' +
-                         '📦 Total Items Remaining: ' + totalItemsRemaining + '\n' +
-                         '💳 Cash-Covered Scholastic Items: ' + totalCashCoveredScholasticItems + '\n' +
-                         '📊 Items Collection Rate: ' + itemsCollectionRate.toFixed(2) + '%\n\n' +
-                         '👥 STUDENT STATUS (matches Overall Status column):\n' +
-                         '✅ Fully Paid: ' + fullyPaidCount + '\n' +
-                         '📦 Fully Brought Items: ' + fullyBroughtCount + '\n' +
-                         '⚠️ Payment Due: ' + paymentDueCount + '\n' +
-                         '❌ No Payment: ' + noPaymentCount + '\n' +
-                         '💰 Credit Balance: ' + creditBalanceCount + '\n\n' +
-                         '🔧 BUG FIX APPLIED THIS EXPORT:\n' +
-                         '   • Reads the real server field names (totalCollected /\n' +
-                         '     totalRemaining / totalAmountCollected) instead of the\n' +
-                         '     nonexistent quantityCollected / amountCollected /\n' +
-                         '     quantityRemaining / amountRemaining\n' +
-                         '   • Added the missing one-time-item fallback, so an unpaid\n' +
-                         '     one-time item now shows its real Expected amount instead\n' +
-                         '     of silently dropping to UGX 0\n' +
-                         '   • This should now match the on-screen HTML report table\n\n' +
-                         '📋 PERIOD SCOPING:\n' +
-                         '   • One-Time: ONLY in the oldest period\n' +
-                         '   • Yearly: ONLY in the latest term of each year\n' +
-                         '   • Termly: All periods\n\n' +
-                         '🔄 OR LOGIC: Cash OR Items (NOT converted)\n' +
-                         '📦 Item Only: 0 cash expected, 0 cash paid\n' +
-                         '💵 Cash Only: Only money accepted\n\n' +
-                         '📋 Sheets included:\n' +
-                         (includeMainTable ? '   • Main Report: Full data table\n' : '') +
-                         (includePeriodBreakdownSheet ? '   • Period Breakdown: Detailed period analysis\n' : '') +
-                         (includeSummaryStatsSheet ? '   • Summary Statistics: Key metrics\n' : '');
+                const metric = getItemMetric(itemData);
 
-        showToast(successMsg, 'success');
+                if (!itemTotalsAcc[accKey]) {
+                    itemTotalsAcc[accKey] = metric.unit === 'combo'
+                        ? { unit: 'combo', qtyCollected: 0, amtCollected: 0, qtyExpected: 0, amtExpected: 0, qtyBalance: 0, amtBalance: 0 }
+                        : { unit: metric.unit, collected: 0, expected: 0, balance: 0 };
+                }
+                const acc = itemTotalsAcc[accKey];
 
-    } catch (error) {
-        console.error('❌ Error exporting report:', error);
-        console.error('Stack:', error.stack);
-        showToast('❌ Error exporting report: ' + error.message, 'error');
+                let collectedStr, expectedStr, balanceStr;
+                if (metric.unit === 'combo') {
+                    acc.qtyCollected += metric.qtyCollected;
+                    acc.amtCollected += metric.amtCollected;
+                    acc.qtyExpected += metric.qtyExpected;
+                    acc.amtExpected += metric.amtExpected;
+                    acc.qtyBalance += metric.qtyBalance;
+                    acc.amtBalance += metric.amtBalance;
+                    collectedStr = formatComboCollected(metric);
+                    expectedStr = formatComboExpected(metric);
+                    balanceStr = formatComboBalance(metric);
+                } else {
+                    acc.collected += metric.collected;
+                    acc.expected += metric.expected;
+                    acc.balance += metric.balance;
+                    collectedStr = formatMetricValue(metric.unit, metric.collected);
+                    expectedStr = formatMetricValue(metric.unit, metric.expected);
+                    balanceStr = formatMetricValue(metric.unit, metric.balance);
+                }
+
+                const hasAnyPayment = metric.unit === 'combo'
+                    ? (metric.qtyCollected > 0 || metric.amtCollected > 0)
+                    : metric.collected > 0;
+                const status = itemData.isFullyPaid ? 'Fully Paid' : (hasAnyPayment ? 'Partial' : 'Unpaid');
+
+                row.push(collectedStr, expectedStr, balanceStr, status, buildItemPeriodsPlain(itemData, metric));
+            });
+        });
+
+        rows.push(row);
+    });
+
+    // ---------------------------------------------------------------
+    // 4. TOTALS ROW — same accumulation pattern the on-screen table uses
+    // ---------------------------------------------------------------
+    const totalsRow = ['', '', '', 'TOTALS'];
+    if (includeTuition) {
+        totalsRow.push(formatMoney(totalTuitionExpected), formatMoney(totalTuitionPaid), formatMoney(totalTuitionBalance), '', '');
     }
+    groupsToRender.forEach(groupName => {
+        itemsByGroup[groupName].forEach(itemName => {
+            const acc = itemTotalsAcc[groupName + '::' + itemName];
+            if (!acc) {
+                totalsRow.push('0', '0', '0', '', '');
+                return;
+            }
+            if (acc.unit === 'combo') {
+                totalsRow.push(
+                    formatComboCollected({ qtyCollected: acc.qtyCollected, amtCollected: acc.amtCollected }),
+                    formatComboExpected({ qtyExpected: acc.qtyExpected, amtExpected: acc.amtExpected }),
+                    formatComboBalance({ qtyBalance: acc.qtyBalance, amtBalance: acc.amtBalance }),
+                    '', ''
+                );
+            } else {
+                totalsRow.push(
+                    formatMetricValue(acc.unit, acc.collected),
+                    formatMetricValue(acc.unit, acc.expected),
+                    formatMetricValue(acc.unit, acc.balance),
+                    '', ''
+                );
+            }
+        });
+    });
+
+    // ---------------------------------------------------------------
+    // 5. SUMMARY LINE — same figures shown in the on-screen rate footer
+    // ---------------------------------------------------------------
+    const t2 = reportData.totals || {};
+    const summaryLine = `Overall Collection Rate: ${t2.overallCollectionRate || 0}% | Students: ${students.length} | Tuition Rate: ${t2.tuitionRate || 0}%`;
+
+    // ---------------------------------------------------------------
+    // 6. BUILD CSV & DOWNLOAD
+    // ---------------------------------------------------------------
+    function csvEscape(value) {
+        const str = value === null || value === undefined ? '' : String(value);
+        return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+    }
+
+    const lines = [];
+    lines.push(headerRow1.map(csvEscape).join(','));
+    lines.push(headerRow2.map(csvEscape).join(','));
+    rows.forEach(r => lines.push(r.map(csvEscape).join(',')));
+    lines.push(totalsRow.map(csvEscape).join(','));
+    lines.push('');
+    lines.push(csvEscape(summaryLine));
+
+    const csvContent = '\uFEFF' + lines.join('\r\n'); // BOM so Excel reads UTF-8 correctly
+
+    const meta = reportData.metadata || {};
+    const periodLabel = meta.currentYear && meta.currentTerm ? `${meta.currentYear}_T${meta.currentTerm}` : new Date().toISOString().slice(0, 10);
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Fee_Report_${periodLabel}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
+
+window.exportReportToCSV = exportReportToCSV;
 
 // ========== Make sure the function is global ==========
 window.exportReportToCSV = exportReportToCSV;
