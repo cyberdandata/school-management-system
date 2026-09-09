@@ -82986,59 +82986,45 @@ function buildItemPeriodsPlain(itemData, metric) {
 
 // A student who does not owe anything on the selected item/group
 // is dropped from the report entirely — no placeholder row.
-function getVisibleStudents(students, filters) {
-    var filterGroups = filters.statusGroup || 'all';
-    var filterItems = filters.itemName || 'all';
+// function getVisibleStudents(students, filters) {
+//     var filterGroups = filters.statusGroup || 'all';
+//     var filterItems = filters.itemName || 'all';
 
-    // Convert to arrays
-    var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
-    var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
+//     // Convert to arrays
+//     var groupList = (filterGroups === 'all' || filterGroups === 'none') ? [] : filterGroups.split(',').map(s => s.trim());
+//     var itemList = (filterItems === 'all') ? [] : filterItems.split(',').map(s => s.trim());
 
-    var filtered = students.filter(function (student) {
-        var groups = student.statusGroups || {};
+//     return students.filter(function (student) {
+//         var groups = student.statusGroups || {};
 
-        // If no groups or items selected, include all
-        if (groupList.length === 0 && itemList.length === 0) return true;
+//         // If no groups or items selected, include all
+//         if (groupList.length === 0 && itemList.length === 0) return true;
 
-        // If groups are specified, student must have at least one of them
-        if (groupList.length > 0) {
-            var studentGroupNames = Object.keys(groups);
-            var hasGroup = groupList.some(function (g) { return studentGroupNames.indexOf(g) !== -1; });
-            if (!hasGroup) return false;
-        }
+//         // If groups are specified, student must have at least one of them
+//         if (groupList.length > 0) {
+//             var studentGroupNames = Object.keys(groups);
+//             var hasGroup = groupList.some(function (g) { return studentGroupNames.indexOf(g) !== -1; });
+//             if (!hasGroup) return false;
+//         }
 
-        // If items are specified, student must have at least one of them in any group
-        if (itemList.length > 0) {
-            var hasItem = false;
-            for (var gName in groups) {
-                if (groups[gName].items) {
-                    var itemNames = Object.keys(groups[gName].items);
-                    if (itemList.some(function (it) { return itemNames.indexOf(it) !== -1; })) {
-                        hasItem = true;
-                        break;
-                    }
-                }
-            }
-            if (!hasItem) return false;
-        }
+//         // If items are specified, student must have at least one of them in any group
+//         if (itemList.length > 0) {
+//             var hasItem = false;
+//             for (var gName in groups) {
+//                 if (groups[gName].items) {
+//                     var itemNames = Object.keys(groups[gName].items);
+//                     if (itemList.some(function (it) { return itemNames.indexOf(it) !== -1; })) {
+//                         hasItem = true;
+//                         break;
+//                     }
+//                 }
+//             }
+//             if (!hasItem) return false;
+//         }
 
-        return true;
-    });
-
-    // Sort by class order (Baby Class → P.7), then by name
-    filtered.sort(function (a, b) {
-        var orderA = getClassOrder(a.currentClass);
-        var orderB = getClassOrder(b.currentClass);
-        if (orderA !== orderB) return orderA - orderB;
-
-        // Same class → sort by student name
-        var nameA = (a.firstName + ' ' + a.lastName).toLowerCase();
-        var nameB = (b.firstName + ' ' + b.lastName).toLowerCase();
-        return nameA.localeCompare(nameB);
-    });
-
-    return filtered;
-}
+//         return true;
+//     });
+// }
 
 function buildSummaryCardsV3(students) {
     var fullyPaid = 0, due = 0, none = 0, credit = 0;
@@ -83412,32 +83398,6 @@ function buildItemPeriodsPlain(itemData, metric) {
         }
     }
     return parts.join('; ');
-}function getClassOrder(className) {
-    var orderMap = {
-        'Baby Class': 1,
-        'Middle Class': 2,
-        'Top Class': 3,
-        'P.1': 4,
-        'P.2': 5,
-        'P.3': 6,
-        'P.4': 7,
-        'P.5': 8,
-        'P.6': 9,
-        'P.7': 10
-    };
-    // Fallback: try to extract number from "P.1" or "Primary 1"
-    if (!orderMap[className]) {
-        var match = className.match(/(\d+)/);
-        if (match) {
-            var num = parseInt(match[1]);
-            if (num >= 1 && num <= 7) return 3 + num; // P.1 -> 4, P.7 -> 10
-        }
-        // For nursery without exact match, try keywords
-        if (className.toLowerCase().includes('baby')) return 1;
-        if (className.toLowerCase().includes('middle')) return 2;
-        if (className.toLowerCase().includes('top')) return 3;
-    }
-    return orderMap[className] || 999;
 }
 function buildTuitionPeriodsPlain(tuition) {
     var pb = tuition.periodBreakdown || {};
