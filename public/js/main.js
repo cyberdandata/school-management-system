@@ -66311,48 +66311,40 @@ function handleCellClick(e) {
 function renderReportResultsV3(data) {
     var container = document.getElementById('reportTableContainer');
     var recordCount = document.getElementById('reportRecordCount');
-    
     if (!container) return;
-    
+
     var students = data.students || [];
     var totals = data.totals || {};
     var statusGroupTotals = data.statusGroupTotals || {};
     var filters = data.filters || {};
     var includeTuition = filters.includeTuition !== false;
-    
-    // Initialize expandedItems if not exists
-    if (typeof window.expandedItems === 'undefined') {
-        window.expandedItems = {};
-    }
-    
-    if (recordCount) {
-        recordCount.innerText = students.length;
-    }
-    
+    var metadata = data.metadata || {};
+    var periodsIncluded = metadata.periodsIncluded || [];
+
+    if (typeof window.expandedItems === 'undefined') window.expandedItems = {};
+    if (typeof window.expandedPeriods === 'undefined') window.expandedPeriods = {};
+
+    if (recordCount) recordCount.innerText = students.length;
+
     if (students.length === 0) {
         container.innerHTML = `
             <div class="text-center py-12 text-gray-500">
                 <i class="fas fa-inbox text-5xl mb-4 text-gray-300"></i>
                 <p>No records found matching your filters</p>
                 <p class="text-sm mt-2">Try adjusting your filter criteria</p>
-            </div>
-        `;
+            </div>`;
         return;
     }
-    
+
     try {
-        // Build the table
-        var tableHtml = buildReportTable(students, totals, statusGroupTotals, includeTuition, filters);
-        
-        // Add summary cards
+        filters.periodsIncluded = periodsIncluded;
+        totals.periodsIncluded = periodsIncluded.length || 1;
+
         var summaryHtml = buildSummaryCardsV3(totals, students.length);
-        
+        var tableHtml = buildReportTable(students, totals, statusGroupTotals, includeTuition, filters);
+
         container.innerHTML = summaryHtml + tableHtml;
-        
-        // Attach expand/collapse handlers
         attachExpandHandlers();
-        
-        console.log('✅ Report rendered successfully with', students.length, 'students');
     } catch (error) {
         console.error('Error rendering report:', error);
         container.innerHTML = `
@@ -66363,8 +66355,7 @@ function renderReportResultsV3(data) {
                 <button onclick="generateReportV3()" class="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
                     <i class="fas fa-sync-alt"></i> Try Again
                 </button>
-            </div>
-        `;
+            </div>`;
     }
 }
 
