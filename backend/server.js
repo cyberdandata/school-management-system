@@ -7175,8 +7175,8 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 // ================================================================
 
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v13.0 - MULTI-SELECT SUPPORT ===');
-    
+    console.log('=== COMPREHENSIVE REPORT v14.0 - TUITION-ONLY FIX ===');
+
     try {
         // ================================================================
         // STEP 1: READ SETTINGS
@@ -7184,7 +7184,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         const settings = readFile(files.settings);
         const defaultYear = settings.currentAcademicYear || new Date().getFullYear();
         const defaultTerm = settings.currentTerm || 1;
-        
+
         // Parse query parameters (including multi-value)
         const rawClassId = req.query.classId;
         const rawStatusGroup = req.query.statusGroup;
@@ -7204,26 +7204,35 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return value.split(',').map(s => s.trim()).filter(Boolean);
         }
 
+        // ================================================================
+        // FIX #1: "none" is a distinct, meaningful signal (Tuition Only) —
+        // it must NOT be silently swallowed into the same bucket as "all".
+        // Capture it explicitly before parseMultiParam collapses it away,
+        // and force statusGroups/itemNames to genuinely empty in that case
+        // so nothing downstream can accidentally re-include scholastic items.
+        // ================================================================
+        const isTuitionOnlyStatusGroup = rawStatusGroup === 'none';
+
         const classIds = parseMultiParam(rawClassId);
-        const statusGroups = parseMultiParam(rawStatusGroup);
-        const itemNames = parseMultiParam(rawItemName);
+        const statusGroups = isTuitionOnlyStatusGroup ? [] : parseMultiParam(rawStatusGroup);
+        const itemNames = isTuitionOnlyStatusGroup ? [] : parseMultiParam(rawItemName);
         const paymentStatus = (rawPaymentStatus && rawPaymentStatus !== 'all') ? rawPaymentStatus : null;
         const feeStructureId = (rawFeeStructureId && rawFeeStructureId !== 'all') ? rawFeeStructureId : null;
         const level = (rawLevel && rawLevel !== 'all') ? rawLevel : null;
         const studentId = (rawStudentId && rawStudentId !== 'all') ? rawStudentId : null;
         const includeTuitionBool = includeTuition !== 'false' && includeTuition !== 'off';
         const includeAllPeriodsBool = includeAllPeriods === 'true';
-        
+
         let targetYear = filterYear ? parseInt(filterYear) : defaultYear;
         let targetTerm = filterTerm ? parseInt(filterTerm) : defaultTerm;
-        
+
         console.log('📋 Report Parameters (multi):', {
             targetYear,
             targetTerm,
             classIds: classIds.length ? classIds : 'all',
             level: level || 'all',
-            statusGroups: statusGroups.length ? statusGroups : 'all',
-            itemNames: itemNames.length ? itemNames : 'all',
+            statusGroups: isTuitionOnlyStatusGroup ? 'NONE (tuition only)' : (statusGroups.length ? statusGroups : 'all'),
+            itemNames: isTuitionOnlyStatusGroup ? 'N/A (tuition only)' : (itemNames.length ? itemNames : 'all'),
             includeTuition: includeTuitionBool,
             includeAllPeriods: includeAllPeriodsBool,
             paymentStatus: paymentStatus || 'all',
@@ -7255,13 +7264,13 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // ================================================================
         const classesMap = {};
         classes.forEach(c => { if (c && c.id) classesMap[c.id] = c; });
-        
+
         const assignmentsMap = {};
         feeAssignments.forEach(a => { if (a && a.studentId) assignmentsMap[a.studentId] = a; });
-        
+
         const bursariesMap = {};
         feeBursaries.forEach(b => { if (b && b.id) bursariesMap[b.id] = b; });
-        
+
         const feeStructuresMap = {};
         feeStructures.forEach(fs => { if (fs && fs.id) feeStructuresMap[fs.id] = fs; });
 
@@ -7304,18 +7313,18 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     updatedAt: null
                 };
             }
-            
+
             if (student.customItemOverrides && student.customItemOverrides[itemId]) {
                 const custom = student.customItemOverrides[itemId];
                 if (custom && custom.isActive !== false) {
-                    const customAmount = (custom.customAmount !== null && custom.customAmount !== undefined) 
-                        ? custom.customAmount 
+                    const customAmount = (custom.customAmount !== null && custom.customAmount !== undefined)
+                        ? custom.customAmount
                         : defaultAmount;
-                    const customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined) 
-                        ? custom.customQuantity 
+                    const customQuantity = (custom.customQuantity !== null && custom.customQuantity !== undefined)
+                        ? custom.customQuantity
                         : defaultQuantity;
                     const customPaymentOption = custom.paymentOption || defaultPaymentOption;
-                    
+
                     let customUnitPrice = defaultUnitPrice;
                     if (customQuantity > 0 && customAmount > 0) {
                         customUnitPrice = customAmount / customQuantity;
@@ -7324,7 +7333,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     } else if (customQuantity > 0) {
                         customUnitPrice = defaultUnitPrice || (defaultAmount / (defaultQuantity || 1));
                     }
-                    
+
                     return {
                         amount: customAmount,
                         quantity: customQuantity,
@@ -7340,7 +7349,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     };
                 }
             }
-            
+
             return {
                 amount: defaultAmount || 0,
                 quantity: defaultQuantity || 1,
@@ -7394,15 +7403,15 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             const paymentHistories = [];
             const processedKeys = new Set();
             const uniquePaymentItems = new Map();
-            
+
             for (const payment of scopedPayments) {
                 if (!payment || !payment.id) continue;
                 if (payment.activityItemPayments && Array.isArray(payment.activityItemPayments)) {
                     for (const paidItem of payment.activityItemPayments) {
                         if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                        const compMatch = paidItem.componentName && 
+                        const compMatch = paidItem.componentName &&
                             paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                        const itemMatch = paidItem.itemName && 
+                        const itemMatch = paidItem.itemName &&
                             paidItem.itemName.toLowerCase() === itemName.toLowerCase();
                         if (compMatch && itemMatch) {
                             const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
@@ -7419,9 +7428,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         const periodItems = payment.paymentsByPeriodType[pt] || [];
                         for (const paidItem of periodItems) {
                             if (!paidItem || !paidItem.componentName || !paidItem.itemName) continue;
-                            const compMatch = paidItem.componentName && 
+                            const compMatch = paidItem.componentName &&
                                 paidItem.componentName.toLowerCase() === componentName.toLowerCase();
-                            const itemMatch = paidItem.itemName && 
+                            const itemMatch = paidItem.itemName &&
                                 paidItem.itemName.toLowerCase() === itemName.toLowerCase();
                             if (compMatch && itemMatch) {
                                 const key = `${payment.id}_${paidItem.itemName}_${paidItem.componentName}`;
@@ -7434,13 +7443,13 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     }
                 }
             }
-            
+
             for (const [key, data] of uniquePaymentItems) {
                 const { payment, paidItem } = data;
                 const historyKey = `${payment.receiptNumber || payment.id}_${paidItem.itemName}`;
                 if (processedKeys.has(historyKey)) continue;
                 processedKeys.add(historyKey);
-                
+
                 if (paidItem.paymentType === 'paid_cash') {
                     const amount = (paidItem.amountPaid || 0);
                     cashPaid += amount;
@@ -7474,7 +7483,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     });
                 }
             }
-            
+
             const seen = new Set();
             const uniqueHistories = [];
             for (const h of paymentHistories) {
@@ -7484,7 +7493,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     uniqueHistories.push(h);
                 }
             }
-            
+
             return { cashPaid, itemsBrought, paymentHistories: uniqueHistories };
         }
 
@@ -7493,7 +7502,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             const finalItemsBrought = Math.min(itemsBrought, qtyRequired);
             let cashExpected = 0;
             let finalCashPaid = 0;
-            
+
             if (paymentOption === 'cash_only') {
                 cashExpected = amountExpected;
                 finalCashPaid = Math.min(cashPaid, amountExpected);
@@ -7511,11 +7520,11 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     finalCashPaid = Math.min(cashPaid, cashExpected);
                 }
             }
-            
+
             const cashRemaining = cashExpected - finalCashPaid;
             const itemsRemaining = qtyRequired - finalItemsBrought;
             const isFullyPaid = cashRemaining <= 0 && itemsRemaining <= 0;
-            
+
             return {
                 cashExpected,
                 cashPaid: finalCashPaid,
@@ -7587,7 +7596,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         // STEP 6: PROCESS STUDENTS
         // ================================================================
         console.log('👨‍🎓 Processing students...');
-        
+
         const processedStudents = [];
         let totalTuitionExpected = 0;
         let totalTuitionCollected = 0;
@@ -7606,20 +7615,20 @@ app.get('/api/reports/comprehensive', async (req, res) => {
         let totalStudentsWithCustomizations = 0;
         const allStatusGroups = new Set();
         const allPeriodKeys = [];
-        
+
         const currentYear = parseInt(targetYear);
         const currentTerm = parseInt(targetTerm);
-        
+
         for (const student of students) {
             if (!student || !student.id) continue;
-            
+
             const assignment = assignmentsMap[student.id] || {};
             const feeStructure = feeStructuresMap[assignment.feeStructureId];
             if (!feeStructure) continue;
-            
+
             // ----- FEE STRUCTURE FILTER -----
             if (feeStructureId && feeStructure.id !== feeStructureId) continue;
-            
+
             // ----- LEVEL FILTER -----
             let currentClass = 'Not Assigned';
             let classLevel = 'Unknown';
@@ -7630,16 +7639,16 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 currentClass = student.currentClass;
             }
             if (level && classLevel !== level) continue;
-            
+
             // ----- CLASS FILTER (multi) -----
             if (classIds.length > 0) {
                 const studentClassId = student.currentClassId || null;
                 if (!studentClassId || !classIds.includes(studentClassId)) continue;
             }
-            
+
             // ----- STUDENT FILTER -----
             if (studentId && student.id !== studentId) continue;
-            
+
             // ================================================================
             // Get ALL periods for the student (for scoping rules)
             // ================================================================
@@ -7649,7 +7658,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 return a.term - b.term;
             });
             const oldestPeriodKey = sortedAsc.length > 0 ? sortedAsc[0].periodKey : null;
-            
+
             const maxTermByYear = {};
             for (const p of allPeriods) {
                 const year = p.year;
@@ -7658,14 +7667,14 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     maxTermByYear[year] = term;
                 }
             }
-            
+
             let periodsToProcess = allPeriods;
             if (!includeAllPeriodsBool) {
-                periodsToProcess = allPeriods.filter(p => 
+                periodsToProcess = allPeriods.filter(p =>
                     p.year === targetYear && p.term === targetTerm
                 );
                 if (periodsToProcess.length === 0) {
-                    periodsToProcess = allPeriods.filter(p => 
+                    periodsToProcess = allPeriods.filter(p =>
                         p.year === defaultYear && p.term === defaultTerm
                     );
                     if (periodsToProcess.length === 0 && allPeriods.length > 0) {
@@ -7673,13 +7682,13 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     }
                 }
             }
-            
+
             for (const p of periodsToProcess) {
                 if (allPeriodKeys.indexOf(p.periodKey) === -1) {
                     allPeriodKeys.push(p.periodKey);
                 }
             }
-            
+
             // ============================================================
             // CALCULATE TUITION (unchanged)
             // ============================================================
@@ -7689,7 +7698,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             let discountDisplay = '';
             let appliedBursary = null;
             let isCustomBursary = false;
-            
+
             if (student.customBursary && student.customBursary.amount > 0) {
                 discountAmount = student.customBursary.amount;
                 discountDisplay = `UGX ${discountAmount.toLocaleString()} off (Custom)`;
@@ -7709,19 +7718,19 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     tuitionExpected = Math.max(0, originalTuition - discountAmount);
                 }
             }
-            
+
             let tuitionPaid = 0;
             const tuitionPaymentHistories = [];
             const tuitionPeriodBreakdown = {};
-            
+
             for (const period of periodsToProcess) {
                 const periodKey = period.periodKey;
-                const periodPayments = allPayments.filter(p => 
-                    p && p.studentId === student.id && 
-                    p.term === period.term && 
+                const periodPayments = allPayments.filter(p =>
+                    p && p.studentId === student.id &&
+                    p.term === period.term &&
                     p.academicYear === period.year.toString()
                 );
-                
+
                 let periodPaid = 0;
                 for (const payment of periodPayments) {
                     const paid = payment.tuitionPaid || 0;
@@ -7739,10 +7748,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         });
                     }
                 }
-                
+
                 const periodBalance = tuitionExpected - periodPaid;
                 const isCurrentPeriod = (period.year === currentYear && period.term === currentTerm);
-                
+
                 tuitionPeriodBreakdown[periodKey] = {
                     year: period.year,
                     term: period.term,
@@ -7755,9 +7764,9 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     periodLabel: getPeriodLabel(period.year, period.term, isCurrentPeriod)
                 };
             }
-            
+
             const tuitionBalance = tuitionExpected - tuitionPaid;
-            
+
             let tuitionStatus = 'Payment Due';
             let tuitionStatusColor = 'bg-yellow-100 text-yellow-800';
             let tuitionStatusIcon = '⚠️';
@@ -7778,18 +7787,26 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 tuitionStatusColor = 'bg-yellow-100 text-yellow-800';
                 tuitionStatusIcon = '⚠️';
             }
-            
+
             // ============================================================
             // BUILD STATUS GROUPS WITH PERIOD-AWARE REMOVAL
+            //
+            // FIX #2: renamed from `statusGroups` (which used to shadow the
+            // outer filter array of the same name, silently breaking the
+            // "statusGroups.length > 0" filter check below) to
+            // `studentStatusGroups`. This block is also now skipped entirely
+            // when isTuitionOnlyStatusGroup is true, so scholastic/activity
+            // items are never computed, attached to the student, or folded
+            // into totals for a Tuition Only report.
             // ============================================================
-            const statusGroups = {};
+            const studentStatusGroups = {};
             let studentTotalCashExpected = 0;
             let studentTotalCashPaid = 0;
             let studentTotalCashRemaining = 0;
             let studentCustomizedItems = 0;
             let studentHasCustomizations = false;
-            
-            if (feeStructure.activityComponents) {
+
+            if (feeStructure.activityComponents && !isTuitionOnlyStatusGroup) {
                 for (const component of feeStructure.activityComponents) {
                     if (!component) continue;
 
@@ -7931,8 +7948,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         // ============================================================
                         allStatusGroups.add(groupName);
 
-                        if (!statusGroups[groupName]) {
-                            statusGroups[groupName] = {
+                        if (!studentStatusGroups[groupName]) {
+                            studentStatusGroups[groupName] = {
                                 name: groupName,
                                 periodTypes: new Set([periodType]),
                                 items: {},
@@ -7950,8 +7967,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             studentHasCustomizations = true;
                         }
 
-                        if (!statusGroups[groupName].items[item.name]) {
-                            statusGroups[groupName].items[item.name] = {
+                        if (!studentStatusGroups[groupName].items[item.name]) {
+                            studentStatusGroups[groupName].items[item.name] = {
                                 id: itemId,
                                 name: item.name,
                                 componentName: component.name,
@@ -7971,7 +7988,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                             };
                         }
 
-                        const itemData = statusGroups[groupName].items[item.name];
+                        const itemData = studentStatusGroups[groupName].items[item.name];
                         itemData.periodBreakdown = localPeriodBreakdown;
                         itemData.totalCollected = totalQtyCollected;
                         itemData.totalRemaining = Math.max(0, effectiveQuantity - totalQtyCollected);
@@ -7979,12 +7996,12 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                         itemData.isFullyPaid = itemData.totalRemaining <= 0 && totalAmtCollected >= effectiveAmount;
 
                         // Update group totals
-                        statusGroups[groupName].totalRequired += effectiveQuantity;
-                        statusGroups[groupName].totalCollected += totalQtyCollected;
-                        statusGroups[groupName].totalRemaining += itemData.totalRemaining;
-                        statusGroups[groupName].totalExpected += effectiveAmount;
-                        statusGroups[groupName].totalPaid += totalAmtCollected;
-                        statusGroups[groupName].totalBalance += Math.max(0, effectiveAmount - totalAmtCollected);
+                        studentStatusGroups[groupName].totalRequired += effectiveQuantity;
+                        studentStatusGroups[groupName].totalCollected += totalQtyCollected;
+                        studentStatusGroups[groupName].totalRemaining += itemData.totalRemaining;
+                        studentStatusGroups[groupName].totalExpected += effectiveAmount;
+                        studentStatusGroups[groupName].totalPaid += totalAmtCollected;
+                        studentStatusGroups[groupName].totalBalance += Math.max(0, effectiveAmount - totalAmtCollected);
 
                         studentTotalCashExpected += totalCashExpected;
                         studentTotalCashPaid += totalCashPaid;
@@ -7992,23 +8009,29 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     }
                 }
             }
-            
+
             // ============================================================
             // APPLY STATUS GROUP & ITEM FILTERS (multi)
+            //
+            // FIX #2 (cont'd): these now correctly reference the outer
+            // `statusGroups` / `itemNames` filter arrays, and
+            // `studentStatusGroups` for what the student actually has.
+            // When isTuitionOnlyStatusGroup is true, both arrays are empty
+            // (see FIX #1), so neither filter block runs — exactly right,
+            // since a Tuition Only report has no status groups to match
+            // against in the first place.
             // ============================================================
-            // Status group filter: student must have at least one of the selected groups
             if (statusGroups.length > 0) {
-                const studentGroups = Object.keys(statusGroups);
-                const hasAnyGroup = statusGroups.some(g => studentGroups.includes(g));
+                const studentGroupNames = Object.keys(studentStatusGroups);
+                const hasAnyGroup = statusGroups.some(g => studentGroupNames.includes(g));
                 if (!hasAnyGroup) continue;
             }
-            
-            // Item filter: student must have at least one of the selected items in any group
+
             if (itemNames.length > 0) {
                 let hasAnyItem = false;
-                for (const gName in statusGroups) {
-                    if (statusGroups[gName].items) {
-                        const itemKeys = Object.keys(statusGroups[gName].items);
+                for (const gName in studentStatusGroups) {
+                    if (studentStatusGroups[gName].items) {
+                        const itemKeys = Object.keys(studentStatusGroups[gName].items);
                         if (itemNames.some(item => itemKeys.includes(item))) {
                             hasAnyItem = true;
                             break;
@@ -8017,14 +8040,20 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }
                 if (!hasAnyItem) continue;
             }
-            
+
             // ============================================================
             // CALCULATE STUDENT TOTALS
+            //
+            // For a Tuition Only report, studentTotalCashExpected/Paid are
+            // still 0 (the activityComponents block above never ran), so
+            // these totals — and Overall Collection Rate below — correctly
+            // reduce to tuition-only figures instead of secretly including
+            // scholastic/activity cash.
             // ============================================================
             const studentTotalExpected = tuitionExpected + studentTotalCashExpected;
             const studentTotalPaid = tuitionPaid + studentTotalCashPaid;
             const studentTotalBalance = studentTotalExpected - studentTotalPaid;
-            
+
             // ============================================================
             // UPDATE GLOBAL TOTALS
             // ============================================================
@@ -8037,19 +8066,19 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             totalExpected += studentTotalExpected;
             totalPaid += studentTotalPaid;
             totalBalance += studentTotalBalance;
-            
+
             if (studentHasCustomizations) {
                 totalStudentsWithCustomizations++;
             }
             totalCustomizedItems += studentCustomizedItems;
-            
+
             // ============================================================
             // DETERMINE OVERALL STATUS
             // ============================================================
             let overallStatus = 'Payment Due';
             let statusColor = 'bg-yellow-100 text-yellow-800';
             let statusIcon = '⚠️';
-            
+
             if (studentTotalBalance < 0) {
                 overallStatus = 'Credit Balance';
                 statusColor = 'bg-blue-100 text-blue-800';
@@ -8071,10 +8100,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 statusIcon = '⚠️';
                 paymentDueCount++;
             }
-            
+
             // Payment status filter (exact match)
             if (paymentStatus && overallStatus !== paymentStatus) continue;
-            
+
             // ============================================================
             // BUILD STUDENT OBJECT
             // ============================================================
@@ -8086,7 +8115,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 currentClass: currentClass,
                 classLevel: classLevel,
                 gender: student.gender || '',
-                
+
                 tuition: {
                     expected: tuitionExpected,
                     paid: tuitionPaid,
@@ -8102,25 +8131,26 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     periodBreakdown: tuitionPeriodBreakdown,
                     periodsIncluded: Object.keys(tuitionPeriodBreakdown).length
                 },
-                
-                statusGroups: statusGroups,
-                
+
+                // FIX #2: correctly the per-student groups, never the outer filter array
+                statusGroups: studentStatusGroups,
+
                 totalExpected: studentTotalExpected,
                 totalPaid: studentTotalPaid,
                 totalBalance: studentTotalBalance,
                 totalRemaining: studentTotalCashRemaining,
-                
+
                 overallStatus: overallStatus,
                 statusColor: statusColor,
                 statusIcon: statusIcon,
-                
+
                 customizedItemsCount: studentCustomizedItems,
                 hasCustomizations: studentHasCustomizations,
                 customItemOverrides: student.customItemOverrides || {},
-                
+
                 feeStructureName: feeStructure?.name || 'Not Assigned',
                 feeStructureId: feeStructure?.id || null,
-                
+
                 periods: periodsToProcess.map(p => ({
                     year: p.year,
                     term: p.term,
@@ -8129,7 +8159,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 }))
             });
         }
-        
+
         // ================================================================
         // STEP 7: CALCULATE FINAL TOTALS
         // ================================================================
@@ -8143,14 +8173,19 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             totalPaid: totalPaid,
             totalBalance: totalBalance
         });
-        
+
         allPeriodKeys.sort();
-        
+
         const tuitionRate = totalTuitionExpected > 0 ? (totalTuitionCollected / totalTuitionExpected * 100) : 0;
         const overallCollectionRate = totalExpected > 0 ? (totalPaid / totalExpected * 100) : 0;
-        
+
         // ================================================================
         // BUILD STATUS GROUP TOTALS
+        //
+        // For a Tuition Only report every student's `statusGroups` object is
+        // empty (the activityComponents block was skipped), so this loop
+        // naturally produces an empty statusGroupTotals — nothing extra
+        // needed here.
         // ================================================================
         const statusGroupTotals = {};
         for (const student of processedStudents) {
@@ -8176,7 +8211,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 statusGroupTotals[groupName].totalRemaining += groupData.totalRemaining || 0;
                 statusGroupTotals[groupName].totalRequired += groupData.totalRequired || 0;
                 statusGroupTotals[groupName].totalCollected += groupData.totalCollected || 0;
-                
+
                 for (const [itemName, itemData] of Object.entries(groupData.items || {})) {
                     if (!statusGroupTotals[groupName].itemDetails[itemName]) {
                         statusGroupTotals[groupName].itemDetails[itemName] = {
@@ -8193,11 +8228,11 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     statusGroupTotals[groupName].itemDetails[itemName].totalCollected += itemData.totalCollected || 0;
                     statusGroupTotals[groupName].itemDetails[itemName].totalRemaining += itemData.totalRemaining || 0;
                     statusGroupTotals[groupName].itemDetails[itemName].studentsCount++;
-                    
+
                     if (itemData.isCustomized) {
                         statusGroupTotals[groupName].itemDetails[itemName].customizedCount++;
                     }
-                    
+
                     for (const [periodKey, periodData] of Object.entries(itemData.periodBreakdown || {})) {
                         if (!statusGroupTotals[groupName].itemDetails[itemName].periodBreakdown[periodKey]) {
                             statusGroupTotals[groupName].itemDetails[itemName].periodBreakdown[periodKey] = {
@@ -8220,6 +8255,12 @@ app.get('/api/reports/comprehensive', async (req, res) => {
 
         // ================================================================
         // STEP 8: BUILD RESPONSE
+        //
+        // FIX #1 (cont'd): report the real "none" value back to the
+        // frontend, instead of always saying 'all'. This is what lets the
+        // frontend's `isTuitionOnly = filterStatusGroup === 'none'` check
+        // in buildReportTable() actually fire and skip rendering scholastic
+        // item columns.
         // ================================================================
         const response = {
             success: true,
@@ -8252,8 +8293,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     level: level || 'all',
                     studentId: studentId || 'all',
                     feeStructureId: feeStructureId || 'all',
-                    statusGroup: statusGroups.length ? statusGroups.join(',') : 'all',
-                    itemName: itemNames.length ? itemNames.join(',') : 'all',
+                    statusGroup: isTuitionOnlyStatusGroup ? 'none' : (statusGroups.length ? statusGroups.join(',') : 'all'),
+                    itemName: isTuitionOnlyStatusGroup ? 'none' : (itemNames.length ? itemNames.join(',') : 'all'),
                     paymentStatus: paymentStatus || 'all',
                     includeTuition: includeTuitionBool,
                     academicYear: targetYear,
@@ -8271,21 +8312,21 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                 allPayments: allPayments
             }
         };
-        
+
         console.log(`✅ Report generated with ${processedStudents.length} students`);
         console.log(`💰 Total Expected: UGX ${formatMoney(totalExpected)}`);
         console.log(`💰 Total Paid: UGX ${formatMoney(totalPaid)}`);
         console.log(`💰 Total Balance: UGX ${formatMoney(totalBalance)}`);
         console.log(`📊 Collection Rate: ${overallCollectionRate.toFixed(1)}%`);
         console.log(`💵 Activity Cash Paid: UGX ${formatMoney(totalActivityCashPaid)}`);
-        
+
         res.json(response);
-        
+
     } catch (error) {
         console.error('❌ Error generating comprehensive report:', error);
         console.error('Stack:', error.stack);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             error: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
