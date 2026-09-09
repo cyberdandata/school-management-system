@@ -65051,274 +65051,152 @@ function injectReportsDesignSystem() {
     document.head.appendChild(style);
 }
 
-// ============================================================================
-// MULTI-SELECT FILTER SYSTEM — replaces single <select> filters with
-// searchable checkbox dropdowns wherever a filter can have many values.
-// ============================================================================
-
-var rptMselState = {};        // id -> Set of selected values
-var rptMselOptionsMap = {};   // id -> [{value, label}]
-var rptMselOpenId = null;
-
-function injectMultiSelectStyles() {
-    if (document.getElementById('rpt-msel-styles')) return;
-    var style = document.createElement('style');
-    style.id = 'rpt-msel-styles';
-    style.textContent = `
-        .rpt-msel { position: relative; }
-        .rpt-msel-trigger {
-            width: 100%; display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 12px; border: 1px solid #E2E8F0; border-radius: 12px; background: #fff;
-            font-size: 13px; color: #334155; cursor: pointer; transition: border-color .15s, box-shadow .15s;
-        }
-        .rpt-msel-trigger:hover { border-color: #94A3B8; }
-        .rpt-msel-trigger.is-open { border-color: #14B8A6; box-shadow: 0 0 0 3px rgba(20,184,166,.15); }
-        .rpt-msel-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-        .rpt-msel-count {
-            background: #CCFBF1; color: #0F766E; font-size: 11px; font-weight: 700;
-            border-radius: 999px; padding: 1px 8px; margin-left: 8px; flex-shrink: 0;
-        }
-        .rpt-msel-caret { color: #94A3B8; font-size: 11px; margin-left: 8px; transition: transform .15s; flex-shrink: 0; }
-        .rpt-msel-trigger.is-open .rpt-msel-caret { transform: rotate(180deg); }
-        .rpt-msel-panel {
-            position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
-            background: #fff; border: 1px solid #E2E8F0; border-radius: 14px;
-            box-shadow: 0 20px 45px -18px rgba(15,23,42,.25); overflow: hidden;
-            animation: rpt-msel-drop .18s cubic-bezier(.16,1,.3,1) both;
-        }
-        @keyframes rpt-msel-drop { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
-        .rpt-msel-search { padding: 8px; border-bottom: 1px solid #F1F5F9; }
-        .rpt-msel-search input {
-            width: 100%; padding: 7px 10px; border: 1px solid #E2E8F0; border-radius: 9px; font-size: 12.5px; outline: none;
-        }
-        .rpt-msel-search input:focus { border-color: #14B8A6; }
-        .rpt-msel-actions { display: flex; gap: 6px; padding: 6px 8px; border-bottom: 1px solid #F1F5F9; background: #F8FAFC; }
-        .rpt-msel-actions button {
-            font-size: 11px; font-weight: 600; color: #0F766E; background: #F0FDFA; border: 1px solid #99F6E4;
-            border-radius: 7px; padding: 3px 9px; cursor: pointer; transition: background .15s;
-        }
-        .rpt-msel-actions button:hover { background: #CCFBF1; }
-        .rpt-msel-actions button.rpt-msel-clear-btn { color: #64748B; background: #F1F5F9; border-color: #E2E8F0; }
-        .rpt-msel-options { max-height: 240px; overflow-y: auto; padding: 4px; }
-        .rpt-msel-option {
-            display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
-            font-size: 12.5px; color: #334155; cursor: pointer; transition: background .12s;
-        }
-        .rpt-msel-option:hover { background: #F0FDFA; }
-        .rpt-msel-option input { accent-color: #14B8A6; width: 14px; height: 14px; flex-shrink: 0; }
-        .rpt-msel-option.rpt-msel-hidden { display: none; }
-        .rpt-msel-empty { padding: 14px; text-align: center; font-size: 12px; color: #94A3B8; }
-        .rpt-msel-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-        .rpt-msel-badge {
-            font-size: 10.5px; font-weight: 600; background: #EEF2FF; color: #4338CA;
-            border: 1px solid #C7D2FE; border-radius: 999px; padding: 2px 8px; display: flex; align-items: center; gap: 4px;
-        }
-        .rpt-msel-badge i { cursor: pointer; opacity: .6; }
-        .rpt-msel-badge i:hover { opacity: 1; }
-    `;
-    document.head.appendChild(style);
+// ---------------------------------------------------------------------------
+// 1. SMALL SHARED UTILITIES (reuse global ones if the app already defines
+//    them — e.g. dashboard.js's escapeHtml/formatMoney — otherwise fall back)
+// ---------------------------------------------------------------------------
+function rptEscapeHtml(text) {
+    if (typeof window.escapeHtml === 'function') return window.escapeHtml(text);
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-function rptBuildMultiSelect(id, options, placeholder) {
-    rptMselOptionsMap[id] = options;
-    if (!rptMselState[id]) rptMselState[id] = new Set();
-
-    var optionsHtml = options.map(function (opt) {
-        return '<label class="rpt-msel-option" data-search="' + (opt.label || '').toLowerCase() + '">' +
-            '<input type="checkbox" onchange="rptMselToggle(\'' + id + '\', ' + JSON.stringify(opt.value) + ', this.checked)">' +
-            '<span>' + (opt.label || opt.value) + '</span>' +
-            '</label>';
-    }).join('');
-
-    return '' +
-        '<div class="rpt-msel" data-msel="' + id + '">' +
-            '<button type="button" class="rpt-msel-trigger" onclick="rptMselTogglePanel(\'' + id + '\')">' +
-                '<span class="rpt-msel-trigger-label" id="' + id + '_label">' + placeholder + '</span>' +
-                '<span style="display:flex;align-items:center;">' +
-                    '<span class="rpt-msel-count hidden" id="' + id + '_count">0</span>' +
-                    '<i class="fas fa-chevron-down rpt-msel-caret"></i>' +
-                '</span>' +
-            '</button>' +
-            '<div class="rpt-msel-panel hidden" id="' + id + '_panel">' +
-                (options.length > 8 ? '<div class="rpt-msel-search"><input type="text" placeholder="Search..." oninput="rptMselSearch(\'' + id + '\', this.value)"></div>' : '') +
-                '<div class="rpt-msel-actions">' +
-                    '<button type="button" onclick="rptMselSelectAll(\'' + id + '\')">Select all</button>' +
-                    '<button type="button" class="rpt-msel-clear-btn" onclick="rptMselClear(\'' + id + '\')">Clear</button>' +
-                '</div>' +
-                '<div class="rpt-msel-options" id="' + id + '_options">' + optionsHtml + '</div>' +
-            '</div>' +
-        '</div>';
+function rptFormatMoney(amount) {
+    if (typeof window.formatMoney === 'function') return window.formatMoney(amount);
+    return Math.round(amount || 0).toLocaleString('en-US');
 }
 
-function rptMselTogglePanel(id) {
-    var panel = document.getElementById(id + '_panel');
-    var trigger = document.querySelector('[data-msel="' + id + '"] .rpt-msel-trigger');
-    if (!panel) return;
-
-    if (rptMselOpenId && rptMselOpenId !== id) {
-        var prevPanel = document.getElementById(rptMselOpenId + '_panel');
-        var prevTrigger = document.querySelector('[data-msel="' + rptMselOpenId + '"] .rpt-msel-trigger');
-        if (prevPanel) prevPanel.classList.add('hidden');
-        if (prevTrigger) prevTrigger.classList.remove('is-open');
-    }
-
-    var willOpen = panel.classList.contains('hidden');
-    panel.classList.toggle('hidden', !willOpen);
-    if (trigger) trigger.classList.toggle('is-open', willOpen);
-    rptMselOpenId = willOpen ? id : null;
+function rptRateColorText(rate) {
+    rate = parseFloat(rate) || 0;
+    return rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-rose-600';
 }
-
-document.addEventListener('click', function (e) {
-    if (!rptMselOpenId) return;
-    var wrapper = document.querySelector('[data-msel="' + rptMselOpenId + '"]');
-    if (wrapper && !wrapper.contains(e.target)) {
-        var panel = document.getElementById(rptMselOpenId + '_panel');
-        var trigger = wrapper.querySelector('.rpt-msel-trigger');
-        if (panel) panel.classList.add('hidden');
-        if (trigger) trigger.classList.remove('is-open');
-        rptMselOpenId = null;
-    }
-});
-
-function rptMselToggle(id, value, checked) {
-    var set = rptMselState[id] || (rptMselState[id] = new Set());
-    if (checked) set.add(value); else set.delete(value);
-    rptMselRefreshLabel(id);
-    if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(true);
-    rptUpdateActiveFilterChips();
+function rptRateColorBar(rate) {
+    rate = parseFloat(rate) || 0;
+    return rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-rose-500';
 }
-
-function rptMselSelectAll(id) {
-    var options = rptMselOptionsMap[id] || [];
-    var set = rptMselState[id] || (rptMselState[id] = new Set());
-    var panel = document.getElementById(id + '_options');
-    var visibleValues = [];
-    if (panel) {
-        panel.querySelectorAll('.rpt-msel-option:not(.rpt-msel-hidden) input').forEach(function (cb) {
-            cb.checked = true;
-        });
-    }
-    options.forEach(function (opt) { set.add(opt.value); });
-    rptMselRefreshLabel(id);
-    if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(true);
-    rptUpdateActiveFilterChips();
-}
-
-function rptMselClear(id) {
-    rptMselState[id] = new Set();
-    var panel = document.getElementById(id + '_options');
-    if (panel) panel.querySelectorAll('input[type=checkbox]').forEach(function (cb) { cb.checked = false; });
-    rptMselRefreshLabel(id);
-    if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(true);
-    rptUpdateActiveFilterChips();
-}
-
-function rptMselSearch(id, term) {
-    term = (term || '').toLowerCase().trim();
-    var panel = document.getElementById(id + '_options');
-    if (!panel) return;
-    var rows = panel.querySelectorAll('.rpt-msel-option');
-    var visibleCount = 0;
-    rows.forEach(function (row) {
-        var match = !term || row.getAttribute('data-search').indexOf(term) !== -1;
-        row.classList.toggle('rpt-msel-hidden', !match);
-        if (match) visibleCount++;
-    });
-}
-
-function rptMselRefreshLabel(id) {
-    var set = rptMselState[id] || new Set();
-    var label = document.getElementById(id + '_label');
-    var count = document.getElementById(id + '_count');
-    if (!label) return;
-    var placeholderMap = {
-        reportLevelFilter: 'All Levels', reportClassFilter: 'All Classes', reportStudentFilter: 'All Students',
-        reportFeeStructureFilter: 'All Fee Structures', reportStatusGroupFilter: 'All Status Groups',
-        reportItemFilter: 'All Items', reportPaymentStatusFilter: 'All Payment Status'
+function rptStatusBadge(status) {
+    const map = {
+        'Fully Paid':  { icon: '✅', cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+        'Payment Due': { icon: '⚠️', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+        'No Payment':  { icon: '📋', cls: 'bg-slate-100 text-slate-600 border border-slate-200' },
+        'Credit Balance': { icon: '💰', cls: 'bg-sky-50 text-sky-700 border border-sky-200' },
+        'Critical Overdue': { icon: '🔥', cls: 'bg-rose-50 text-rose-700 border border-rose-200' }
     };
-    if (set.size === 0) {
-        label.textContent = placeholderMap[id] || 'All';
-        if (count) count.classList.add('hidden');
-    } else if (set.size === 1) {
-        var opt = (rptMselOptionsMap[id] || []).find(function (o) { return o.value === Array.from(set)[0]; });
-        label.textContent = opt ? opt.label : Array.from(set)[0];
-        if (count) count.classList.add('hidden');
-    } else {
-        label.textContent = set.size + ' selected';
-        if (count) { count.textContent = set.size; count.classList.remove('hidden'); }
+    const m = map[status] || { icon: '•', cls: 'bg-slate-100 text-slate-600 border border-slate-200' };
+    return `<span class="db-badge ${m.cls}">${m.icon} ${rptEscapeHtml(status || '—')}</span>`;
+}
+
+// Animated count-up for numbers/badges — respects reduced motion.
+function rptCountUp(el, target, opts) {
+    if (!el) return;
+    opts = opts || {};
+    const prefix = opts.prefix || '';
+    const suffix = opts.suffix || '';
+    const decimals = opts.decimals || 0;
+    const duration = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : (opts.duration || 700);
+    const start = 0;
+    const startTime = performance.now();
+
+    if (duration === 0) {
+        el.textContent = prefix + target.toLocaleString('en-US', { maximumFractionDigits: decimals }) + suffix;
+        return;
     }
+
+    function tick(now) {
+        const p = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const value = start + (target - start) * eased;
+        el.textContent = prefix + value.toLocaleString('en-US', { maximumFractionDigits: decimals }) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
 }
 
-function rptMselGetSelected(id) {
-    return Array.from(rptMselState[id] || []);
+function rptShowToast(message, icon) {
+    const existing = document.getElementById('rptToast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.id = 'rptToast';
+    toast.className = 'rpt-toast';
+    toast.innerHTML = `<span>${icon || '✅'}</span><span>${rptEscapeHtml(message)}</span>`;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.transition = 'opacity .3s ease, transform .3s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, 10px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 2400);
 }
 
-function rptMselGetSelectedLabels(id) {
-    var set = rptMselState[id] || new Set();
-    var options = rptMselOptionsMap[id] || [];
-    return options.filter(function (o) { return set.has(o.value); }).map(function (o) { return o.label; });
-}
-
-// ============================================================================
-// MAIN FILTER PANEL RENDER — new card design, multi-select everywhere it
-// counts, Class filter added, Excel Export Sections removed, Tuition
-// defaults OFF, Academic Period defaults to the current term.
-// ============================================================================
-   var escapeHtmlFn = rptEscapeHtml;
+// ---------------------------------------------------------------------------
+// 2. MAIN PAGE RENDER
+// ---------------------------------------------------------------------------
 function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) {
     var mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
 
     if (typeof injectDashboardDesignSystem === 'function') injectDashboardDesignSystem();
     injectReportsDesignSystem();
-    injectMultiSelectStyles();
 
-    // var escapeHtmlFn = rptEscapeHtml;
-    rptMselState = {}; // reset all multi-select state on fresh page render
+    var escapeHtmlFn = rptEscapeHtml;
 
-    // ---- Build option arrays for each multi-select ----
+    // ---- Build filter option lists (same data, refreshed markup) ----
+    var classOptionsHtml = '<option value="all">📚 All Classes</option>';
+    for (var c = 0; c < filterOptions.classes.length; c++) {
+        var cls = filterOptions.classes[c];
+        classOptionsHtml += '<option value="' + cls.id + '">' + escapeHtmlFn(cls.name) + '</option>';
+    }
+
+    var levelOptionsHtml = '<option value="all">🎓 All Levels</option>';
     var levelLabels = { 'Nursery': '🎨 Nursery', 'LowerPrimary': '📚 Lower Primary', 'UpperPrimary': '🎓 Upper Primary' };
-    var levelOptions = filterOptions.levels.map(function (l) { return { value: l, label: levelLabels[l] || l }; });
+    for (var l = 0; l < filterOptions.levels.length; l++) {
+        var level = filterOptions.levels[l];
+        levelOptionsHtml += '<option value="' + level + '">' + (levelLabels[level] || level) + '</option>';
+    }
 
-    // NEW: Class filter — one entry per class regardless of Day/Boarding,
-    // since class assignment (P.1, P.2, ...) already spans both fee
-    // structure variants. Picking "Primary 1" naturally includes every
-    // Primary 1 student, Day and Boarding alike.
-    var seenClassNames = {};
-    var classOptions = [];
-    filterOptions.classes.forEach(function (c) {
-        if (seenClassNames[c.name]) return;
-        seenClassNames[c.name] = true;
-        classOptions.push({ value: c.name, label: '🏫 ' + c.name });
-    });
+    var studentOptionsHtml = '<option value="all">👤 All Students</option>';
+    for (var s = 0; s < filterOptions.students.length; s++) {
+        var stu = filterOptions.students[s];
+        studentOptionsHtml += '<option value="' + stu.id + '">' + escapeHtmlFn(stu.name) + ' (' + stu.admissionNumber + ')</option>';
+    }
 
-    var studentOptions = filterOptions.students.map(function (s) {
-        return { value: s.id, label: s.name + ' (' + s.admissionNumber + ')' };
-    });
+    var feeStructureOptionsHtml = '<option value="all">📄 All Fee Structures</option>';
+    for (var fs = 0; fs < filterOptions.feeStructures.length; fs++) {
+        var fstruct = filterOptions.feeStructures[fs];
+        feeStructureOptionsHtml += '<option value="' + fstruct.id + '">' + escapeHtmlFn(fstruct.name) + ' (' + fstruct.level + ')</option>';
+    }
 
-    var feeStructureOptions = filterOptions.feeStructures.map(function (fs) {
-        return { value: fs.id, label: fs.name + ' (' + fs.level + ')' };
-    });
+    var statusGroupOptionsHtml = '<option value="all">🏷️ All Status Groups</option><option value="none">🚫 None (Tuition Only)</option>';
+    for (var sg = 0; sg < filterOptions.statusGroups.length; sg++) {
+        var group = filterOptions.statusGroups[sg];
+        var displayName = group === 'schoolastic requirement' ? 'Scholastic' : group;
+        statusGroupOptionsHtml += '<option value="' + group + '">' + escapeHtmlFn(displayName) + '</option>';
+    }
 
-    var statusGroupOptions = filterOptions.statusGroups.map(function (g) {
-        var displayName = g === 'schoolastic requirement' ? 'Scholastic' : g;
-        return { value: g, label: '🏷️ ' + displayName };
-    });
+    var itemOptionsHtml = '<option value="all">📦 All Items</option>';
+    for (var it = 0; it < filterOptions.scholasticItems.length; it++) {
+        var item = filterOptions.scholasticItems[it];
+        itemOptionsHtml += '<option value="' + item + '">' + escapeHtmlFn(item) + '</option>';
+    }
 
-    var itemOptions = filterOptions.scholasticItems.map(function (item) {
-        return { value: item, label: item };
-    });
+    var paymentStatusHtml = '<option value="all">💳 All Payment Status</option>';
+    for (var ps = 0; ps < filterOptions.paymentStatuses.length; ps++) {
+        var status = filterOptions.paymentStatuses[ps];
+        var icon = status === 'Fully Paid' ? '✅' :
+                   status === 'Payment Due' ? '⚠️' :
+                   status === 'No Payment' ? '📋' : '💰';
+        paymentStatusHtml += '<option value="' + status + '">' + icon + ' ' + status + '</option>';
+    }
 
-    var paymentStatusIcons = { 'Fully Paid': '✅', 'Payment Due': '⚠️', 'No Payment': '📋', 'Credit Balance': '💰' };
-    var paymentStatusOptions = filterOptions.paymentStatuses.map(function (status) {
-        return { value: status, label: (paymentStatusIcons[status] || '•') + ' ' + status };
-    });
-
-    // ---- Academic period select — defaults to the CURRENT term ----
+    // ---- Academic period filter ----
     var availableYears = [];
     for (var y = currentYear - 2; y <= currentYear + 1; y++) availableYears.push(y);
 
-    var periodOptionsHtml = '<option value="all">📅 All Periods</option>';
+    var periodOptionsHtml = '';
+    periodOptionsHtml += '<option value="all">📅 All Periods</option>';
+    periodOptionsHtml += '<option value="current">📌 Current Period</option>';
     for (var yy = 0; yy < availableYears.length; yy++) {
         var year = availableYears[yy];
         var label = year === currentYear ? year + ' (Current)' : year;
@@ -65327,12 +65205,13 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
             var termLabel = getTermName(t);
             var isCurrent = (year === currentYear && t === currentTerm);
             var currentLabel = isCurrent ? ' ⭐' : '';
-            var selectedAttr = isCurrent ? ' selected' : '';
-            periodOptionsHtml += '<option value="' + year + '_' + t + '"' + selectedAttr + '>' + termLabel + ' ' + year + currentLabel + '</option>';
+            periodOptionsHtml += '<option value="' + year + '_' + t + '">' + termLabel + ' ' + year + currentLabel + '</option>';
         }
         periodOptionsHtml += '</optgroup>';
     }
 
+    // Each field carries a stagger delay via inline style so the whole
+    // form reveals in a quick cascade on first paint, not all at once.
     function field(delayStep, labelHtml, innerHtml, helpHtml) {
         return '<div class="rpt-field" style="animation-delay:' + (delayStep * 45) + 'ms">' +
             '<label class="block text-sm font-medium mb-1 text-slate-600">' + labelHtml + '</label>' +
@@ -65353,7 +65232,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                         <h1 class="font-display text-3xl font-bold tracking-tight flex items-center gap-2">
                             <i class="fas fa-file-lines"></i>Comprehensive Reports
                         </h1>
-                        <p class="text-sm text-white/85 mt-1">${termName} ${currentYear} &middot; mix and match any combination of filters — multiple classes, items, or status groups at once</p>
+                        <p class="text-sm text-white/85 mt-1">${termName} ${currentYear} &middot; slice fees any way you like — by class, item, status group or period</p>
                         <p class="text-xs text-white/60 mt-1.5"><i class="fas fa-layer-group mr-1"></i>Tracks remaining balances across every historical term, not just this one</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
@@ -65368,13 +65247,13 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
             </div>
 
             <!-- ======================= FILTER CARD ======================= -->
-            <div class="db-card rpt-card-hover overflow-visible">
+            <div class="db-card rpt-card-hover overflow-hidden">
                 <div class="db-card-hd px-5 py-4 flex justify-between items-center flex-wrap gap-2">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-filter text-sm"></i></div>
                         <div>
                             <h3 class="font-display font-bold text-slate-800">Filters</h3>
-                            <p class="text-xs text-slate-400">Pick as many as you like from each list, then hit Generate</p>
+                            <p class="text-xs text-slate-400">Narrow things down, then hit Generate</p>
                         </div>
                     </div>
                     <span id="reportFilterCountBadge" class="text-xs font-semibold text-slate-400">No filters applied</span>
@@ -65384,42 +65263,67 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                     <form id="reportFilterForm" class="space-y-4" onsubmit="return false;">
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 
-                            ${field(0, '🎓 Level', rptBuildMultiSelect('reportLevelFilter', levelOptions, 'All Levels'))}
+                            ${field(0, '🎓 Level',
+                                `<select id="reportLevelFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${levelOptionsHtml}</select>`)}
 
-                            ${field(1, '🏫 Class', rptBuildMultiSelect('reportClassFilter', classOptions, 'All Classes'),
-                                'Picking a class includes both Day and Boarding students in it')}
+                            ${field(1, '👤 Student',
+                                `<div class="relative">
+                                    <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                                    <input type="text" id="reportStudentSearch" placeholder="Search by name or admission no..."
+                                           class="rpt-input w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none text-sm">
+                                </div>
+                                <select id="reportStudentFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 mt-2 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${studentOptionsHtml}</select>`)}
 
-                            ${field(2, '👤 Student', rptBuildMultiSelect('reportStudentFilter', studentOptions, 'All Students'))}
+                            ${field(2, '📄 Fee Structure',
+                                `<select id="reportFeeStructureFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${feeStructureOptionsHtml}</select>`)}
 
-                            ${field(3, '📄 Fee Structure', rptBuildMultiSelect('reportFeeStructureFilter', feeStructureOptions, 'All Fee Structures'))}
+                            ${field(3, '🏷️ Status Group',
+                                `<select id="reportStatusGroupFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${statusGroupOptionsHtml}</select>`,
+                                'Pick "None" to see tuition only')}
 
-                            ${field(4, '🏷️ Status Group', rptBuildMultiSelect('reportStatusGroupFilter', statusGroupOptions, 'All Status Groups'),
-                                'Select several — e.g. LTBalance and Scholastic Requirements together')}
+                            ${field(4, '📦 Item',
+                                `<select id="reportItemFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${itemOptionsHtml}</select>`)}
 
-                            ${field(5, '📦 Item', rptBuildMultiSelect('reportItemFilter', itemOptions, 'All Items'))}
-
-                            ${field(6, '💳 Payment Status', rptBuildMultiSelect('reportPaymentStatusFilter', paymentStatusOptions, 'All Payment Status'))}
-
-                            ${field(7, '💰 Tuition',
+                            ${field(5, '💰 Tuition',
                                 `<div class="flex items-center gap-3 mt-1">
                                     <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="reportTuitionFilter" class="sr-only peer">
+                                        <input type="checkbox" id="reportTuitionFilter" class="sr-only peer" checked>
                                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                                        <span class="ml-2 text-sm font-medium text-slate-700" id="tuitionToggleLabel">Exclude Tuition</span>
+                                        <span class="ml-2 text-sm font-medium text-slate-700" id="tuitionToggleLabel">Include Tuition</span>
                                     </label>
                                 </div>`,
-                                'Off by default — flip on to fold tuition into the totals')}
+                                'Toggle tuition in or out of the totals')}
 
-                            ${field(8, '📅 Academic Period',
+                            ${field(6, '💳 Payment Status',
+                                `<select id="reportPaymentStatusFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${paymentStatusHtml}</select>`)}
+
+                            ${field(7, '📅 Academic Period',
                                 `<select id="reportPeriodFilter" class="rpt-select w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400 outline-none bg-white">${periodOptionsHtml}</select>
                                 <div class="flex items-center gap-2 mt-2">
                                     <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="reportIncludeAllPeriods" class="sr-only peer">
+                                        <input type="checkbox" id="reportIncludeAllPeriods" class="sr-only peer" checked>
                                         <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
                                         <span class="ml-2 text-xs font-medium text-slate-700">Include all periods</span>
                                     </label>
                                 </div>`,
-                                'Defaults to the current term — flip "All Periods" above for full history')}
+                                'One term, or the whole history — your call')}
+
+                            ${field(8, '📊 Excel Export Sections',
+                                `<div class="space-y-2 mt-1 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeMainTable" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Main report table
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludePeriodBreakdown" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Period breakdown summary
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                        <input type="checkbox" id="reportIncludeSummaryStats" checked class="rounded border-slate-300 text-teal-600 focus:ring-teal-500/40">
+                                        Summary statistics
+                                    </label>
+                                </div>`,
+                                'Choose which sections appear in the exported Excel file — all on by default')}
 
                             <div class="rpt-field flex flex-wrap gap-2 items-end" style="animation-delay:405ms">
                                 <button type="submit" id="rptGenerateBtn" class="rpt-generate-btn rpt-btn-press bg-teal-600 text-white px-4 py-2.5 rounded-xl hover:bg-teal-700 font-semibold flex-1 flex items-center justify-center gap-2">
@@ -65431,13 +65335,14 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                             </div>
                         </div>
 
-                        <!-- ============ ACTIVE FILTERS RIBBON ============ -->
+                        <!-- ============ ACTIVE FILTERS RIBBON (signature element) ============ -->
                         <div id="reportActiveFiltersRow" class="flex flex-wrap items-center gap-2 pt-1 min-h-[2rem]">
+                            <!-- populated live by JS as selections change -->
                         </div>
 
                         <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
                             <button type="button" onclick="exportReportToCSV()" class="rpt-btn-press bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 font-semibold flex items-center gap-2">
-                                <i class="fas fa-file-excel"></i> Export Excel
+                                <i class="fas fa-file-csv"></i> Export CSV
                             </button>
                             <button type="button" onclick="printReportV3()" class="rpt-btn-press bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 font-semibold flex items-center gap-2">
                                 <i class="fas fa-print"></i> Print Report
@@ -65487,6 +65392,7 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
                             </div>
                             <p class="font-semibold text-slate-500">Nothing generated yet</p>
                             <p class="text-sm mt-1 text-slate-400">Set your filters above and hit <span class="font-semibold text-teal-600">Generate</span> to pull the data</p>
+                            <p class="text-xs mt-3 text-slate-300"><i class="fas fa-circle-info mr-1"></i>Choose "All Periods" to see balances tracked across terms</p>
                         </div>
                     </div>
                 </div>
@@ -65498,12 +65404,25 @@ function renderReportsPageV3(filterOptions, termName, currentYear, currentTerm) 
     attachReportFilterListeners();
 }
 
-// ============================================================================
-// FILTER LISTENERS — period lock + form submit only; each multi-select
-// wires its own change handling via rptMselToggle.
-// ============================================================================
+// ---------------------------------------------------------------------------
+// 3. FILTER INTERACTIVITY — active-filter chips, dirty-state pulse,
+//    student search, tuition toggle label, period lock.
+// ---------------------------------------------------------------------------
+var rptLastAppliedSignature = null;
+
 function attachReportFilterListeners() {
     var filterForm = document.getElementById('reportFilterForm');
+    var filterIds = [
+        'reportLevelFilter', 'reportStudentFilter', 'reportFeeStructureFilter',
+        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
+        'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
+    ];
+    var filterLabels = {
+        reportLevelFilter: '🎓 Level', reportStudentFilter: '👤 Student', reportFeeStructureFilter: '📄 Fee Structure',
+        reportStatusGroupFilter: '🏷️ Status Group', reportItemFilter: '📦 Item', reportPaymentStatusFilter: '💳 Payment Status',
+        reportPeriodFilter: '📅 Period'
+    };
+
     if (filterForm) {
         filterForm.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -65522,65 +65441,94 @@ function attachReportFilterListeners() {
     }
 
     var periodFilter = document.getElementById('reportPeriodFilter');
-    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
-    if (periodFilter && includeAllPeriods) {
-        var syncPeriodLock = function () {
-            if (periodFilter.value === 'all') {
-                includeAllPeriods.checked = true;
-                includeAllPeriods.disabled = true;
-                includeAllPeriods.parentElement.style.opacity = '0.5';
-            } else {
-                includeAllPeriods.disabled = false;
-                includeAllPeriods.parentElement.style.opacity = '1';
-            }
-        };
-        periodFilter.addEventListener('change', syncPeriodLock);
-        syncPeriodLock();
-    }
-
-    rptUpdateActiveFilterChips();
+var includeAllPeriods = document.getElementById('reportIncludeAllPeriods');
+if (periodFilter && includeAllPeriods) {
+    var syncPeriodLock = function () {
+        if (periodFilter.value === 'all') {
+            // "All Periods" always means the full history
+            includeAllPeriods.checked = true;
+            includeAllPeriods.disabled = true;
+            includeAllPeriods.parentElement.style.opacity = '0.5';
+        } else {
+            // Picking a specific term (or "Current Period") narrows the
+            // report to just that period by default. The checkbox becomes
+            // an explicit opt-in for "show history up to this point" instead.
+            includeAllPeriods.checked = false;
+            includeAllPeriods.disabled = false;
+            includeAllPeriods.parentElement.style.opacity = '1';
+        }
+    };
+    periodFilter.addEventListener('change', syncPeriodLock);
+    syncPeriodLock();
 }
 
-// ============================================================================
-// ACTIVE FILTER CHIPS — one chip per non-empty multi-select / non-default
-// single control, each removable.
-// ============================================================================
-var rptMselFilterMeta = [
-    { id: 'reportLevelFilter', label: '🎓 Level' },
-    { id: 'reportClassFilter', label: '🏫 Class' },
-    { id: 'reportStudentFilter', label: '👤 Student' },
-    { id: 'reportFeeStructureFilter', label: '📄 Fee Structure' },
-    { id: 'reportStatusGroupFilter', label: '🏷️ Status Group' },
-    { id: 'reportItemFilter', label: '📦 Item' },
-    { id: 'reportPaymentStatusFilter', label: '💳 Payment Status' }
-];
+    var studentSearch = document.getElementById('reportStudentSearch');
+    var studentSelect = document.getElementById('reportStudentFilter');
+    if (studentSearch && studentSelect) {
+        studentSearch.addEventListener('input', function () {
+            var searchTerm = this.value.toLowerCase().trim();
+            var options = studentSelect.options;
+            var firstVisible = null;
+            for (var i = 0; i < options.length; i++) {
+                var text = options[i].text.toLowerCase();
+                var match = searchTerm === '' || text.includes(searchTerm);
+                options[i].style.display = match ? '' : 'none';
+                if (match && !firstVisible) firstVisible = options[i].value;
+            }
+            if (firstVisible && !studentSelect.value) studentSelect.value = firstVisible;
+        });
+    }
 
-function rptUpdateActiveFilterChips() {
+    // Wire every filter control to refresh the active-filter chip ribbon
+    // and flag the Generate button as "dirty" (pending changes) the moment
+    // a selection no longer matches what was last applied.
+    filterIds.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
+        el.addEventListener(evt, function () {
+            rptUpdateActiveFilterChips(filterIds, filterLabels);
+            rptSetGenerateDirty(rptFilterSignature() !== rptLastAppliedSignature);
+        });
+    });
+
+    rptUpdateActiveFilterChips(filterIds, filterLabels);
+}
+
+function rptFilterSignature() {
+    var ids = [
+        'reportLevelFilter', 'reportStudentFilter', 'reportFeeStructureFilter',
+        'reportStatusGroupFilter', 'reportItemFilter', 'reportPaymentStatusFilter',
+        'reportPeriodFilter', 'reportTuitionFilter', 'reportIncludeAllPeriods'
+    ];
+    return ids.map(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return '';
+        return el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value;
+    }).join('|');
+}
+
+function rptSetGenerateDirty(isDirty) {
+    var btn = document.getElementById('rptGenerateBtn');
+    if (!btn) return;
+    btn.classList.toggle('is-dirty', isDirty);
+    var label = btn.querySelector('span');
+    if (label) label.textContent = isDirty ? 'Generate (changes pending)' : 'Generate';
+}
+
+function rptUpdateActiveFilterChips(filterIds, filterLabels) {
     var row = document.getElementById('reportActiveFiltersRow');
     var badge = document.getElementById('reportFilterCountBadge');
     if (!row) return;
 
     var chips = [];
-    rptMselFilterMeta.forEach(function (meta) {
-        var labels = rptMselGetSelectedLabels(meta.id);
-        if (labels.length === 0) return;
-        var text = labels.length <= 2 ? labels.join(', ') : (labels.length + ' selected');
-        chips.push('<span class="rpt-chip db-badge bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1.5">' +
-            meta.label + ': <b>' + rptEscapeHtml(text) + '</b>' +
-            '<i class="fas fa-xmark rpt-chip-x cursor-pointer text-teal-400 hover:text-teal-700" onclick="rptMselClear(\'' + meta.id + '\')"></i>' +
-            '</span>');
+    filterIds.forEach(function (id) {
+        if (!filterLabels[id]) return; // skip tuition/period-lock toggles from the chip row
+        var el = document.getElementById(id);
+        if (!el || el.value === 'all' || el.value === '') return;
+        var text = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+        chips.push({ id: id, label: filterLabels[id], text: text });
     });
-
-    var periodEl = document.getElementById('reportPeriodFilter');
-    if (periodEl && periodEl.value !== 'all') {
-        chips.push('<span class="rpt-chip db-badge bg-indigo-50 text-indigo-700 border border-indigo-200">📅 ' +
-            rptEscapeHtml(periodEl.options[periodEl.selectedIndex].text) + '</span>');
-    }
-
-    var tuitionEl = document.getElementById('reportTuitionFilter');
-    if (tuitionEl && tuitionEl.checked) {
-        chips.push('<span class="rpt-chip db-badge bg-amber-50 text-amber-700 border border-amber-200">💰 Tuition included</span>');
-    }
 
     if (chips.length === 0) {
         row.innerHTML = '<span class="text-xs text-slate-300 italic">No filters active — showing everything by default</span>';
@@ -65589,199 +65537,21 @@ function rptUpdateActiveFilterChips() {
     }
 
     if (badge) badge.textContent = chips.length + ' filter' + (chips.length > 1 ? 's' : '') + ' applied';
-    row.innerHTML = chips.join('');
+
+    row.innerHTML = chips.map(function (chip, i) {
+        return '<span class="rpt-chip db-badge bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1.5" style="animation-delay:' + (i * 40) + 'ms">' +
+            chip.label + ': <b>' + rptEscapeHtml(chip.text) + '</b>' +
+            '<i class="fas fa-xmark rpt-chip-x cursor-pointer text-teal-400 hover:text-teal-700" onclick="rptClearFilter(\'' + chip.id + '\')"></i>' +
+            '</span>';
+    }).join('');
 }
 
-function rptFilterSignature() {
-    var parts = rptMselFilterMeta.map(function (meta) {
-        return meta.id + ':' + rptMselGetSelected(meta.id).sort().join(',');
-    });
-    var periodEl = document.getElementById('reportPeriodFilter');
-    var tuitionEl = document.getElementById('reportTuitionFilter');
-    var allPeriodsEl = document.getElementById('reportIncludeAllPeriods');
-    parts.push('period:' + (periodEl ? periodEl.value : ''));
-    parts.push('tuition:' + (tuitionEl && tuitionEl.checked ? '1' : '0'));
-    parts.push('allPeriods:' + (allPeriodsEl && allPeriodsEl.checked ? '1' : '0'));
-    return parts.join('|');
+function rptClearFilter(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = 'all';
+    el.dispatchEvent(new Event('change'));
 }
-
-// ============================================================================
-// GENERATE REPORT — fetches the broad dataset (only period/tuition affect
-// the actual computation), then applies every multi-select filter
-// client-side before rendering.
-// ============================================================================
-async function generateReportV3() {
-    var periodFilter = document.getElementById('reportPeriodFilter')?.value || 'all';
-    var includeAllPeriods = document.getElementById('reportIncludeAllPeriods')?.checked === true;
-    var includeTuition = document.getElementById('reportTuitionFilter')?.checked === true;
-
-    var academicYear = null, academicTerm = null;
-    if (periodFilter !== 'all') {
-        var parts = periodFilter.split('_');
-        if (parts.length === 2) {
-            academicYear = parseInt(parts[0]);
-            academicTerm = parseInt(parts[1]);
-        }
-    } else {
-        includeAllPeriods = true;
-    }
-
-    if (typeof rptShowLoadingState === 'function') rptShowLoadingState();
-
-    try {
-        // Fetch the FULL dataset — every row/column filter below is applied
-        // client-side, which is what makes true multi-select possible.
-        var params = new URLSearchParams({
-            level: 'all', studentId: 'all', feeStructureId: 'all',
-            statusGroup: 'all', itemName: 'all', paymentStatus: 'all',
-            includeTuition: includeTuition ? 'true' : 'false',
-            includeAllPeriods: includeAllPeriods ? 'true' : 'false'
-        });
-        if (academicYear) params.append('academicYear', academicYear);
-        if (academicTerm) params.append('academicTerm', academicTerm);
-
-        var response = await fetch('/api/reports/comprehensive?' + params.toString());
-        var result = await response.json();
-
-        if (!result.success) {
-            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
-            return;
-        }
-
-        var data = result.data;
-
-        // ---- Client-side filtering ----
-        var selLevels = new Set(rptMselGetSelected('reportLevelFilter'));
-        var selClasses = new Set(rptMselGetSelected('reportClassFilter'));
-        var selStudents = new Set(rptMselGetSelected('reportStudentFilter'));
-        var selFeeStructures = new Set(rptMselGetSelected('reportFeeStructureFilter'));
-        var selStatuses = new Set(rptMselGetSelected('reportPaymentStatusFilter'));
-        var selGroups = new Set(rptMselGetSelected('reportStatusGroupFilter'));
-        var selItems = new Set(rptMselGetSelected('reportItemFilter'));
-
-        var students = (data.students || []).filter(function (s) {
-            if (selLevels.size > 0 && !selLevels.has(s.classLevel)) return false;
-            if (selClasses.size > 0 && !selClasses.has(s.currentClass)) return false;
-            if (selStudents.size > 0 && !selStudents.has(s.id)) return false;
-            if (selFeeStructures.size > 0 && !selFeeStructures.has(s.feeStructureId)) return false;
-            if (selStatuses.size > 0 && !selStatuses.has(s.overallStatus)) return false;
-            return true;
-        });
-
-        // Prune each student's statusGroups down to only the selected
-        // groups/items — this is what makes the table render only the
-        // chosen columns, reusing the existing table builder untouched.
-        if (selGroups.size > 0 || selItems.size > 0) {
-            students = students.map(function (s) {
-                if (!s.statusGroups) return s;
-                var newGroups = {};
-                Object.keys(s.statusGroups).forEach(function (groupName) {
-                    if (selGroups.size > 0 && !selGroups.has(groupName)) return;
-                    var group = s.statusGroups[groupName];
-                    if (!group || !group.items) return;
-                    if (selItems.size === 0) {
-                        newGroups[groupName] = group;
-                    } else {
-                        var newItems = {};
-                        Object.keys(group.items).forEach(function (itemName) {
-                            if (selItems.has(itemName)) newItems[itemName] = group.items[itemName];
-                        });
-                        if (Object.keys(newItems).length > 0) {
-                            newGroups[groupName] = Object.assign({}, group, { items: newItems });
-                        }
-                    }
-                });
-                return Object.assign({}, s, { statusGroups: newGroups });
-            });
-        }
-
-        data.students = students;
-
-        // Build a friendly filters summary for the print/export header lines
-        data.filters = {
-            level: selLevels.size ? rptMselGetSelectedLabels('reportLevelFilter').join(', ') : 'all',
-            statusGroup: selGroups.size ? rptMselGetSelectedLabels('reportStatusGroupFilter').join(', ') : 'all',
-            itemName: selItems.size ? rptMselGetSelectedLabels('reportItemFilter').join(', ') : 'all',
-            paymentStatus: selStatuses.size ? rptMselGetSelectedLabels('reportPaymentStatusFilter').join(', ') : 'all',
-            includeTuition: includeTuition,
-            includeAllPeriods: includeAllPeriods
-        };
-        if (selClasses.size) data.filters.classFilter = rptMselGetSelectedLabels('reportClassFilter').join(', ');
-        if (selFeeStructures.size) data.filters.feeStructureFilter = rptMselGetSelectedLabels('reportFeeStructureFilter').join(', ');
-
-        reportData = data;
-        renderReportResultsV3(data);
-
-        var lastRun = document.getElementById('reportLastRun');
-        if (lastRun) lastRun.innerHTML = '<i class="fas fa-check-circle"></i> Generated ' + new Date().toLocaleTimeString();
-
-        var totals = data.totals || {};
-        var insightStrip = document.getElementById('reportInsightStrip');
-        if (insightStrip) {
-            insightStrip.classList.remove('hidden');
-            var count = students.length;
-            var rate = parseFloat(totals.overallCollectionRate || 0);
-            var insightText = document.getElementById('reportInsightText');
-            if (insightText) {
-                insightText.textContent = count === 0
-                    ? 'No students match this combination of filters.'
-                    : 'Showing ' + count + ' student(s) — ' + rate.toFixed(1) + '% collected on this slice.';
-            }
-            var insightRecords = document.getElementById('reportInsightRecords');
-            var insightRate = document.getElementById('reportInsightRate');
-            if (insightRecords && typeof rptCountUp === 'function') rptCountUp(insightRecords, count);
-            if (insightRate && typeof rptCountUp === 'function') rptCountUp(insightRate, rate, { suffix: '%', decimals: 1 });
-        }
-
-        rptLastAppliedSignature = rptFilterSignature();
-        if (typeof rptSetGenerateDirty === 'function') rptSetGenerateDirty(false);
-
-    } catch (error) {
-        console.error('Error generating report:', error);
-        showToast('Error generating report: ' + error.message, 'error');
-    } finally {
-        if (typeof rptHideLoadingState === 'function') rptHideLoadingState();
-    }
-}
-
-// ============================================================================
-// RESET — clears every multi-select, restores Tuition to OFF and Period
-// to the current term.
-// ============================================================================
-function resetReportFilters() {
-    rptMselFilterMeta.forEach(function (meta) { rptMselClear(meta.id); });
-
-    var periodEl = document.getElementById('reportPeriodFilter');
-    if (periodEl) {
-        var currentYear = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentYear) || new Date().getFullYear();
-        var currentTerm = (typeof currentAcademicSettings !== 'undefined' && currentAcademicSettings.currentTerm) || 1;
-        periodEl.value = currentYear + '_' + currentTerm;
-        periodEl.dispatchEvent(new Event('change'));
-    }
-
-    var tuitionToggle = document.getElementById('reportTuitionFilter');
-    if (tuitionToggle) tuitionToggle.checked = false;
-    var tuitionLabel = document.getElementById('tuitionToggleLabel');
-    if (tuitionLabel) tuitionLabel.textContent = 'Exclude Tuition';
-
-    showToast('Filters have been reset', 'info');
-    generateReportV3();
-}
-
-function refreshReport() {
-    showToast('🔄 Refreshing report...', 'info');
-    generateReportV3();
-}
-
-window.renderReportsPageV3 = renderReportsPageV3;
-window.generateReportV3 = generateReportV3;
-window.resetReportFilters = resetReportFilters;
-window.refreshReport = refreshReport;
-window.rptMselToggle = rptMselToggle;
-window.rptMselTogglePanel = rptMselTogglePanel;
-window.rptMselSelectAll = rptMselSelectAll;
-window.rptMselClear = rptMselClear;
-window.rptMselSearch = rptMselSearch;
 
 // ---------------------------------------------------------------------------
 // 4. RESULTS RENDERER — call this from generateReportV3() once you have the
