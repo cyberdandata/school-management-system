@@ -68723,7 +68723,6 @@ console.log('Comprehensive Reports System v5.0 loaded!');
 // DASHBOARD v14.0 — Masked money everywhere, filtered report navigation,
 // SchoolPay removed, all status groups always shown
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 function injectDashboardDesignSystem() {
     if (document.getElementById('dashboard-modern-fonts')) return;
 
@@ -68852,8 +68851,8 @@ function injectDashboardDesignSystem() {
 }
 
 .metric-flex-row .db-metric {
-    flex: 1 1 0;          /* equally share space, shrink to fit */
-    min-width: 0;         /* allow shrinking below content width */
+    flex: 1 1 0;
+    min-width: 0;
     transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                 box-shadow 0.25s ease,
                 transform 0.25s ease;
@@ -68861,12 +68860,11 @@ function injectDashboardDesignSystem() {
 }
 
 .metric-flex-row .db-metric:hover {
-    flex: 2.5 1 0;        /* take 2.5× space on hover */
+    flex: 2.5 1 0;
     z-index: 10;
     box-shadow: 0 20px 40px -18px rgba(15, 23, 42, 0.35);
 }
 
-/* Text truncation – normally hidden overflow */
 .metric-flex-row .db-metric .metric-value,
 .metric-flex-row .db-metric .metric-sub {
     overflow: hidden;
@@ -68875,7 +68873,6 @@ function injectDashboardDesignSystem() {
     transition: all 0.2s ease;
 }
 
-/* On hover – show full text without truncation */
 .metric-flex-row .db-metric:hover .metric-value,
 .metric-flex-row .db-metric:hover .metric-sub {
     overflow: visible;
@@ -68883,7 +68880,6 @@ function injectDashboardDesignSystem() {
     white-space: nowrap;
 }
 
-/* Hint text styling */
 .metric-flex-row .db-metric .tap-hint {
     transition: color 0.2s ease;
 }
@@ -68891,7 +68887,6 @@ function injectDashboardDesignSystem() {
     color: #4F5FE8;
 }
 
-/* Ensure grid doesn't interfere – remove if needed */
 .db-metric-grid {
     overflow: visible !important;
 } 
@@ -68950,27 +68945,8 @@ function getTermName(term) {
 }
 
 // =============================================================================
-// 1.5. DATA LAYER — everything the dashboard shows is now derived from
-// /api/reports/comprehensive, the SAME endpoint and SAME per-item logic the
-// Reports page uses (see buildReportTable() in main.js). This guarantees the
-// dashboard's numbers can never drift from what the Reports page shows for
-// the same period.
-//
-// The core correctness rule (this is the fix the user asked for):
-// For every student × item, we resolve the item's applicable periods and
-// compute cash/qty totals using the exact same period-scoping + OR-logic the
-// report table uses. If, after that, the student genuinely owes nothing on
-// that item (0 expected in whichever unit applies) AND has never paid/brought
-// anything toward it, the item is treated as "Doesn't Pay" for that student
-// and is EXCLUDED ENTIRELY from every downstream total: status-group
-// student counts, item required/collected counts, class-performance
-// breakdowns, and the cash-only card. A student who doesn't owe an item is
-// never counted as a payer of it.
+// 1.5. DATA LAYER
 // =============================================================================
-
-// Resolve which period entries in an item's periodBreakdown actually count,
-// given the item's periodType (termly/yearly/one_time), mirroring
-// buildReportTable's period-scoping + its direct-data fallback exactly.
 function dashGetApplicablePeriods(itemData, oldestPeriodKey, maxTermByYear, currentYear) {
     var periodBreakdown = itemData.periodBreakdown || {};
     var periodKeys = Object.keys(periodBreakdown);
@@ -68996,9 +68972,6 @@ function dashGetApplicablePeriods(itemData, oldestPeriodKey, maxTermByYear, curr
         if (shouldInclude) applicable.push({ periodKey: pk, data: pd });
     }
 
-    // Fallback: same rule the report table uses when period scoping produced
-    // nothing but the item still carries real totals (e.g. a one-time item
-    // that's never been billed/paid yet).
     if (applicable.length === 0) {
         var isOneTime = itemData.isOneTime || periodType === 'one_time';
         var directQtyCollected = itemData.totalCollected || 0;
@@ -69037,9 +69010,6 @@ function dashGetApplicablePeriods(itemData, oldestPeriodKey, maxTermByYear, curr
     return applicable;
 }
 
-// Aggregate one student's item into cash/qty totals using the report's OR
-// logic, then apply the "doesn't pay" test. Returns null when the item
-// should NOT count toward this student at all.
 function dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, currentYear) {
     var paymentOption = itemData.paymentOption || 'either';
     var perPeriodQtyRequired = (itemData.quantityRequired > 0) ? itemData.quantityRequired : 1;
@@ -69047,7 +69017,7 @@ function dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, curr
     var unitPrice = itemData.unitPrice || (perPeriodQtyRequired > 0 ? (perPeriodAmountExpected / perPeriodQtyRequired) : 0);
 
     var applicablePeriods = dashGetApplicablePeriods(itemData, oldestPeriodKey, maxTermByYear, currentYear);
-    if (applicablePeriods.length === 0) return null; // structurally not applicable this period
+    if (applicablePeriods.length === 0) return null;
 
     var totalCashExpected = 0, totalCashPaid = 0, totalCashRemaining = 0;
     var totalItemsRequired = 0, totalItemsCollected = 0, totalItemsRemaining = 0;
@@ -69105,7 +69075,6 @@ function dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, curr
         totalItemsRemaining += remainingItems;
     }
 
-    // ===== THE "DOESN'T PAY" TEST — matches the report's per-cell rule =====
     var owesNothing;
     if (paymentOption === 'cash_only') {
         owesNothing = totalCashExpected <= 0;
@@ -69116,7 +69085,7 @@ function dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, curr
     }
     var hasPayment = totalCashPaid > 0 || totalItemsCollected > 0;
 
-    if (owesNothing && !hasPayment) return null; // "Doesn't Pay" — never counted
+    if (owesNothing && !hasPayment) return null;
 
     return {
         paymentOption: paymentOption,
@@ -69129,16 +69098,11 @@ function dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, curr
     };
 }
 
-// Turn a /api/reports/comprehensive payload into the exact "data" shape
-// renderDashboard() and friends already know how to draw.
 function computeDashboardStatsFromReport(reportPayload, school, currentYear, currentTerm) {
     var students = (reportPayload && reportPayload.students) || [];
     var totals = (reportPayload && reportPayload.totals) || {};
     var metadata = (reportPayload && reportPayload.metadata) || {};
 
-    // Global period-scoping context, same derivation buildReportTable uses:
-    // prefer the server's own periodsIncluded list; fall back to scanning
-    // student.periods if that's ever empty.
     var allPeriodKeys = (metadata.periodsIncluded && metadata.periodsIncluded.length)
         ? metadata.periodsIncluded.slice()
         : [];
@@ -69200,9 +69164,8 @@ function computeDashboardStatsFromReport(reportPayload, school, currentYear, cur
                 var itemData = groupData.items[itemName];
                 if (!itemData) continue;
 
-                // ===== Resolve + "doesn't pay" filter (the key fix) =====
                 var agg = dashComputeItemAggregate(itemData, oldestPeriodKey, maxTermByYear, currentYear);
-                if (!agg) continue; // student doesn't owe this item — never counted as a payer
+                if (!agg) continue;
 
                 var periodType = itemData.periodType || 'termly';
                 var group = getGroup(groupName, periodType);
@@ -69383,9 +69346,6 @@ async function showDashboard() {
         const { currentYear, currentTerm } = currentAcademicSettings;
         const termName = getTermName(currentTerm);
 
-        // Ask the SAME endpoint the Reports page uses, for the current
-        // period only, with every filter left open (all groups, all items,
-        // all classes) so the dashboard reflects the whole school.
         const reportParams = new URLSearchParams({
             level: 'all',
             studentId: 'all',
@@ -69431,7 +69391,7 @@ async function showDashboard() {
 
         const data = computeDashboardStatsFromReport(reportResult.data, school, currentYear, currentTerm);
         window.dashboardData = data;
-        window.dashboardReportRaw = reportResult.data; // raw report payload, kept for drilldowns/printDashboardReport
+        window.dashboardReportRaw = reportResult.data;
 
         renderDashboard(data, uniformData, stockData, termName, currentYear, currentTerm);
 
@@ -69455,7 +69415,7 @@ async function showDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 3. SCHOOL DATA INIT (unchanged behaviour)
+// 3. SCHOOL DATA INIT
 // ---------------------------------------------------------------------------
 function initializeSchoolData() {
     let school = null;
@@ -69484,45 +69444,272 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeSidebar();
 });
 
-// ---------------------------------------------------------------------------
-// 4. NAVIGATION HELPERS — every stat card drills into a real page
-// ---------------------------------------------------------------------------
+// =============================================================================
+// 4. NAVIGATION HELPERS
+//    Every stat card drills into the real page, and now CARRIES ITS CONTEXT
+//    across as live report filters that auto-apply + auto-generate.
+// =============================================================================
+
+// --- Wait until the Reports page filter DOM is actually mounted ---
+function waitForReportPage(callback, attempts) {
+    attempts = attempts || 0;
+    if (document.getElementById('reportLevelFilter')) {
+        callback();
+        return;
+    }
+    if (attempts > 40) { // ~4 seconds
+        console.warn('[dashboard-nav] Reports page never became ready');
+        return;
+    }
+    setTimeout(function () { waitForReportPage(callback, attempts + 1); }, 100);
+}
+
+// --- Programmatically check values on a rpt-multiselect ---
+function setReportMultiFilter(fieldId, values) {
+    var container = document.querySelector('.rpt-multiselect[data-field="' + fieldId + '"]');
+    var dropdown = document.querySelector('.rpt-multiselect-dropdown[data-field="' + fieldId + '"]');
+    if (!container || !dropdown) return false;
+
+    values = values || [];
+
+    // Uncheck everything first
+    var boxes = dropdown.querySelectorAll('input[type="checkbox"]');
+    boxes.forEach(function (cb) { cb.checked = false; });
+
+    // Check matching values
+    values.forEach(function (v) {
+        var cb = dropdown.querySelector('input[value="' + CSS.escape(v) + '"]');
+        if (cb) cb.checked = true;
+    });
+
+    // Sync dataset + label exactly like rptMultiChange does
+    container.dataset.selected = JSON.stringify(values);
+    var label = container.querySelector('.rpt-multiselect-label');
+    if (label) {
+        if (values.length === 0) {
+            label.textContent = 'None selected';
+        } else if (values.length === 1) {
+            var one = dropdown.querySelector('input[value="' + CSS.escape(values[0]) + '"]');
+            label.textContent = one ? one.parentElement.textContent.trim() : values[0];
+        } else {
+            label.textContent = values.length + ' selected';
+        }
+    }
+    return true;
+}
+
+// --- Class name → class id, using the map the Reports page already builds ---
+function findClassIdByName(className) {
+    var map = window._reportClassMap || {};
+    for (var id in map) {
+        if (map[id] === className) return id;
+    }
+    return null;
+}
+
+// --- Reset every reports filter to its default WITHOUT triggering generation ---
+function resetReportFiltersSilently() {
+    var setSingle = function (id, value) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.value = value;
+    };
+
+    setSingle('reportLevelFilter', 'all');
+    setSingle('reportStudentFilter', 'all');
+    var ss = document.getElementById('reportStudentSearch');
+    if (ss) ss.value = '';
+    setSingle('reportFeeStructureFilter', 'all');
+    setSingle('reportPaymentStatusFilter', 'all');
+    setSingle('reportPeriodFilter', 'current');
+
+    var tuition = document.getElementById('reportTuitionFilter');
+    if (tuition) {
+        tuition.checked = false;
+        var lbl = document.getElementById('tuitionToggleLabel');
+        if (lbl) lbl.textContent = 'Exclude Tuition';
+    }
+
+    var allPeriods = document.getElementById('reportIncludeAllPeriods');
+    if (allPeriods) {
+        allPeriods.checked = false;
+        allPeriods.disabled = true;
+        if (allPeriods.parentElement) allPeriods.parentElement.style.opacity = '0.5';
+    }
+
+    // Reset multi-selects
+    ['reportClassFilter', 'reportStatusGroupFilter', 'reportItemFilter'].forEach(function (id) {
+        setReportMultiFilter(id, []);
+    });
+
+    // Ensure item filter isn't left locked by a previous "None" status group
+    if (typeof rptSetItemFilterDisabled === 'function') rptSetItemFilterDisabled(false);
+}
+
+// --- Master navigation: go to reports, apply filters, auto-generate ---
+function navigateToReportsWithFilters(options) {
+    options = options || {};
+
+    if (typeof showReports !== 'function') {
+        console.warn('[dashboard-nav] showReports() not available');
+        return;
+    }
+
+    showReports();
+
+    waitForReportPage(function () {
+        // Reset first (silent — no premature generate)
+        resetReportFiltersSilently();
+
+        // ---- Apply the requested filters ----
+        if (options.level) {
+            var le = document.getElementById('reportLevelFilter');
+            if (le) le.value = options.level;
+        }
+        if (options.studentId) {
+            var se = document.getElementById('reportStudentFilter');
+            if (se) se.value = options.studentId;
+        }
+        if (options.feeStructureId) {
+            var fse = document.getElementById('reportFeeStructureFilter');
+            if (fse) fse.value = options.feeStructureId;
+        }
+        if (options.paymentStatus) {
+            var pe = document.getElementById('reportPaymentStatusFilter');
+            if (pe) pe.value = options.paymentStatus;
+        }
+        if (options.period) {
+            var per = document.getElementById('reportPeriodFilter');
+            if (per) {
+                per.value = options.period;
+                per.dispatchEvent(new Event('change'));
+            }
+        }
+        if (options.includeTuition) {
+            var te = document.getElementById('reportTuitionFilter');
+            if (te) {
+                te.checked = true;
+                var tl = document.getElementById('tuitionToggleLabel');
+                if (tl) tl.textContent = 'Include Tuition';
+            }
+        }
+
+        // Class filter (names preferred, IDs fallback)
+        if (options.classNames && options.classNames.length) {
+            var classIds = options.classNames.map(findClassIdByName).filter(Boolean);
+            if (classIds.length) setReportMultiFilter('reportClassFilter', classIds);
+        } else if (options.classIds && options.classIds.length) {
+            setReportMultiFilter('reportClassFilter', options.classIds);
+        }
+
+        // Status group
+        if (options.statusGroups && options.statusGroups.length) {
+            setReportMultiFilter('reportStatusGroupFilter', options.statusGroups);
+            // If "none" alone was selected, mirror the UI: lock the Item filter
+            if (options.statusGroups.length === 1 && options.statusGroups[0] === 'none') {
+                if (typeof rptSetItemFilterDisabled === 'function') rptSetItemFilterDisabled(true);
+            }
+        }
+
+        // Item
+        if (options.items && options.items.length) {
+            setReportMultiFilter('reportItemFilter', options.items);
+        }
+
+        // Include all periods toggle
+        if (options.includeAllPeriods) {
+            var iap = document.getElementById('reportIncludeAllPeriods');
+            if (iap) {
+                iap.checked = true;
+                iap.disabled = false;
+                if (iap.parentElement) iap.parentElement.style.opacity = '1';
+            }
+        }
+
+        // Refresh chips then auto-generate
+        if (typeof rptUpdateActiveFilterChips === 'function') rptUpdateActiveFilterChips();
+
+        setTimeout(function () {
+            if (typeof generateReportV3 === 'function') generateReportV3();
+        }, 200);
+    });
+}
+
+// ---- Specific entry points the dashboard cards actually call ----
+
 function navigateToStatusGroupReport(statusGroupName) {
-    if (typeof showReports !== 'function') return;
-    showReports();
-    setTimeout(() => {
-        const filterSelect = document.getElementById('reportStatusGroupFilter');
-        if (filterSelect) {
-            for (let i = 0; i < filterSelect.options.length; i++) {
-                if (filterSelect.options[i].value === statusGroupName) { filterSelect.value = statusGroupName; break; }
-            }
-            setTimeout(() => { if (typeof generateReportV3 === 'function') generateReportV3(); }, 200);
-        }
-    }, 300);
+    navigateToReportsWithFilters({
+        statusGroups: statusGroupName ? [statusGroupName] : []
+    });
 }
+
 function navigateToItemReport(itemName, statusGroupName) {
-    if (typeof showReports !== 'function') return;
-    showReports();
-    setTimeout(() => {
-        const groupSelect = document.getElementById('reportStatusGroupFilter');
-        if (groupSelect && statusGroupName) {
-            for (let i = 0; i < groupSelect.options.length; i++) {
-                if (groupSelect.options[i].value === statusGroupName) { groupSelect.value = statusGroupName; break; }
-            }
-        }
-        const itemSelect = document.getElementById('reportItemFilter');
-        if (itemSelect) {
-            for (let i = 0; i < itemSelect.options.length; i++) {
-                if (itemSelect.options[i].value === itemName) { itemSelect.value = itemName; break; }
-            }
-        }
-        setTimeout(() => { if (typeof generateReportV3 === 'function') generateReportV3(); }, 200);
-    }, 300);
+    navigateToReportsWithFilters({
+        statusGroups: statusGroupName ? [statusGroupName] : [],
+        items: itemName ? [itemName] : []
+    });
 }
+
+// Status group + class drill-down (class performance table cells)
+function navigateToClassReport(statusGroupName, className) {
+    navigateToReportsWithFilters({
+        statusGroups: statusGroupName ? [statusGroupName] : [],
+        classNames: className ? [className] : []
+    });
+}
+
+// Payment-status chip drill-downs (Fully Paid / Payment Due / No Payment / Credit)
+function navigateToPaymentStatusReport(statusLabel) {
+    navigateToReportsWithFilters({
+        paymentStatus: statusLabel || 'all'
+    });
+}
+
+// Tuition-only slice (Tuition Expected / Collected cards)
 function navigateToTuitionReport() {
-    if (typeof showReports !== 'function') return;
-    showReports();
+    navigateToReportsWithFilters({
+        statusGroups: ['none'],
+        includeTuition: true
+    });
 }
+
+// Outstanding slice — tuition-only + Payment Due
+function navigateToOutstandingReport() {
+    navigateToReportsWithFilters({
+        statusGroups: ['none'],
+        includeTuition: true,
+        paymentStatus: 'Payment Due'
+    });
+}
+
+// Fully-paid students
+function navigateToFullyPaidReport() {
+    navigateToReportsWithFilters({
+        paymentStatus: 'Fully Paid'
+    });
+}
+
+// Overall collection rate — unfiltered view of everything
+function navigateToCollectionRateReport() {
+    navigateToReportsWithFilters({});
+}
+
+// All status groups (from the "Status Groups" KPI)
+function navigateToAllStatusGroupsReport() {
+    navigateToReportsWithFilters({
+        includeTuition: false
+    });
+}
+
+// Cash-only items – highlight the group breakdown (no status filter, no tuition)
+function navigateToCashOnlyItemsReport() {
+    navigateToReportsWithFilters({
+        includeTuition: false
+    });
+}
+
+// ---- Non-report destinations (unchanged behaviour) ----
+
 function navigateToUniformSection() {
     if (typeof showUniformManagement === 'function') showUniformManagement();
 }
@@ -69601,24 +69788,24 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
     html += '  </div>';
     html += '</div>';
 
-    // ======================= SECTION 1: KPI CARDS – FLEX ROW (expands horizontally) =======================
+    // ======================= SECTION 1: KPI CARDS =======================
     html += '<div class="metric-flex-row">';
     html += renderMetricCardEnhanced('Total Students', totalStudents, 'fa-users', 'indigo', (studentStats?.male || 0) + ' M · ' + (studentStats?.female || 0) + ' F', 'navigateToStudentList()');
-    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToTuitionReport()');
+    html += renderMetricCardEnhanced('Status Groups', statusGroupsCount || 0, 'fa-tags', 'sky', (statusGroups || []).length + ' active', 'navigateToAllStatusGroupsReport()');
     html += renderMetricCardEnhanced('Total Items', totalItemsCount || 0, 'fa-boxes-stacked', 'teal', 'Scholastic items', 'navigateToInventorySection()');
-    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected', 'navigateToTuitionReport()', true);
+    html += renderMetricCardEnhanced('Collection Rate', tuitionRate.toFixed(1) + '%', 'fa-chart-line', tuitionRateColor, 'UGX ' + formatMoney(tuitionCollected) + ' collected', 'navigateToCollectionRateReport()', true);
     html += renderMetricCardEnhanced('Tuition Expected', 'UGX ' + formatMoney(tuitionExpected), 'fa-file-invoice', 'indigo', 'Tuition only', 'navigateToTuitionReport()', true);
     html += renderMetricCardEnhanced('Tuition Collected', 'UGX ' + formatMoney(tuitionCollected), 'fa-circle-check', 'emerald', tuitionRate.toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToTuitionReport()', true);
-    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToTuitionReport()');
+    html += renderMetricCardEnhanced('Outstanding', 'UGX ' + formatMoney(tuitionOutstanding), 'fa-triangle-exclamation', tuitionOutstanding > 0 ? 'rose' : 'emerald', 'Tuition balance', 'navigateToOutstandingReport()', true);
+    html += renderMetricCardEnhanced('Fully Paid', fullyPaidCount, 'fa-bullseye', 'gold', 'of ' + totalStudents + ' students', 'navigateToFullyPaidReport()');
     html += '</div>';
 
-    // ======================= Cash-Only Items (if any) – stays as grid =======================
+    // ======================= Cash-Only Items (if any) =======================
     if (cashItemsStats && (cashItemsStats.expected > 0 || cashItemsStats.collected > 0)) {
         html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">';
-        html += renderMetricCardEnhanced('Cash-Only Items Expected', 'UGX ' + formatMoney(cashItemsStats.expected), 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToTuitionReport()', true);
-        html += renderMetricCardEnhanced('Cash-Only Items Collected', 'UGX ' + formatMoney(cashItemsStats.collected), 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToTuitionReport()', true);
-        html += renderMetricCardEnhanced('Cash-Only Outstanding', 'UGX ' + formatMoney(cashItemsStats.outstanding), 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToTuitionReport()', true);
+        html += renderMetricCardEnhanced('Cash-Only Items Expected', 'UGX ' + formatMoney(cashItemsStats.expected), 'fa-sack-dollar', 'purple', 'Across all status groups', 'navigateToCashOnlyItemsReport()', true);
+        html += renderMetricCardEnhanced('Cash-Only Items Collected', 'UGX ' + formatMoney(cashItemsStats.collected), 'fa-hand-holding-dollar', 'emerald', (cashItemsStats.collectionRate || 0).toFixed(1) + '% rate', 'navigateToCashOnlyItemsReport()', true);
+        html += renderMetricCardEnhanced('Cash-Only Outstanding', 'UGX ' + formatMoney(cashItemsStats.outstanding), 'fa-circle-exclamation', cashItemsStats.outstanding > 0 ? 'orange' : 'emerald', 'Balance remaining', 'navigateToCashOnlyItemsReport()', true);
         html += renderMetricCardEnhanced('Uniform &amp; Stock', 'View', 'fa-shirt', 'pink', 'Scroll to details below', "document.getElementById('uniformSection').scrollIntoView({behavior:'smooth'})");
         html += '</div>';
     }
@@ -69666,10 +69853,19 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
         emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700',
         rose: 'bg-rose-50 text-rose-700', slate: 'bg-slate-100 text-slate-600', sky: 'bg-sky-50 text-sky-700'
     };
+    // Map dashboard keys to actual Reports payment status labels
+    var paymentStatusLabelMap = {
+        fullyPaid: 'Fully Paid',
+        paymentDue: 'Payment Due',
+        criticalOverdue: 'Critical Overdue',
+        noPayment: 'No Payment',
+        creditBalance: 'Credit Balance'
+    };
     for (var si = 0; si < statusLabels.length; si++) {
         var sl = statusLabels[si];
         var val = ps[sl.key] || 0;
-        html += '<div class="text-center p-2.5 rounded-xl cursor-pointer ' + chipColorMap[sl.color] + '" onclick="navigateToTuitionReport()">';
+        var targetStatus = paymentStatusLabelMap[sl.key] || 'all';
+        html += '<div class="text-center p-2.5 rounded-xl cursor-pointer ' + chipColorMap[sl.color] + '" onclick="navigateToPaymentStatusReport(\'' + targetStatus.replace(/'/g, "\\'") + '\')">';
         html += '  <i class="fas ' + sl.icon + ' text-xs mb-1 opacity-70"></i>';
         html += '  <p class="text-[11px] font-semibold">' + sl.label + '</p>';
         html += '  <p class="text-xl font-bold font-mono-num">' + val + '</p>';
@@ -69689,7 +69885,7 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
             var barColor = getStatusBarColor(rate);
             var badge = getStatusBadge(rate);
 
-            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name) + '\')">';
+            html += '<div class="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 -mx-2 rounded-xl cursor-pointer transition" onclick="navigateToStatusGroupReport(\'' + escapeHtml(sg.name).replace(/'/g, "\\'") + '\')">';
             html += '  <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 ' + barColor + '"></div>';
             html += '  <div class="flex-1 min-w-0">';
             html += '    <div class="flex justify-between items-center">';
@@ -69893,8 +70089,9 @@ function renderDashboard(data, uniformData, stockData, termName, currentYear, cu
 
     console.log('✅ Dashboard v14.0 rendered from the Reports engine');
 }
+
 // ---------------------------------------------------------------------------
-// 6. METRIC CARD — click drills into a page; small eye toggles hide/show
+// 6. METRIC CARD
 // ---------------------------------------------------------------------------
 function renderMetricCardEnhanced(label, value, icon, color, subtext, navAction, isFinancial) {
     const colorMap = {
@@ -69959,7 +70156,7 @@ function toggleMetricVisibility(cardId) {
     const subEl = document.getElementById(cardId + '_sub');
     if (!valueEl) return;
 
-    if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = true; // start visible
+    if (metricVisibilityState[cardId] === undefined) metricVisibilityState[cardId] = true;
     metricVisibilityState[cardId] = !metricVisibilityState[cardId];
     const isVisible = metricVisibilityState[cardId];
 
@@ -69995,8 +70192,11 @@ function renderStatusGroupCard(sg) {
 
     const isCashOnlyGroup = (sg.totalRequired === 0) && (sg.cashExpected > 0);
 
+    // Pre-escape the status-group name once for reuse in inline onclick
+    const sgEscaped = escapeHtml(sg.name).replace(/'/g, "\\'");
+
     return `
-        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+        <div class="db-card border-l-4 ${borderClass} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onclick="navigateToStatusGroupReport('${sgEscaped}')">
             <div class="p-4">
                 <div class="flex justify-between items-start mb-3">
                     <div>
@@ -70036,12 +70236,13 @@ function renderStatusGroupCard(sg) {
                         <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Items</p>
                         <div class="space-y-1.5">
                             ${topItems.map(item => {
+                                const itemEscaped = escapeHtml(item.name).replace(/'/g, "\\'");
                                 if (item.paymentOption === 'cash_only') {
                                     const itemRate = item.cashExpected > 0 ? (item.cashCollected / item.cashExpected * 100) : 0;
                                     const itemColor = getStatusColor(itemRate);
                                     const itemBar = getStatusBarColor(itemRate);
                                     return `
-                                        <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${escapeHtml(item.name).replace(/'/g, "\\'")}', '${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+                                        <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${itemEscaped}', '${sgEscaped}')">
                                             <span class="text-xs font-medium text-slate-600 flex-1 truncate hover:text-indigo-600">${escapeHtml(item.name)}</span>
                                             <span class="text-xs font-bold font-mono-num ${itemColor}">UGX ${formatMoney(item.cashCollected)}/${formatMoney(item.cashExpected)}</span>
                                             <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
@@ -70052,7 +70253,7 @@ function renderStatusGroupCard(sg) {
                                 const itemColor = getStatusColor(itemRate);
                                 const itemBar = getStatusBarColor(itemRate);
                                 return `
-                                    <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${escapeHtml(item.name).replace(/'/g, "\\'")}', '${escapeHtml(sg.name).replace(/'/g, "\\'")}')">
+                                    <div class="flex items-center gap-2" onclick="event.stopPropagation(); navigateToItemReport('${itemEscaped}', '${sgEscaped}')">
                                         <span class="text-xs font-medium text-slate-600 flex-1 truncate hover:text-indigo-600">${escapeHtml(item.name)}</span>
                                         <span class="text-xs font-bold font-mono-num ${itemColor}">${item.collected}/${item.required}</span>
                                         <div class="w-16 db-progress-track h-1"><div class="db-progress-fill ${itemBar} h-1" style="width:${Math.min(100, itemRate)}%"></div></div>
@@ -70064,7 +70265,7 @@ function renderStatusGroupCard(sg) {
                     </div>
                 ` : ''}
 
-                <button onclick="event.stopPropagation(); navigateToStatusGroupReport('${escapeHtml(sg.name).replace(/'/g, "\\'")}')"
+                <button onclick="event.stopPropagation(); navigateToStatusGroupReport('${sgEscaped}')"
                         class="mt-3 w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm py-2 rounded-xl transition font-semibold">
                     <i class="fas fa-eye mr-1.5"></i>View Details
                 </button>
@@ -70074,7 +70275,9 @@ function renderStatusGroupCard(sg) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. CLASS PERFORMANCE TABLE (built from data.classPerformance: {group:{class:{required,collected}}})
+// 8. CLASS PERFORMANCE TABLE
+//    Row-click → status group report.
+//    Cell-click → status group + class report (drills into the exact cell).
 // ---------------------------------------------------------------------------
 function renderClassPerformanceTable(classPerformance) {
     const groupNames = Object.keys(classPerformance || {});
@@ -70103,7 +70306,9 @@ function renderClassPerformanceTable(classPerformance) {
         const rate = totalReq > 0 ? (totalCol / totalReq * 100) : 0;
         const rowTint = rate >= 85 ? 'bg-emerald-50/40' : rate >= 70 ? 'bg-amber-50/40' : rate >= 50 ? 'bg-orange-50/40' : 'bg-rose-50/40';
 
-        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${escapeHtml(groupName).replace(/'/g, "\\'")}')">
+        const groupEscaped = escapeHtml(groupName).replace(/'/g, "\\'");
+
+        html += `<tr class="${rowTint} hover:brightness-95 cursor-pointer" onclick="navigateToStatusGroupReport('${groupEscaped}')">
             <td class="p-2 font-semibold text-slate-700 sticky left-0 bg-inherit z-10">${escapeHtml(groupName)}</td>`;
 
         for (const cls of classes) {
@@ -70111,9 +70316,19 @@ function renderClassPerformanceTable(classPerformance) {
             const clsRate = dataC.required > 0 ? (dataC.collected / dataC.required * 100) : 0;
             const clsColor = getStatusColor(clsRate);
             const clsBg = clsRate >= 85 ? 'bg-emerald-100/70' : clsRate >= 70 ? 'bg-amber-100/70' : clsRate >= 50 ? 'bg-orange-100/70' : 'bg-rose-100/70';
-            html += `<td class="p-2 text-center ${clsBg} rounded-lg">
-                ${dataC.required > 0 ? `<span class="font-bold font-mono-num ${clsColor}">${clsRate.toFixed(0)}%</span>` : '-'}
-                ${dataC.required > 0 ? `<div class="text-[10px] text-slate-400">${dataC.collected}/${dataC.required}</div>` : ''}
+            const clsEscaped = escapeHtml(cls).replace(/'/g, "\\'");
+            const hasData = dataC.required > 0;
+
+            // Each cell drills into status group + that specific class
+            const cellOnClick = hasData
+                ? `event.stopPropagation(); navigateToClassReport('${groupEscaped}', '${clsEscaped}')`
+                : 'event.stopPropagation();';
+
+            html += `<td class="p-2 text-center ${clsBg} rounded-lg ${hasData ? 'cursor-pointer hover:ring-2 hover:ring-teal-300' : ''}"
+                        ${hasData ? `title="View ${escapeHtml(groupName)} for ${escapeHtml(cls)}"` : ''}
+                        onclick="${cellOnClick}">
+                ${hasData ? `<span class="font-bold font-mono-num ${clsColor}">${clsRate.toFixed(0)}%</span>` : '-'}
+                ${hasData ? `<div class="text-[10px] text-slate-400">${dataC.collected}/${dataC.required}</div>` : ''}
             </td>`;
         }
         html += `</tr>`;
@@ -70126,7 +70341,7 @@ function renderClassPerformanceTable(classPerformance) {
             <span><span class="inline-block w-2.5 h-2.5 bg-orange-400 rounded-sm mr-1"></span>50&ndash;69%</span>
             <span><span class="inline-block w-2.5 h-2.5 bg-rose-400 rounded-sm mr-1"></span>&lt;50%</span>
             <span class="text-slate-300">|</span>
-            <span>Click a row for details</span>
+            <span>Click any cell to open that exact class + status group report</span>
         </div>`;
 
     return html;
@@ -70178,7 +70393,7 @@ function initializePaymentStatusChart(paymentStatus) {
 }
 
 // ---------------------------------------------------------------------------
-// 10. UNIFORM SECTION — pie chart of paid status + stock table
+// 10. UNIFORM SECTION
 // ---------------------------------------------------------------------------
 function renderUniformSection(uniformData) {
     let html = '<div id="uniformSection">';
@@ -70328,7 +70543,7 @@ function initializeUniformPieChart(uniformData) {
 }
 
 // ---------------------------------------------------------------------------
-// 11. GENERAL SCHOOL STOCK SECTION (food/cleaning/office/etc.)
+// 11. GENERAL SCHOOL STOCK SECTION
 // ---------------------------------------------------------------------------
 function renderGeneralStockSection(stockData) {
     let html = '<div id="generalStockSection">';
@@ -70360,7 +70575,7 @@ function renderGeneralStockSection(stockData) {
         html += '  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
         for (const key of catKeys) {
             const cat = categories[key];
-            html += '<div class="db-card p-4 cursor-pointer hover:shadow-lg transition-shadow" onclick="navigateToStockCategory(\'' + escapeHtml(key) + '\')">';
+            html += '<div class="db-card p-4 cursor-pointer hover:shadow-lg transition-shadow" onclick="navigateToStockCategory(\'' + escapeHtml(key).replace(/'/g, "\\'") + '\')">';
             html += '  <div class="flex items-center justify-between mb-2">';
             html += '    <span class="font-display font-bold text-slate-800 text-sm">' + escapeHtml(cat.name || key) + '</span>';
             html += '    <span class="db-badge bg-slate-100 text-slate-600">' + (cat.items || 0) + ' items</span>';
@@ -70460,7 +70675,7 @@ function sortItemsTable(column) {
 }
 
 // ---------------------------------------------------------------------------
-// 13. RECEIPT PRINTING (unchanged data flow)
+// 13. RECEIPT PRINTING
 // ---------------------------------------------------------------------------
 async function printReceipt(receiptNumber) {
     if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
@@ -70582,9 +70797,7 @@ async function refreshDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// 14. PRINT DASHBOARD SUMMARY REPORT — now sourced from the same report data
-// the dashboard itself just rendered (window.dashboardReportRaw), instead of
-// a second, separate computation.
+// 14. PRINT DASHBOARD SUMMARY REPORT
 // ---------------------------------------------------------------------------
 async function printDashboardReport() {
     const { currentYear, currentTerm } = currentAcademicSettings;
@@ -70702,14 +70915,25 @@ window.printDashboard = printDashboard;
 window.printDashboardReport = printDashboardReport;
 window.printReceipt = printReceipt;
 window.viewPaymentReceipt = viewPaymentReceipt;
+
+// --- Navigation exports (context-aware) ---
+window.navigateToReportsWithFilters = navigateToReportsWithFilters;
 window.navigateToStatusGroupReport = navigateToStatusGroupReport;
 window.navigateToItemReport = navigateToItemReport;
+window.navigateToClassReport = navigateToClassReport;
+window.navigateToPaymentStatusReport = navigateToPaymentStatusReport;
 window.navigateToTuitionReport = navigateToTuitionReport;
+window.navigateToOutstandingReport = navigateToOutstandingReport;
+window.navigateToFullyPaidReport = navigateToFullyPaidReport;
+window.navigateToCollectionRateReport = navigateToCollectionRateReport;
+window.navigateToAllStatusGroupsReport = navigateToAllStatusGroupsReport;
+window.navigateToCashOnlyItemsReport = navigateToCashOnlyItemsReport;
 window.navigateToUniformSection = navigateToUniformSection;
 window.navigateToInventorySection = navigateToInventorySection;
 window.navigateToStockCategory = navigateToStockCategory;
 window.navigateToStudentList = navigateToStudentList;
 window.openSchoolPayFullscreen = openSchoolPayFullscreen;
+
 window.filterItemsTable = filterItemsTable;
 window.resetItemFilters = resetItemFilters;
 window.sortItemsTable = sortItemsTable;
@@ -70719,1837 +70943,7 @@ window.toggleMetricVisibility = toggleMetricVisibility;
 window.injectDashboardDesignSystem = injectDashboardDesignSystem;
 window.computeDashboardStatsFromReport = computeDashboardStatsFromReport;
 
-console.log('✅ Dashboard v14.0 loaded — data sourced live from /api/reports/comprehensive (same engine as the Reports page), with "doesn\'t pay" students excluded from every status-group/item/class total');// ==================== INITIALIZE STATS FILTERS ====================
-
-function initializeStatsFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    const filterFunction = () => {
-        applyStatsFilters();
-    };
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', filterFunction);
-        searchInput.addEventListener('keyup', filterFunction);
-    }
-    if (levelFilter) levelFilter.addEventListener('change', filterFunction);
-    if (statusFilter) statusFilter.addEventListener('change', filterFunction);
-    
-    applyStatsFilters();
-}
-
-// ==================== APPLY STATS FILTERS ====================
-
-function applyStatsFilters() {
-    const searchTerm = (document.getElementById('statsSearchInput')?.value || '').toLowerCase().trim();
-    const levelValue = document.getElementById('statsLevelFilter')?.value || '';
-    const statusValue = document.getElementById('statsStatusFilter')?.value || '';
-    
-    const allStructures = window.feeStructureStatsData || [];
-    
-    let filtered = allStructures.filter(fs => {
-        let matchesName = true;
-        if (searchTerm) {
-            matchesName = fs.name.toLowerCase().includes(searchTerm);
-        }
-        
-        let matchesLevel = true;
-        if (levelValue) {
-            matchesLevel = fs.level === levelValue;
-        }
-        
-        let matchesStatus = true;
-        if (statusValue) {
-            switch(statusValue) {
-                case 'has_students':
-                    matchesStatus = fs.totalStudents > 0;
-                    break;
-                case 'no_students':
-                    matchesStatus = fs.totalStudents === 0;
-                    break;
-                case 'high':
-                    matchesStatus = parseFloat(fs.overallCollectionRate) >= 80;
-                    break;
-                case 'medium':
-                    matchesStatus = parseFloat(fs.overallCollectionRate) >= 50 && parseFloat(fs.overallCollectionRate) < 80;
-                    break;
-                case 'low':
-                    matchesStatus = parseFloat(fs.overallCollectionRate) < 50;
-                    break;
-                default:
-                    matchesStatus = true;
-            }
-        }
-        
-        return matchesName && matchesLevel && matchesStatus;
-    });
-    
-    const container = document.getElementById('feeStructuresListContainer');
-    const filteredCountSpan = document.getElementById('filteredCount');
-    const totalCountSpan = document.getElementById('totalCount');
-    
-    if (container) {
-        if (filtered.length === 0) {
-            container.innerHTML = `
-                <div class="bg-yellow-50 p-12 text-center rounded-xl border-2 border-dashed border-yellow-300">
-                    <i class="fas fa-search text-yellow-500 text-5xl mb-4"></i>
-                    <h3 class="text-xl font-semibold text-yellow-700 mb-2">No Fee Structures Found</h3>
-                    <p class="text-yellow-600">Try adjusting your search or filter criteria</p>
-                </div>
-            `;
-        } else {
-            const { currentTerm } = currentAcademicSettings;
-            const isFirstTerm = currentTerm === 1;
-            container.innerHTML = filtered.map(fs => renderFeeStructureStatsCardComplete(fs, isFirstTerm)).join('');
-        }
-    }
-    
-    if (filteredCountSpan) filteredCountSpan.innerText = filtered.length;
-    if (totalCountSpan) totalCountSpan.innerText = allStructures.length;
-}
-
-// ==================== RESET STATS FILTERS ====================
-
-function resetFeeStructureFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (levelFilter) levelFilter.value = '';
-    if (statusFilter) statusFilter.value = '';
-    
-    applyStatsFilters();
-}
-
-// Make sure functions are global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.resetFeeStructureFilters = resetFeeStructureFilters;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-window.viewStudentFullFeeDetailsEnhanced = viewStudentFullFeeDetailsEnhanced;
-window.toggleStudentsTable = toggleStudentsTable;
-
-// ==================== RENDER FEE STRUCTURE STATS CARD ====================
-
-
-
-// ==================== RENDER STUDENT STATS ROW ====================
-
-function renderStudentStatsRow(student, fs, isFirstTerm) {
-    const statusColor = student.totalBalance <= 0 ? 'bg-green-100 text-green-800' : 
-                        student.totalBalance > student.totalExpected ? 'bg-red-100 text-red-800' : 
-                        'bg-yellow-100 text-yellow-800';
-    const statusText = student.totalBalance <= 0 ? 'Fully Paid' :
-                       student.totalBalance > student.totalExpected ? 'Critical Overdue' :
-                       'Partial Payment';
-    
-    return `
-        <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="viewStudentFullFeeDetailsStats('${student.id}')">
-            <td class="p-2 font-mono text-xs">${student.admissionNumber}</td>
-            <td class="p-2 font-medium">${student.firstName} ${student.lastName}</td>
-            <td class="p-2">${student.currentClass}</td>
-            <td class="p-2 text-right">
-                UGX ${student.tuitionPaid.toLocaleString()}<br>
-                <span class="text-xs text-gray-400">/ ${student.expectedTuition.toLocaleString()}</span>
-            </td>
-            ${isFirstTerm && fs.oneTimeTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${student.oneTimePaid.toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${student.expectedOneTime.toLocaleString()}</span>
-                </td>
-            ` : ''}
-            ${fs.termlyTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${student.termlyPaid.toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${student.expectedTermly.toLocaleString()}</span>
-                </td>
-            ` : ''}
-            ${isFirstTerm && fs.yearlyTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${student.yearlyPaid.toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${student.expectedYearly.toLocaleString()}</span>
-                </td>
-            ` : ''}
-            <td class="p-2 text-right font-semibold text-green-600">UGX ${student.totalPaid.toLocaleString()}</td>
-            <td class="p-2 text-right font-bold ${student.totalBalance > 0 ? 'text-red-600' : 'text-green-600'}">
-                UGX ${Math.abs(student.totalBalance).toLocaleString()}
-            </td>
-            <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${statusColor}">${statusText}</span></td>
-            <td class="p-2 text-center">
-                <button onclick="event.stopPropagation(); viewStudentFullFeeDetailsStats('${student.id}')" class="text-blue-600 hover:text-blue-800 mx-1" title="View Details">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button onclick="event.stopPropagation(); printReceiptForStudent('${student.id}')" class="text-green-600 hover:text-green-800 mx-1" title="Print Receipt">
-                    <i class="fas fa-print"></i>
-                </button>
-            </td>
-        </table>
-    `;
-}
-
-// ==================== VIEW STUDENT FULL FEE DETAILS (STATS VERSION) ====================
-
-
-
-// ==================== BUILD DETAILED ITEM STATUS ====================
-
-function buildDetailedItemStatus(activities, paidItems) {
-    const items = [];
-    activities.forEach(activity => {
-        (activity.items || []).forEach(item => {
-            const paidRecord = paidItems.find(p => p.itemId === item.id);
-            const unitPrice = item.unitPrice || (item.totalAmount / (item.quantity || 1));
-            const paidAmount = paidRecord?.amountPaid || 0;
-            const itemsBrought = paidRecord?.itemsBrought || 0;
-            const cashEquivalent = itemsBrought * unitPrice;
-            const totalPaid = paidAmount + cashEquivalent;
-            
-            items.push({
-                componentName: activity.name,
-                itemName: item.name,
-                quantity: item.quantity || 1,
-                totalAmount: item.totalAmount || 0,
-                unitPrice: unitPrice,
-                paidAmount: paidAmount,
-                itemsBrought: itemsBrought,
-                cashEquivalent: cashEquivalent,
-                totalPaid: totalPaid,
-                remainingAmount: item.totalAmount - totalPaid,
-                remainingQuantity: (item.quantity || 1) - itemsBrought,
-                paymentType: paidRecord?.paymentType || null,
-                isFullyPaid: totalPaid >= (item.totalAmount || 0)
-            });
-        });
-    });
-    return items;
-}
-
-// ==================== RENDER DETAILED ITEMS SECTION ====================
-
-function renderDetailedItemsSection(items, title, color) {
-    if (!items || items.length === 0) return '';
-    
-    const bgColor = color === 'purple' ? 'bg-purple-50' : color === 'green' ? 'bg-green-50' : 'bg-orange-50';
-    const borderColor = color === 'purple' ? 'border-purple-200' : color === 'green' ? 'border-green-200' : 'border-orange-200';
-    const textColor = color === 'purple' ? 'text-purple-600' : color === 'green' ? 'text-green-600' : 'text-orange-600';
-    
-    const totalAmount = items.reduce((sum, i) => sum + i.totalAmount, 0);
-    const totalPaid = items.reduce((sum, i) => sum + i.totalPaid, 0);
-    const totalRemaining = totalAmount - totalPaid;
-    
-    return `
-        <div class="mb-6">
-            <h3 class="font-bold text-lg mb-3">${title}</h3>
-            <div class="${bgColor} border ${borderColor} rounded-lg p-4">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div class="bg-white rounded-lg p-2 text-center">
-                        <p class="text-xs text-gray-500">Total Items</p>
-                        <p class="text-xl font-bold">${items.length}</p>
-                    </div>
-                    <div class="bg-white rounded-lg p-2 text-center">
-                        <p class="text-xs text-gray-500">Total Amount</p>
-                        <p class="text-xl font-bold ${textColor}">UGX ${totalAmount.toLocaleString()}</p>
-                    </div>
-                    <div class="bg-white rounded-lg p-2 text-center">
-                        <p class="text-xs text-gray-500">Paid Amount</p>
-                        <p class="text-xl font-bold text-green-600">UGX ${totalPaid.toLocaleString()}</p>
-                    </div>
-                    <div class="bg-white rounded-lg p-2 text-center">
-                        <p class="text-xs text-gray-500">Remaining</p>
-                        <p class="text-xl font-bold text-red-600">UGX ${totalRemaining.toLocaleString()}</p>
-                    </div>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="p-2">Item</th>
-                                <th class="p-2">Component</th>
-                                <th class="p-2 text-right">Qty Required</th>
-                                <th class="p-2 text-right">Unit Price</th>
-                                <th class="p-2 text-right">Total</th>
-                                <th class="p-2 text-right">Paid (Cash)</th>
-                                <th class="p-2 text-right">Items Brought</th>
-                                <th class="p-2 text-right">Total Paid</th>
-                                <th class="p-2 text-right">Remaining</th>
-                                <th class="p-2">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${items.map(item => `
-                                <tr class="border-b">
-                                    <td class="p-2">${item.itemName}</td>
-                                    <td class="p-2 text-xs">${item.componentName}</td>
-                                    <td class="p-2 text-right">${item.quantity}</td>
-                                    <td class="p-2 text-right">UGX ${item.unitPrice.toLocaleString()}</td>
-                                    <td class="p-2 text-right">UGX ${item.totalAmount.toLocaleString()}</td>
-                                    <td class="p-2 text-right">UGX ${item.paidAmount.toLocaleString()}</td>
-                                    <td class="p-2 text-right">${item.itemsBrought} ${item.itemsBrought === 1 ? 'item' : 'items'}</td>
-                                    <td class="p-2 text-right font-semibold text-green-600">UGX ${item.totalPaid.toLocaleString()}</td>
-                                    <td class="p-2 text-right font-semibold ${item.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}">
-                                        ${item.remainingAmount > 0 ? `UGX ${item.remainingAmount.toLocaleString()} / ${item.remainingQuantity} items` : '✓ Paid'}
-                                    </td>
-                                    <td class="p-2">
-                                        <span class="px-2 py-0.5 rounded-full text-xs ${item.isFullyPaid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                            ${item.isFullyPaid ? '✓ Fully Paid' : '✗ Unpaid'}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// ==================== PRINT PAYMENT RECEIPT ====================
-
-
-
-// ==================== PRINT RECEIPT FOR STUDENT ====================
-
-async function printReceiptForStudent(studentId) {
-    try {
-        const { currentYear, currentTerm } = currentAcademicSettings;
-        const paymentsRes = await fetch(`/api/fee/payments?year=${currentYear}&term=${currentTerm}`);
-        const payments = await paymentsRes.json();
-        const studentPayments = payments.filter(p => p.studentId === studentId);
-        
-        if (studentPayments.length === 0) {
-            alert('No payment records found for this student');
-            return;
-        }
-        
-        // Print the most recent payment
-        const latestPayment = studentPayments.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-        await printPaymentReceipt(latestPayment.id);
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
-    }
-}
-
-// ==================== UPDATE DASHBOARD WITH FEE STRUCTURE STATISTICS ====================
-
-async function updateDashboardWithFeeStats() {
-    const stats = await loadFeeStructureStatistics();
-    const feeStructures = Object.values(stats);
-    
-    // Update the dashboard with fee structure statistics
-    const container = document.getElementById('feeStructureStatsContainer');
-    if (container) {
-        container.innerHTML = renderFeeStructureStatsCards(feeStructures);
-    }
-}
-
-// ==================== RENDER FEE STRUCTURE STATS CARDS FOR DASHBOARD ====================
-
-
-
-// Add a new tab for Fee Structure Statistics in the Fee Management page
-// Add this to the tabs in showFeeManagement function
-
-// Make all functions global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.viewStudentFullFeeDetailsStats = viewStudentFullFeeDetailsStats;
-window.printPaymentReceipt = printPaymentReceipt;
-window.printReceiptForStudent = printReceiptForStudent;
-window.updateDashboardWithFeeStats = updateDashboardWithFeeStats;
-
-// ==================== COMPLETE FEE STRUCTURE STATISTICS WITH COMPONENT BREAKDOWN ====================
-// Version: 10.0 - Full statistical breakdown by fee structure and activity components
-
-// ==================== LOAD FEE STRUCTURE STATISTICS (ENHANCED) ====================
-
-
-
-// ==================== BUILD DETAILED ITEM STATUS ====================
-
-function buildDetailedItemStatus(activities, paidItems) {
-    const items = [];
-    
-    activities.forEach(activity => {
-        (activity.items || []).forEach(item => {
-            const paidRecord = paidItems.find(p => p.itemId === item.id);
-            const unitPrice = item.unitPrice || (item.totalAmount / (item.quantity || 1));
-            const paidAmount = paidRecord?.amountPaid || 0;
-            const itemsBrought = paidRecord?.itemsBrought || 0;
-            const cashEquivalent = itemsBrought * unitPrice;
-            const totalPaid = paidAmount + cashEquivalent;
-            const remainingAmount = (item.totalAmount || 0) - totalPaid;
-            const remainingQuantity = (item.quantity || 1) - itemsBrought;
-            
-            items.push({
-                componentId: activity.id,
-                componentName: activity.name,
-                periodType: activity.periodType,
-                itemId: item.id,
-                itemName: item.name,
-                quantity: item.quantity || 1,
-                totalAmount: item.totalAmount || 0,
-                unitPrice: unitPrice,
-                paidAmount: paidAmount,
-                itemsBrought: itemsBrought,
-                cashEquivalent: cashEquivalent,
-                totalPaid: totalPaid,
-                remainingAmount: Math.max(0, remainingAmount),
-                remainingQuantity: Math.max(0, remainingQuantity),
-                paymentType: paidRecord?.paymentType || null,
-                isFullyPaid: totalPaid >= (item.totalAmount || 0),
-                paymentRecords: paidRecord?.payments || []
-            });
-        });
-    });
-    
-    return items;
-}
-
-// ==================== UPDATE ACTIVITY BREAKDOWN ENHANCED ====================
-
-function updateActivityBreakdownEnhanced(breakdown, feeStructure, termRecord, isFirstTerm) {
-    const periods = ['one_time', 'termly', 'yearly'];
-    
-    periods.forEach(period => {
-        const activities = feeStructure[`${period}Activities`] || [];
-        const shouldInclude = period !== 'one_time' && period !== 'yearly' ? true : isFirstTerm;
-        
-        if (!shouldInclude) return;
-        
-        activities.forEach(activity => {
-            if (!breakdown[period][activity.id]) {
-                breakdown[period][activity.id] = {
-                    name: activity.name,
-                    items: {},
-                    totalAmount: 0,
-                    totalCollected: 0,
-                    totalOutstanding: 0,
-                    collectionRate: 0,
-                    fullyPaidItems: 0,
-                    partiallyPaidItems: 0,
-                    unpaidItems: 0,
-                    totalItems: 0
-                };
-            }
-            
-            (activity.items || []).forEach(item => {
-                const paidRecord = (termRecord.activityItemsPaid?.[period] || []).find(p => p.itemId === item.id);
-                const unitPrice = item.unitPrice || (item.totalAmount / (item.quantity || 1));
-                const paidAmount = paidRecord?.amountPaid || 0;
-                const itemsBrought = paidRecord?.itemsBrought || 0;
-                const cashEquivalent = itemsBrought * unitPrice;
-                const totalPaid = paidAmount + cashEquivalent;
-                const remainingAmount = (item.totalAmount || 0) - totalPaid;
-                
-                breakdown[period][activity.id].items[item.id] = {
-                    name: item.name,
-                    quantity: item.quantity || 1,
-                    totalAmount: item.totalAmount || 0,
-                    unitPrice: unitPrice,
-                    paidCash: paidAmount,
-                    itemsBrought: itemsBrought,
-                    totalPaid: totalPaid,
-                    remainingAmount: Math.max(0, remainingAmount),
-                    remainingQuantity: Math.max(0, (item.quantity || 1) - itemsBrought),
-                    isFullyPaid: totalPaid >= (item.totalAmount || 0),
-                    paymentType: paidRecord?.paymentType || null
-                };
-                
-                breakdown[period][activity.id].totalAmount += item.totalAmount || 0;
-                breakdown[period][activity.id].totalCollected += totalPaid;
-                breakdown[period][activity.id].totalOutstanding += remainingAmount;
-                breakdown[period][activity.id].totalItems++;
-                
-                if (totalPaid >= (item.totalAmount || 0)) {
-                    breakdown[period][activity.id].fullyPaidItems++;
-                } else if (totalPaid > 0) {
-                    breakdown[period][activity.id].partiallyPaidItems++;
-                } else {
-                    breakdown[period][activity.id].unpaidItems++;
-                }
-            });
-            
-            breakdown[period][activity.id].collectionRate = breakdown[period][activity.id].totalAmount > 0 
-                ? (breakdown[period][activity.id].totalCollected / breakdown[period][activity.id].totalAmount * 100).toFixed(1) 
-                : 0;
-        });
-    });
-}
-
-// ==================== UPDATE ITEM LEVEL STATS ====================
-
-function updateItemLevelStats(feeStructureStats, feeStructure, termRecord, isFirstTerm) {
-    const periods = ['one_time', 'termly', 'yearly'];
-    
-    periods.forEach(period => {
-        const shouldInclude = period !== 'one_time' && period !== 'yearly' ? true : isFirstTerm;
-        if (!shouldInclude) return;
-        
-        const periodKey = `${period}ItemsStats`;
-        const activities = feeStructure[`${period}Activities`] || [];
-        
-        if (!feeStructureStats[periodKey]) {
-            feeStructureStats[periodKey] = {};
-        }
-        
-        activities.forEach(activity => {
-            (activity.items || []).forEach(item => {
-                const paidRecord = (termRecord.activityItemsPaid?.[period] || []).find(p => p.itemId === item.id);
-                const unitPrice = item.unitPrice || (item.totalAmount / (item.quantity || 1));
-                const paidAmount = paidRecord?.amountPaid || 0;
-                const itemsBrought = paidRecord?.itemsBrought || 0;
-                const cashEquivalent = itemsBrought * unitPrice;
-                const totalPaid = paidAmount + cashEquivalent;
-                
-                if (!feeStructureStats[periodKey][item.id]) {
-                    feeStructureStats[periodKey][item.id] = {
-                        itemName: item.name,
-                        componentName: activity.name,
-                        quantity: item.quantity || 1,
-                        totalAmount: item.totalAmount || 0,
-                        totalCollected: 0,
-                        totalOutstanding: 0,
-                        studentsPaid: 0,
-                        studentsPartial: 0,
-                        studentsUnpaid: 0,
-                        paymentMethods: { cash: 0, item: 0 }
-                    };
-                }
-                
-                feeStructureStats[periodKey][item.id].totalCollected += totalPaid;
-                feeStructureStats[periodKey][item.id].totalOutstanding += (item.totalAmount || 0) - totalPaid;
-                
-                if (totalPaid >= (item.totalAmount || 0)) {
-                    feeStructureStats[periodKey][item.id].studentsPaid++;
-                } else if (totalPaid > 0) {
-                    feeStructureStats[periodKey][item.id].studentsPartial++;
-                } else {
-                    feeStructureStats[periodKey][item.id].studentsUnpaid++;
-                }
-                
-                if (paidRecord?.paymentType === 'paid_cash') {
-                    feeStructureStats[periodKey][item.id].paymentMethods.cash++;
-                } else if (paidRecord?.paymentType === 'brought_item') {
-                    feeStructureStats[periodKey][item.id].paymentMethods.item++;
-                }
-            });
-        });
-    });
-}
-
-// ==================== RENDER COMPLETE FEE STRUCTURE STATISTICS PAGE ====================
-
-// ==================== ENHANCED FEE STRUCTURE STATISTICS WITH SIMPLE SEARCH & FILTERS ====================
-
-
-
-// ==================== SIMPLE FILTERS INITIALIZATION ====================
-
-function initializeSimpleFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    const filterFunction = () => {
-        applySimpleFilters();
-    };
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', filterFunction);
-        searchInput.addEventListener('keyup', filterFunction);
-    }
-    if (levelFilter) levelFilter.addEventListener('change', filterFunction);
-    if (statusFilter) statusFilter.addEventListener('change', filterFunction);
-    
-    applySimpleFilters();
-}
-
-// ==================== APPLY SIMPLE FILTERS ====================
-
-function applySimpleFilters() {
-    const searchTerm = (document.getElementById('statsSearchInput')?.value || '').toLowerCase().trim();
-    const levelValue = document.getElementById('statsLevelFilter')?.value || '';
-    const statusValue = document.getElementById('statsStatusFilter')?.value || '';
-    
-    const allStructures = window.feeStructureStatsData || [];
-    
-    let filtered = allStructures.filter(fs => {
-        // Filter by name
-        let matchesName = true;
-        if (searchTerm) {
-            matchesName = fs.name.toLowerCase().includes(searchTerm);
-        }
-        
-        // Filter by level
-        let matchesLevel = true;
-        if (levelValue) {
-            matchesLevel = fs.level === levelValue;
-        }
-        
-        // Filter by collection status
-        let matchesStatus = true;
-        if (statusValue) {
-            const collectionRate = parseFloat(fs.overallCollectionRate);
-            switch(statusValue) {
-                case 'high':
-                    matchesStatus = collectionRate >= 80;
-                    break;
-                case 'medium':
-                    matchesStatus = collectionRate >= 50 && collectionRate < 80;
-                    break;
-                case 'low':
-                    matchesStatus = collectionRate < 50;
-                    break;
-                default:
-                    matchesStatus = true;
-            }
-        }
-        
-        return matchesName && matchesLevel && matchesStatus;
-    });
-    
-    // Update display
-    const container = document.getElementById('feeStructuresListContainer');
-    const filteredCountSpan = document.getElementById('filteredCount');
-    const totalCountSpan = document.getElementById('totalCount');
-    
-    if (container) {
-        if (filtered.length === 0) {
-            container.innerHTML = `
-                <div class="bg-yellow-50 p-12 text-center rounded-xl border-2 border-dashed border-yellow-300">
-                    <i class="fas fa-search text-yellow-500 text-5xl mb-4"></i>
-                    <h3 class="text-xl font-semibold text-yellow-700 mb-2">No Fee Structures Found</h3>
-                    <p class="text-yellow-600">Try adjusting your search or filter criteria</p>
-                </div>
-            `;
-        } else {
-            const { currentYear, currentTerm } = currentAcademicSettings;
-            const isFirstTerm = currentTerm === 1;
-            container.innerHTML = filtered.map(fs => renderEnhancedFeeStructureStatsCard(fs, currentTerm, isFirstTerm)).join('');
-        }
-    }
-    
-    if (filteredCountSpan) filteredCountSpan.innerText = filtered.length;
-    if (totalCountSpan) totalCountSpan.innerText = allStructures.length;
-}
-
-// ==================== RESET SIMPLE FILTERS ====================
-
-function resetFeeStructureFilters() {
-    const searchInput = document.getElementById('statsSearchInput');
-    const levelFilter = document.getElementById('statsLevelFilter');
-    const statusFilter = document.getElementById('statsStatusFilter');
-    
-    if (searchInput) searchInput.value = '';
-    if (levelFilter) levelFilter.value = '';
-    if (statusFilter) statusFilter.value = '';
-    
-    applySimpleFilters();
-}
-
-// Make functions global
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.resetFeeStructureFilters = resetFeeStructureFilters;
-
-// ==================== RENDER ENHANCED FEE STRUCTURE STATS CARD ====================
-
-function renderEnhancedFeeStructureStatsCard(fs, currentTerm, isFirstTerm) {
-    const overallCollectionRate = parseFloat(fs.overallCollectionRate);
-    const collectionColor = overallCollectionRate >= 80 ? 'text-green-600' : overallCollectionRate >= 50 ? 'text-yellow-600' : 'text-red-600';
-    const collectionBg = overallCollectionRate >= 80 ? 'bg-green-500' : overallCollectionRate >= 50 ? 'bg-yellow-500' : 'bg-red-500';
-    
-    return `
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-            <!-- Fee Structure Header -->
-            <div class="bg-gradient-to-r from-gray-800 to-gray-900 p-5 text-white">
-                <div class="flex justify-between items-center flex-wrap gap-3">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <i class="fas fa-file-invoice-dollar text-2xl"></i>
-                            <h3 class="font-bold text-2xl">${escapeHtml(fs.name)}</h3>
-                        </div>
-                        <p class="text-sm opacity-75">
-                            <i class="fas fa-layer-group"></i> ${fs.level === 'Nursery' ? 'Nursery Level' : fs.level === 'LowerPrimary' ? 'Lower Primary (P.1-P.3)' : 'Upper Primary (P.4-P.7)'} 
-                            | <i class="fas fa-users"></i> ${fs.totalStudents} Students
-                        </p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-3xl font-bold ${collectionColor}">${fs.overallCollectionRate}%</p>
-                        <p class="text-xs opacity-75">Overall Collection Rate</p>
-                    </div>
-                </div>
-                <div class="mt-3 w-full bg-white/20 rounded-full h-2">
-                    <div class="${collectionBg} rounded-full h-2" style="width: ${fs.overallCollectionRate}%"></div>
-                </div>
-            </div>
-            
-            <div class="p-5">
-                <!-- Fee Type Summary Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-bold text-blue-700"><i class="fas fa-money-bill-wave mr-1"></i> Tuition Fee</h4>
-                            <span class="text-sm font-semibold text-blue-600">${fs.tuitionCollectionRate}%</span>
-                        </div>
-                        <p class="text-2xl font-bold text-blue-600">UGX ${fs.tuitionCollected.toLocaleString()}</p>
-                        <p class="text-xs text-gray-500">of UGX ${fs.tuitionExpected.toLocaleString()}</p>
-                        <div class="w-full bg-blue-200 rounded-full h-1.5 mt-2"><div class="bg-blue-600 rounded-full h-1.5" style="width: ${fs.tuitionCollectionRate}%"></div></div>
-                        <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${fs.tuitionOutstanding.toLocaleString()}</p>
-                    </div>
-                    
-                    ${isFirstTerm && fs.oneTimeTotal > 0 ? `
-                        <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="font-bold text-purple-700"><i class="fas fa-star mr-1"></i> One-Time Fees</h4>
-                                <span class="text-sm font-semibold text-purple-600">${fs.oneTimeCollectionRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-purple-600">UGX ${fs.oneTimeCollected.toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${fs.oneTimeTotal.toLocaleString()}</p>
-                            <div class="w-full bg-purple-200 rounded-full h-1.5 mt-2"><div class="bg-purple-600 rounded-full h-1.5" style="width: ${fs.oneTimeCollectionRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${fs.oneTimeOutstanding.toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged once per year (first term only)</p>
-                        </div>
-                    ` : ''}
-                    
-                    ${fs.termlyTotal > 0 ? `
-                        <div class="bg-green-50 rounded-lg p-4 border border-green-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="font-bold text-green-700"><i class="fas fa-calendar-alt mr-1"></i> Termly Fees</h4>
-                                <span class="text-sm font-semibold text-green-600">${fs.termlyCollectionRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-green-600">UGX ${fs.termlyCollected.toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${fs.termlyTotal.toLocaleString()}</p>
-                            <div class="w-full bg-green-200 rounded-full h-1.5 mt-2"><div class="bg-green-600 rounded-full h-1.5" style="width: ${fs.termlyCollectionRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${fs.termlyOutstanding.toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged every term</p>
-                        </div>
-                    ` : ''}
-                    
-                    ${isFirstTerm && fs.yearlyTotal > 0 ? `
-                        <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="font-bold text-orange-700"><i class="fas fa-calendar-week mr-1"></i> Yearly Fees</h4>
-                                <span class="text-sm font-semibold text-orange-600">${fs.yearlyCollectionRate}%</span>
-                            </div>
-                            <p class="text-2xl font-bold text-orange-600">UGX ${fs.yearlyCollected.toLocaleString()}</p>
-                            <p class="text-xs text-gray-500">of UGX ${fs.yearlyTotal.toLocaleString()}</p>
-                            <div class="w-full bg-orange-200 rounded-full h-1.5 mt-2"><div class="bg-orange-600 rounded-full h-1.5" style="width: ${fs.yearlyCollectionRate}%"></div></div>
-                            <p class="text-xs text-red-600 mt-2">Outstanding: UGX ${fs.yearlyOutstanding.toLocaleString()}</p>
-                            <p class="text-xs text-gray-400 mt-1">Charged once per year (first term only)</p>
-                        </div>
-                    ` : ''}
-                </div>
-                
-                <!-- Bursary Impact Section -->
-                ${fs.bursaryStats.totalDiscount > 0 ? `
-                    <div class="bg-yellow-50 rounded-lg p-4 mb-6 border border-yellow-200">
-                        <h4 class="font-bold text-lg mb-3 flex items-center">
-                            <i class="fas fa-ticket-alt text-yellow-600 mr-2"></i> Bursary Impact
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-white rounded-lg p-3 text-center">
-                                <p class="text-sm text-gray-600">Total Discount Given</p>
-                                <p class="text-2xl font-bold text-green-600">UGX ${fs.bursaryStats.totalDiscount.toLocaleString()}</p>
-                            </div>
-                            <div class="bg-white rounded-lg p-3 text-center">
-                                <p class="text-sm text-gray-600">Students with Bursary</p>
-                                <p class="text-2xl font-bold text-purple-600">${fs.bursaryStats.studentsWithBursary} / ${fs.totalStudents}</p>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <p class="text-sm text-gray-600 mb-2">Bursaries Applied:</p>
-                                <div class="space-y-1">
-                                    ${Object.entries(fs.bursaryStats.bursariesApplied).map(([name, data]) => `
-                                        <div class="flex justify-between text-sm">
-                                            <span>🎖️ ${name}</span>
-                                            <span>${data.count} students (UGX ${data.totalDiscount.toLocaleString()})</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <!-- Activity Components Breakdown by Period -->
-                ${renderActivityBreakdownSection(fs.activityBreakdown, isFirstTerm)}
-                
-                <!-- Item Level Statistics -->
-                ${renderItemLevelStatsSection(fs, isFirstTerm)}
-                
-                <!-- Students Table -->
-                <div class="mt-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h4 class="font-bold text-lg flex items-center">
-                            <i class="fas fa-users text-blue-600 mr-2"></i> Students Assigned to ${escapeHtml(fs.name)}
-                            <span class="ml-2 text-sm font-normal text-gray-500">(${fs.totalStudents} students)</span>
-                        </h4>
-                        <button onclick="toggleStudentsTable('students_table_${fs.id}')" class="text-blue-600 text-sm hover:text-blue-800">
-                            <i class="fas fa-chevron-down"></i> Toggle
-                        </button>
-                    </div>
-                    <div id="students_table_${fs.id}" class="overflow-x-auto max-h-96 overflow-y-auto border rounded-lg">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-100 sticky top-0">
-                                <tr>
-                                    <th class="p-2 text-left">Admission</th>
-                                    <th class="p-2 text-left">Student Name</th>
-                                    <th class="p-2 text-left">Class</th>
-                                    <th class="p-2 text-right">💰 Tuition</th>
-                                    ${isFirstTerm && fs.oneTimeTotal > 0 ? '<th class="p-2 text-right">⭐ One-Time</th>' : ''}
-                                    ${fs.termlyTotal > 0 ? '<th class="p-2 text-right">📅 Termly</th>' : ''}
-                                    ${isFirstTerm && fs.yearlyTotal > 0 ? '<th class="p-2 text-right">📆 Yearly</th>' : ''}
-                                    <th class="p-2 text-right">Total Paid</th>
-                                    <th class="p-2 text-right">Balance</th>
-                                    <th class="p-2">Status</th>
-                                    <th class="p-2 text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${fs.students.map(s => renderStudentStatsRowEnhanced(s, fs, isFirstTerm)).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// ==================== RENDER ACTIVITY BREAKDOWN SECTION ====================
-
-function renderActivityBreakdownSection(breakdown, isFirstTerm) {
-    const periods = [
-        { key: 'one_time', title: '⭐ One-Time Activities', color: 'purple', show: isFirstTerm },
-        { key: 'termly', title: '📅 Termly Activities', color: 'green', show: true },
-        { key: 'yearly', title: '📆 Yearly Activities', color: 'orange', show: isFirstTerm }
-    ];
-    
-    const sections = [];
-    
-    for (const period of periods) {
-        if (!period.show) continue;
-        
-        const periodData = breakdown[period.key];
-        if (!periodData || Object.keys(periodData).length === 0) continue;
-        
-        const activities = Object.values(periodData);
-        const totalAmount = activities.reduce((sum, act) => sum + act.totalAmount, 0);
-        const totalCollected = activities.reduce((sum, act) => sum + act.totalCollected, 0);
-        const totalOutstanding = totalAmount - totalCollected;
-        const collectionRate = totalAmount > 0 ? (totalCollected / totalAmount * 100).toFixed(1) : 0;
-        
-        sections.push(`
-            <div class="mb-6">
-                <h4 class="font-bold text-lg mb-3 flex items-center">
-                    <span class="bg-${period.color}-100 text-${period.color}-700 px-3 py-1 rounded-full text-sm">${period.title}</span>
-                    <span class="ml-3 text-sm text-gray-500">Total: UGX ${totalAmount.toLocaleString()} | Collected: UGX ${totalCollected.toLocaleString()} (${collectionRate}%)</span>
-                </h4>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    ${activities.map(activity => `
-                        <div class="border rounded-lg overflow-hidden bg-${period.color}-50">
-                            <div class="bg-${period.color}-100 p-3 border-b border-${period.color}-200">
-                                <div class="flex justify-between items-center">
-                                    <h5 class="font-bold text-${period.color}-800">📌 ${escapeHtml(activity.name)}</h5>
-                                    <span class="text-sm font-semibold text-${period.color}-600">${activity.collectionRate}% collected</span>
-                                </div>
-                                <div class="flex justify-between text-xs mt-1">
-                                    <span>Total: UGX ${activity.totalAmount.toLocaleString()}</span>
-                                    <span>Collected: UGX ${activity.totalCollected.toLocaleString()}</span>
-                                    <span>Outstanding: UGX ${activity.totalOutstanding.toLocaleString()}</span>
-                                </div>
-                                <div class="w-full bg-${period.color}-200 rounded-full h-1 mt-1"><div class="bg-${period.color}-600 rounded-full h-1" style="width: ${activity.collectionRate}%"></div></div>
-                            </div>
-                            <div class="p-3">
-                                <div class="grid grid-cols-1 gap-2">
-                                    ${Object.values(activity.items).map(item => `
-                                        <div class="bg-white rounded-lg p-2 shadow-sm">
-                                            <div class="flex justify-between items-center">
-                                                <div>
-                                                    <p class="font-medium text-sm">${escapeHtml(item.name)}</p>
-                                                    <p class="text-xs text-gray-500">Qty: ${item.quantity} | UGX ${item.unitPrice.toLocaleString()}/each</p>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-sm font-semibold">UGX ${item.totalPaid.toLocaleString()} / ${item.totalAmount.toLocaleString()}</p>
-                                                    ${item.isFullyPaid ? '<span class="text-xs text-green-600">✓ Fully Paid</span>' : 
-                                                      item.totalPaid > 0 ? '<span class="text-xs text-yellow-600">⚠️ Partial</span>' : 
-                                                      '<span class="text-xs text-red-600">✗ Unpaid</span>'}
-                                                </div>
-                                            </div>
-                                            ${!item.isFullyPaid && item.totalPaid > 0 ? `
-                                                <div class="mt-2 pt-2 border-t flex justify-between text-xs">
-                                                    <span>Paid Cash: UGX ${item.paidCash.toLocaleString()}</span>
-                                                    <span>Items Brought: ${item.itemsBrought}</span>
-                                                    <span>Remaining: ${item.remainingQuantity} items (UGX ${item.remainingAmount.toLocaleString()})</span>
-                                                </div>
-                                            ` : ''}
-                                            ${!item.isFullyPaid && item.totalPaid === 0 ? `
-                                                <div class="mt-2 pt-2 border-t text-xs text-red-500 text-center">
-                                                    No payment recorded for this item
-                                                </div>
-                                            ` : ''}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                <div class="mt-3 pt-2 border-t flex justify-between text-sm font-semibold">
-                                    <span>Summary:</span>
-                                    <span>${activity.fullyPaidItems} fully paid, ${activity.partiallyPaidItems} partial, ${activity.unpaidItems} unpaid</span>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `);
-    }
-    
-    return sections.length > 0 ? sections.join('') : '';
-}
-
-// ==================== RENDER ITEM LEVEL STATS SECTION ====================
-
-function renderItemLevelStatsSection(fs, isFirstTerm) {
-    const periods = [
-        { key: 'one_time', title: 'One-Time Items', show: isFirstTerm },
-        { key: 'termly', title: 'Termly Items', show: true },
-        { key: 'yearly', title: 'Yearly Items', show: isFirstTerm }
-    ];
-    
-    const sections = [];
-    
-    for (const period of periods) {
-        if (!period.show) continue;
-        
-        const itemsStats = fs[`${period.key}ItemsStats`];
-        if (!itemsStats || Object.keys(itemsStats).length === 0) continue;
-        
-        const items = Object.values(itemsStats);
-        
-        sections.push(`
-            <div class="mb-6">
-                <h4 class="font-bold text-md mb-3 flex items-center">
-                    <i class="fas fa-boxes text-${period.key === 'termly' ? 'green' : period.key === 'one_time' ? 'purple' : 'orange'}-600 mr-2"></i>
-                    ${period.title} Item Statistics
-                </h4>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="p-2 text-left">Item Name</th>
-                                <th class="p-2 text-left">Component</th>
-                                <th class="p-2 text-right">Qty Required</th>
-                                <th class="p-2 text-right">Total Amount</th>
-                                <th class="p-2 text-right">Collected</th>
-                                <th class="p-2 text-right">Outstanding</th>
-                                <th class="p-2 text-center">Fully Paid</th>
-                                <th class="p-2 text-center">Partial</th>
-                                <th class="p-2 text-center">Unpaid</th>
-                                <th class="p-2 text-center">Payment Methods</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${items.map(item => `
-                                <tr class="border-b hover:bg-gray-50">
-                                    <td class="p-2 font-medium">${escapeHtml(item.itemName)}</td>
-                                    <td class="p-2 text-xs text-gray-500">${escapeHtml(item.componentName)}</td>
-                                    <td class="p-2 text-right">${item.quantity}</td>
-                                    <td class="p-2 text-right">UGX ${item.totalAmount.toLocaleString()}</td>
-                                    <td class="p-2 text-right font-semibold text-green-600">UGX ${item.totalCollected.toLocaleString()}</td>
-                                    <td class="p-2 text-right font-semibold text-red-600">UGX ${item.totalOutstanding.toLocaleString()}</td>
-                                    <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800">${item.studentsPaid}</span></td>
-                                    <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">${item.studentsPartial}</span></td>
-                                    <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">${item.studentsUnpaid}</span></td>
-                                    <td class="p-2 text-center text-xs">
-                                        ${item.paymentMethods.cash > 0 ? `<span class="inline-block mr-1">💵 ${item.paymentMethods.cash}</span>` : ''}
-                                        ${item.paymentMethods.item > 0 ? `<span class="inline-block">📦 ${item.paymentMethods.item}</span>` : ''}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `);
-    }
-    
-    return sections.length > 0 ? sections.join('') : '';
-}
-
-// ==================== RENDER STUDENT STATS ROW ENHANCED ====================
-
-function renderStudentStatsRowEnhanced(student, fs, isFirstTerm) {
-    const statusIcon = student.status === 'Fully Paid' ? '✅' : 
-                       student.status === 'Critical Overdue' ? '🔴' :
-                       student.status === 'Credit Balance' ? '💰' : '⚠️';
-    
-    return `
-        <tr class="border-b hover:bg-gray-50 cursor-pointer" onclick="viewStudentFullFeeDetailsEnhanced('${student.id}')">
-            <td class="p-2 font-mono text-xs">${student.admissionNumber}</td>
-            <td class="p-2 font-medium">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
-            <td class="p-2">${student.currentClass}</td>
-            <td class="p-2 text-right">
-                UGX ${student.tuitionPaid.toLocaleString()}<br>
-                <span class="text-xs text-gray-400">/ ${student.expectedTuition.toLocaleString()}</span>
-                ${student.appliedBursary ? `<div class="text-xs text-green-600">🎖️ -${student.discountDisplay}</div>` : ''}
-            </td>
-            ${isFirstTerm && fs.oneTimeTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${student.oneTimePaid.toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${student.expectedOneTime.toLocaleString()}</span>
-                    <div class="text-xs text-purple-600">${student.oneTimeItemsPaid.toLocaleString()} / ${student.oneTimeItemsTotal.toLocaleString()} on items</div>
-                </td>
-            ` : ''}
-            ${fs.termlyTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${student.termlyPaid.toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${student.expectedTermly.toLocaleString()}</span>
-                    <div class="text-xs text-green-600">${student.termlyItemsPaid.toLocaleString()} / ${student.termlyItemsTotal.toLocaleString()} on items</div>
-                </td>
-            ` : ''}
-            ${isFirstTerm && fs.yearlyTotal > 0 ? `
-                <td class="p-2 text-right">
-                    UGX ${student.yearlyPaid.toLocaleString()}<br>
-                    <span class="text-xs text-gray-400">/ ${student.expectedYearly.toLocaleString()}</span>
-                    <div class="text-xs text-orange-600">${student.yearlyItemsPaid.toLocaleString()} / ${student.yearlyItemsTotal.toLocaleString()} on items</div>
-                </td>
-            ` : ''}
-            <td class="p-2 text-right font-semibold text-green-600">UGX ${student.totalPaid.toLocaleString()}</td>
-            <td class="p-2 text-right font-bold ${student.totalBalance > 0 ? 'text-red-600' : student.totalBalance < 0 ? 'text-blue-600' : 'text-green-600'}">
-                ${student.totalBalance > 0 ? `UGX ${student.totalBalance.toLocaleString()}` : 
-                  student.totalBalance < 0 ? `Credit: UGX ${Math.abs(student.totalBalance).toLocaleString()}` : 'UGX 0'}
-            </td>
-            <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs ${student.statusColor}">${statusIcon} ${student.status}</span></td>
-            <td class="p-2 text-center">
-                <button onclick="event.stopPropagation(); viewStudentFullFeeDetailsEnhanced('${student.id}')" class="text-blue-600 hover:text-blue-800 mx-1" title="View Details">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button onclick="event.stopPropagation(); printReceiptForStudentStats('${student.id}')" class="text-green-600 hover:text-green-800 mx-1" title="Print Receipt">
-                    <i class="fas fa-print"></i>
-                </button>
-                <button onclick="event.stopPropagation(); makePaymentForStudentStats('${student.id}')" class="text-purple-600 hover:text-purple-800 mx-1" title="Make Payment">
-                    <i class="fas fa-receipt"></i>
-                </button>
-            </td>
-        </tr>
-    `;
-}
-
-// ==================== VIEW STUDENT FULL FEE DETAILS ENHANCED ====================
-
-// ==================== COMPLETE STUDENT FEE DETAILS MODAL ====================
-// Version: 3.0 - Displays all fee types (Tuition, One-Time, Termly, Yearly) with accurate calculations
-
-// ==================== COMPLETE STUDENT FEE DETAILS MODAL ====================
-// Version: 4.0 - Correctly reads all payment records and shows accurate paid/unpaid status
-
-// ==================== COMPLETELY FIXED STUDENT FEE DETAILS DISPLAY ====================
-// Version: 7.0 - Correct calculation and Print button added
-
-
-
-
-// ==================== PRINT PAYMENT RECEIPT STATS ====================
-
-async function printPaymentReceiptStats(paymentId) {
-    try {
-        const response = await fetch('/api/fee/payments');
-        const payments = await response.json();
-        const payment = payments.find(p => p && p.id === paymentId);
-        
-        if (!payment) {
-            alert('Payment record not found');
-            return;
-        }
-        
-        const schoolRes = await fetch('/api/school');
-        const schoolData = await schoolRes.json();
-        const school = schoolData.school || {};
-        
-        // Calculate totals from this payment
-        let termlyTotal = 0, oneTimeTotal = 0, yearlyTotal = 0;
-        
-        if (payment.activityItemPayments) {
-            termlyTotal += payment.activityItemPayments.filter(i => i.periodType === 'termly').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            oneTimeTotal += payment.activityItemPayments.filter(i => i.periodType === 'one_time').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            yearlyTotal += payment.activityItemPayments.filter(i => i.periodType === 'yearly').reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        }
-        
-        if (payment.paymentsByPeriodType) {
-            termlyTotal += (payment.paymentsByPeriodType.termly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            oneTimeTotal += (payment.paymentsByPeriodType.one_time || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-            yearlyTotal += (payment.paymentsByPeriodType.yearly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        }
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Payment Receipt</title>
-                <style>
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; padding: 40px; background: #f0f0f0; }
-                    .receipt { max-width: 450px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-                    .header { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; text-align: center; padding: 25px; }
-                    .title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-                    .school-name { font-size: 16px; font-weight: bold; margin-top: 5px; }
-                    .receipt-no { font-size: 12px; margin-top: 10px; opacity: 0.8; }
-                    .content { padding: 25px; }
-                    .row { display: flex; justify-content: space-between; margin: 12px 0; padding: 5px 0; border-bottom: 1px dashed #eee; }
-                    .total { font-size: 18px; font-weight: bold; border-top: 2px solid #333; padding-top: 15px; margin-top: 10px; border-bottom: none; }
-                    .footer { background: #f8f9fa; text-align: center; padding: 15px; font-size: 11px; color: #666; }
-                    .highlight { color: #2a5298; font-weight: bold; }
-                    @media print {
-                        body { padding: 0; background: white; }
-                        .no-print { display: none; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="receipt">
-                    <div class="header">
-                        <div class="title">FEE PAYMENT RECEIPT</div>
-                        <div class="school-name">${escapeHtml(school.schoolName || 'School Name')}</div>
-                        <div class="receipt-no">Receipt No: ${payment.receiptNumber}</div>
-                    </div>
-                    <div class="content">
-                        <div class="row"><strong>Date:</strong> <span>${new Date(payment.date).toLocaleDateString()}</span></div>
-                        <div class="row"><strong>Student Name:</strong> <span>${escapeHtml(payment.studentName)}</span></div>
-                        <div class="row"><strong>Admission No:</strong> <span>${payment.admissionNumber}</span></div>
-                        <div class="row"><strong>Term:</strong> <span>Term ${payment.term} - ${payment.academicYear}</span></div>
-                        <div class="row"><strong>Payment Method:</strong> <span>${payment.method?.toUpperCase() || 'CASH'}</span></div>
-                        ${payment.reference ? `<div class="row"><strong>Reference:</strong> <span>${payment.reference}</span></div>` : ''}
-                        
-                        <div class="row"><strong>Tuition Paid:</strong> <span>UGX ${(payment.tuitionPaid || 0).toLocaleString()}</span></div>
-                        ${termlyTotal > 0 ? `<div class="row"><strong>Termly Items:</strong> <span>UGX ${termlyTotal.toLocaleString()}</span></div>` : ''}
-                        ${oneTimeTotal > 0 ? `<div class="row"><strong>One-Time Items:</strong> <span>UGX ${oneTimeTotal.toLocaleString()}</span></div>` : ''}
-                        ${yearlyTotal > 0 ? `<div class="row"><strong>Yearly Items:</strong> <span>UGX ${yearlyTotal.toLocaleString()}</span></div>` : ''}
-                        
-                        <div class="row total"><strong>TOTAL PAID:</strong> <span class="highlight">UGX ${(payment.totalAmount || 0).toLocaleString()}</span></div>
-                        ${payment.notes ? `<div class="row"><strong>Notes:</strong> <span>${payment.notes}</span></div>` : ''}
-                    </div>
-                    <div class="footer">
-                        Thank you for your payment!<br>
-                        This is a computer-generated receipt.
-                    </div>
-                </div>
-                <div class="no-print" style="text-align:center;margin-top:20px;">
-                    <button onclick="window.print()" style="padding:10px 20px;background:#2a5298;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Print Receipt</button>
-                    <button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;">Close</button>
-                </div>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
-    }
-}
-
-// ==================== MAKE PAYMENT FOR STUDENT STATS ====================
-
-function makePaymentForStudentStats(studentId) {
-    closeModal();
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) {
-        feeLink.click();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-            const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
-            if (collectTab) collectTab.click();
-        }, 500);
-    } else {
-        showFeeManagement();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-        }, 800);
-    }
-}
-
-// ==================== CLOSE MODAL ====================
-
-function closeModal() {
-    const modal = document.querySelector('.fixed.inset-0');
-    if (modal) modal.remove();
-}
-
-// ==================== ESCAPE HTML ====================
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Make functions global
-window.viewStudentFullFeeDetailsEnhanced = viewStudentFullFeeDetailsEnhanced;
-window.printPaymentReceiptStats = printPaymentReceiptStats;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-window.closeModal = closeModal;
-
-console.log('Student Fee Details Modal v4.0 loaded - Complete with accurate payment aggregation!');
-
-// ==================== PRINT PAYMENT RECEIPT STATS ====================
-
-async function printPaymentReceiptStats(paymentId) {
-    try {
-        const response = await fetch('/api/fee/payments');
-        const payments = await response.json();
-        const payment = payments.find(p => p && p.id === paymentId);
-        
-        if (!payment) {
-            alert('Payment record not found');
-            return;
-        }
-        
-        const schoolRes = await fetch('/api/school');
-        const schoolData = await schoolRes.json();
-        const school = schoolData.school || {};
-        
-        const oneTimeTotal = (payment.paymentsByPeriodType?.one_time || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        const termlyTotal = (payment.paymentsByPeriodType?.termly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        const yearlyTotal = (payment.paymentsByPeriodType?.yearly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Payment Receipt</title>
-                <style>
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; padding: 40px; background: #f0f0f0; }
-                    .receipt { max-width: 450px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-                    .header { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; text-align: center; padding: 25px; }
-                    .title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-                    .school-name { font-size: 16px; font-weight: bold; margin-top: 5px; }
-                    .receipt-no { font-size: 12px; margin-top: 10px; opacity: 0.8; }
-                    .content { padding: 25px; }
-                    .row { display: flex; justify-content: space-between; margin: 12px 0; padding: 5px 0; border-bottom: 1px dashed #eee; }
-                    .total { font-size: 18px; font-weight: bold; border-top: 2px solid #333; padding-top: 15px; margin-top: 10px; border-bottom: none; }
-                    .footer { background: #f8f9fa; text-align: center; padding: 15px; font-size: 11px; color: #666; }
-                    .highlight { color: #2a5298; font-weight: bold; }
-                    @media print {
-                        body { padding: 0; background: white; }
-                        .no-print { display: none; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="receipt">
-                    <div class="header">
-                        <div class="title">FEE PAYMENT RECEIPT</div>
-                        <div class="school-name">${escapeHtml(school.schoolName || 'School Name')}</div>
-                        <div class="receipt-no">Receipt No: ${payment.receiptNumber}</div>
-                    </div>
-                    <div class="content">
-                        <div class="row"><strong>Date:</strong> <span>${new Date(payment.date).toLocaleDateString()}</span></div>
-                        <div class="row"><strong>Student Name:</strong> <span>${escapeHtml(payment.studentName)}</span></div>
-                        <div class="row"><strong>Admission No:</strong> <span>${payment.admissionNumber}</span></div>
-                        <div class="row"><strong>Term:</strong> <span>Term ${payment.term}</span></div>
-                        <div class="row"><strong>Payment Method:</strong> <span>${payment.method?.toUpperCase() || 'CASH'}</span></div>
-                        ${payment.reference ? `<div class="row"><strong>Reference:</strong> <span>${payment.reference}</span></div>` : ''}
-                        
-                        <div class="row"><strong>Tuition Paid:</strong> <span>UGX ${Math.round(payment.tuitionPaid || 0).toLocaleString()}</span></div>
-                        ${oneTimeTotal > 0 ? `<div class="row"><strong>One-Time Paid:</strong> <span>UGX ${Math.round(oneTimeTotal).toLocaleString()}</span></div>` : ''}
-                        ${termlyTotal > 0 ? `<div class="row"><strong>Termly Paid:</strong> <span>UGX ${Math.round(termlyTotal).toLocaleString()}</span></div>` : ''}
-                        ${yearlyTotal > 0 ? `<div class="row"><strong>Yearly Paid:</strong> <span>UGX ${Math.round(yearlyTotal).toLocaleString()}</span></div>` : ''}
-                        
-                        <div class="row total"><strong>TOTAL PAID:</strong> <span class="highlight">UGX ${Math.round(payment.totalAmount || 0).toLocaleString()}</span></div>
-                        ${payment.notes ? `<div class="row"><strong>Notes:</strong> <span>${payment.notes}</span></div>` : ''}
-                    </div>
-                    <div class="footer">
-                        Thank you for your payment!<br>
-                        This is a computer-generated receipt.
-                    </div>
-                </div>
-                <div class="no-print" style="text-align:center;margin-top:20px;">
-                    <button onclick="window.print()" style="padding:10px 20px;background:#2a5298;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Print Receipt</button>
-                    <button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;">Close</button>
-                </div>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
-    }
-}
-
-// ==================== MAKE PAYMENT FOR STUDENT STATS ====================
-
-function makePaymentForStudentStats(studentId) {
-    closeModal();
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) {
-        feeLink.click();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-            const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
-            if (collectTab) collectTab.click();
-        }, 500);
-    } else {
-        showFeeManagement();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-        }, 800);
-    }
-}
-
-// ==================== CLOSE MODAL ====================
-
-function closeModal() {
-    const modal = document.querySelector('.fixed.inset-0');
-    if (modal) modal.remove();
-}
-
-// ==================== ESCAPE HTML ====================
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Make functions global
-window.viewStudentFullFeeDetailsEnhanced = viewStudentFullFeeDetailsEnhanced;
-window.printPaymentReceiptStats = printPaymentReceiptStats;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-window.closeModal = closeModal;
-
-console.log('Student Fee Details Modal v3.0 loaded - Complete with Tuition, One-Time, Termly, and Yearly fees!');
-
-// ==================== RENDER DETAILED ITEMS TABLE ====================
-
-function renderDetailedItemsTable(items, title, color) {
-    if (!items || items.length === 0) return '';
-    
-    const totalAmount = items.reduce((sum, i) => sum + i.totalAmount, 0);
-    const totalPaid = items.reduce((sum, i) => sum + i.totalPaid, 0);
-    const totalRemaining = totalAmount - totalPaid;
-    const collectionRate = totalAmount > 0 ? (totalPaid / totalAmount * 100).toFixed(1) : 0;
-    
-    return `
-        <div class="mt-6">
-            <h3 class="font-bold text-lg mb-3 flex items-center">
-                <span class="bg-${color}-100 text-${color}-700 px-3 py-1 rounded-full text-sm">${title}</span>
-                <span class="ml-3 text-sm text-gray-500">Total: UGX ${totalAmount.toLocaleString()} | Collected: UGX ${totalPaid.toLocaleString()} (${collectionRate}%)</span>
-            </h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm border rounded-lg">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="p-2 text-left">Item</th>
-                            <th class="p-2 text-left">Component</th>
-                            <th class="p-2 text-right">Qty</th>
-                            <th class="p-2 text-right">Unit Price</th>
-                            <th class="p-2 text-right">Total</th>
-                            <th class="p-2 text-right">Paid Cash</th>
-                            <th class="p-2 text-right">Items Brought</th>
-                            <th class="p-2 text-right">Total Paid</th>
-                            <th class="p-2 text-right">Remaining</th>
-                            <th class="p-2">Status</th>
-                        </td>
-                    </thead>
-                    <tbody>
-                        ${items.map(item => `
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="p-2 font-medium">${escapeHtml(item.itemName)}</td>
-                                <td class="p-2 text-xs text-gray-500">${escapeHtml(item.componentName)}</td>
-                                <td class="p-2 text-right">${item.quantity}</td>
-                                <td class="p-2 text-right">UGX ${item.unitPrice.toLocaleString()}</td>
-                                <td class="p-2 text-right">UGX ${item.totalAmount.toLocaleString()}</td>
-                                <td class="p-2 text-right">UGX ${item.paidAmount.toLocaleString()}</td>
-                                <td class="p-2 text-right">${item.itemsBrought}</td>
-                                <td class="p-2 text-right font-semibold text-green-600">UGX ${item.totalPaid.toLocaleString()}</td>
-                                <td class="p-2 text-right ${item.remainingAmount > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}">
-                                    ${item.remainingAmount > 0 ? `UGX ${item.remainingAmount.toLocaleString()} / ${item.remainingQuantity} items` : '✓ Paid'}
-                                </td>
-                                <td class="p-2">
-                                    <span class="px-2 py-0.5 rounded-full text-xs ${item.isFullyPaid ? 'bg-green-100 text-green-800' : item.totalPaid > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
-                                        ${item.isFullyPaid ? '✓ Paid' : item.totalPaid > 0 ? '⚠️ Partial' : '✗ Unpaid'}
-                                    </span>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                    <tfoot class="bg-gray-50 font-semibold">
-                        <tr class="border-t">
-                            <td colspan="4" class="p-2 text-right">Totals:</td>
-                            <td class="p-2 text-right">UGX ${totalAmount.toLocaleString()}</td>
-                            <td colspan="2" class="p-2 text-right"></td>
-                            <td class="p-2 text-right text-green-600">UGX ${totalPaid.toLocaleString()}</td>
-                            <td class="p-2 text-right text-red-600">UGX ${totalRemaining.toLocaleString()}</td>
-                            <td class="p-2"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-    `;
-}
-
-// ==================== PRINT PAYMENT RECEIPT STATS ====================
-
-async function printPaymentReceiptStats(paymentId) {
-    try {
-        const response = await fetch('/api/fee/payments');
-        const payments = await response.json();
-        const payment = payments.find(p => p.id === paymentId);
-        
-        if (!payment) {
-            alert('Payment record not found');
-            return;
-        }
-        
-        const schoolRes = await fetch('/api/school');
-        const schoolData = await schoolRes.json();
-        const school = schoolData.school || {};
-        
-        // Calculate period totals for this payment
-        const oneTimeTotal = (payment.paymentsByPeriodType?.one_time || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        const termlyTotal = (payment.paymentsByPeriodType?.termly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        const yearlyTotal = (payment.paymentsByPeriodType?.yearly || []).reduce((s, i) => s + (i.amountPaid || i.cashEquivalent || 0), 0);
-        
-        const receiptWindow = window.open('', '_blank');
-        receiptWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Payment Receipt</title>
-                <style>
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; padding: 40px; background: #f0f0f0; }
-                    .receipt { max-width: 450px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-                    .header { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; text-align: center; padding: 25px; }
-                    .title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-                    .school-name { font-size: 16px; font-weight: bold; margin-top: 5px; }
-                    .receipt-no { font-size: 12px; margin-top: 10px; opacity: 0.8; }
-                    .content { padding: 25px; }
-                    .row { display: flex; justify-content: space-between; margin: 12px 0; padding: 5px 0; border-bottom: 1px dashed #eee; }
-                    .total { font-size: 18px; font-weight: bold; border-top: 2px solid #333; padding-top: 15px; margin-top: 10px; border-bottom: none; }
-                    .period-section { background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 12px 0; }
-                    .period-title { font-weight: bold; margin-bottom: 8px; color: #2a5298; }
-                    .items-list { font-size: 12px; margin-top: 8px; }
-                    .items-list div { display: flex; justify-content: space-between; padding: 4px 0; }
-                    .footer { background: #f8f9fa; text-align: center; padding: 15px; font-size: 11px; color: #666; }
-                    .highlight { color: #2a5298; font-weight: bold; }
-                    @media print {
-                        body { padding: 0; background: white; }
-                        .no-print { display: none; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="receipt">
-                    <div class="header">
-                        <div class="title">FEE PAYMENT RECEIPT</div>
-                        <div class="school-name">${escapeHtml(school.schoolName || 'School Name')}</div>
-                        <div class="receipt-no">Receipt No: ${payment.receiptNumber}</div>
-                    </div>
-                    <div class="content">
-                        <div class="row"><strong>Date:</strong> <span>${new Date(payment.date).toLocaleDateString()}</span></div>
-                        <div class="row"><strong>Student Name:</strong> <span>${escapeHtml(payment.studentName)}</span></div>
-                        <div class="row"><strong>Admission No:</strong> <span>${payment.admissionNumber}</span></div>
-                        <div class="row"><strong>Academic Year:</strong> <span>${payment.academicYear} - Term ${payment.term}</span></div>
-                        <div class="row"><strong>Payment Method:</strong> <span>${payment.method?.toUpperCase() || 'CASH'}</span></div>
-                        ${payment.reference ? `<div class="row"><strong>Reference:</strong> <span>${payment.reference}</span></div>` : ''}
-                        
-                        <div class="period-section">
-                            <div class="period-title">💰 Tuition Payment</div>
-                            <div class="row" style="margin:0;padding:5px 0"><strong>Amount:</strong> <span>UGX ${(payment.tuitionPaid || 0).toLocaleString()}</span></div>
-                        </div>
-                        
-                        ${(payment.paymentsByPeriodType?.one_time || []).length > 0 ? `
-                            <div class="period-section">
-                                <div class="period-title">⭐ One-Time Items Payment</div>
-                                <div class="items-list">
-                                    ${(payment.paymentsByPeriodType?.one_time || []).map(i => `
-                                        <div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>
-                                    `).join('')}
-                                </div>
-                                <div class="row" style="margin-top:8px;border-top:1px solid #ddd"><strong>Total:</strong> <span>UGX ${oneTimeTotal.toLocaleString()}</span></div>
-                            </div>
-                        ` : ''}
-                        
-                        ${(payment.paymentsByPeriodType?.termly || []).length > 0 ? `
-                            <div class="period-section">
-                                <div class="period-title">📅 Termly Items Payment</div>
-                                <div class="items-list">
-                                    ${(payment.paymentsByPeriodType?.termly || []).map(i => `
-                                        <div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>
-                                    `).join('')}
-                                </div>
-                                <div class="row" style="margin-top:8px;border-top:1px solid #ddd"><strong>Total:</strong> <span>UGX ${termlyTotal.toLocaleString()}</span></div>
-                            </div>
-                        ` : ''}
-                        
-                        ${(payment.paymentsByPeriodType?.yearly || []).length > 0 ? `
-                            <div class="period-section">
-                                <div class="period-title">📆 Yearly Items Payment</div>
-                                <div class="items-list">
-                                    ${(payment.paymentsByPeriodType?.yearly || []).map(i => `
-                                        <div><span>${escapeHtml(i.itemName)}</span><span>UGX ${(i.amountPaid || i.cashEquivalent || 0).toLocaleString()}</span></div>
-                                    `).join('')}
-                                </div>
-                                <div class="row" style="margin-top:8px;border-top:1px solid #ddd"><strong>Total:</strong> <span>UGX ${yearlyTotal.toLocaleString()}</span></div>
-                            </div>
-                        ` : ''}
-                        
-                        <div class="row total"><strong>TOTAL PAID:</strong> <span class="highlight">UGX ${(payment.totalAmount || 0).toLocaleString()}</span></div>
-                        ${payment.notes ? `<div class="row"><strong>Notes:</strong> <span>${payment.notes}</span></div>` : ''}
-                    </div>
-                    <div class="footer">
-                        Thank you for your payment!<br>
-                        This is a computer-generated receipt.
-                    </div>
-                </div>
-                <div class="no-print" style="text-align:center;margin-top:20px;">
-                    <button onclick="window.print()" style="padding:10px 20px;background:#2a5298;color:white;border:none;border-radius:5px;cursor:pointer;">🖨️ Print Receipt</button>
-                    <button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;">Close</button>
-                </div>
-            </body>
-            </html>
-        `);
-        receiptWindow.document.close();
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        alert('Error printing receipt: ' + error.message);
-    }
-}
-
-// ==================== PRINT RECEIPT FOR STUDENT STATS ====================
-
-async function printReceiptForStudentStats(studentId) {
-    try {
-        const { currentYear, currentTerm } = currentAcademicSettings;
-        const paymentsRes = await fetch(`/api/fee/payments?year=${currentYear}&term=${currentTerm}`);
-        const payments = await paymentsRes.json();
-        const studentPayments = payments.filter(p => p.studentId === studentId);
-        
-        if (studentPayments.length === 0) {
-            alert('No payment records found for this student');
-            return;
-        }
-        
-        const latestPayment = studentPayments.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-        await printPaymentReceiptStats(latestPayment.id);
-    } catch (error) {
-        console.error('Error printing receipt:', error);
-        alert('Error printing receipt');
-    }
-}
-
-// ==================== MAKE PAYMENT FOR STUDENT STATS ====================
-
-function makePaymentForStudentStats(studentId) {
-    closeModal();
-    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-    if (feeLink) {
-        feeLink.click();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-            const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
-            if (collectTab) collectTab.click();
-        }, 500);
-    } else {
-        showFeeManagement();
-        setTimeout(() => {
-            const studentSelect = document.getElementById('collectStudentSelect');
-            if (studentSelect) {
-                studentSelect.value = studentId;
-                studentSelect.dispatchEvent(new Event('change'));
-            }
-        }, 800);
-    }
-}
-
-// ==================== TOGGLE STUDENTS TABLE ====================
-
-function toggleStudentsTable(tableId) {
-    const table = document.getElementById(tableId);
-    if (table) {
-        table.classList.toggle('hidden');
-    }
-}
-
-// ==================== ESCAPE HTML ====================
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ==================== MAKE FUNCTIONS GLOBAL ====================
-
-window.showFeeStructureStatistics = showFeeStructureStatistics;
-window.viewStudentFullFeeDetailsEnhanced = viewStudentFullFeeDetailsEnhanced;
-window.printPaymentReceiptStats = printPaymentReceiptStats;
-window.printReceiptForStudentStats = printReceiptForStudentStats;
-window.makePaymentForStudentStats = makePaymentForStudentStats;
-window.toggleStudentsTable = toggleStudentsTable;
-
-console.log('Fee Structure Statistics v10.0 loaded - Complete component breakdown working!');
-
-function renderActivityCollectionSection(items, periodType, title, color, note) {
-    if (!items || items.length === 0) return '';
-    
-    const colorMap = {
-        purple: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-600', dark: 'purple-600' },
-        green: { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-600', dark: 'green-600' },
-        orange: { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-600', dark: 'orange-600' }
-    };
-    const colors = colorMap[color] || colorMap.green;
-    
-    const totalRemaining = items.reduce((sum, i) => sum + i.remainingAmount, 0);
-    
-    return `
-        <div class="border-2 ${colors.border} rounded-lg p-4 ${colors.bg}">
-            <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-                <div class="flex items-center gap-2">
-                    <div class="bg-${color === 'purple' ? 'purple' : color === 'green' ? 'green' : 'orange'}-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">${periodType === 'one_time' ? '⭐' : periodType === 'termly' ? '📅' : '📆'}</div>
-                    <h3 class="font-bold text-lg">${title}</h3>
-                </div>
-                <div class="flex gap-2"><span class="text-sm font-semibold ${colors.text}">Remaining: UGX ${Math.round(totalRemaining).toLocaleString()}</span></div>
-            </div>
-            <p class="text-xs text-gray-500 mb-3 italic">${note}</p>
-            <div id="${periodType}ItemsContainer" class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                ${items.map(item => renderItemRow(item, periodType, color)).join('')}
-            </div>
-            <div class="mt-4 pt-3 border-t ${colors.border} flex justify-between items-center font-bold">
-                <span>Total Remaining for ${title}:</span>
-                <span id="${periodType}TotalAmount" class="${colors.text} text-xl">UGX ${Math.round(totalRemaining).toLocaleString()}</span>
-            </div>
-        </div>
-    `;
-}
-
-
-// Add this function to fix the missing viewStudentFeeDetailsEnhanced error
-
-
-// Also add this alias
-window.viewStudentFeeDetailsEnhanced = viewStudentFeeDetailsEnhanced;
-
-// ==================== FIX MISSING FUNCTION ====================
-window.showAddFeeStructureModalSystem = window.showAddFeeStructureModal || function() {
-    if (typeof showAddFeeStructureModal === 'function') {
-        showAddFeeStructureModal();
-    } else {
-        console.warn('showAddFeeStructureModal not defined, using fallback');
-        alert('Please use the "Add Fee Structure" button in the Fee Management page');
-    }
-};
-
-// ==================== FORCE REFRESH CURRENT PAGE ====================
-// ==================== FORCE RELOAD ALL PAGES WITH FRESH DATA ====================
-async function forceReloadAllPages() {
-    console.log('Force reloading all pages with fresh data...');
-    
-    // Clear all cached data
-    window.allStudentsData = null;
-    window.enhancedStudentsData = null;
-    window.dashboardStudents = null;
-    window.feeStructureStatsData = null;
-    window.currentTermPayments = null;
-    
-    // Force re-initialize academic settings
-    await initializeAcademicSettings();
-    
-    // Get current page and refresh it
-    const currentPageTitle = document.getElementById('pageTitle')?.innerText || '';
-    
-    if (currentPageTitle.includes('Dashboard')) {
-        await showDashboard();
-    } else if (currentPageTitle.includes('All Students')) {
-        await showStudentList();
-    } else if (currentPageTitle.includes('Fee Management')) {
-        await showFeeManagement();
-    } else if (currentPageTitle.includes('Fee Structure Statistics')) {
-        await showFeeStructureStatistics();
-    } else if (currentPageTitle.includes('Settings')) {
-        await showSettings();
-    } else {
-        await showDashboard();
-    }
-    
-    console.log('Page refreshed with term:', currentAcademicSettings.currentTerm);
-}
-
-// ==================== FORCE RELOAD ACADEMIC SETTINGS FROM SERVER ====================
-async function forceReloadAcademicSettings() {
-    try {
-        console.log('Force reloading academic settings from server...');
-        
-        // Clear localStorage first
-        localStorage.removeItem('currentAcademicYear');
-        localStorage.removeItem('currentAcademicTerm');
-        
-        // Fetch fresh from server
-        const response = await fetch('/api/academic/settings');
-        if (response.ok) {
-            const settings = await response.json();
-            console.log('Server returned:', settings);
-            
-            // Update global variables
-            currentAcademicSettings.currentYear = settings.currentYear;
-            currentAcademicSettings.currentTerm = settings.currentTerm;
-            
-            // Update localStorage
-            localStorage.setItem('currentAcademicYear', settings.currentYear.toString());
-            localStorage.setItem('currentAcademicTerm', settings.currentTerm.toString());
-            
-            // Update header
-            updateAcademicHeader();
-            
-            console.log('Academic settings force reloaded:', currentAcademicSettings);
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Error force reloading settings:', error);
-        return false;
-    }
-}
-
-// ==================== DEBUG: CHECK CURRENT SETTINGS ====================
-async function debugAcademicSettings() {
-    console.log('=== DEBUG ACADEMIC SETTINGS ===');
-    
-    // Check localStorage
-    const localYear = localStorage.getItem('currentAcademicYear');
-    const localTerm = localStorage.getItem('currentAcademicTerm');
-    console.log('LocalStorage:', { year: localYear, term: localTerm });
-    
-    // Check global
-    console.log('Global currentAcademicSettings:', currentAcademicSettings);
-    
-    // Check server
-    const response = await fetch('/api/academic/settings');
-    const server = await response.json();
-    console.log('Server:', server);
-    
-    // Check settings file directly via a special endpoint (add this to server if needed)
-    console.log('===============================');
-    
-    return { local: { year: localYear, term: localTerm }, global: currentAcademicSettings, server };
-}
-
-// Make it globally available
-window.debugAcademicSettings = debugAcademicSettings;
-
-// ==================== INITIALIZE PAYMENT HISTORY FILTERS ====================
-
-function initializePaymentHistoryFilters() {
-    const searchInput = document.getElementById('paymentSearchInput');
-    const methodFilter = document.getElementById('paymentMethodFilter');
-    
-    if (!searchInput && !methodFilter) {
-        console.log('Payment history filters not found yet');
-        return;
-    }
-    
-    function filterPayments() {
-        const searchTerm = (searchInput?.value || '').toLowerCase().trim();
-        const methodValue = methodFilter?.value || '';
-        
-        const rows = document.querySelectorAll('#history .payment-row');
-        let visibleCount = 0;
-        
-        rows.forEach(row => {
-            const receipt = row.getAttribute('data-receipt') || '';
-            const student = row.getAttribute('data-student') || '';
-            const admission = row.getAttribute('data-admission') || '';
-            const rowMethod = row.getAttribute('data-method') || '';
-            
-            let matchesSearch = true;
-            if (searchTerm) {
-                matchesSearch = receipt.includes(searchTerm) || 
-                               student.includes(searchTerm) || 
-                               admission.includes(searchTerm);
-            }
-            
-            let matchesMethod = true;
-            if (methodValue) {
-                matchesMethod = rowMethod === methodValue;
-            }
-            
-            const isVisible = matchesSearch && matchesMethod;
-            row.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleCount++;
-            
-            // Hide associated detail row if parent is hidden
-            const nextRow = row.nextElementSibling;
-            if (nextRow && nextRow.id && nextRow.id.startsWith('payment_details_')) {
-                nextRow.style.display = isVisible ? '' : 'none';
-            }
-        });
-        
-        const filteredCountSpan = document.getElementById('paymentFilteredCount');
-        if (filteredCountSpan) {
-            filteredCountSpan.innerText = visibleCount;
-        }
-    }
-    
-    if (searchInput) {
-        searchInput.removeEventListener('input', filterPayments);
-        searchInput.removeEventListener('keyup', filterPayments);
-        searchInput.addEventListener('input', filterPayments);
-        searchInput.addEventListener('keyup', filterPayments);
-    }
-    
-    if (methodFilter) {
-        methodFilter.removeEventListener('change', filterPayments);
-        methodFilter.addEventListener('change', filterPayments);
-    }
-    
-    // Initial filter
-    setTimeout(filterPayments, 100);
-}
-
-// Debug function to check what receipts exist
-async function debugReceipts() {
-    const response = await fetch('/api/fee/payments');
-    const payments = await response.json();
-    console.log('All receipts in system:');
-    payments.forEach(p => {
-        console.log('- Receipt:', p.receiptNumber, 'Student:', p.studentName);
-    });
-    alert(`Found ${payments.length} receipts. Check the console for details.`);
-}
-
-// Call this from browser console if needed:
- debugReceipts()
-
+console.log('✅ Dashboard v14.1 loaded — every tap-into-details now carries context across as live report filters and auto-generates the matching report table.');
  
 // ==================== INVENTORY MANAGEMENT SYSTEM ====================
 // Version: 12.0 - Complete Rebuild with Status Group Based Filtering
