@@ -7175,7 +7175,7 @@ app.post('/api/academic/years/:year/terms/:term', (req, res) => {
 // ================================================================
 
 app.get('/api/reports/comprehensive', async (req, res) => {
-    console.log('=== COMPREHENSIVE REPORT v13.0 - MULTI-SELECT SUPPORT ===');
+    console.log('=== COMPREHENSIVE REPORT v14.0 - TUITION TOGGLE FIX ===');
     
     try {
         // ================================================================
@@ -7204,7 +7204,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             return value.split(',').map(s => s.trim()).filter(Boolean);
         }
 
-        // --- FIX: dedicated flag for "None (Tuition Only)" ---
+        // --- dedicated flag for "None (Tuition Only)" ---
         const isTuitionOnlyFilter = rawStatusGroup === 'none';
         const classIds = parseMultiParam(rawClassId);
         const statusGroups = parseMultiParam(rawStatusGroup);   // array of selected group names (if any)
@@ -7684,7 +7684,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             }
             
             // ============================================================
-            // CALCULATE TUITION (unchanged)
+            // CALCULATE TUITION (unchanged — always computed so it's
+            // available for display and for the tuition-only stat block;
+            // whether it counts toward the student's OVERALL totals/status
+            // is decided later using includeTuitionBool)
             // ============================================================
             let originalTuition = feeStructure.tuition || 0;
             let tuitionExpected = originalTuition;
@@ -7785,7 +7788,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             // ============================================================
             // BUILD STATUS GROUPS WITH PERIOD-AWARE REMOVAL
             // ============================================================
-            // ---- FIX: rename accumulator to avoid shadowing ----
             const studentStatusGroups = {};
             let studentTotalCashExpected = 0;
             let studentTotalCashPaid = 0;
@@ -7793,7 +7795,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             let studentCustomizedItems = 0;
             let studentHasCustomizations = false;
             
-            // ---- FIX: skip activity components when tuition-only ----
+            // ---- skip activity components when tuition-only ----
             if (!isTuitionOnlyFilter && feeStructure.activityComponents) {
                 for (const component of feeStructure.activityComponents) {
                     if (!component) continue;
@@ -8001,7 +8003,6 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             // ============================================================
             // APPLY STATUS GROUP & ITEM FILTERS (multi)
             // ============================================================
-            // ---- FIX: only apply filters when not tuition-only ----
             if (!isTuitionOnlyFilter && statusGroups.length > 0) {
                 const studentGroups = Object.keys(studentStatusGroups);
                 const hasAnyGroup = statusGroups.some(g => studentGroups.includes(g));
@@ -8024,13 +8025,37 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             
             // ============================================================
             // CALCULATE STUDENT TOTALS
+            // ------------------------------------------------------------
+            // *** THE FIX ***
+            // Previously tuitionExpected/tuitionPaid were added into the
+            // student's OVERALL totals unconditionally, regardless of the
+            // "Exclude/Include Tuition" toggle. That meant a student whose
+            // filtered item (e.g. a status group like "LTBalance") was
+            // fully paid could still be marked "Payment Due" overall just
+            // because they had an unrelated unpaid tuition balance sitting
+            // in the background — even though the UI said "Tuition:
+            // Excluded" and only showed the item columns.
+            //
+            // Tuition now only contributes to studentTotalExpected /
+            // studentTotalPaid (and therefore to overallStatus, the
+            // Fully Paid / Payment Due counts, and the grand totals) when
+            // includeTuitionBool is true. The tuition object itself is
+            // still attached to the student record below so per-student
+            // tuition detail remains available/displayable regardless.
             // ============================================================
-            const studentTotalExpected = tuitionExpected + studentTotalCashExpected;
-            const studentTotalPaid = tuitionPaid + studentTotalCashPaid;
+            const studentTotalExpected = (includeTuitionBool ? tuitionExpected : 0) + studentTotalCashExpected;
+            const studentTotalPaid = (includeTuitionBool ? tuitionPaid : 0) + studentTotalCashPaid;
             const studentTotalBalance = studentTotalExpected - studentTotalPaid;
             
             // ============================================================
             // UPDATE GLOBAL TOTALS
+            // ------------------------------------------------------------
+            // totalTuitionExpected/Collected/Balance remain unconditional —
+            // they are informational "tuition alone" stats (used for
+            // tuitionRate) and are independent of whether tuition is
+            // folded into the combined totalExpected/totalPaid/totalBalance
+            // below, which now correctly follow the same toggle as each
+            // student's overall total.
             // ============================================================
             totalTuitionExpected += tuitionExpected;
             totalTuitionCollected += tuitionPaid;
@@ -8049,6 +8074,7 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             
             // ============================================================
             // DETERMINE OVERALL STATUS
+            // (now correctly reflects only what's actually being totaled)
             // ============================================================
             let overallStatus = 'Payment Due';
             let statusColor = 'bg-yellow-100 text-yellow-800';
@@ -8104,10 +8130,10 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     statusIcon: tuitionStatusIcon,
                     paymentHistories: tuitionPaymentHistories,
                     periodBreakdown: tuitionPeriodBreakdown,
-                    periodsIncluded: Object.keys(tuitionPeriodBreakdown).length
+                    periodsIncluded: Object.keys(tuitionPeriodBreakdown).length,
+                    includedInTotals: includeTuitionBool
                 },
                 
-                // ---- FIX: use the renamed accumulator ----
                 statusGroups: studentStatusGroups,
                 
                 totalExpected: studentTotalExpected,
@@ -8146,7 +8172,8 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             activityCashPaid: totalActivityCashPaid,
             totalExpected: totalExpected,
             totalPaid: totalPaid,
-            totalBalance: totalBalance
+            totalBalance: totalBalance,
+            includeTuitionBool
         });
         
         allPeriodKeys.sort();
