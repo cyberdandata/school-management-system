@@ -7803,8 +7803,33 @@ app.get('/api/reports/comprehensive', async (req, res) => {
                     const periodType = component.periodType || 'termly';
                     const groupName = component.statusGroupName || component.name || 'Other';
 
+                    // ================================================================
+                    // *** FIX #2 ***
+                    // The Status Group filter must exclude non-matching groups BEFORE
+                    // their items are summed into the student's totals — not just
+                    // after, when deciding whether to keep the student in the results.
+                    // Previously every activity component was processed and folded
+                    // into studentTotalCashExpected/CashPaid regardless of this filter,
+                    // so a student fully paid on the one selected group (e.g. LTBalance)
+                    // could still show "Payment Due" overall because unrelated, unpaid
+                    // groups (Scholastic, Uniform, Transport, etc.) were silently added
+                    // into the same totals in the background.
+                    // ================================================================
+                    if (statusGroups.length > 0 && !statusGroups.includes(groupName)) {
+                        continue; // this whole status group isn't part of the filter — skip it entirely
+                    }
+
                     for (const item of (component.items || [])) {
                         if (!item) continue;
+
+                        // ================================================================
+                        // *** FIX #2 (item-level) ***
+                        // Same reasoning applies to the Item filter: only items the user
+                        // actually selected should contribute to the totals.
+                        // ================================================================
+                        if (itemNames.length > 0 && !itemNames.includes(item.name)) {
+                            continue; // this item isn't part of the filter — skip it entirely
+                        }
 
                         const itemId = item.id || item.name;
 
@@ -8002,6 +8027,14 @@ app.get('/api/reports/comprehensive', async (req, res) => {
             
             // ============================================================
             // APPLY STATUS GROUP & ITEM FILTERS (multi)
+            // ------------------------------------------------------------
+            // NOTE: as of the fix above, non-matching groups/items are now
+            // skipped BEFORE they're built, so studentStatusGroups already
+            // only contains matching groups/items. This block is now a
+            // safety net that drops a student who ended up with zero
+            // matching groups/items at all (e.g. filtered to a status
+            // group they don't have) — it's no longer what scopes the
+            // totals, since that's handled earlier.
             // ============================================================
             if (!isTuitionOnlyFilter && statusGroups.length > 0) {
                 const studentGroups = Object.keys(studentStatusGroups);
