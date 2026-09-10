@@ -3778,19 +3778,18 @@ async function showStudentList() {
         window.printStudentListReport = function () { window.print(); };
         window.refreshStudentList = function () { showStudentList(); };
 
-        window.makePaymentForStudent = function (studentId) {
-            closeModal();
-            const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
-            if (feeLink) feeLink.click();
-            else if (typeof showFeeManagement === 'function') showFeeManagement();
-            setTimeout(() => {
-                const studentSelect = document.getElementById('collectStudentSelect');
-                if (studentSelect) { studentSelect.value = studentId; studentSelect.dispatchEvent(new Event('change')); }
-                const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
-                if (collectTab) collectTab.click();
-            }, 500);
-        };
-
+       window.makePaymentForStudent = function (studentId) {
+    closeModal();
+    const feeLink = document.querySelector('.sidebar-item[onclick*="showFeeManagement"]');
+    if (feeLink) feeLink.click();
+    else if (typeof showFeeManagement === 'function') showFeeManagement();
+    setTimeout(() => {
+        const studentSelect = document.getElementById('collectStudentSelect');
+        if (studentSelect) { studentSelect.value = studentId; studentSelect.dispatchEvent(new Event('change')); }
+        const collectTab = document.querySelector('.fee-tab[data-tab="collect"]');
+        if (collectTab) collectTab.click();
+    }, 500);
+};
         window.showStatusGroupItemDetailsModal = showStatusGroupItemDetailsModal;
         window.showTuitionDetailsModal = showTuitionDetailsModal;
         window.closeModal = closeModal;
