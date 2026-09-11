@@ -13780,969 +13780,1815 @@ app.get('/api/attendance/summary', (req, res) => {
     }
 });
 
-// ==================== REPORT CARDS BACKEND ROUTES ====================
-// Version: 1.0 - Complete Report Card Management System
+// ============================================================================
+// REPORT CARD SYSTEM v2.0 — FULLY DYNAMIC, TEMPLATE-DRIVEN, PER-LEVEL CUSTOM
+// ============================================================================
+// Design goals:
+// - Nursery, Lower Primary, Upper Primary each get their own default template,
+//   grading scale, and assessment structure — but the teacher/admin can edit
+//   EVERY part of all three (or build entirely new ones) via the API below.
+// - "Template" = full visual + structural definition of a report card:
+//   school header options, which sections appear, which columns appear on
+//   the academic table, colors, signatures, footer text, etc.
+// - "Grading Scale" = how a score converts to a grade/remark. Supports
+//   numeric (A-F), PLE-style aggregate (D1-D9), or qualitative
+//   (Excellent/Good/Fair... used by Nursery domains and Lower Primary
+//   competency bands).
+// - "Assessment Structure" = which components make up a subject's score
+//   (e.g. CAT 1 / CAT 2 / Exam with weights for Upper Primary, or
+//   Beginning/Mid/End of Term competency marks for Lower Primary).
+// - Nursery doesn't use subject marks at all — it uses "domains" (Numeracy,
+//   Literacy, Life Skills, Physical Development, Social & Emotional, etc.)
+//   each rated on a qualitative scale, which is why it has its own mark
+//   store (reportCardNurseryMarks.json) separate from academic subject
+//   marks (reportCardMarks.json).
+// ============================================================================
 
-
-// File paths for report card data
-const reportFiles = {
-    template: path.join(dataDir, 'reportCardTemplate.json'),
-    marks: path.join(dataDir, 'reportCardMarks.json'),
-    initials: path.join(dataDir, 'reportCardInitials.json'),
-    generated: path.join(dataDir, 'generatedReportCards.json')
+// ---------------------------------------------------------------------------
+// FILE PATHS
+// ---------------------------------------------------------------------------
+const reportCardFiles = {
+    templates: path.join(dataDir, 'reportCardTemplates.json'),
+    gradingScales: path.join(dataDir, 'reportCardGradingScales.json'),
+    assessmentStructures: path.join(dataDir, 'reportCardAssessmentStructures.json'),
+    commentBanks: path.join(dataDir, 'reportCardCommentBanks.json'),
+    marks: path.join(dataDir, 'reportCardMarks.json'),                 // academic subject marks (Lower/Upper Primary)
+    nurseryMarks: path.join(dataDir, 'reportCardNurseryMarks.json'),   // domain ratings (Nursery)
+    studentExtras: path.join(dataDir, 'reportCardStudentExtras.json'), // attendance, conduct, remarks, position overrides, photo
+    generated: path.join(dataDir, 'generatedReportCardsV2.json')
 };
 
-// Initialize report card files
-function initializeReportFiles() {
-    try {
-        // Template
-        if (!fs.existsSync(reportFiles.template)) {
-            saveFile(reportFiles.template, {
-                schoolName: '',
-                schoolAddress: '',
-                logo: '',
-                primaryColor: '#2563eb',
-                footer: ''
-            });
+// ---------------------------------------------------------------------------
+// SEED DATA — sensible Ugandan-school defaults, 100% editable afterwards
+// ---------------------------------------------------------------------------
+function seedGradingScales() {
+    return {
+        'scale_ple_d1d9': {
+            id: 'scale_ple_d1d9',
+            name: 'PLE Style (D1–D9)',
+            level: 'UpperPrimary',
+            type: 'numeric',
+            description: 'Traditional Uganda upper-primary distinction/credit/pass scale, mirrors PLE grading.',
+            grades: [
+                { grade: 'D1', min: 90, max: 100, remark: 'Distinction 1 — Outstanding', points: 1 },
+                { grade: 'D2', min: 80, max: 89, remark: 'Distinction 2 — Excellent', points: 2 },
+                { grade: 'C3', min: 70, max: 79, remark: 'Credit 3 — Very Good', points: 3 },
+                { grade: 'C4', min: 65, max: 69, remark: 'Credit 4 — Good', points: 4 },
+                { grade: 'C5', min: 60, max: 64, remark: 'Credit 5 — Good', points: 5 },
+                { grade: 'C6', min: 55, max: 59, remark: 'Credit 6 — Fairly Good', points: 6 },
+                { grade: 'P7', min: 50, max: 54, remark: 'Pass 7 — Pass', points: 7 },
+                { grade: 'P8', min: 40, max: 49, remark: 'Pass 8 — Weak Pass', points: 8 },
+                { grade: 'F9', min: 0, max: 39, remark: 'Fail 9 — Fail', points: 9 }
+            ],
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'scale_letter_af': {
+            id: 'scale_letter_af',
+            name: 'Letter Grade (A–F)',
+            level: 'UpperPrimary',
+            type: 'numeric',
+            description: 'Simple A–F percentage scale, alternative to PLE style.',
+            grades: [
+                { grade: 'A', min: 80, max: 100, remark: 'Excellent', points: 1 },
+                { grade: 'B', min: 70, max: 79, remark: 'Very Good', points: 2 },
+                { grade: 'C', min: 60, max: 69, remark: 'Good', points: 3 },
+                { grade: 'D', min: 50, max: 59, remark: 'Satisfactory', points: 4 },
+                { grade: 'E', min: 40, max: 49, remark: 'Fair', points: 5 },
+                { grade: 'F', min: 0, max: 39, remark: 'Poor', points: 6 }
+            ],
+            isDefault: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'scale_competency_lower': {
+            id: 'scale_competency_lower',
+            name: 'Competency Bands (Lower Primary)',
+            level: 'LowerPrimary',
+            type: 'qualitative',
+            description: 'Thematic-curriculum competency bands used for P.1–P.3.',
+            ratings: [
+                { label: 'Exceeding Expectation', short: 'EE', min: 80, max: 100, remark: 'Exceeding expectation' },
+                { label: 'Meeting Expectation', short: 'ME', min: 60, max: 79, remark: 'Meeting expectation' },
+                { label: 'Approaching Expectation', short: 'AE', min: 40, max: 59, remark: 'Approaching expectation' },
+                { label: 'Below Expectation', short: 'BE', min: 0, max: 39, remark: 'Below expectation — needs support' }
+            ],
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'scale_domains_nursery': {
+            id: 'scale_domains_nursery',
+            name: 'Developmental Rating (Nursery)',
+            level: 'Nursery',
+            type: 'qualitative',
+            description: 'Qualitative rating scale for nursery developmental domains.',
+            ratings: [
+                { label: 'Excellent', short: 'Exc', min: 85, max: 100, remark: 'Excellent — well above expected level' },
+                { label: 'Very Good', short: 'V.G', min: 70, max: 84, remark: 'Very good progress' },
+                { label: 'Good', short: 'Gd', min: 55, max: 69, remark: 'Good, steady progress' },
+                { label: 'Fair', short: 'Fr', min: 40, max: 54, remark: 'Fair — needs more practice' },
+                { label: 'Needs Improvement', short: 'N.I', min: 0, max: 39, remark: 'Needs improvement — requires support at home' }
+            ],
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         }
-        // Marks
-        if (!fs.existsSync(reportFiles.marks)) {
-            saveFile(reportFiles.marks, {});
-        }
-        // Initials
-        if (!fs.existsSync(reportFiles.initials)) {
-            saveFile(reportFiles.initials, {});
-        }
-        // Generated report cards
-        if (!fs.existsSync(reportFiles.generated)) {
-            saveFile(reportFiles.generated, []);
-        }
-        console.log('✅ Report card files initialized');
-    } catch (error) {
-        console.error('Error initializing report files:', error);
-    }
+    };
 }
 
-initializeReportFiles();
-
-// ================================================================
-// 1. REPORT CARD TEMPLATE ROUTES
-// ================================================================
-
-// GET report card template
-app.get('/api/report-cards/template', (req, res) => {
-    try {
-        const template = readFile(reportFiles.template);
-        res.json({ success: true, template: template });
-    } catch (error) {
-        console.error('Error getting template:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// POST save report card template
-app.post('/api/report-cards/template', (req, res) => {
-    try {
-        const { template } = req.body;
-        if (!template) {
-            return res.status(400).json({ success: false, error: 'Template data is required' });
+function seedAssessmentStructures() {
+    return {
+        'assess_upper_default': {
+            id: 'assess_upper_default',
+            name: 'CAT + Exam (Upper Primary default)',
+            level: 'UpperPrimary',
+            components: [
+                { id: 'cat1', name: 'CAT 1', weight: 20, maxScore: 100 },
+                { id: 'cat2', name: 'CAT 2', weight: 20, maxScore: 100 },
+                { id: 'exam', name: 'Exam', weight: 60, maxScore: 100 }
+            ],
+            aggregationMethod: 'weighted_average',
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'assess_lower_default': {
+            id: 'assess_lower_default',
+            name: 'Beginning / Mid / End of Term (Lower Primary default)',
+            level: 'LowerPrimary',
+            components: [
+                { id: 'bot', name: 'Beginning of Term', weight: 20, maxScore: 100 },
+                { id: 'mot', name: 'Mid Term', weight: 30, maxScore: 100 },
+                { id: 'eot', name: 'End of Term', weight: 50, maxScore: 100 }
+            ],
+            aggregationMethod: 'weighted_average',
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         }
-        saveFile(reportFiles.template, template);
-        res.json({ success: true, template: template });
-    } catch (error) {
-        console.error('Error saving template:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+    };
+}
 
-// POST reset report card template
-app.post('/api/report-cards/template/reset', (req, res) => {
+function seedCommentBanks() {
+    return {
+        'comments_upper_default': {
+            id: 'comments_upper_default',
+            name: 'Upper Primary Default Comments',
+            level: 'UpperPrimary',
+            classTeacher: [
+                { id: uuidv4(), minAvg: 90, maxAvg: 100, text: 'An outstanding performance this term. Keep up the excellent work!' },
+                { id: uuidv4(), minAvg: 75, maxAvg: 89, text: 'A very good performance. Continue working hard.' },
+                { id: uuidv4(), minAvg: 60, maxAvg: 74, text: 'A good result. With more effort you can do even better.' },
+                { id: uuidv4(), minAvg: 50, maxAvg: 59, text: 'A fair result. More effort and consistency is needed.' },
+                { id: uuidv4(), minAvg: 40, maxAvg: 49, text: 'Below average. Needs to put in more effort and seek help where needed.' },
+                { id: uuidv4(), minAvg: 0, maxAvg: 39, text: 'Performance is below expectation. Serious improvement is required next term.' }
+            ],
+            headTeacher: [
+                { id: uuidv4(), minAvg: 90, maxAvg: 100, text: 'Excellent work. Keep it up.' },
+                { id: uuidv4(), minAvg: 75, maxAvg: 89, text: 'Very good performance. Well done.' },
+                { id: uuidv4(), minAvg: 60, maxAvg: 74, text: 'Good performance. Aim higher next term.' },
+                { id: uuidv4(), minAvg: 50, maxAvg: 59, text: 'Fair performance. More effort is required.' },
+                { id: uuidv4(), minAvg: 40, maxAvg: 49, text: 'Must work much harder next term.' },
+                { id: uuidv4(), minAvg: 0, maxAvg: 39, text: 'Needs serious attention and support.' }
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'comments_lower_default': {
+            id: 'comments_lower_default',
+            name: 'Lower Primary Default Comments',
+            level: 'LowerPrimary',
+            classTeacher: [
+                { id: uuidv4(), minAvg: 80, maxAvg: 100, text: 'Exceeding expectation across most competencies. Well done!' },
+                { id: uuidv4(), minAvg: 60, maxAvg: 79, text: 'Meeting expectation. Keep practicing at home.' },
+                { id: uuidv4(), minAvg: 40, maxAvg: 59, text: 'Approaching expectation. Needs more practice with support.' },
+                { id: uuidv4(), minAvg: 0, maxAvg: 39, text: 'Below expectation. Needs close support both at school and at home.' }
+            ],
+            headTeacher: [
+                { id: uuidv4(), minAvg: 80, maxAvg: 100, text: 'A wonderful term. Keep it up!' },
+                { id: uuidv4(), minAvg: 60, maxAvg: 79, text: 'Good progress this term.' },
+                { id: uuidv4(), minAvg: 40, maxAvg: 59, text: 'Continue practicing at home.' },
+                { id: uuidv4(), minAvg: 0, maxAvg: 39, text: 'Needs extra support at home and school.' }
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'comments_nursery_default': {
+            id: 'comments_nursery_default',
+            name: 'Nursery Default Comments',
+            level: 'Nursery',
+            classTeacher: [
+                { id: uuidv4(), minAvg: 85, maxAvg: 100, text: 'A joy to teach! Doing excellently across all areas of development.' },
+                { id: uuidv4(), minAvg: 55, maxAvg: 84, text: 'Making good, steady progress. Keep encouraging at home.' },
+                { id: uuidv4(), minAvg: 0, maxAvg: 54, text: 'Needs more practice and encouragement at home.' }
+            ],
+            headTeacher: [
+                { id: uuidv4(), minAvg: 85, maxAvg: 100, text: 'A delightful learner. Keep it up!' },
+                { id: uuidv4(), minAvg: 55, maxAvg: 84, text: 'Doing well. Continue supporting at home.' },
+                { id: uuidv4(), minAvg: 0, maxAvg: 54, text: 'Requires more support and practice.' }
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }
+    };
+}
+
+function seedTemplates() {
+    const baseSignatures = [
+        { id: 'sig_class_teacher', label: "Class Teacher's Signature", showLine: true, showDate: true },
+        { id: 'sig_head_teacher', label: "Head Teacher's Signature", showLine: true, showDate: true },
+        { id: 'sig_parent', label: "Parent/Guardian's Signature", showLine: true, showDate: false }
+    ];
+
+    return {
+        'tpl_upper_default': {
+            id: 'tpl_upper_default',
+            name: 'Upper Primary — Standard',
+            level: 'UpperPrimary',
+            isDefault: true,
+            design: {
+                primaryColor: '#2563eb',
+                secondaryColor: '#eff6ff',
+                fontFamily: 'default',
+                headerLayout: 'centered',
+                showLogo: true,
+                showWatermark: false,
+                showStudentPhoto: true,
+                showBorder: true,
+                borderStyle: 'solid',
+                paperSize: 'A4'
+            },
+            schoolInfo: { showName: true, showAddress: true, showMotto: true, showContacts: true, showLogo: true },
+            studentInfoFields: [
+                { key: 'name', label: 'Name', enabled: true },
+                { key: 'admissionNumber', label: 'Admission No.', enabled: true },
+                { key: 'className', label: 'Class', enabled: true },
+                { key: 'stream', label: 'Stream', enabled: false },
+                { key: 'term', label: 'Term', enabled: true },
+                { key: 'year', label: 'Year', enabled: true },
+                { key: 'gender', label: 'Sex', enabled: true },
+                { key: 'position', label: 'Position in Class', enabled: true },
+                { key: 'classSize', label: 'Out Of', enabled: true },
+                { key: 'attendance', label: 'Attendance', enabled: true },
+                { key: 'nextTermDate', label: 'Next Term Begins', enabled: true }
+            ],
+            academicTable: {
+                columns: [
+                    { key: 'subject', label: 'Subject', enabled: true },
+                    { key: 'component_dynamic', label: '(assessment components render here)', enabled: true },
+                    { key: 'total', label: 'Total (100)', enabled: true },
+                    { key: 'grade', label: 'Grade', enabled: true },
+                    { key: 'remark', label: 'Remark', enabled: true },
+                    { key: 'subjectPosition', label: 'Pos.', enabled: false },
+                    { key: 'initials', label: 'Initials', enabled: true }
+                ]
+            },
+            gradingScaleId: 'scale_ple_d1d9',
+            assessmentStructureId: 'assess_upper_default',
+            commentBankId: 'comments_upper_default',
+            remarksConfig: {
+                showClassTeacherRemark: true,
+                showHeadTeacherRemark: true,
+                autoSuggestComment: true,
+                allowEditAfterSuggest: true
+            },
+            conductConfig: { enabled: true, options: ['Excellent', 'Good', 'Fair', 'Needs Attention'] },
+            signatures: baseSignatures,
+            footer: {
+                showNextTermText: true,
+                nextTermText: 'Next term begins on:',
+                showFeesBalance: false,
+                customText: ''
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'tpl_lower_default': {
+            id: 'tpl_lower_default',
+            name: 'Lower Primary — Thematic Curriculum',
+            level: 'LowerPrimary',
+            isDefault: true,
+            design: {
+                primaryColor: '#16a34a',
+                secondaryColor: '#f0fdf4',
+                fontFamily: 'default',
+                headerLayout: 'centered',
+                showLogo: true,
+                showWatermark: false,
+                showStudentPhoto: true,
+                showBorder: true,
+                borderStyle: 'solid',
+                paperSize: 'A4'
+            },
+            schoolInfo: { showName: true, showAddress: true, showMotto: true, showContacts: true, showLogo: true },
+            studentInfoFields: [
+                { key: 'name', label: 'Name', enabled: true },
+                { key: 'admissionNumber', label: 'Admission No.', enabled: true },
+                { key: 'className', label: 'Class', enabled: true },
+                { key: 'term', label: 'Term', enabled: true },
+                { key: 'year', label: 'Year', enabled: true },
+                { key: 'gender', label: 'Sex', enabled: true },
+                { key: 'attendance', label: 'Attendance', enabled: true },
+                { key: 'nextTermDate', label: 'Next Term Begins', enabled: true }
+            ],
+            academicTable: {
+                columns: [
+                    { key: 'subject', label: 'Learning Area', enabled: true },
+                    { key: 'component_dynamic', label: '(assessment components render here)', enabled: true },
+                    { key: 'total', label: 'Overall (100)', enabled: true },
+                    { key: 'grade', label: 'Competency Level', enabled: true },
+                    { key: 'remark', label: 'Remark', enabled: true },
+                    { key: 'initials', label: 'Initials', enabled: true }
+                ]
+            },
+            gradingScaleId: 'scale_competency_lower',
+            assessmentStructureId: 'assess_lower_default',
+            commentBankId: 'comments_lower_default',
+            remarksConfig: {
+                showClassTeacherRemark: true,
+                showHeadTeacherRemark: true,
+                autoSuggestComment: true,
+                allowEditAfterSuggest: true
+            },
+            conductConfig: { enabled: true, options: ['Excellent', 'Good', 'Fair', 'Needs Attention'] },
+            signatures: baseSignatures,
+            footer: {
+                showNextTermText: true,
+                nextTermText: 'Next term begins on:',
+                showFeesBalance: false,
+                customText: ''
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        },
+        'tpl_nursery_default': {
+            id: 'tpl_nursery_default',
+            name: 'Nursery — Developmental Domains',
+            level: 'Nursery',
+            isDefault: true,
+            design: {
+                primaryColor: '#db2777',
+                secondaryColor: '#fdf2f8',
+                fontFamily: 'default',
+                headerLayout: 'centered',
+                showLogo: true,
+                showWatermark: false,
+                showStudentPhoto: true,
+                showBorder: true,
+                borderStyle: 'solid',
+                paperSize: 'A4'
+            },
+            schoolInfo: { showName: true, showAddress: true, showMotto: true, showContacts: true, showLogo: true },
+            studentInfoFields: [
+                { key: 'name', label: 'Name', enabled: true },
+                { key: 'admissionNumber', label: 'Admission No.', enabled: true },
+                { key: 'className', label: 'Class', enabled: true },
+                { key: 'term', label: 'Term', enabled: true },
+                { key: 'year', label: 'Year', enabled: true },
+                { key: 'gender', label: 'Sex', enabled: true },
+                { key: 'attendance', label: 'Attendance', enabled: true },
+                { key: 'nextTermDate', label: 'Next Term Begins', enabled: true }
+            ],
+            // Nursery has no academic table — uses domains instead
+            domainsConfig: {
+                domains: [
+                    { id: 'dom_numeracy', name: 'Numeracy' },
+                    { id: 'dom_literacy', name: 'Literacy' },
+                    { id: 'dom_life_skills', name: 'Life Skills' },
+                    { id: 'dom_physical', name: 'Physical Development' },
+                    { id: 'dom_social', name: 'Social & Emotional Development' },
+                    { id: 'dom_creative', name: 'Creative & Aesthetic Development' },
+                    { id: 'dom_language', name: 'Language Development' }
+                ],
+                columns: [
+                    { key: 'domain', label: 'Area of Development', enabled: true },
+                    { key: 'rating', label: 'Rating', enabled: true },
+                    { key: 'comment', label: "Teacher's Comment", enabled: true }
+                ]
+            },
+            gradingScaleId: 'scale_domains_nursery',
+            commentBankId: 'comments_nursery_default',
+            remarksConfig: {
+                showClassTeacherRemark: true,
+                showHeadTeacherRemark: true,
+                autoSuggestComment: true,
+                allowEditAfterSuggest: true
+            },
+            conductConfig: { enabled: false, options: [] },
+            signatures: baseSignatures,
+            footer: {
+                showNextTermText: true,
+                nextTermText: 'Next term begins on:',
+                showFeesBalance: false,
+                customText: ''
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }
+    };
+}
+
+// ---------------------------------------------------------------------------
+// INITIALIZATION
+// ---------------------------------------------------------------------------
+function initializeReportCardFiles() {
     try {
-        const defaultTemplate = {
-            schoolName: '',
-            schoolAddress: '',
-            logo: '',
-            primaryColor: '#2563eb',
-            footer: ''
-        };
-        saveFile(reportFiles.template, defaultTemplate);
-        res.json({ success: true, template: defaultTemplate });
+        if (!fs.existsSync(reportCardFiles.templates)) {
+            saveFile(reportCardFiles.templates, seedTemplates());
+        }
+        if (!fs.existsSync(reportCardFiles.gradingScales)) {
+            saveFile(reportCardFiles.gradingScales, seedGradingScales());
+        }
+        if (!fs.existsSync(reportCardFiles.assessmentStructures)) {
+            saveFile(reportCardFiles.assessmentStructures, seedAssessmentStructures());
+        }
+        if (!fs.existsSync(reportCardFiles.commentBanks)) {
+            saveFile(reportCardFiles.commentBanks, seedCommentBanks());
+        }
+        if (!fs.existsSync(reportCardFiles.marks)) {
+            saveFile(reportCardFiles.marks, {});
+        }
+        if (!fs.existsSync(reportCardFiles.nurseryMarks)) {
+            saveFile(reportCardFiles.nurseryMarks, {});
+        }
+        if (!fs.existsSync(reportCardFiles.studentExtras)) {
+            saveFile(reportCardFiles.studentExtras, {});
+        }
+        if (!fs.existsSync(reportCardFiles.generated)) {
+            saveFile(reportCardFiles.generated, []);
+        }
+        console.log('✅ Report Card System v2.0 files initialized');
     } catch (error) {
-        console.error('Error resetting template:', error);
+        console.error('Error initializing report card files:', error);
+    }
+}
+initializeReportCardFiles();
+
+// ---------------------------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------------------------
+
+// Deep-key helper for the nested {classId: {year: {term: {studentId: {...}}}}} stores
+function getNested(obj, keys) {
+    let cur = obj;
+    for (const k of keys) {
+        if (!cur || typeof cur !== 'object') return undefined;
+        cur = cur[k];
+    }
+    return cur;
+}
+function setNested(obj, keys, value) {
+    let cur = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+        const k = keys[i];
+        if (!cur[k] || typeof cur[k] !== 'object') cur[k] = {};
+        cur = cur[k];
+    }
+    cur[keys[keys.length - 1]] = value;
+}
+
+function getClassLevel(classId, classes) {
+    const cls = (classes || readFile(files.classes)).find(c => c.id === classId);
+    return cls ? (cls.level || 'UpperPrimary') : 'UpperPrimary';
+}
+
+function findGradeForScore(scale, score) {
+    if (!scale) return { grade: null, remark: '' };
+    const list = scale.type === 'qualitative' ? scale.ratings : scale.grades;
+    if (!Array.isArray(list)) return { grade: null, remark: '' };
+    const match = list.find(g => score >= g.min && score <= g.max);
+    if (!match) return { grade: null, remark: '' };
+    if (scale.type === 'qualitative') {
+        return { grade: match.short || match.label, label: match.label, remark: match.remark, points: null };
+    }
+    return { grade: match.grade, label: match.grade, remark: match.remark, points: match.points || null };
+}
+
+function findSuggestedComment(bank, side, average) {
+    if (!bank || !bank[side]) return '';
+    const list = bank[side];
+    const match = list.find(c => average >= c.minAvg && average <= c.maxAvg);
+    return match ? match.text : '';
+}
+
+// Compute a subject's total from its raw component scores using the
+// assessment structure's weights (weighted_average is the default and the
+// only method currently implemented server-side; teachers can still enter
+// raw component values freely).
+function computeSubjectTotal(structure, componentScores) {
+    if (!structure || !Array.isArray(structure.components) || structure.components.length === 0) {
+        // fallback: simple average of whatever is entered
+        const vals = Object.values(componentScores || {}).filter(v => typeof v === 'number');
+        if (vals.length === 0) return 0;
+        return vals.reduce((a, b) => a + b, 0) / vals.length;
+    }
+    let totalWeight = 0;
+    let weightedSum = 0;
+    for (const comp of structure.components) {
+        const raw = componentScores ? componentScores[comp.id] : undefined;
+        if (typeof raw === 'number' && !isNaN(raw)) {
+            const maxScore = comp.maxScore || 100;
+            const pct = (raw / maxScore) * 100;
+            weightedSum += pct * (comp.weight || 0);
+            totalWeight += (comp.weight || 0);
+        }
+    }
+    if (totalWeight === 0) return 0;
+    return weightedSum / totalWeight;
+}
+
+// Compute class + stream positions from a map of {studentId: average}
+function computePositions(averagesMap) {
+    const entries = Object.entries(averagesMap).filter(([, avg]) => typeof avg === 'number' && avg > 0);
+    entries.sort((a, b) => b[1] - a[1]);
+    const positions = {};
+    let lastAvg = null;
+    let lastPos = 0;
+    entries.forEach(([studentId, avg], idx) => {
+        if (avg !== lastAvg) {
+            lastPos = idx + 1;
+            lastAvg = avg;
+        }
+        positions[studentId] = { position: lastPos, average: avg, outOf: entries.length };
+    });
+    return positions;
+}
+
+function ordinal(n) {
+    if (!n) return '';
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function getTermNameRC(term) {
+    const names = { 1: 'First Term', 2: 'Second Term', 3: 'Third Term' };
+    return names[term] || `Term ${term}`;
+}
+
+// ============================================================================
+// 1. GRADING SCALES — full CRUD, fully customizable
+// ============================================================================
+
+app.get('/api/report-cards/grading-scales', (req, res) => {
+    try {
+        const { level } = req.query;
+        let scales = readFile(reportCardFiles.gradingScales);
+        let list = Object.values(scales);
+        if (level) list = list.filter(s => s.level === level || s.level === 'All');
+        res.json({ success: true, scales: list });
+    } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ================================================================
-// 2. MARKS MANAGEMENT ROUTES
-// ================================================================
+app.get('/api/report-cards/grading-scales/:id', (req, res) => {
+    try {
+        const scales = readFile(reportCardFiles.gradingScales);
+        const scale = scales[req.params.id];
+        if (!scale) return res.status(404).json({ success: false, error: 'Grading scale not found' });
+        res.json({ success: true, scale });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
-// ==================== REPORT CARDS BACKEND ROUTES (YEAR/TERM AWARE) ====================
+app.post('/api/report-cards/grading-scales', (req, res) => {
+    try {
+        const { name, level, type, grades, ratings, description } = req.body;
+        if (!name || !level || !type) {
+            return res.status(400).json({ success: false, error: 'name, level, and type are required' });
+        }
+        if (type !== 'qualitative' && type !== 'numeric') {
+            return res.status(400).json({ success: false, error: 'type must be "numeric" or "qualitative"' });
+        }
+        const scales = readFile(reportCardFiles.gradingScales);
+        const id = 'scale_' + uuidv4().slice(0, 8);
+        const newScale = {
+            id, name, level, type,
+            description: description || '',
+            grades: type === 'numeric' ? (grades || []) : undefined,
+            ratings: type === 'qualitative' ? (ratings || []) : undefined,
+            isDefault: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        scales[id] = newScale;
+        saveFile(reportCardFiles.gradingScales, scales);
+        res.json({ success: true, scale: newScale });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
-// GET marks for a class (filter by term/year)
+app.put('/api/report-cards/grading-scales/:id', (req, res) => {
+    try {
+        const scales = readFile(reportCardFiles.gradingScales);
+        const existing = scales[req.params.id];
+        if (!existing) return res.status(404).json({ success: false, error: 'Grading scale not found' });
+        scales[req.params.id] = {
+            ...existing,
+            ...req.body,
+            id: existing.id,
+            updatedAt: new Date().toISOString()
+        };
+        saveFile(reportCardFiles.gradingScales, scales);
+        res.json({ success: true, scale: scales[req.params.id] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/grading-scales/:id/set-default', (req, res) => {
+    try {
+        const scales = readFile(reportCardFiles.gradingScales);
+        const target = scales[req.params.id];
+        if (!target) return res.status(404).json({ success: false, error: 'Grading scale not found' });
+        for (const s of Object.values(scales)) {
+            if (s.level === target.level) s.isDefault = (s.id === target.id);
+        }
+        saveFile(reportCardFiles.gradingScales, scales);
+        res.json({ success: true, message: `${target.name} is now default for ${target.level}` });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/report-cards/grading-scales/:id', (req, res) => {
+    try {
+        const scales = readFile(reportCardFiles.gradingScales);
+        if (!scales[req.params.id]) return res.status(404).json({ success: false, error: 'Not found' });
+        if (scales[req.params.id].isDefault) {
+            return res.status(400).json({ success: false, error: 'Cannot delete the default scale for a level. Set another as default first.' });
+        }
+        delete scales[req.params.id];
+        saveFile(reportCardFiles.gradingScales, scales);
+        res.json({ success: true, message: 'Grading scale deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// 2. ASSESSMENT STRUCTURES — the components that make up a subject's mark
+// ============================================================================
+
+app.get('/api/report-cards/assessment-structures', (req, res) => {
+    try {
+        const { level } = req.query;
+        const structures = readFile(reportCardFiles.assessmentStructures);
+        let list = Object.values(structures);
+        if (level) list = list.filter(s => s.level === level || s.level === 'All');
+        res.json({ success: true, structures: list });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/report-cards/assessment-structures/:id', (req, res) => {
+    try {
+        const structures = readFile(reportCardFiles.assessmentStructures);
+        const s = structures[req.params.id];
+        if (!s) return res.status(404).json({ success: false, error: 'Not found' });
+        res.json({ success: true, structure: s });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/assessment-structures', (req, res) => {
+    try {
+        const { name, level, components, aggregationMethod } = req.body;
+        if (!name || !level || !Array.isArray(components) || components.length === 0) {
+            return res.status(400).json({ success: false, error: 'name, level, and at least one component are required' });
+        }
+        const totalWeight = components.reduce((sum, c) => sum + (parseFloat(c.weight) || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+            return res.status(400).json({ success: false, error: `Component weights must sum to 100 (currently ${totalWeight})` });
+        }
+        const structures = readFile(reportCardFiles.assessmentStructures);
+        const id = 'assess_' + uuidv4().slice(0, 8);
+        const newStructure = {
+            id, name, level,
+            components: components.map(c => ({
+                id: c.id || c.name.toLowerCase().replace(/\s+/g, '_'),
+                name: c.name,
+                weight: parseFloat(c.weight) || 0,
+                maxScore: parseFloat(c.maxScore) || 100
+            })),
+            aggregationMethod: aggregationMethod || 'weighted_average',
+            isDefault: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        structures[id] = newStructure;
+        saveFile(reportCardFiles.assessmentStructures, structures);
+        res.json({ success: true, structure: newStructure });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.put('/api/report-cards/assessment-structures/:id', (req, res) => {
+    try {
+        const structures = readFile(reportCardFiles.assessmentStructures);
+        const existing = structures[req.params.id];
+        if (!existing) return res.status(404).json({ success: false, error: 'Not found' });
+
+        if (req.body.components) {
+            const totalWeight = req.body.components.reduce((sum, c) => sum + (parseFloat(c.weight) || 0), 0);
+            if (Math.abs(totalWeight - 100) > 0.01) {
+                return res.status(400).json({ success: false, error: `Component weights must sum to 100 (currently ${totalWeight})` });
+            }
+        }
+
+        structures[req.params.id] = {
+            ...existing,
+            ...req.body,
+            id: existing.id,
+            updatedAt: new Date().toISOString()
+        };
+        saveFile(reportCardFiles.assessmentStructures, structures);
+        res.json({ success: true, structure: structures[req.params.id] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/assessment-structures/:id/set-default', (req, res) => {
+    try {
+        const structures = readFile(reportCardFiles.assessmentStructures);
+        const target = structures[req.params.id];
+        if (!target) return res.status(404).json({ success: false, error: 'Not found' });
+        for (const s of Object.values(structures)) {
+            if (s.level === target.level) s.isDefault = (s.id === target.id);
+        }
+        saveFile(reportCardFiles.assessmentStructures, structures);
+        res.json({ success: true, message: `${target.name} is now default for ${target.level}` });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/report-cards/assessment-structures/:id', (req, res) => {
+    try {
+        const structures = readFile(reportCardFiles.assessmentStructures);
+        if (!structures[req.params.id]) return res.status(404).json({ success: false, error: 'Not found' });
+        if (structures[req.params.id].isDefault) {
+            return res.status(400).json({ success: false, error: 'Cannot delete the default structure for a level. Set another as default first.' });
+        }
+        delete structures[req.params.id];
+        saveFile(reportCardFiles.assessmentStructures, structures);
+        res.json({ success: true, message: 'Assessment structure deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// 3. COMMENT BANKS — auto-suggested class/head teacher remarks
+// ============================================================================
+
+app.get('/api/report-cards/comment-banks', (req, res) => {
+    try {
+        const { level } = req.query;
+        const banks = readFile(reportCardFiles.commentBanks);
+        let list = Object.values(banks);
+        if (level) list = list.filter(b => b.level === level || b.level === 'All');
+        res.json({ success: true, banks: list });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/report-cards/comment-banks/:id', (req, res) => {
+    try {
+        const banks = readFile(reportCardFiles.commentBanks);
+        const bank = banks[req.params.id];
+        if (!bank) return res.status(404).json({ success: false, error: 'Not found' });
+        res.json({ success: true, bank });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/comment-banks', (req, res) => {
+    try {
+        const { name, level, classTeacher, headTeacher } = req.body;
+        if (!name || !level) return res.status(400).json({ success: false, error: 'name and level are required' });
+        const banks = readFile(reportCardFiles.commentBanks);
+        const id = 'comments_' + uuidv4().slice(0, 8);
+        const newBank = {
+            id, name, level,
+            classTeacher: (classTeacher || []).map(c => ({ id: c.id || uuidv4(), minAvg: c.minAvg, maxAvg: c.maxAvg, text: c.text })),
+            headTeacher: (headTeacher || []).map(c => ({ id: c.id || uuidv4(), minAvg: c.minAvg, maxAvg: c.maxAvg, text: c.text })),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        banks[id] = newBank;
+        saveFile(reportCardFiles.commentBanks, banks);
+        res.json({ success: true, bank: newBank });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.put('/api/report-cards/comment-banks/:id', (req, res) => {
+    try {
+        const banks = readFile(reportCardFiles.commentBanks);
+        const existing = banks[req.params.id];
+        if (!existing) return res.status(404).json({ success: false, error: 'Not found' });
+        banks[req.params.id] = { ...existing, ...req.body, id: existing.id, updatedAt: new Date().toISOString() };
+        saveFile(reportCardFiles.commentBanks, banks);
+        res.json({ success: true, bank: banks[req.params.id] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Add/update/delete a single comment entry within a bank's side (classTeacher/headTeacher)
+app.post('/api/report-cards/comment-banks/:id/:side/entry', (req, res) => {
+    try {
+        const { id, side } = req.params;
+        if (!['classTeacher', 'headTeacher'].includes(side)) {
+            return res.status(400).json({ success: false, error: 'side must be classTeacher or headTeacher' });
+        }
+        const { minAvg, maxAvg, text, entryId } = req.body;
+        const banks = readFile(reportCardFiles.commentBanks);
+        const bank = banks[id];
+        if (!bank) return res.status(404).json({ success: false, error: 'Bank not found' });
+
+        if (entryId) {
+            const idx = bank[side].findIndex(e => e.id === entryId);
+            if (idx !== -1) {
+                bank[side][idx] = { id: entryId, minAvg, maxAvg, text };
+            } else {
+                bank[side].push({ id: entryId, minAvg, maxAvg, text });
+            }
+        } else {
+            bank[side].push({ id: uuidv4(), minAvg, maxAvg, text });
+        }
+        bank.updatedAt = new Date().toISOString();
+        saveFile(reportCardFiles.commentBanks, banks);
+        res.json({ success: true, bank });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/report-cards/comment-banks/:id/:side/entry/:entryId', (req, res) => {
+    try {
+        const { id, side, entryId } = req.params;
+        const banks = readFile(reportCardFiles.commentBanks);
+        const bank = banks[id];
+        if (!bank) return res.status(404).json({ success: false, error: 'Bank not found' });
+        bank[side] = (bank[side] || []).filter(e => e.id !== entryId);
+        bank.updatedAt = new Date().toISOString();
+        saveFile(reportCardFiles.commentBanks, banks);
+        res.json({ success: true, bank });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/report-cards/comment-banks/:id', (req, res) => {
+    try {
+        const banks = readFile(reportCardFiles.commentBanks);
+        if (!banks[req.params.id]) return res.status(404).json({ success: false, error: 'Not found' });
+        delete banks[req.params.id];
+        saveFile(reportCardFiles.commentBanks, banks);
+        res.json({ success: true, message: 'Comment bank deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// 4. TEMPLATES — full visual + structural report card design, per level
+// ============================================================================
+
+app.get('/api/report-cards/templates', (req, res) => {
+    try {
+        const { level } = req.query;
+        const templates = readFile(reportCardFiles.templates);
+        let list = Object.values(templates);
+        if (level) list = list.filter(t => t.level === level);
+        list.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+        res.json({ success: true, templates: list });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/report-cards/templates/:id', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const t = templates[req.params.id];
+        if (!t) return res.status(404).json({ success: false, error: 'Template not found' });
+        res.json({ success: true, template: t });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Convenience: get the default (or only) template for a level
+app.get('/api/report-cards/templates/level/:level/default', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const list = Object.values(templates).filter(t => t.level === req.params.level);
+        const def = list.find(t => t.isDefault) || list[0] || null;
+        if (!def) return res.status(404).json({ success: false, error: `No template exists yet for ${req.params.level}` });
+        res.json({ success: true, template: def });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/templates', (req, res) => {
+    try {
+        const body = req.body;
+        if (!body.name || !body.level) {
+            return res.status(400).json({ success: false, error: 'name and level are required' });
+        }
+        const templates = readFile(reportCardFiles.templates);
+        const id = 'tpl_' + uuidv4().slice(0, 8);
+        const newTemplate = {
+            id,
+            name: body.name,
+            level: body.level,
+            isDefault: false,
+            design: body.design || {
+                primaryColor: '#2563eb', secondaryColor: '#eff6ff', fontFamily: 'default',
+                headerLayout: 'centered', showLogo: true, showWatermark: false,
+                showStudentPhoto: true, showBorder: true, borderStyle: 'solid', paperSize: 'A4'
+            },
+            schoolInfo: body.schoolInfo || { showName: true, showAddress: true, showMotto: true, showContacts: true, showLogo: true },
+            studentInfoFields: body.studentInfoFields || [],
+            academicTable: body.academicTable || null,
+            domainsConfig: body.domainsConfig || null,
+            gradingScaleId: body.gradingScaleId || null,
+            assessmentStructureId: body.assessmentStructureId || null,
+            commentBankId: body.commentBankId || null,
+            remarksConfig: body.remarksConfig || { showClassTeacherRemark: true, showHeadTeacherRemark: true, autoSuggestComment: true, allowEditAfterSuggest: true },
+            conductConfig: body.conductConfig || { enabled: true, options: ['Excellent', 'Good', 'Fair', 'Needs Attention'] },
+            signatures: body.signatures || [
+                { id: 'sig_class_teacher', label: "Class Teacher's Signature", showLine: true, showDate: true },
+                { id: 'sig_head_teacher', label: "Head Teacher's Signature", showLine: true, showDate: true },
+                { id: 'sig_parent', label: "Parent/Guardian's Signature", showLine: true, showDate: false }
+            ],
+            footer: body.footer || { showNextTermText: true, nextTermText: 'Next term begins on:', showFeesBalance: false, customText: '' },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        templates[id] = newTemplate;
+        saveFile(reportCardFiles.templates, templates);
+        res.json({ success: true, template: newTemplate });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Full or partial update — every field of the template is editable
+app.put('/api/report-cards/templates/:id', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const existing = templates[req.params.id];
+        if (!existing) return res.status(404).json({ success: false, error: 'Template not found' });
+
+        templates[req.params.id] = {
+            ...existing,
+            ...req.body,
+            id: existing.id,
+            level: req.body.level || existing.level, // allow level change but warn client-side
+            updatedAt: new Date().toISOString()
+        };
+        saveFile(reportCardFiles.templates, templates);
+        res.json({ success: true, template: templates[req.params.id] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/templates/:id/duplicate', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const existing = templates[req.params.id];
+        if (!existing) return res.status(404).json({ success: false, error: 'Template not found' });
+        const id = 'tpl_' + uuidv4().slice(0, 8);
+        const copy = {
+            ...JSON.parse(JSON.stringify(existing)),
+            id,
+            name: `${existing.name} (Copy)`,
+            isDefault: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        templates[id] = copy;
+        saveFile(reportCardFiles.templates, templates);
+        res.json({ success: true, template: copy });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/templates/:id/set-default', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const target = templates[req.params.id];
+        if (!target) return res.status(404).json({ success: false, error: 'Template not found' });
+        for (const t of Object.values(templates)) {
+            if (t.level === target.level) t.isDefault = (t.id === target.id);
+        }
+        saveFile(reportCardFiles.templates, templates);
+        res.json({ success: true, message: `${target.name} is now the default template for ${target.level}` });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/report-cards/templates/:id', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const target = templates[req.params.id];
+        if (!target) return res.status(404).json({ success: false, error: 'Template not found' });
+        if (target.isDefault) {
+            return res.status(400).json({ success: false, error: 'Cannot delete the default template for a level. Set another as default first.' });
+        }
+        delete templates[req.params.id];
+        saveFile(reportCardFiles.templates, templates);
+        res.json({ success: true, message: 'Template deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Live preview: render a template against a fictional "sample" student so
+// the teacher can see the design without needing real marks recorded yet.
+app.get('/api/report-cards/templates/:id/preview-sample', (req, res) => {
+    try {
+        const templates = readFile(reportCardFiles.templates);
+        const template = templates[req.params.id];
+        if (!template) return res.status(404).json({ success: false, error: 'Template not found' });
+
+        const gradingScales = readFile(reportCardFiles.gradingScales);
+        const scale = template.gradingScaleId ? gradingScales[template.gradingScaleId] : null;
+
+        const school = readFile(files.schools);
+        const schoolInfo = (school && school[0]) || { schoolName: 'Sample School', address: 'P.O. Box 1, Kampala', motto: 'Quality Education for All' };
+
+        let sample;
+        if (template.level === 'Nursery') {
+            sample = {
+                studentName: 'Sample Student',
+                admissionNumber: 'STU2026SAMPLE',
+                className: 'Top Class',
+                term: 'First Term', year: 2026, gender: 'Female',
+                domains: (template.domainsConfig?.domains || []).map(d => {
+                    const grade = findGradeForScore(scale, 78);
+                    return { domainName: d.name, rating: grade.label || grade.grade, comment: 'Good progress this term.' };
+                }),
+                classTeacherRemark: findSuggestedComment(readFile(reportCardFiles.commentBanks)[template.commentBankId], 'classTeacher', 78) || 'Sample class teacher remark.',
+                headTeacherRemark: findSuggestedComment(readFile(reportCardFiles.commentBanks)[template.commentBankId], 'headTeacher', 78) || 'Sample head teacher remark.',
+                attendance: '58/60 days'
+            };
+        } else {
+            const sampleSubjects = ['English', 'Mathematics', 'Science', 'Social Studies'].map(name => {
+                const total = 60 + Math.floor(Math.random() * 35);
+                const g = findGradeForScore(scale, total);
+                return { subjectName: name, total: total.toFixed(1), grade: g.grade || g.label, remark: g.remark, initials: 'S.T' };
+            });
+            const avg = sampleSubjects.reduce((s, x) => s + parseFloat(x.total), 0) / sampleSubjects.length;
+            sample = {
+                studentName: 'Sample Student',
+                admissionNumber: 'STU2026SAMPLE',
+                className: template.level === 'LowerPrimary' ? 'P.2' : 'P.6',
+                term: 'First Term', year: 2026, gender: 'Male',
+                position: 3, classSize: 42,
+                subjects: sampleSubjects,
+                overallAverage: avg.toFixed(1),
+                classTeacherRemark: findSuggestedComment(readFile(reportCardFiles.commentBanks)[template.commentBankId], 'classTeacher', avg) || 'Sample class teacher remark.',
+                headTeacherRemark: findSuggestedComment(readFile(reportCardFiles.commentBanks)[template.commentBankId], 'headTeacher', avg) || 'Sample head teacher remark.',
+                attendance: '58/60 days'
+            };
+        }
+
+        res.json({ success: true, template, schoolInfo, sample });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// 5. STUDENT EXTRAS — attendance, conduct, remarks, photo, position override
+// ============================================================================
+
+app.get('/api/report-cards/class/:classId/extras', (req, res) => {
+    try {
+        const { classId } = req.params;
+        const { term, year } = req.query;
+        const termNum = parseInt(term) || 1;
+        const yearNum = parseInt(year) || new Date().getFullYear();
+        const all = readFile(reportCardFiles.studentExtras);
+        const extras = getNested(all, [classId, String(yearNum), String(termNum)]) || {};
+        res.json({ success: true, extras });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/report-cards/class/:classId/extras', (req, res) => {
+    try {
+        const { classId } = req.params;
+        const { term, year, extras } = req.body; // extras: { [studentId]: { attendancePresent, attendanceTotal, conduct, classTeacherRemark, headTeacherRemark, nextTermDate, streamPositionOverride } }
+        const termNum = parseInt(term) || 1;
+        const yearNum = parseInt(year) || new Date().getFullYear();
+        if (!extras) return res.status(400).json({ success: false, error: 'extras object is required' });
+
+        const all = readFile(reportCardFiles.studentExtras);
+        const existing = getNested(all, [classId, String(yearNum), String(termNum)]) || {};
+        const merged = { ...existing, ...extras };
+        setNested(all, [classId, String(yearNum), String(termNum)], merged);
+        saveFile(reportCardFiles.studentExtras, all);
+        res.json({ success: true, message: `Saved extras for ${Object.keys(extras).length} student(s)`, extras: merged });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// 6. ACADEMIC MARKS (Lower + Upper Primary) — dynamic components
+// ============================================================================
+
 app.get('/api/report-cards/class/:classId/marks', (req, res) => {
     try {
         const { classId } = req.params;
         const { term, year } = req.query;
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
-
-        const allMarks = readFile(reportFiles.marks);
-        const classMarks = allMarks[classId] || {};
-        const periodMarks = (classMarks[yearNum] && classMarks[yearNum][termNum]) || {};
-        res.json({ success: true, marks: periodMarks });
+        const allMarks = readFile(reportCardFiles.marks);
+        const marks = getNested(allMarks, [classId, String(yearNum), String(termNum)]) || {};
+        res.json({ success: true, marks, term: termNum, year: yearNum });
     } catch (error) {
-        console.error('Error getting marks:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// POST save marks for a class (with term/year)
+// marks payload shape: { [studentId]: { [subjectId]: { components: { [componentId]: number }, initials: "W.D" } } }
+app.post('/api/report-cards/class/:classId/marks', (req, res) => {
+    try {
+        const { classId } = req.params;
+        const { marks, term, year } = req.body;
+        let termNum = parseInt(term);
+        let yearNum = parseInt(year);
+        if (!termNum || !yearNum) {
+            const settings = readFile(files.settings);
+            yearNum = settings.currentAcademicYear || new Date().getFullYear();
+            termNum = settings.currentTerm || 1;
+        }
+        if (!marks) return res.status(400).json({ success: false, error: 'marks data is required' });
 
+        const allMarks = readFile(reportCardFiles.marks);
+        setNested(allMarks, [classId, String(yearNum), String(termNum)], marks);
+        saveFile(reportCardFiles.marks, allMarks);
 
-// GET initials for a class (filter by term/year)
-app.get('/api/report-cards/class/:classId/initials', (req, res) => {
+        const studentCount = Object.keys(marks).length;
+        res.json({
+            success: true,
+            message: `Saved marks for ${studentCount} student(s) for ${getTermNameRC(termNum)} ${yearNum}`,
+            savedCount: studentCount, term: termNum, year: yearNum
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/report-cards/student/:studentId/marks', (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const { term, year } = req.query;
+        const termNum = parseInt(term) || 1;
+        const yearNum = parseInt(year) || new Date().getFullYear();
+
+        const enrollments = readFile(files.enrollments);
+        const enrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent === true);
+        if (!enrollment) return res.status(404).json({ success: false, error: 'Student not enrolled' });
+
+        const allMarks = readFile(reportCardFiles.marks);
+        const classMarks = getNested(allMarks, [enrollment.classId, String(yearNum), String(termNum)]) || {};
+        res.json({ success: true, marks: classMarks[studentId] || {}, classId: enrollment.classId });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Bulk upload via CSV/Excel — flexible: columns are "Subject - ComponentName"
+app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), async (req, res) => {
     try {
         const { classId } = req.params;
         const { term, year } = req.query;
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
-        const allInitials = readFile(reportFiles.initials);
-        const classInitials = allInitials[classId] || {};
-        const periodInitials = (classInitials[yearNum] && classInitials[yearNum][termNum]) || {};
-        res.json({ success: true, initials: periodInitials });
-    } catch (error) {
-        console.error('Error getting initials:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+        if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
-// POST save initials for a class (with term/year)
-app.post('/api/report-cards/class/:classId/initials', (req, res) => {
-    try {
-        const { classId } = req.params;
-        const { initials, term, year } = req.body;
-        const termNum = parseInt(term) || 1;
-        const yearNum = parseInt(year) || new Date().getFullYear();
+        let data;
+        const ext = req.file.originalname.split('.').pop().toLowerCase();
+        if (ext === 'csv') {
+            const csvData = req.file.buffer.toString('utf8');
+            data = csvData.split('\n').map(row => row.split(',').map(c => c.trim()));
+        } else {
+            const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+        }
+        if (!data || data.length < 2) return res.status(400).json({ success: false, error: 'File is empty or missing data rows' });
 
-        if (!initials) {
-            return res.status(400).json({ success: false, error: 'Initials data is required' });
+        const headers = data[0].map(h => String(h).trim());
+        const colIndex = {
+            admissionNumber: headers.findIndex(h => h && h.toLowerCase().includes('admission')),
+            studentName: headers.findIndex(h => h && h.toLowerCase().includes('name'))
+        };
+        const subjectCols = [];
+        headers.forEach((h, i) => {
+            if (i === colIndex.admissionNumber || i === colIndex.studentName) return;
+            const parts = h.split(' - ');
+            if (parts.length === 2) {
+                subjectCols.push({ index: i, subjectName: parts[0].trim(), componentName: parts[1].trim() });
+            }
+        });
+
+        const allSubjects = readFile(files.subjects);
+        const subjectMap = {};
+        allSubjects.forEach(s => {
+            subjectMap[s.name.toLowerCase()] = s.id;
+            if (s.code) subjectMap[s.code.toLowerCase()] = s.id;
+        });
+
+        const students = readFile(files.students);
+        const allMarks = readFile(reportCardFiles.marks);
+        const classMarks = getNested(allMarks, [classId, String(yearNum), String(termNum)]) || {};
+
+        let processed = 0;
+        const errors = [];
+
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.every(c => !c || String(c).trim() === '')) continue;
+
+            let student = null;
+            if (colIndex.admissionNumber !== -1 && row[colIndex.admissionNumber]) {
+                const adm = String(row[colIndex.admissionNumber]).trim();
+                student = students.find(s => s.admissionNumber === adm);
+            }
+            if (!student && colIndex.studentName !== -1 && row[colIndex.studentName]) {
+                const name = String(row[colIndex.studentName]).trim().toLowerCase();
+                student = students.find(s => `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase().trim() === name);
+            }
+            if (!student) { errors.push(`Row ${i + 1}: Could not identify student`); continue; }
+
+            if (!classMarks[student.id]) classMarks[student.id] = {};
+
+            for (const col of subjectCols) {
+                const value = row[col.index] ? String(row[col.index]).trim() : '';
+                if (value === '' || value === '-') continue;
+                const subjectId = subjectMap[col.subjectName.toLowerCase()];
+                if (!subjectId) { errors.push(`Row ${i + 1}: Subject "${col.subjectName}" not found`); continue; }
+                const num = parseFloat(value);
+                if (isNaN(num)) { errors.push(`Row ${i + 1}: Invalid value "${value}" for ${col.subjectName} - ${col.componentName}`); continue; }
+
+                if (!classMarks[student.id][subjectId]) classMarks[student.id][subjectId] = { components: {} };
+                if (!classMarks[student.id][subjectId].components) classMarks[student.id][subjectId].components = {};
+                const componentKey = col.componentName.toLowerCase().replace(/\s+/g, '_');
+                classMarks[student.id][subjectId].components[componentKey] = num;
+                processed++;
+            }
         }
 
-        let allInitials = readFile(reportFiles.initials);
-        if (!allInitials[classId]) allInitials[classId] = {};
-        if (!allInitials[classId][yearNum]) allInitials[classId][yearNum] = {};
-        allInitials[classId][yearNum][termNum] = initials;
+        setNested(allMarks, [classId, String(yearNum), String(termNum)], classMarks);
+        saveFile(reportCardFiles.marks, allMarks);
 
-        saveFile(reportFiles.initials, allInitials);
-        const count = Object.keys(initials).length;
-        res.json({ success: true, message: `Saved ${count} initials for ${getTermName(termNum)} ${yearNum}`, savedCount: count });
+        res.json({
+            success: true,
+            message: `Bulk upload complete: ${processed} marks processed for ${Object.keys(classMarks).length} students`,
+            processed, students: Object.keys(classMarks).length,
+            errors: errors.slice(0, 20), errorCount: errors.length
+        });
     } catch (error) {
-        console.error('Error saving initials:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// POST save marks for a class
-// ==================== POST SAVE MARKS (VERIFIED) ====================
-// ==================== POST SAVE MARKS (USE CURRENT YEAR FROM SETTINGS) ====================
-app.post('/api/report-cards/class/:classId/marks', (req, res) => {
+// ============================================================================
+// 7. NURSERY DOMAIN MARKS
+// ============================================================================
+
+app.get('/api/report-cards/class/:classId/nursery-marks', (req, res) => {
+    try {
+        const { classId } = req.params;
+        const { term, year } = req.query;
+        const termNum = parseInt(term) || 1;
+        const yearNum = parseInt(year) || new Date().getFullYear();
+        const all = readFile(reportCardFiles.nurseryMarks);
+        const marks = getNested(all, [classId, String(yearNum), String(termNum)]) || {};
+        res.json({ success: true, marks, term: termNum, year: yearNum });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// payload: { [studentId]: { [domainId]: { score: number 0-100, comment: "" } } }
+app.post('/api/report-cards/class/:classId/nursery-marks', (req, res) => {
     try {
         const { classId } = req.params;
         const { marks, term, year } = req.body;
-        
-        // If year/term not provided, get from settings
-        let termNum = parseInt(term);
-        let yearNum = parseInt(year);
-        
-        if (!termNum || !yearNum) {
-            const settings = readFile(files.settings);
-            yearNum = settings.currentAcademicYear || new Date().getFullYear();
-            termNum = settings.currentTerm || 1;
-        }
+        const termNum = parseInt(term) || 1;
+        const yearNum = parseInt(year) || new Date().getFullYear();
+        if (!marks) return res.status(400).json({ success: false, error: 'marks data is required' });
 
-        console.log(`📥 POST /api/report-cards/class/${classId}/marks`);
-        console.log(`   Term: ${termNum}, Year: ${yearNum}`);
-        console.log(`   Students: ${Object.keys(marks || {}).length}`);
+        const all = readFile(reportCardFiles.nurseryMarks);
+        setNested(all, [classId, String(yearNum), String(termNum)], marks);
+        saveFile(reportCardFiles.nurseryMarks, all);
 
-        if (!marks) {
-            return res.status(400).json({ success: false, error: 'Marks data is required' });
-        }
-
-        let allMarks = readFile(reportFiles.marks);
-        if (!allMarks[classId]) allMarks[classId] = {};
-        if (!allMarks[classId][yearNum]) allMarks[classId][yearNum] = {};
-        allMarks[classId][yearNum][termNum] = marks;
-
-        const studentCount = Object.keys(marks).length;
-        saveFile(reportFiles.marks, allMarks);
-        
-        console.log(`✅ Saved marks for ${studentCount} students for ${getTermName(termNum)} ${yearNum}`);
-        
-        res.json({
-            success: true,
-            message: `Saved marks for ${studentCount} students for ${getTermName(termNum)} ${yearNum}`,
-            savedCount: studentCount,
-            term: termNum,
-            year: yearNum
-        });
+        res.json({ success: true, message: `Saved domain ratings for ${Object.keys(marks).length} student(s)`, savedCount: Object.keys(marks).length });
     } catch (error) {
-        console.error('❌ Error saving marks:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// GET marks for a specific student
-app.get('/api/report-cards/student/:studentId/marks', (req, res) => {
-    try {
-        const { studentId } = req.params;
-        const allMarks = readFile(reportFiles.marks);
+// ============================================================================
+// 8. POSITIONS — compute class ranking from recorded marks
+// ============================================================================
 
-        // Find which class this student belongs to
-        const enrollments = readFile(files.enrollments);
-        const enrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent === true);
-        if (!enrollment) {
-            return res.status(404).json({ success: false, error: 'Student not enrolled' });
-        }
-
-        const classId = enrollment.classId;
-        const classMarks = allMarks[classId] || {};
-        const studentMarks = classMarks[studentId] || {};
-
-        res.json({ success: true, marks: studentMarks, classId: classId });
-    } catch (error) {
-        console.error('Error getting student marks:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ================================================================
-// 3. TEACHER INITIALS ROUTES
-// ================================================================
-
-// GET initials for a class
-app.get('/api/report-cards/class/:classId/initials', (req, res) => {
+app.get('/api/report-cards/class/:classId/positions', (req, res) => {
     try {
         const { classId } = req.params;
-        const allInitials = readFile(reportFiles.initials);
-        const classInitials = allInitials[classId] || {};
-        res.json({ success: true, initials: classInitials });
-    } catch (error) {
-        console.error('Error getting initials:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// POST save initials for a class
-app.post('/api/report-cards/class/:classId/initials', (req, res) => {
-    try {
-        const { classId } = req.params;
-        const { initials } = req.body;
-
-        if (!initials) {
-            return res.status(400).json({ success: false, error: 'Initials data is required' });
-        }
-
-        let allInitials = readFile(reportFiles.initials);
-        allInitials[classId] = initials;
-        saveFile(reportFiles.initials, allInitials);
-
-        const count = Object.keys(initials).length;
-        res.json({ success: true, message: `Saved ${count} initials`, savedCount: count });
-    } catch (error) {
-        console.error('Error saving initials:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ================================================================
-// 4. REPORT CARD GENERATION
-// ================================================================
-
-// Generate report cards for a class
-app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
-    try {
-        const { classId } = req.params;
-        const { term, year, studentId } = req.query;
-
+        const { term, year } = req.query;
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
-        // Get class data
         const classes = readFile(files.classes);
-        const classObj = classes.find(c => c.id === classId);
-        if (!classObj) {
-            return res.status(404).json({ success: false, error: 'Class not found' });
+        const level = getClassLevel(classId, classes);
+        if (level === 'Nursery') {
+            return res.json({ success: true, positions: {}, message: 'Positions are not computed for Nursery (qualitative domains only).' });
         }
 
-        // Get students in this class
+        const templates = readFile(reportCardFiles.templates);
+        const template = Object.values(templates).find(t => t.level === level && t.isDefault) || Object.values(templates).find(t => t.level === level);
+        const assessmentStructures = readFile(reportCardFiles.assessmentStructures);
+        const structure = template ? assessmentStructures[template.assessmentStructureId] : null;
+
+        const allMarks = readFile(reportCardFiles.marks);
+        const classMarks = getNested(allMarks, [classId, String(yearNum), String(termNum)]) || {};
+
+        const averages = {};
+        for (const [studentId, subjectsObj] of Object.entries(classMarks)) {
+            const totals = [];
+            for (const subjectMarks of Object.values(subjectsObj)) {
+                const total = computeSubjectTotal(structure, subjectMarks.components || {});
+                if (total > 0) totals.push(total);
+            }
+            if (totals.length > 0) {
+                averages[studentId] = totals.reduce((a, b) => a + b, 0) / totals.length;
+            }
+        }
+
+        const positions = computePositions(averages);
+        res.json({ success: true, positions, term: termNum, year: yearNum, classSize: Object.keys(positions).length });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// 9. GENERATE REPORT CARDS — picks the right template/scale/structure per
+//    the student's class level automatically (or an explicit templateId)
+// ============================================================================
+
+app.get('/api/report-cards/class/:classId/generate', async (req, res) => {
+    try {
+        const { classId } = req.params;
+        const { term, year, studentId, templateId } = req.query;
+        const termNum = parseInt(term) || 1;
+        const yearNum = parseInt(year) || new Date().getFullYear();
+
+        const classes = readFile(files.classes);
+        const classObj = classes.find(c => c.id === classId);
+        if (!classObj) return res.status(404).json({ success: false, error: 'Class not found' });
+        const level = classObj.level || 'UpperPrimary';
+
+        const templates = readFile(reportCardFiles.templates);
+        const template = templateId
+            ? templates[templateId]
+            : (Object.values(templates).find(t => t.level === level && t.isDefault) || Object.values(templates).find(t => t.level === level));
+        if (!template) return res.status(400).json({ success: false, error: `No report card template exists for ${level}. Create one first.` });
+
+        const gradingScales = readFile(reportCardFiles.gradingScales);
+        const scale = template.gradingScaleId ? gradingScales[template.gradingScaleId] : null;
+
+        const commentBanks = readFile(reportCardFiles.commentBanks);
+        const bank = template.commentBankId ? commentBanks[template.commentBankId] : null;
+
+        const school = readFile(files.schools);
+        const schoolInfo = (school && school[0]) || {};
+
         const students = readFile(files.students);
         const enrollments = readFile(files.enrollments);
 
-        let classStudents = [];
+        let classStudents;
         if (studentId && studentId !== 'all') {
-            const student = students.find(s => s.id === studentId);
-            if (student) {
-                classStudents = [student];
-            }
+            const s = students.find(x => x.id === studentId);
+            classStudents = s ? [s] : [];
         } else {
-            // Get all students in this class
-            const classEnrollments = enrollments.filter(e =>
-                e.classId === classId && e.academicYear === yearNum && e.isCurrent === true
-            );
-            const studentIds = classEnrollments.map(e => e.studentId);
-            classStudents = students.filter(s => studentIds.includes(s.id) && s.status === 'Active');
+            const classEnrollments = enrollments.filter(e => e.classId === classId && e.academicYear === yearNum && e.isCurrent === true);
+            const ids = classEnrollments.map(e => e.studentId);
+            classStudents = students.filter(s => ids.includes(s.id) && s.status === 'Active');
         }
+        if (classStudents.length === 0) return res.status(404).json({ success: false, error: 'No students found for this class' });
 
-        if (classStudents.length === 0) {
-            return res.status(404).json({ success: false, error: 'No students found for this class' });
-        }
+        const extrasAll = readFile(reportCardFiles.studentExtras);
+        const extras = getNested(extrasAll, [classId, String(yearNum), String(termNum)]) || {};
 
-        // Get subjects for this class
-        const allSubjects = readFile(files.subjects);
-        const classSubjects = allSubjects.filter(s =>
-            s.classId === classId || s.classId === 'all' || s.classId === null
-        );
-
-        // Get marks for this class
-        const allMarks = readFile(reportFiles.marks);
-        const classMarks = allMarks[classId] || {};
-
-        // Get initials for this class
-        const allInitials = readFile(reportFiles.initials);
-        const classInitials = allInitials[classId] || {};
-
-        // Get grading system
-        const settings = readFile(files.settings);
-        const gradingSystem = settings.gradingSystem || {
-            'A': { min: 80, max: 100, remark: 'Excellent' },
-            'B': { min: 70, max: 79, remark: 'Very Good' },
-            'C': { min: 60, max: 69, remark: 'Good' },
-            'D': { min: 50, max: 59, remark: 'Satisfactory' },
-            'E': { min: 40, max: 49, remark: 'Fair' },
-            'F': { min: 0, max: 39, remark: 'Poor' }
-        };
-
-        function calculateGrade(percentage) {
-            for (const [grade, range] of Object.entries(gradingSystem)) {
-                if (percentage >= range.min && percentage <= range.max) {
-                    return grade;
-                }
-            }
-            return 'F';
-        }
-
-        function getGradeRemark(grade) {
-            return gradingSystem[grade]?.remark || '';
-        }
-
-        // Generate report cards for each student
         const generatedReportCards = [];
 
-        for (const student of classStudents) {
-            const studentMarks = classMarks[student.id] || {};
-            const subjects = [];
+        if (level === 'Nursery') {
+            const nurseryMarksAll = readFile(reportCardFiles.nurseryMarks);
+            const classNurseryMarks = getNested(nurseryMarksAll, [classId, String(yearNum), String(termNum)]) || {};
+            const domains = template.domainsConfig?.domains || [];
 
-            let totalScore = 0;
-            let subjectCount = 0;
+            for (const student of classStudents) {
+                const studentDomainMarks = classNurseryMarks[student.id] || {};
+                const domainResults = domains.map(d => {
+                    const entry = studentDomainMarks[d.id] || {};
+                    const score = typeof entry.score === 'number' ? entry.score : 0;
+                    const graded = findGradeForScore(scale, score);
+                    return {
+                        domainId: d.id,
+                        domainName: d.name,
+                        score,
+                        rating: graded.label || graded.grade || '',
+                        remark: graded.remark || '',
+                        comment: entry.comment || ''
+                    };
+                });
+                const scored = domainResults.filter(d => d.score > 0);
+                const avg = scored.length > 0 ? scored.reduce((s, d) => s + d.score, 0) / scored.length : 0;
 
-            for (const subject of classSubjects) {
-                const subjectMarks = studentMarks[subject.id] || {};
-                const cat1 = subjectMarks['CAT 1'] || 0;
-                const cat2 = subjectMarks['CAT 2'] || 0;
-                const exam = subjectMarks['Exam'] || 0;
+                const studentExtras = extras[student.id] || {};
+                const reportCard = {
+                    id: uuidv4(),
+                    studentId: student.id,
+                    studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                    admissionNumber: student.admissionNumber || 'N/A',
+                    className: classObj.name,
+                    classId, level, term: termNum, year: yearNum,
+                    templateId: template.id,
+                    domains: domainResults,
+                    overallAverage: avg,
+                    attendance: studentExtras.attendancePresent !== undefined
+                        ? `${studentExtras.attendancePresent}/${studentExtras.attendanceTotal || ''}` : '',
+                    conduct: studentExtras.conduct || '',
+                    classTeacherRemark: studentExtras.classTeacherRemark || findSuggestedComment(bank, 'classTeacher', avg),
+                    headTeacherRemark: studentExtras.headTeacherRemark || findSuggestedComment(bank, 'headTeacher', avg),
+                    nextTermDate: studentExtras.nextTermDate || '',
+                    schoolInfo,
+                    generatedAt: new Date().toISOString()
+                };
+                generatedReportCards.push(reportCard);
+            }
+        } else {
+            const assessmentStructures = readFile(reportCardFiles.assessmentStructures);
+            const structure = template.assessmentStructureId ? assessmentStructures[template.assessmentStructureId] : null;
 
-                // Calculate total and average for this subject
-                const total = cat1 + cat2 + exam;
-                const avg = (cat1 + cat2 + exam) / 3;
-                const grade = calculateGrade(avg);
-                const remark = getGradeRemark(grade);
+            const allSubjects = readFile(files.subjects);
+            const classSubjects = allSubjects.filter(s => s.classId === classId || s.classId === 'all' || s.classId === null);
 
-                // Get teacher initials for this subject
-                const initialsKey = `${student.id}_${subject.id}`;
-                const initials = classInitials[initialsKey] || '';
+            const allMarks = readFile(reportCardFiles.marks);
+            const classMarks = getNested(allMarks, [classId, String(yearNum), String(termNum)]) || {};
 
-                subjects.push({
-                    subjectId: subject.id,
-                    subjectName: subject.name,
-                    subjectCode: subject.code,
-                    cat1: cat1 || null,
-                    cat2: cat2 || null,
-                    exam: exam || null,
-                    total: total,
-                    average: avg,
-                    grade: grade,
-                    remark: remark,
-                    initials: initials
+            // positions across the whole class first, regardless of which student was requested
+            const averagesForPositions = {};
+            for (const [sid, subjObj] of Object.entries(classMarks)) {
+                const totals = Object.values(subjObj).map(m => computeSubjectTotal(structure, m.components || {})).filter(t => t > 0);
+                if (totals.length > 0) averagesForPositions[sid] = totals.reduce((a, b) => a + b, 0) / totals.length;
+            }
+            const positions = computePositions(averagesForPositions);
+
+            for (const student of classStudents) {
+                const studentMarks = classMarks[student.id] || {};
+                const subjectResults = classSubjects.map(subject => {
+                    const entry = studentMarks[subject.id] || { components: {} };
+                    const total = computeSubjectTotal(structure, entry.components || {});
+                    const graded = findGradeForScore(scale, total);
+                    return {
+                        subjectId: subject.id,
+                        subjectName: subject.name,
+                        subjectCode: subject.code,
+                        components: entry.components || {},
+                        total: total.toFixed(1),
+                        grade: graded.grade || graded.label || '',
+                        remark: graded.remark || '',
+                        initials: entry.initials || ''
+                    };
                 });
 
-                totalScore += avg;
-                subjectCount++;
+                const scored = subjectResults.filter(s => parseFloat(s.total) > 0);
+                const avg = scored.length > 0 ? scored.reduce((s, x) => s + parseFloat(x.total), 0) / scored.length : 0;
+                const overallGrade = findGradeForScore(scale, avg);
+                const posInfo = positions[student.id] || null;
+
+                const studentExtras = extras[student.id] || {};
+                const reportCard = {
+                    id: uuidv4(),
+                    studentId: student.id,
+                    studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                    admissionNumber: student.admissionNumber || 'N/A',
+                    className: classObj.name,
+                    classId, level, term: termNum, year: yearNum,
+                    templateId: template.id,
+                    subjects: subjectResults,
+                    totalScore: scored.reduce((s, x) => s + parseFloat(x.total), 0),
+                    overallAverage: avg.toFixed(1),
+                    overallGrade: overallGrade.grade || overallGrade.label || '',
+                    overallRemark: overallGrade.remark || '',
+                    position: posInfo ? posInfo.position : null,
+                    positionDisplay: posInfo ? `${ordinal(posInfo.position)} out of ${posInfo.outOf}` : 'N/A',
+                    attendance: studentExtras.attendancePresent !== undefined
+                        ? `${studentExtras.attendancePresent}/${studentExtras.attendanceTotal || ''}` : '',
+                    conduct: studentExtras.conduct || '',
+                    classTeacherRemark: studentExtras.classTeacherRemark || findSuggestedComment(bank, 'classTeacher', avg),
+                    headTeacherRemark: studentExtras.headTeacherRemark || findSuggestedComment(bank, 'headTeacher', avg),
+                    nextTermDate: studentExtras.nextTermDate || '',
+                    schoolInfo,
+                    generatedAt: new Date().toISOString()
+                };
+                generatedReportCards.push(reportCard);
             }
-
-            const overallAverage = subjectCount > 0 ? (totalScore / subjectCount) : 0;
-            const overallGrade = calculateGrade(overallAverage);
-            const overallRemark = getGradeRemark(overallGrade);
-
-            // Get student's current class name
-            const studentEnrollment = enrollments.find(e =>
-                e.studentId === student.id && e.isCurrent === true
-            );
-            const studentClass = studentEnrollment ? classes.find(c => c.id === studentEnrollment.classId) : null;
-
-            const reportCard = {
-                id: uuidv4(),
-                studentId: student.id,
-                studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
-                admissionNumber: student.admissionNumber || 'N/A',
-                className: studentClass?.name || classObj.name,
-                classId: classId,
-                term: termNum,
-                year: yearNum,
-                subjects: subjects,
-                totalScore: totalScore,
-                average: overallAverage,
-                overallGrade: overallGrade,
-                overallRemark: overallRemark,
-                generatedAt: new Date().toISOString(),
-                template: readFile(reportFiles.template)
-            };
-
-            generatedReportCards.push(reportCard);
         }
 
-        // Save generated report cards
-        let allGenerated = readFile(reportFiles.generated);
-        // Remove old report cards for this class/term/year
-        allGenerated = allGenerated.filter(r =>
-            !(r.classId === classId && r.term === termNum && r.year === yearNum)
-        );
-        // Add new report cards
+        // save (replace prior generated set for this class/term/year)
+        let allGenerated = readFile(reportCardFiles.generated);
+        allGenerated = allGenerated.filter(r => !(r.classId === classId && r.term === termNum && r.year === yearNum));
         allGenerated = [...allGenerated, ...generatedReportCards];
-        saveFile(reportFiles.generated, allGenerated);
+        saveFile(reportCardFiles.generated, allGenerated);
 
-        res.json({
-            success: true,
-            reportCards: generatedReportCards,
-            count: generatedReportCards.length,
-            message: `Generated ${generatedReportCards.length} report cards`
-        });
-
+        res.json({ success: true, reportCards: generatedReportCards, count: generatedReportCards.length, template });
     } catch (error) {
         console.error('Error generating report cards:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// GET generated report cards for a class
 app.get('/api/report-cards/class/:classId', (req, res) => {
     try {
         const { classId } = req.params;
-        const allGenerated = readFile(reportFiles.generated);
-        const classReportCards = allGenerated.filter(r => r.classId === classId);
-        res.json({ success: true, reportCards: classReportCards, count: classReportCards.length });
+        const { term, year } = req.query;
+        let cards = readFile(reportCardFiles.generated).filter(r => r.classId === classId);
+        if (term) cards = cards.filter(r => r.term === parseInt(term));
+        if (year) cards = cards.filter(r => r.year === parseInt(year));
+        res.json({ success: true, reportCards: cards, count: cards.length });
     } catch (error) {
-        console.error('Error getting report cards:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// GET a specific report card
 app.get('/api/report-cards/:id', (req, res) => {
     try {
-        const { id } = req.params;
-        const allGenerated = readFile(reportFiles.generated);
-        const reportCard = allGenerated.find(r => r.id === id);
-        if (!reportCard) {
-            return res.status(404).json({ success: false, error: 'Report card not found' });
-        }
-        res.json({ success: true, reportCard: reportCard });
+        const card = readFile(reportCardFiles.generated).find(r => r.id === req.params.id);
+        if (!card) return res.status(404).json({ success: false, error: 'Report card not found' });
+        res.json({ success: true, reportCard: card });
     } catch (error) {
-        console.error('Error getting report card:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// DELETE a report card
 app.delete('/api/report-cards/:id', (req, res) => {
     try {
-        const { id } = req.params;
-        let allGenerated = readFile(reportFiles.generated);
-        const initialLength = allGenerated.length;
-        allGenerated = allGenerated.filter(r => r.id !== id);
-        if (allGenerated.length === initialLength) {
-            return res.status(404).json({ success: false, error: 'Report card not found' });
-        }
-        saveFile(reportFiles.generated, allGenerated);
+        let cards = readFile(reportCardFiles.generated);
+        const before = cards.length;
+        cards = cards.filter(r => r.id !== req.params.id);
+        if (cards.length === before) return res.status(404).json({ success: false, error: 'Report card not found' });
+        saveFile(reportCardFiles.generated, cards);
         res.json({ success: true, message: 'Report card deleted' });
     } catch (error) {
-        console.error('Error deleting report card:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ================================================================
-// 5. STUDENT REPORT CARD PREVIEW
-// ================================================================
-
-// GET preview of a student's report card
-app.get('/api/report-cards/student/:studentId/preview', (req, res) => {
+// Live single-student preview WITHOUT saving a generated record — used while
+// a teacher is still entering marks, to see exactly how the report will look.
+app.get('/api/report-cards/student/:studentId/preview', async (req, res) => {
     try {
         const { studentId } = req.params;
-        const { term, year } = req.query;
-
+        const { term, year, templateId } = req.query;
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
-        // Get student data
         const students = readFile(files.students);
         const student = students.find(s => s.id === studentId);
-        if (!student) {
-            return res.status(404).json({ success: false, error: 'Student not found' });
-        }
+        if (!student) return res.status(404).json({ success: false, error: 'Student not found' });
 
-        // Get enrollment
         const enrollments = readFile(files.enrollments);
-        const enrollment = enrollments.find(e =>
-            e.studentId === studentId && e.isCurrent === true
-        );
-        if (!enrollment) {
-            return res.status(404).json({ success: false, error: 'Student not enrolled' });
-        }
+        const enrollment = enrollments.find(e => e.studentId === studentId && e.isCurrent === true);
+        if (!enrollment) return res.status(404).json({ success: false, error: 'Student not enrolled' });
 
-        const classId = enrollment.classId;
-
-        // Get class info
         const classes = readFile(files.classes);
-        const classObj = classes.find(c => c.id === classId);
-        if (!classObj) {
-            return res.status(404).json({ success: false, error: 'Class not found' });
-        }
+        const classObj = classes.find(c => c.id === enrollment.classId);
+        const level = classObj ? (classObj.level || 'UpperPrimary') : 'UpperPrimary';
 
-        // Get subjects for this class
-        const allSubjects = readFile(files.subjects);
-        const classSubjects = allSubjects.filter(s =>
-            s.classId === classId || s.classId === 'all' || s.classId === null
-        );
+        req.query.classId = enrollment.classId; // not used directly, just documenting intent
+        req.params.classId = enrollment.classId;
+        req.query.studentId = studentId;
+        req.query.term = termNum;
+        req.query.year = yearNum;
+        if (templateId) req.query.templateId = templateId;
 
-        // Get marks for this student
-        const allMarks = readFile(reportFiles.marks);
-        const classMarks = allMarks[classId] || {};
-        const studentMarks = classMarks[studentId] || {};
+        // Reuse the generate handler's logic by calling it internally would
+        // duplicate routing complexity, so we inline a light preview version:
+        const templates = readFile(reportCardFiles.templates);
+        const template = templateId
+            ? templates[templateId]
+            : (Object.values(templates).find(t => t.level === level && t.isDefault) || Object.values(templates).find(t => t.level === level));
+        if (!template) return res.status(400).json({ success: false, error: `No template exists for ${level}` });
 
-        // Get initials
-        const allInitials = readFile(reportFiles.initials);
-        const classInitials = allInitials[classId] || {};
+        const gradingScales = readFile(reportCardFiles.gradingScales);
+        const scale = template.gradingScaleId ? gradingScales[template.gradingScaleId] : null;
+        const commentBanks = readFile(reportCardFiles.commentBanks);
+        const bank = template.commentBankId ? commentBanks[template.commentBankId] : null;
+        const school = readFile(files.schools);
+        const schoolInfo = (school && school[0]) || {};
+        const extrasAll = readFile(reportCardFiles.studentExtras);
+        const extras = getNested(extrasAll, [enrollment.classId, String(yearNum), String(termNum)]) || {};
+        const studentExtras = extras[studentId] || {};
 
-        // Grading system
-        const settings = readFile(files.settings);
-        const gradingSystem = settings.gradingSystem || {
-            'A': { min: 80, max: 100, remark: 'Excellent' },
-            'B': { min: 70, max: 79, remark: 'Very Good' },
-            'C': { min: 60, max: 69, remark: 'Good' },
-            'D': { min: 50, max: 59, remark: 'Satisfactory' },
-            'E': { min: 40, max: 49, remark: 'Fair' },
-            'F': { min: 0, max: 39, remark: 'Poor' }
-        };
-
-        function calculateGrade(percentage) {
-            for (const [grade, range] of Object.entries(gradingSystem)) {
-                if (percentage >= range.min && percentage <= range.max) {
-                    return grade;
-                }
-            }
-            return 'F';
-        }
-
-        function getGradeRemark(grade) {
-            return gradingSystem[grade]?.remark || '';
-        }
-
-        // Build report card
-        const subjects = [];
-        let totalScore = 0;
-        let subjectCount = 0;
-
-        for (const subject of classSubjects) {
-            const subjectMarks = studentMarks[subject.id] || {};
-            const cat1 = subjectMarks['CAT 1'] || 0;
-            const cat2 = subjectMarks['CAT 2'] || 0;
-            const exam = subjectMarks['Exam'] || 0;
-
-            const total = cat1 + cat2 + exam;
-            const avg = (cat1 + cat2 + exam) / 3;
-            const grade = calculateGrade(avg);
-            const remark = getGradeRemark(grade);
-
-            const initialsKey = `${student.id}_${subject.id}`;
-            const initials = classInitials[initialsKey] || '';
-
-            subjects.push({
-                subjectId: subject.id,
-                subjectName: subject.name,
-                subjectCode: subject.code,
-                cat1: cat1 || null,
-                cat2: cat2 || null,
-                exam: exam || null,
-                total: total,
-                average: avg,
-                grade: grade,
-                remark: remark,
-                initials: initials
+        let reportCard;
+        if (level === 'Nursery') {
+            const nurseryMarksAll = readFile(reportCardFiles.nurseryMarks);
+            const classNurseryMarks = getNested(nurseryMarksAll, [enrollment.classId, String(yearNum), String(termNum)]) || {};
+            const studentDomainMarks = classNurseryMarks[studentId] || {};
+            const domains = template.domainsConfig?.domains || [];
+            const domainResults = domains.map(d => {
+                const entry = studentDomainMarks[d.id] || {};
+                const score = typeof entry.score === 'number' ? entry.score : 0;
+                const graded = findGradeForScore(scale, score);
+                return { domainId: d.id, domainName: d.name, score, rating: graded.label || graded.grade || '', remark: graded.remark || '', comment: entry.comment || '' };
             });
+            const scored = domainResults.filter(d => d.score > 0);
+            const avg = scored.length > 0 ? scored.reduce((s, d) => s + d.score, 0) / scored.length : 0;
+            reportCard = {
+                id: `preview_${studentId}`, studentId, isPreview: true,
+                studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                admissionNumber: student.admissionNumber || 'N/A',
+                className: classObj?.name || 'N/A', classId: enrollment.classId, level, term: termNum, year: yearNum,
+                templateId: template.id, domains: domainResults, overallAverage: avg,
+                attendance: studentExtras.attendancePresent !== undefined ? `${studentExtras.attendancePresent}/${studentExtras.attendanceTotal || ''}` : '',
+                conduct: studentExtras.conduct || '',
+                classTeacherRemark: studentExtras.classTeacherRemark || findSuggestedComment(bank, 'classTeacher', avg),
+                headTeacherRemark: studentExtras.headTeacherRemark || findSuggestedComment(bank, 'headTeacher', avg),
+                nextTermDate: studentExtras.nextTermDate || '', schoolInfo, generatedAt: new Date().toISOString()
+            };
+        } else {
+            const assessmentStructures = readFile(reportCardFiles.assessmentStructures);
+            const structure = template.assessmentStructureId ? assessmentStructures[template.assessmentStructureId] : null;
+            const allSubjects = readFile(files.subjects);
+            const classSubjects = allSubjects.filter(s => s.classId === enrollment.classId || s.classId === 'all' || s.classId === null);
+            const allMarks = readFile(reportCardFiles.marks);
+            const classMarks = getNested(allMarks, [enrollment.classId, String(yearNum), String(termNum)]) || {};
+            const studentMarks = classMarks[studentId] || {};
 
-            totalScore += avg;
-            subjectCount++;
+            const averagesForPositions = {};
+            for (const [sid, subjObj] of Object.entries(classMarks)) {
+                const totals = Object.values(subjObj).map(m => computeSubjectTotal(structure, m.components || {})).filter(t => t > 0);
+                if (totals.length > 0) averagesForPositions[sid] = totals.reduce((a, b) => a + b, 0) / totals.length;
+            }
+            const positions = computePositions(averagesForPositions);
+
+            const subjectResults = classSubjects.map(subject => {
+                const entry = studentMarks[subject.id] || { components: {} };
+                const total = computeSubjectTotal(structure, entry.components || {});
+                const graded = findGradeForScore(scale, total);
+                return {
+                    subjectId: subject.id, subjectName: subject.name, subjectCode: subject.code,
+                    components: entry.components || {}, total: total.toFixed(1),
+                    grade: graded.grade || graded.label || '', remark: graded.remark || '', initials: entry.initials || ''
+                };
+            });
+            const scored = subjectResults.filter(s => parseFloat(s.total) > 0);
+            const avg = scored.length > 0 ? scored.reduce((s, x) => s + parseFloat(x.total), 0) / scored.length : 0;
+            const overallGrade = findGradeForScore(scale, avg);
+            const posInfo = positions[studentId] || null;
+
+            reportCard = {
+                id: `preview_${studentId}`, studentId, isPreview: true,
+                studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                admissionNumber: student.admissionNumber || 'N/A',
+                className: classObj?.name || 'N/A', classId: enrollment.classId, level, term: termNum, year: yearNum,
+                templateId: template.id, subjects: subjectResults,
+                totalScore: scored.reduce((s, x) => s + parseFloat(x.total), 0),
+                overallAverage: avg.toFixed(1), overallGrade: overallGrade.grade || overallGrade.label || '', overallRemark: overallGrade.remark || '',
+                position: posInfo ? posInfo.position : null,
+                positionDisplay: posInfo ? `${ordinal(posInfo.position)} out of ${posInfo.outOf}` : 'N/A',
+                attendance: studentExtras.attendancePresent !== undefined ? `${studentExtras.attendancePresent}/${studentExtras.attendanceTotal || ''}` : '',
+                conduct: studentExtras.conduct || '',
+                classTeacherRemark: studentExtras.classTeacherRemark || findSuggestedComment(bank, 'classTeacher', avg),
+                headTeacherRemark: studentExtras.headTeacherRemark || findSuggestedComment(bank, 'headTeacher', avg),
+                nextTermDate: studentExtras.nextTermDate || '', schoolInfo, generatedAt: new Date().toISOString()
+            };
         }
 
-        const overallAverage = subjectCount > 0 ? (totalScore / subjectCount) : 0;
-        const overallGrade = calculateGrade(overallAverage);
-        const overallRemark = getGradeRemark(overallGrade);
-
-        const reportCard = {
-            id: `preview_${studentId}`,
-            studentId: student.id,
-            studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
-            admissionNumber: student.admissionNumber || 'N/A',
-            className: classObj.name,
-            classId: classId,
-            term: termNum,
-            year: yearNum,
-            subjects: subjects,
-            totalScore: totalScore,
-            average: overallAverage,
-            overallGrade: overallGrade,
-            overallRemark: overallRemark,
-            generatedAt: new Date().toISOString(),
-            isPreview: true
-        };
-
-        res.json({ success: true, reportCard: reportCard });
-
+        res.json({ success: true, reportCard, template });
     } catch (error) {
         console.error('Error previewing report card:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ================================================================
-// 6. BULK UPLOAD MARKS
-// ================================================================
-
-app.post('/api/report-cards/class/:classId/marks/bulk', upload.single('file'), async (req, res) => {
-    try {
-        const { classId } = req.params;
-
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: 'No file uploaded' });
-        }
-
-        // Parse the file (CSV or Excel)
-        let workbook;
-        let data;
-        const fileExt = req.file.originalname.split('.').pop().toLowerCase();
-
-        if (fileExt === 'csv') {
-            const csvData = req.file.buffer.toString('utf8');
-            const rows = csvData.split('\n').map(row => row.split(','));
-            data = rows.map(row => row.map(cell => cell.trim()));
-        } else {
-            workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            data = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
-        }
-
-        if (!data || data.length < 2) {
-            return res.status(400).json({ success: false, error: 'File is empty or missing data rows' });
-        }
-
-        // Parse headers
-        const headers = data[0].map(h => String(h).trim());
-
-        // Find columns
-        const colIndex = {
-            studentId: headers.findIndex(h => h && h.toLowerCase().includes('student id')),
-            studentName: headers.findIndex(h => h && h.toLowerCase().includes('student name')),
-            admissionNumber: headers.findIndex(h => h && h.toLowerCase().includes('admission'))
-        };
-
-        // Find subject columns (everything after admission)
-        const subjectColumns = [];
-        for (let i = 0; i < headers.length; i++) {
-            const h = headers[i];
-            if (i <= Math.max(colIndex.studentId, colIndex.studentName, colIndex.admissionNumber)) continue;
-            // Check if it's a subject column (contains assessment type)
-            const parts = h.split(' - ');
-            if (parts.length === 2) {
-                subjectColumns.push({
-                    index: i,
-                    subjectName: parts[0].trim(),
-                    assessmentType: parts[1].trim()
-                });
-            } else {
-                // Try to parse as subject name (without assessment type)
-                subjectColumns.push({
-                    index: i,
-                    subjectName: h.trim(),
-                    assessmentType: 'Total'
-                });
-            }
-        }
-
-        // Get subjects for this class
-        const allSubjects = readFile(files.subjects);
-        const classSubjects = allSubjects.filter(s =>
-            s.classId === classId || s.classId === 'all' || s.classId === null
-        );
-
-        // Map subject names to subject IDs
-        const subjectMap = {};
-        for (const subject of classSubjects) {
-            subjectMap[subject.name.toLowerCase()] = subject.id;
-            subjectMap[subject.code?.toLowerCase()] = subject.id;
-        }
-
-        // Process rows
-        let allMarks = readFile(reportFiles.marks);
-        if (!allMarks[classId]) allMarks[classId] = {};
-
-        let processed = 0;
-        let errors = [];
-
-        for (let i = 1; i < data.length; i++) {
-            const row = data[i];
-            if (!row || row.every(cell => !cell || String(cell).trim() === '')) continue;
-
-            let studentId = null;
-            let studentName = '';
-
-            // Find student by admission number or name
-            if (colIndex.admissionNumber !== -1 && row[colIndex.admissionNumber]) {
-                const admission = String(row[colIndex.admissionNumber]).trim();
-                const students = readFile(files.students);
-                const student = students.find(s => s.admissionNumber === admission);
-                if (student) {
-                    studentId = student.id;
-                    studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim();
-                }
-            }
-
-            if (!studentId && colIndex.studentName !== -1 && row[colIndex.studentName]) {
-                const name = String(row[colIndex.studentName]).trim().toLowerCase();
-                const students = readFile(files.students);
-                const student = students.find(s =>
-                    `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase().includes(name) ||
-                    `${s.lastName || ''} ${s.firstName || ''}`.toLowerCase().includes(name)
-                );
-                if (student) {
-                    studentId = student.id;
-                    studentName = `${student.firstName || ''} ${student.lastName || ''}`.trim();
-                }
-            }
-
-            if (!studentId) {
-                errors.push(`Row ${i}: Could not identify student`);
-                continue;
-            }
-
-            if (!allMarks[classId][studentId]) {
-                allMarks[classId][studentId] = {};
-            }
-
-            // Process each subject column
-            for (const col of subjectColumns) {
-                const value = row[col.index] ? String(row[col.index]).trim() : '';
-                if (value === '' || value === '-') continue;
-
-                const subjectId = subjectMap[col.subjectName.toLowerCase()];
-                if (!subjectId) {
-                    errors.push(`Row ${i}: Subject "${col.subjectName}" not found for this class`);
-                    continue;
-                }
-
-                const numValue = parseFloat(value);
-                if (isNaN(numValue)) {
-                    errors.push(`Row ${i}: Invalid value for ${col.subjectName}: "${value}"`);
-                    continue;
-                }
-
-                if (!allMarks[classId][studentId][subjectId]) {
-                    allMarks[classId][studentId][subjectId] = {};
-                }
-
-                // If it's a total, distribute to all assessment types
-                if (col.assessmentType === 'Total') {
-                    // Distribute evenly or just store as total?
-                    // For simplicity, store as a special "Total" field
-                    allMarks[classId][studentId][subjectId]['Total'] = numValue;
-                } else {
-                    allMarks[classId][studentId][subjectId][col.assessmentType] = numValue;
-                }
-
-                processed++;
-            }
-        }
-
-        // Save marks
-        saveFile(reportFiles.marks, allMarks);
-
-        res.json({
-            success: true,
-            message: `Bulk upload complete. Processed ${processed} marks for ${Object.keys(allMarks[classId]).length} students`,
-            processed: processed,
-            students: Object.keys(allMarks[classId]).length,
-            errors: errors.slice(0, 20),
-            errorCount: errors.length
-        });
-
-    } catch (error) {
-        console.error('Error in bulk upload:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ================================================================
-// 7. REPORT CARD STATISTICS
-// ================================================================
+// ============================================================================
+// 10. CLASS-LEVEL STATISTICS (grade distribution, subject averages, etc.)
+// ============================================================================
 
 app.get('/api/report-cards/class/:classId/stats', (req, res) => {
     try {
         const { classId } = req.params;
         const { term, year } = req.query;
-
         const termNum = parseInt(term) || 1;
         const yearNum = parseInt(year) || new Date().getFullYear();
 
-        // Get generated report cards for this class/term/year
-        const allGenerated = readFile(reportFiles.generated);
-        const classReportCards = allGenerated.filter(r =>
-            r.classId === classId && r.term === termNum && r.year === yearNum
-        );
-
-        // Get marks for this class
-        const allMarks = readFile(reportFiles.marks);
-        const classMarks = allMarks[classId] || {};
-
-        // Get students in this class
-        const students = readFile(files.students);
-        const enrollments = readFile(files.enrollments);
-        const classEnrollments = enrollments.filter(e =>
-            e.classId === classId && e.academicYear === yearNum && e.isCurrent === true
-        );
-        const studentIds = classEnrollments.map(e => e.studentId);
-        const classStudents = students.filter(s => studentIds.includes(s.id) && s.status === 'Active');
-
-        // Get subjects for this class
-        const allSubjects = readFile(files.subjects);
-        const classSubjects = allSubjects.filter(s =>
-            s.classId === classId || s.classId === 'all' || s.classId === null
-        );
-
-        // Grading system
-        const settings = readFile(files.settings);
-        const gradingSystem = settings.gradingSystem || {
-            'A': { min: 80, max: 100, remark: 'Excellent' },
-            'B': { min: 70, max: 79, remark: 'Very Good' },
-            'C': { min: 60, max: 69, remark: 'Good' },
-            'D': { min: 50, max: 59, remark: 'Satisfactory' },
-            'E': { min: 40, max: 49, remark: 'Fair' },
-            'F': { min: 0, max: 39, remark: 'Poor' }
-        };
-
-        function calculateGrade(percentage) {
-            for (const [grade, range] of Object.entries(gradingSystem)) {
-                if (percentage >= range.min && percentage <= range.max) {
-                    return grade;
-                }
-            }
-            return 'F';
+        const classes = readFile(files.classes);
+        const classObj = classes.find(c => c.id === classId);
+        const level = classObj ? (classObj.level || 'UpperPrimary') : 'UpperPrimary';
+        if (level === 'Nursery') {
+            return res.json({ success: true, stats: { message: 'Statistics are qualitative-only for Nursery; use the domain ratings view.' } });
         }
 
-        // Calculate statistics
-        let totalStudents = classStudents.length;
+        const templates = readFile(reportCardFiles.templates);
+        const template = Object.values(templates).find(t => t.level === level && t.isDefault) || Object.values(templates).find(t => t.level === level);
+        const gradingScales = readFile(reportCardFiles.gradingScales);
+        const scale = template ? gradingScales[template.gradingScaleId] : null;
+        const assessmentStructures = readFile(reportCardFiles.assessmentStructures);
+        const structure = template ? assessmentStructures[template.assessmentStructureId] : null;
+
+        const allSubjects = readFile(files.subjects);
+        const classSubjects = allSubjects.filter(s => s.classId === classId || s.classId === 'all' || s.classId === null);
+
+        const allMarks = readFile(reportCardFiles.marks);
+        const classMarks = getNested(allMarks, [classId, String(yearNum), String(termNum)]) || {};
+
+        const gradeDistribution = {};
+        const subjectAverages = {};
         let studentsWithMarks = 0;
-        let gradeDistribution = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0 };
-        let subjectAverages = {};
         let totalAverage = 0;
 
-        for (const student of classStudents) {
-            const studentMarks = classMarks[student.id] || {};
-            let studentTotal = 0;
-            let studentCount = 0;
-
+        for (const [studentId, subjObj] of Object.entries(classMarks)) {
+            const totals = [];
             for (const subject of classSubjects) {
-                const subjectMarks = studentMarks[subject.id] || {};
-                const cat1 = subjectMarks['CAT 1'] || 0;
-                const cat2 = subjectMarks['CAT 2'] || 0;
-                const exam = subjectMarks['Exam'] || 0;
-
-                const total = cat1 + cat2 + exam;
-                const avg = (cat1 + cat2 + exam) / 3;
-
-                if (cat1 > 0 || cat2 > 0 || exam > 0) {
-                    studentTotal += avg;
-                    studentCount++;
-
-                    if (!subjectAverages[subject.id]) {
-                        subjectAverages[subject.id] = { total: 0, count: 0, name: subject.name };
-                    }
-                    subjectAverages[subject.id].total += avg;
-                    subjectAverages[subject.id].count++;
-                }
+                const entry = subjObj[subject.id];
+                if (!entry) continue;
+                const total = computeSubjectTotal(structure, entry.components || {});
+                if (total <= 0) continue;
+                totals.push(total);
+                if (!subjectAverages[subject.id]) subjectAverages[subject.id] = { name: subject.name, sum: 0, count: 0 };
+                subjectAverages[subject.id].sum += total;
+                subjectAverages[subject.id].count++;
             }
-
-            if (studentCount > 0) {
+            if (totals.length > 0) {
                 studentsWithMarks++;
-                const overallAvg = studentTotal / studentCount;
-                const grade = calculateGrade(overallAvg);
-                gradeDistribution[grade] = (gradeDistribution[grade] || 0) + 1;
-                totalAverage += overallAvg;
+                const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
+                totalAverage += avg;
+                const g = findGradeForScore(scale, avg);
+                const key = g.grade || g.label || 'N/A';
+                gradeDistribution[key] = (gradeDistribution[key] || 0) + 1;
             }
         }
 
-        // Calculate subject averages
-        const subjectAverageList = Object.values(subjectAverages).map(s => ({
-            subjectId: s.id,
-            subjectName: s.name,
-            average: s.count > 0 ? (s.total / s.count) : 0,
-            studentCount: s.count
-        })).sort((a, b) => b.average - a.average);
-
-        const overallClassAverage = studentsWithMarks > 0 ? (totalAverage / studentsWithMarks) : 0;
-        const overallGrade = calculateGrade(overallClassAverage);
+        const subjectAverageList = Object.values(subjectAverages)
+            .map(s => ({ subjectName: s.name, average: s.count > 0 ? (s.sum / s.count) : 0, studentCount: s.count }))
+            .sort((a, b) => b.average - a.average);
 
         res.json({
             success: true,
             stats: {
-                totalStudents: totalStudents,
-                studentsWithMarks: studentsWithMarks,
-                gradeDistribution: gradeDistribution,
+                totalStudents: Object.keys(classMarks).length,
+                studentsWithMarks,
+                gradeDistribution,
                 subjectAverages: subjectAverageList,
-                overallAverage: overallClassAverage,
-                overallGrade: overallGrade,
-                reportCardsGenerated: classReportCards.length
+                overallAverage: studentsWithMarks > 0 ? (totalAverage / studentsWithMarks) : 0
             }
         });
-
     } catch (error) {
-        console.error('Error getting stats:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-console.log('✅ Report Card Backend Routes loaded!');
-console.log('   📄 /api/report-cards/template - Get/Set template');
-console.log('   📝 /api/report-cards/class/:classId/marks - Get/Set marks');
-console.log('   🔤 /api/report-cards/class/:classId/initials - Get/Set initials');
-console.log('   📊 /api/report-cards/class/:classId/generate - Generate report cards');
-console.log('   👁️ /api/report-cards/class/:classId - Get generated report cards');
-console.log('   🗑️ /api/report-cards/:id - Delete report card');
-console.log('   👤 /api/report-cards/student/:studentId/preview - Preview report card');
-console.log('   📈 /api/report-cards/class/:classId/stats - Get statistics');
-console.log('   📤 /api/report-cards/class/:classId/marks/bulk - Bulk upload marks');
-
+console.log('✅ Report Card System v2.0 loaded!');
+console.log('   🎓 Per-level templates (Nursery / Lower Primary / Upper Primary), fully editable');
+console.log('   📊 Custom grading scales (PLE D1–D9, letter grades, qualitative bands)');
+console.log('   🧩 Custom assessment structures (CAT1/CAT2/Exam, BOT/MOT/EOT, or your own)');
+console.log('   💬 Auto-suggested class/head teacher comment banks, editable');
+console.log('   🌱 Separate nursery domain-rating marks vs. academic subject marks');
+console.log('   🥇 Automatic class position computation');
+console.log('   🖨️  Sample-data live template preview endpoint');
 
 // ==================== PARENT PORTAL BACKEND ROUTES ====================
 
