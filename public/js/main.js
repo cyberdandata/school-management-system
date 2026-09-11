@@ -24539,10 +24539,14 @@ async function showFeeManagement() {
 // PAYMENT HISTORY TABLE — MODERN EDITION (logic unchanged, visuals rebuilt)
 // ============================================================================
 
+// ============================================================================
+// PAYMENT HISTORY TABLE — MODERN EDITION (logic unchanged, visuals rebuilt)
+// ============================================================================
+
 let paymentHistoryLoaded = false;
 
 async function loadPaymentHistoryIntoTable() {
-    console.log('loadPaymentHistoryIntoTable - MODERN EDITION v9.0 (Cash vs Items kept separate)');
+    console.log('loadPaymentHistoryIntoTable - MODERN EDITION v9.1 (Cash vs Items kept separate + safe receipt wiring)');
 
     const container = document.getElementById('paymentHistoryTableContainer');
     if (!container) return;
@@ -24760,6 +24764,17 @@ async function loadPaymentHistoryIntoTable() {
 
         function formatMoney(amount) { return Math.round(amount || 0).toLocaleString('en-US'); }
         function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+        // NEW: escapeAttr escapes quotes/apostrophes/&/< so receipt numbers with spaces or quotes
+        // can live safely inside HTML attributes without breaking the markup.
+        function escapeAttr(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
 
         // ================================================================
         // BUILD TABLE — modern styling
@@ -24817,7 +24832,9 @@ async function loadPaymentHistoryIntoTable() {
                         defaultAmount: item._defaultAmount || 0, defaultQuantity: item._defaultQuantity || 1,
                         unitPrice: item._unitPrice || 1, statusText: item._statusText || 'Not Paid',
                         statusClass: item._statusClass || 'bg-rose-50 text-rose-600', componentName: componentName,
-                        periodType: item._periodType || item.periodType
+                        periodType: item._periodType || item.periodType,
+                        customAmount: item._customAmount || null,
+                        customQuantity: item._customQuantity || null
                     });
                 }
             };
@@ -24903,7 +24920,7 @@ async function loadPaymentHistoryIntoTable() {
                 <tr class="payment-main-row cursor-pointer hover:bg-slate-50 transition-colors" id="${mainRowId}" data-detail-id="${detailRowId}">
                     <td class="p-2.5 text-center">${hasDetails ? `<i class="fas fa-chevron-down text-slate-400 expand-icon transition-transform text-xs" id="expand_icon_${safeReceipt}_${idx}"></i>` : ''}</td>
                     <td class="p-2.5 whitespace-nowrap text-slate-500 text-xs">${new Date(payment.date).toLocaleDateString()}</td>
-                    <td class="p-2.5 font-mono-num text-xs font-semibold text-indigo-600">${payment.receiptNumber || 'N/A'}</td>
+                    <td class="p-2.5 font-mono-num text-xs font-semibold text-indigo-600">${escapeHtml(payment.receiptNumber || 'N/A')}</td>
                     <td class="p-2.5 font-semibold text-slate-700">${escapeHtml(payment.studentName || 'N/A')}</td>
                     ${groupCells}
                     <td class="p-2.5 text-right font-bold font-mono-num text-slate-800">
@@ -24912,9 +24929,12 @@ async function loadPaymentHistoryIntoTable() {
                     </td>
                     <td class="p-2.5"><span class="db-badge ${mm.chip}"><i class="fas ${mm.icon} mr-1"></i>${(payment.method || 'CASH').toUpperCase()}</span></td>
                     <td class="p-2.5 text-center">
-                  <button type="button" class="print-receipt-btn text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center mx-auto" title="Print Receipt" data-receipt="${escapeAttr(payment.receiptNumber)}">
-    <i class="fas fa-print text-xs"></i>
-</button>
+                        <button type="button"
+                                class="print-receipt-btn text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center mx-auto"
+                                title="Print Receipt"
+                                data-receipt="${escapeAttr(payment.receiptNumber || '')}">
+                            <i class="fas fa-print text-xs"></i>
+                        </button>
                     </td>
                 </tr>
             `;
@@ -24926,9 +24946,9 @@ async function loadPaymentHistoryIntoTable() {
                             <div class="p-4 bg-slate-50 border-t border-b border-slate-100">
                                 <div class="db-card overflow-hidden">
                                     <div class="px-4 py-3 text-white flex items-center justify-between flex-wrap gap-2" style="background:linear-gradient(115deg,#4F5FE8,#2F8FE0);">
-                                        <p class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-receipt"></i>Payment Details — ${payment.receiptNumber}</p>
+                                        <p class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-receipt"></i>Payment Details — ${escapeHtml(payment.receiptNumber)}</p>
                                         <div class="flex gap-2 text-[11px]">
-                                            ${payment._appliedBursary ? `<span class="db-chip px-2 py-1 rounded-lg">Bursary: ${payment._appliedBursary.name}${payment._appliedBursary.isCustom ? ' (Custom)' : ''}</span>` : ''}
+                                            ${payment._appliedBursary ? `<span class="db-chip px-2 py-1 rounded-lg">Bursary: ${escapeHtml(payment._appliedBursary.name)}${payment._appliedBursary.isCustom ? ' (Custom)' : ''}</span>` : ''}
                                             ${payment._discountAmount > 0 ? `<span class="db-chip px-2 py-1 rounded-lg">Discount: UGX ${formatMoney(payment._discountAmount)}</span>` : ''}
                                         </div>
                                     </div>
@@ -24939,7 +24959,7 @@ async function loadPaymentHistoryIntoTable() {
                                                     <div class="flex items-center gap-2">
                                                         <i class="fas fa-money-bill-wave text-indigo-500 text-lg"></i>
                                                         <span class="font-semibold text-slate-700">Tuition Fee</span>
-                                                        ${payment._appliedBursary ? `<span class="db-badge bg-emerald-50 text-emerald-700">${payment._appliedBursary.name}</span>` : ''}
+                                                        ${payment._appliedBursary ? `<span class="db-badge bg-emerald-50 text-emerald-700">${escapeHtml(payment._appliedBursary.name)}</span>` : ''}
                                                     </div>
                                                     <div class="text-right">
                                                         <div class="font-bold font-mono-num text-emerald-600 text-base">UGX ${formatMoney(payment._tuitionPaid)}</div>
@@ -25023,7 +25043,7 @@ async function loadPaymentHistoryIntoTable() {
                                                                         let paymentDetail = '';
                                                                         if (item.paymentType === 'paid_cash') {
                                                                             const remaining = Math.max(0, item.expectedAmount - item.amount);
-                                                                            const pct = Math.min(100, (item.amount / item.expectedAmount) * 100);
+                                                                            const pct = item.expectedAmount > 0 ? Math.min(100, (item.amount / item.expectedAmount) * 100) : 0;
                                                                             paymentDetail = `
                                                                                 <div class="mt-2">
                                                                                     <div class="flex justify-between text-[11px] mb-1"><span class="text-slate-400">Paid Cash</span><span class="font-semibold font-mono-num text-emerald-600">UGX ${formatMoney(item.amount)}</span></div>
@@ -25077,8 +25097,8 @@ async function loadPaymentHistoryIntoTable() {
                                             }).join('')}
                                         </div>
 
-                                        ${payment.reference ? `<div class="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100"><p class="text-xs text-slate-500"><i class="fas fa-hashtag text-slate-300 mr-1.5"></i>Reference: <span class="font-mono-num">${payment.reference}</span></p></div>` : ''}
-                                        ${payment.notes ? `<div class="mt-2 p-3 bg-amber-50 rounded-xl border border-amber-100"><p class="text-xs text-amber-700"><i class="fas fa-pen mr-1.5"></i>Notes: ${payment.notes}</p></div>` : ''}
+                                        ${payment.reference ? `<div class="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100"><p class="text-xs text-slate-500"><i class="fas fa-hashtag text-slate-300 mr-1.5"></i>Reference: <span class="font-mono-num">${escapeHtml(payment.reference)}</span></p></div>` : ''}
+                                        ${payment.notes ? `<div class="mt-2 p-3 bg-amber-50 rounded-xl border border-amber-100"><p class="text-xs text-amber-700"><i class="fas fa-pen mr-1.5"></i>Notes: ${escapeHtml(payment.notes)}</p></div>` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -25109,6 +25129,27 @@ async function loadPaymentHistoryIntoTable() {
                     }
                 });
             }
+        });
+
+        // ================================================================
+        // NEW: wire up the Print Receipt buttons via event listener instead
+        // of inline onclick. This is what fixes the "record not found" bug —
+        // the receipt number now lives safely inside a data-receipt attribute
+        // (escaped with escapeAttr) and can contain any character including
+        // quotes, apostrophes, slashes, spaces, etc., without breaking the
+        // HTML or mangling what's passed to printPaymentReceipt().
+        // ================================================================
+        document.querySelectorAll('.print-receipt-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                const receipt = this.getAttribute('data-receipt');
+                if (!receipt) {
+                    alert('Receipt number is missing for this payment.');
+                    return;
+                }
+                printPaymentReceipt(receipt);
+            });
         });
 
         initializePaymentHistoryFilters();
@@ -25216,14 +25257,31 @@ function getTermName(term) {
 // ============================================================================
 // PRINT PAYMENT RECEIPT — kept as-is (already a distinct, polished paper
 // receipt design system with its own ink/paper aesthetic). Logic unchanged.
+//
+// NOTE: The matching is also now more forgiving — we trim and normalize
+// both sides and do the lookup in three passes (exact, case-insensitive,
+// trimmed, then substring). The real bug fix was on the button-wiring side
+// (see the .print-receipt-btn listener above), but this makes the lookup
+// itself bulletproof against stray whitespace from manually-typed receipt
+// numbers too.
 // ============================================================================
 async function printPaymentReceipt(receiptNumber) {
-    console.log('printPaymentReceipt called for receipt:', receiptNumber);
+    console.log('printPaymentReceipt called for receipt:', JSON.stringify(receiptNumber));
 
-    if (!receiptNumber || receiptNumber === 'undefined' || receiptNumber === 'null') {
+    if (receiptNumber === null || receiptNumber === undefined) {
         alert('Invalid receipt number. Cannot print receipt.');
         return;
     }
+
+    const wantedRaw = String(receiptNumber);
+    const wantedTrimmed = wantedRaw.trim();
+
+    if (!wantedTrimmed || wantedTrimmed === 'undefined' || wantedTrimmed === 'null') {
+        alert('Invalid receipt number. Cannot print receipt.');
+        return;
+    }
+
+    const wantedLower = wantedTrimmed.toLowerCase();
 
     try {
         const [paymentsRes, studentsRes, feeStructuresRes, feeAssignmentsRes, feeBursariesRes] = await Promise.all([
@@ -25244,14 +25302,31 @@ async function printPaymentReceipt(receiptNumber) {
         let feeBursaries = await feeBursariesRes.json();
         feeBursaries = Array.isArray(feeBursaries) ? feeBursaries : [];
 
-        let payment = allPayments.find(p => p.receiptNumber === receiptNumber);
-        if (!payment) payment = allPayments.find(p => p.receiptNumber?.toLowerCase() === receiptNumber.toLowerCase());
-        if (!payment) payment = allPayments.find(p => p.receiptNumber?.includes(receiptNumber) || receiptNumber.includes(p.receiptNumber));
+        const paymentsArray = Array.isArray(allPayments) ? allPayments : [];
+
+        // ---- Robust multi-pass lookup ----
+        let payment =
+            // 1. exact match (raw)
+            paymentsArray.find(p => p && p.receiptNumber === wantedRaw) ||
+            // 2. exact match after trim on both sides
+            paymentsArray.find(p => p && typeof p.receiptNumber === 'string' && p.receiptNumber.trim() === wantedTrimmed) ||
+            // 3. case-insensitive exact match
+            paymentsArray.find(p => p && typeof p.receiptNumber === 'string' && p.receiptNumber.trim().toLowerCase() === wantedLower) ||
+            // 4. substring (either direction), still trimmed/case-insensitive
+            paymentsArray.find(p => {
+                if (!p || typeof p.receiptNumber !== 'string') return false;
+                const stored = p.receiptNumber.trim().toLowerCase();
+                return stored.includes(wantedLower) || wantedLower.includes(stored);
+            });
 
         if (!payment) {
-            alert(`Payment record not found for receipt: ${receiptNumber}`);
+            console.warn('printPaymentReceipt: no match found for', JSON.stringify(wantedRaw));
+            console.warn('Available receipt numbers:', paymentsArray.map(p => p && p.receiptNumber).filter(Boolean));
+            alert(`Payment record not found for receipt: ${wantedRaw}`);
             return;
         }
+
+        console.log('printPaymentReceipt: matched payment ->', payment.receiptNumber, '(id:', payment.id, ')');
 
         const student = students.find(s => s.id === payment.studentId);
         const assignment = feeAssignments.find(a => a.studentId === payment.studentId) || {};
@@ -25321,24 +25396,24 @@ async function printPaymentReceipt(receiptNumber) {
             if (!fs || !fs.activityComponents) return unpaidItems;
 
             const paymentItems = [];
-            for (const payment of studentPayments) {
+            for (const p of studentPayments) {
                 const processedKeys = new Set();
 
                 const processItem = (item, periodType) => {
                     const compName = (item.componentName || '').trim();
                     const itName = (item.itemName || item.name || '').trim();
                     const pType = periodType || item.periodType || 'termly';
-                    const key = `${payment.id}_${compName}_${itName}_${pType}`;
+                    const key = `${p.id}_${compName}_${itName}_${pType}`;
                     if (processedKeys.has(key)) return;
                     processedKeys.add(key);
 
                     const cash = (item.paymentType === 'paid_cash') ? (item.amountPaid || 0) : 0;
                     const items = (item.paymentType === 'brought_item') ? (item.itemsBrought || 0) : 0;
-                    paymentItems.push({ componentName: compName, itemName: itName, periodType: pType, cash, items, payment });
+                    paymentItems.push({ componentName: compName, itemName: itName, periodType: pType, cash, items, payment: p });
                 };
 
-                if (payment.activityItemPayments) for (const item of payment.activityItemPayments) processItem(item, item.periodType || 'termly');
-                if (payment.paymentsByPeriodType) for (const period of ['one_time', 'termly', 'yearly']) for (const item of (payment.paymentsByPeriodType[period] || [])) processItem(item, period);
+                if (p.activityItemPayments) for (const item of p.activityItemPayments) processItem(item, item.periodType || 'termly');
+                if (p.paymentsByPeriodType) for (const period of ['one_time', 'termly', 'yearly']) for (const item of (p.paymentsByPeriodType[period] || [])) processItem(item, period);
             }
 
             for (const component of fs.activityComponents) {
@@ -25430,7 +25505,7 @@ async function printPaymentReceipt(receiptNumber) {
             return unpaidItems;
         }
 
-        function getPaidItemsForPayment(payment, fs, studentData) {
+        function getPaidItemsForPayment(p, fs, studentData) {
             const items = [];
             const processedKeys = new Set();
 
@@ -25485,12 +25560,12 @@ async function printPaymentReceipt(receiptNumber) {
                     remainingAmount: remainingAmount, remainingQuantity: remainingQuantity, balanceDisplayText: balanceDisplayText,
                     isFullyPaid: isFullyPaid, isOverDelivered: isOverDelivered, isCustomized: expected.isCustomized,
                     customReason: expected.reason, customBadge: expected.isCustomized ? ' *' : '', defaultAmount: expected.defaultAmount,
-                    defaultQuantity: expected.defaultQuantity, paymentType: item.paymentType
+                    defaultQuantity: expected.defaultQuantity, paymentType: item.paymentType, customAmount: expected.customAmount
                 });
             }
 
-            if (payment.activityItemPayments) for (const item of payment.activityItemPayments) processPaidItem(item, item.periodType || 'termly');
-            if (payment.paymentsByPeriodType) for (const period of ['one_time', 'termly', 'yearly']) for (const item of (payment.paymentsByPeriodType[period] || [])) processPaidItem(item, period);
+            if (p.activityItemPayments) for (const item of p.activityItemPayments) processPaidItem(item, item.periodType || 'termly');
+            if (p.paymentsByPeriodType) for (const period of ['one_time', 'termly', 'yearly']) for (const item of (p.paymentsByPeriodType[period] || [])) processPaidItem(item, period);
             return items;
         }
 
@@ -25544,9 +25619,9 @@ async function printPaymentReceipt(receiptNumber) {
                 }
             }
             const termPayments = allPaymentsData.filter(p => p.studentId === studentData?.id && p.term === currentTerm && p.academicYear === currentYear.toString());
-            const tuitionPaid = termPayments.reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
-            const balance = tuition - tuitionPaid;
-            return { expected: tuition, paid: tuitionPaid, balance: balance, isFullyPaid: balance <= 0, discountAmount: discountAmount, bursaryName: bursaryName };
+            const tuitionPaidSum = termPayments.reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
+            const balance = tuition - tuitionPaidSum;
+            return { expected: tuition, paid: tuitionPaidSum, balance: balance, isFullyPaid: balance <= 0, discountAmount: discountAmount, bursaryName: bursaryName };
         }
 
         const tuitionBalance = getTuitionBalance(student, feeStructure, allPayments, assignment, feeBursaries);
@@ -25620,7 +25695,7 @@ async function printPaymentReceipt(receiptNumber) {
                     }
                     const customBadge = item.isCustomized ? ' *' : '';
                     const reasonDisplay = item.isCustomized && item.customReason ? `<span class="custom-reason">(${escapeHtml(item.customReason)})</span>` : '';
-                    const hasCustomAmount = item.isCustomized && item.customAmount !== null && item.customAmount !== item.defaultAmount;
+                    const hasCustomAmount = item.isCustomized && item.customAmount !== null && item.customAmount !== undefined && item.customAmount !== item.defaultAmount;
                     const amountDisplay = hasCustomAmount ? `<span class="custom-amount">Custom: UGX ${Math.round(item.customAmount).toLocaleString()}</span>` : '';
                     html += `<div class="outstanding-item"><span class="outstanding-item-name">${escapeHtml(item.name)}${customBadge} ${reasonDisplay} ${amountDisplay}</span><span class="outstanding-item-amount">${display}</span></div>`;
                 }
@@ -25674,7 +25749,7 @@ async function printPaymentReceipt(receiptNumber) {
                         quantityDisplay = `${item.itemsBrought} items`;
                         if (isOverDelivered) quantityDisplay += ` (${item.itemsBrought - item.quantityRequired} extra)`;
                     }
-                    const hasCustomAmount = item.isCustomized && item.customAmount !== null && item.customAmount !== item.defaultAmount;
+                    const hasCustomAmount = item.isCustomized && item.customAmount !== null && item.customAmount !== undefined && item.customAmount !== item.defaultAmount;
                     const customAmountDisplay = hasCustomAmount ? `<span class="custom-amount">Custom: UGX ${Math.round(item.customAmount).toLocaleString()}</span>` : '';
                     let statusText = '';
                     if (isFullyPaid && !isOverDelivered) statusText = (item.paymentType === 'brought_item') ? 'Fully Brought' : 'Fully Paid';
@@ -25723,7 +25798,7 @@ async function printPaymentReceipt(receiptNumber) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt ${receiptNo}</title>
+    <title>Receipt ${escapeHtml(receiptNo)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -25862,7 +25937,7 @@ async function printPaymentReceipt(receiptNumber) {
             ${schoolPhone ? `<div class="school-meta">Tel: ${schoolPhone}</div>` : ''}
             ${schoolEmail ? `<div class="school-meta">${schoolEmail}</div>` : ''}
             <div class="receipt-badge">Official Receipt</div>
-            <div class="receipt-number"># ${receiptNo}</div>
+            <div class="receipt-number"># ${escapeHtml(receiptNo)}</div>
         </div>
 
         <div class="info-section">
@@ -25908,7 +25983,7 @@ async function printPaymentReceipt(receiptNumber) {
             <div class="footer-thanks">Thank you for your payment</div>
             <div class="footer-message">This is a computer-generated receipt.<br>Please keep it for your records.</div>
             <div class="footer-divider"></div>
-            <div class="print-barcode">${receiptNo}</div>
+            <div class="print-barcode">${escapeHtml(receiptNo)}</div>
         </div>
     </div>
 
@@ -25935,8 +26010,7 @@ window.setupPaymentHistoryTab = setupPaymentHistoryTab;
 window.toggleStatusGroup = toggleStatusGroup;
 window.printPaymentReceipt = printPaymentReceipt;
 
-console.log('✅ Fee Management v13.0 (Modern Edition) loaded — teal/indigo ledger design system');
-
+console.log('✅ Fee Management v13.1 (Modern Edition) loaded — teal/indigo ledger design system');
 // ==================== COMPLETE FIXED loadCollectionForm ====================
 // Version: FINAL - No more "not defined" errors
 
