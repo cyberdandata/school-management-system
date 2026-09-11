@@ -25265,11 +25265,20 @@ function getTermName(term) {
 // itself bulletproof against stray whitespace from manually-typed receipt
 // numbers too.
 // ============================================================================
+// ============================================================================
+// PRINT PAYMENT RECEIPT — DIAGNOSTIC EDITION
+// This version tells you EXACTLY what's being compared when a lookup fails.
+// ============================================================================
 async function printPaymentReceipt(receiptNumber) {
-    console.log('printPaymentReceipt called for receipt:', JSON.stringify(receiptNumber));
+    console.log('═══════════════════════════════════════════════');
+    console.log('🖨️  printPaymentReceipt CALLED');
+    console.log('   Raw value:', JSON.stringify(receiptNumber));
+    console.log('   Type:', typeof receiptNumber);
+    console.log('   Length:', String(receiptNumber ?? '').length);
+    console.log('═══════════════════════════════════════════════');
 
     if (receiptNumber === null || receiptNumber === undefined) {
-        alert('Invalid receipt number. Cannot print receipt.');
+        alert('Invalid receipt number: null or undefined. Cannot print.');
         return;
     }
 
@@ -25277,7 +25286,7 @@ async function printPaymentReceipt(receiptNumber) {
     const wantedTrimmed = wantedRaw.trim();
 
     if (!wantedTrimmed || wantedTrimmed === 'undefined' || wantedTrimmed === 'null') {
-        alert('Invalid receipt number. Cannot print receipt.');
+        alert(`Invalid receipt number: empty or placeholder value.\nRaw: ${JSON.stringify(receiptNumber)}`);
         return;
     }
 
@@ -25293,6 +25302,75 @@ async function printPaymentReceipt(receiptNumber) {
         ]);
 
         const allPayments = await paymentsRes.json();
+        const paymentsArray = Array.isArray(allPayments) ? allPayments : [];
+
+        console.log('📦 Payments fetched:', paymentsArray.length);
+        console.log('📦 Looking for:', JSON.stringify(wantedTrimmed));
+        console.log('📦 First 10 receipts in array:',
+            paymentsArray.slice(0, 10).map(p => ({
+                receiptNumber: p?.receiptNumber,
+                type: typeof p?.receiptNumber,
+                id: p?.id
+            }))
+        );
+
+        // ---- Multi-field, multi-pass matching ----
+        const fieldsToCheck = ['receiptNumber', 'receiptNo', 'receipt_number', 'receipt', 'id'];
+        let payment = null;
+        let matchedField = null;
+        let matchedPass = null;
+
+        // Pass 1: exact (raw — no trim, no case change)
+        for (const f of fieldsToCheck) {
+            payment = paymentsArray.find(p => p && p[f] === receiptNumber);
+            if (payment) { matchedField = f; matchedPass = 'exact-raw'; break; }
+        }
+        // Pass 2: trimmed, case-insensitive
+        if (!payment) {
+            for (const f of fieldsToCheck) {
+                payment = paymentsArray.find(p => {
+                    const v = p?.[f];
+                    return v !== undefined && v !== null && String(v).trim().toLowerCase() === wantedLower;
+                });
+                if (payment) { matchedField = f; matchedPass = 'trimmed-ci'; break; }
+            }
+        }
+        // Pass 3: substring
+        if (!payment) {
+            for (const f of fieldsToCheck) {
+                payment = paymentsArray.find(p => {
+                    const v = p?.[f];
+                    if (typeof v !== 'string') return false;
+                    const stored = v.trim().toLowerCase();
+                    return stored.includes(wantedLower) || wantedLower.includes(stored);
+                });
+                if (payment) { matchedField = f; matchedPass = 'substring'; break; }
+            }
+        }
+
+        if (!payment) {
+            const available = paymentsArray
+                .map(p => p?.receiptNumber)
+                .filter(Boolean)
+                .slice(0, 20);
+
+            const diag = `❌ Payment record not found\n\n` +
+                `Requested:   ${JSON.stringify(wantedTrimmed)}\n` +
+                `(raw type:   ${typeof receiptNumber})\n` +
+                `(raw length: ${wantedTrimmed.length})\n\n` +
+                `Total payments in file: ${paymentsArray.length}\n` +
+                `Fields checked: ${fieldsToCheck.join(', ')}\n\n` +
+                `First 20 receipts stored:\n` +
+                (available.length ? available.map(r => `  • ${JSON.stringify(r)}`).join('\n') : '  (none)');
+
+            console.error(diag);
+            alert(diag);
+            return;
+        }
+
+        console.log(`✅ Matched on field "${matchedField}" via "${matchedPass}"`);
+
+        // ---- Rest of function continues unchanged ----
         let students = await studentsRes.json();
         students = Array.isArray(students) ? students : [];
         let feeStructures = await feeStructuresRes.json();
@@ -25301,32 +25379,6 @@ async function printPaymentReceipt(receiptNumber) {
         feeAssignments = Array.isArray(feeAssignments) ? feeAssignments : [];
         let feeBursaries = await feeBursariesRes.json();
         feeBursaries = Array.isArray(feeBursaries) ? feeBursaries : [];
-
-        const paymentsArray = Array.isArray(allPayments) ? allPayments : [];
-
-        // ---- Robust multi-pass lookup ----
-        let payment =
-            // 1. exact match (raw)
-            paymentsArray.find(p => p && p.receiptNumber === wantedRaw) ||
-            // 2. exact match after trim on both sides
-            paymentsArray.find(p => p && typeof p.receiptNumber === 'string' && p.receiptNumber.trim() === wantedTrimmed) ||
-            // 3. case-insensitive exact match
-            paymentsArray.find(p => p && typeof p.receiptNumber === 'string' && p.receiptNumber.trim().toLowerCase() === wantedLower) ||
-            // 4. substring (either direction), still trimmed/case-insensitive
-            paymentsArray.find(p => {
-                if (!p || typeof p.receiptNumber !== 'string') return false;
-                const stored = p.receiptNumber.trim().toLowerCase();
-                return stored.includes(wantedLower) || wantedLower.includes(stored);
-            });
-
-        if (!payment) {
-            console.warn('printPaymentReceipt: no match found for', JSON.stringify(wantedRaw));
-            console.warn('Available receipt numbers:', paymentsArray.map(p => p && p.receiptNumber).filter(Boolean));
-            alert(`Payment record not found for receipt: ${wantedRaw}`);
-            return;
-        }
-
-        console.log('printPaymentReceipt: matched payment ->', payment.receiptNumber, '(id:', payment.id, ')');
 
         const student = students.find(s => s.id === payment.studentId);
         const assignment = feeAssignments.find(a => a.studentId === payment.studentId) || {};
@@ -25398,7 +25450,6 @@ async function printPaymentReceipt(receiptNumber) {
             const paymentItems = [];
             for (const p of studentPayments) {
                 const processedKeys = new Set();
-
                 const processItem = (item, periodType) => {
                     const compName = (item.componentName || '').trim();
                     const itName = (item.itemName || item.name || '').trim();
@@ -25406,26 +25457,21 @@ async function printPaymentReceipt(receiptNumber) {
                     const key = `${p.id}_${compName}_${itName}_${pType}`;
                     if (processedKeys.has(key)) return;
                     processedKeys.add(key);
-
                     const cash = (item.paymentType === 'paid_cash') ? (item.amountPaid || 0) : 0;
                     const items = (item.paymentType === 'brought_item') ? (item.itemsBrought || 0) : 0;
                     paymentItems.push({ componentName: compName, itemName: itName, periodType: pType, cash, items, payment: p });
                 };
-
                 if (p.activityItemPayments) for (const item of p.activityItemPayments) processItem(item, item.periodType || 'termly');
                 if (p.paymentsByPeriodType) for (const period of ['one_time', 'termly', 'yearly']) for (const item of (p.paymentsByPeriodType[period] || [])) processItem(item, period);
             }
 
             for (const component of fs.activityComponents) {
                 const periodType = component.periodType || 'termly';
-                let shouldInclude = periodType === 'termly' || periodType === 'one_time' || periodType === 'yearly';
-                if (!shouldInclude) continue;
-
+                if (!(periodType === 'termly' || periodType === 'one_time' || periodType === 'yearly')) continue;
                 const isTransportation = component.name.toLowerCase().includes('transport') || (component.statusGroupName && component.statusGroupName.toLowerCase().includes('transport'));
                 if (isTransportation && studentData && studentData.customTransportation) {
                     if (studentData.customTransportation.hasTransportation === false) continue;
                 }
-
                 for (const item of (component.items || [])) {
                     const itemName = item.name;
                     const expected = getExpectedAmountWithCustomAndScope(studentData, fs, component.name, itemName, periodType);
@@ -25440,17 +25486,14 @@ async function printPaymentReceipt(receiptNumber) {
                         const itemMatch = p.itemName.toLowerCase() === itemName.toLowerCase() || p.itemName.toLowerCase().includes(itemName.toLowerCase()) || itemName.toLowerCase().includes(p.itemName.toLowerCase());
                         return compMatch && itemMatch;
                     });
-
                     const scopedMatches = matchedItems.filter(p => {
                         if (periodType === 'one_time') return true;
                         if (periodType === 'yearly') return parseInt(p.payment.academicYear) === currentYear;
                         return p.payment.term === currentTerm && parseInt(p.payment.academicYear) === currentYear;
                     });
-
                     for (const m of scopedMatches) { scopeCash += m.cash; scopeItems += m.items; }
 
                     let remainingAmount = 0, remainingQuantity = 0, isFullyPaid = false, isOverDelivered = false;
-
                     if (effectivePaymentOption === 'cash_only') {
                         remainingAmount = Math.max(0, effectiveAmount - scopeCash);
                         isFullyPaid = remainingAmount <= 0;
@@ -25485,17 +25528,14 @@ async function printPaymentReceipt(receiptNumber) {
                             displayType = 'mixed';
                         }
                         const statusGroupName = component.statusGroupName || component.name || 'Other';
-                        const isItemCustomized = expected.isCustomized;
-                        const customReason = expected.reason;
-                        const customBadge = isItemCustomized ? ' *' : '';
-
                         unpaidItems.push({
                             name: itemName, componentName: component.name, statusGroupName: statusGroupName, periodType: periodType,
-                            paymentOption: effectivePaymentOption, remainingAmount: remainingAmount, remainingQuantity: remainingQuantity,
-                            displayText: displayText, displayType: displayType, isFullyPaid: false, isOverDelivered: false,
-                            isSpecialItem: isTransportation || effectivePaymentOption === 'cash_only', isTransportation: isTransportation,
+                            paymentOption: effectivePaymentOption, remainingAmount, remainingQuantity,
+                            displayText, displayType, isFullyPaid: false, isOverDelivered: false,
+                            isSpecialItem: isTransportation || effectivePaymentOption === 'cash_only', isTransportation,
                             quantityRequired: effectiveQuantity, totalAmount: effectiveAmount, unitPrice: effectiveUnitPrice,
-                            isCustomized: isItemCustomized, customReason: customReason, customBadge: customBadge,
+                            isCustomized: expected.isCustomized, customReason: expected.reason,
+                            customBadge: expected.isCustomized ? ' *' : '',
                             defaultAmount: expected.defaultAmount, defaultQuantity: expected.defaultQuantity,
                             _scopeCash: scopeCash, _scopeItems: scopeItems
                         });
@@ -25508,12 +25548,10 @@ async function printPaymentReceipt(receiptNumber) {
         function getPaidItemsForPayment(p, fs, studentData) {
             const items = [];
             const processedKeys = new Set();
-
             function processPaidItem(item, periodType) {
                 const key = `${item.componentName}_${item.itemName}_${periodType}`;
                 if (processedKeys.has(key)) return;
                 processedKeys.add(key);
-
                 const paidAmount = (item.paymentType === 'paid_cash') ? (item.amountPaid || 0) : 0;
                 const itemsBrought = (item.paymentType === 'brought_item') ? (item.itemsBrought || 0) : 0;
                 const expected = getExpectedAmountWithCustomAndScope(studentData, fs, item.componentName, item.itemName, periodType);
@@ -25521,20 +25559,17 @@ async function printPaymentReceipt(receiptNumber) {
                 const unitPrice = expected.unitPrice || item.unitPrice || 1;
                 const quantityRequired = expected.quantityRequired || item.quantityRequired || 1;
                 const paymentOption = expected.paymentOption || item.paymentOption || 'either';
-
                 let remainingAmount = 0, remainingQuantity = 0, isFullyPaid = false, isOverDelivered = false;
-
                 if (item.paymentType === 'paid_cash') {
                     isFullyPaid = paidAmount >= totalAmount;
                     remainingAmount = Math.max(0, totalAmount - paidAmount);
                     remainingQuantity = 0;
                     if (!isFullyPaid && paymentOption === 'either' && unitPrice > 0) remainingQuantity = Math.ceil(remainingAmount / unitPrice);
                 } else if (item.paymentType === 'brought_item') {
-                    if (itemsBrought >= quantityRequired) { isFullyPaid = true; remainingAmount = 0; remainingQuantity = 0; }
-                    else { isFullyPaid = false; remainingQuantity = Math.max(0, quantityRequired - itemsBrought); remainingAmount = remainingQuantity * unitPrice; }
+                    if (itemsBrought >= quantityRequired) { isFullyPaid = true; }
+                    else { remainingQuantity = Math.max(0, quantityRequired - itemsBrought); remainingAmount = remainingQuantity * unitPrice; }
                     if (itemsBrought > quantityRequired) { isOverDelivered = true; isFullyPaid = true; }
                 }
-
                 let balanceDisplayText = '';
                 if (!isFullyPaid) {
                     if (paymentOption === 'item_only') balanceDisplayText = `${remainingQuantity} item(s)`;
@@ -25546,36 +25581,29 @@ async function printPaymentReceipt(receiptNumber) {
                         balanceDisplayText = parts.length > 0 ? parts.join(' or ') : `UGX ${Math.round(remainingAmount).toLocaleString()}`;
                     }
                 }
-
                 let periodIcon = '', periodDisplay = '';
                 if (periodType === 'one_time') { periodIcon = '*'; periodDisplay = 'One-Time'; }
                 else if (periodType === 'yearly') { periodIcon = 'Y'; periodDisplay = 'Yearly'; }
                 else { periodIcon = 'T'; periodDisplay = 'Termly'; }
-                const statusGroupName = item.componentName || 'Other';
-
                 items.push({
-                    name: item.itemName, componentName: item.componentName, statusGroupName: statusGroupName, periodType: periodType,
-                    periodIcon: periodIcon, periodDisplay: periodDisplay, paymentOption: paymentOption, totalAmount: totalAmount,
-                    paidAmount: paidAmount, itemsBrought: itemsBrought, quantityRequired: quantityRequired, unitPrice: unitPrice,
-                    remainingAmount: remainingAmount, remainingQuantity: remainingQuantity, balanceDisplayText: balanceDisplayText,
-                    isFullyPaid: isFullyPaid, isOverDelivered: isOverDelivered, isCustomized: expected.isCustomized,
-                    customReason: expected.reason, customBadge: expected.isCustomized ? ' *' : '', defaultAmount: expected.defaultAmount,
-                    defaultQuantity: expected.defaultQuantity, paymentType: item.paymentType, customAmount: expected.customAmount
+                    name: item.itemName, componentName: item.componentName, statusGroupName: item.componentName || 'Other', periodType,
+                    periodIcon, periodDisplay, paymentOption, totalAmount, paidAmount, itemsBrought, quantityRequired, unitPrice,
+                    remainingAmount, remainingQuantity, balanceDisplayText, isFullyPaid, isOverDelivered,
+                    isCustomized: expected.isCustomized, customReason: expected.reason,
+                    customBadge: expected.isCustomized ? ' *' : '',
+                    defaultAmount: expected.defaultAmount, defaultQuantity: expected.defaultQuantity,
+                    paymentType: item.paymentType, customAmount: expected.customAmount
                 });
             }
-
             if (p.activityItemPayments) for (const item of p.activityItemPayments) processPaidItem(item, item.periodType || 'termly');
             if (p.paymentsByPeriodType) for (const period of ['one_time', 'termly', 'yearly']) for (const item of (p.paymentsByPeriodType[period] || [])) processPaidItem(item, period);
             return items;
         }
 
         const unpaidItems = getAllUnpaidItems(student, feeStructure, allPayments);
-        console.log('Unpaid items found:', unpaidItems);
-
         const unpaidByGroup = {};
         let totalCashOutstanding = 0;
         let totalItemsOutstanding = 0;
-
         for (const item of unpaidItems) {
             let groupName = item.statusGroupName || 'Other';
             if (groupName === 'schoolastic requirement') groupName = 'Scholastic Requirements';
@@ -25583,7 +25611,6 @@ async function printPaymentReceipt(receiptNumber) {
             if (groupName === 'Transportation Fee') groupName = 'Transportation';
             if (!unpaidByGroup[groupName]) unpaidByGroup[groupName] = { name: groupName, items: [], totalCash: 0, totalItems: 0, hasCashOnly: false, hasItemOnly: false, hasMixed: false, isTransportation: false, periodType: item.periodType, periodIcon: item.periodIcon || '' };
             unpaidByGroup[groupName].items.push(item);
-
             if (item.paymentOption === 'cash_only' || item.isSpecialItem) {
                 unpaidByGroup[groupName].totalCash += item.remainingAmount;
                 unpaidByGroup[groupName].hasCashOnly = true;
@@ -25621,7 +25648,7 @@ async function printPaymentReceipt(receiptNumber) {
             const termPayments = allPaymentsData.filter(p => p.studentId === studentData?.id && p.term === currentTerm && p.academicYear === currentYear.toString());
             const tuitionPaidSum = termPayments.reduce((sum, p) => sum + (p.tuitionPaid || 0), 0);
             const balance = tuition - tuitionPaidSum;
-            return { expected: tuition, paid: tuitionPaidSum, balance: balance, isFullyPaid: balance <= 0, discountAmount: discountAmount, bursaryName: bursaryName };
+            return { expected: tuition, paid: tuitionPaidSum, balance, isFullyPaid: balance <= 0, discountAmount, bursaryName };
         }
 
         const tuitionBalance = getTuitionBalance(student, feeStructure, allPayments, assignment, feeBursaries);
@@ -25636,7 +25663,6 @@ async function printPaymentReceipt(receiptNumber) {
             });
             const currentKey = `${currentYear}_${currentTerm}`;
             if (!periods.has(currentKey)) periods.set(currentKey, { year: currentYear, term: currentTerm });
-
             let totalBalance = 0;
             for (const [key, data] of periods) {
                 const year = data.year, term = data.term;
@@ -25679,10 +25705,8 @@ async function printPaymentReceipt(receiptNumber) {
             for (const groupName of sortedGroups) {
                 const group = unpaidByGroup[groupName];
                 if (group.items.length === 0) continue;
-                const isTransport = group.isTransportation;
-                const transportLabel = isTransport ? '[BUS] ' : '';
                 const periodLabel = group.periodType === 'one_time' ? 'once' : group.periodType === 'yearly' ? 'year' : 'term';
-                html += `<div class="outstanding-group"><div class="outstanding-group-name">${transportLabel}${escapeHtml(groupName)}<span class="period-tag">${periodLabel}</span></div><div class="outstanding-group-items">`;
+                html += `<div class="outstanding-group"><div class="outstanding-group-name">${group.isTransportation ? '[BUS] ' : ''}${escapeHtml(groupName)}<span class="period-tag">${periodLabel}</span></div><div class="outstanding-group-items">`;
                 for (const item of group.items) {
                     let display = '';
                     if (item.paymentOption === 'cash_only' || item.isSpecialItem) display = `UGX ${Math.round(item.remainingAmount).toLocaleString()}`;
@@ -25693,11 +25717,10 @@ async function printPaymentReceipt(receiptNumber) {
                         if (item.remainingQuantity > 0) parts.push(`${item.remainingQuantity} item(s)`);
                         display = parts.join(' or ');
                     }
-                    const customBadge = item.isCustomized ? ' *' : '';
                     const reasonDisplay = item.isCustomized && item.customReason ? `<span class="custom-reason">(${escapeHtml(item.customReason)})</span>` : '';
                     const hasCustomAmount = item.isCustomized && item.customAmount !== null && item.customAmount !== undefined && item.customAmount !== item.defaultAmount;
                     const amountDisplay = hasCustomAmount ? `<span class="custom-amount">Custom: UGX ${Math.round(item.customAmount).toLocaleString()}</span>` : '';
-                    html += `<div class="outstanding-item"><span class="outstanding-item-name">${escapeHtml(item.name)}${customBadge} ${reasonDisplay} ${amountDisplay}</span><span class="outstanding-item-amount">${display}</span></div>`;
+                    html += `<div class="outstanding-item"><span class="outstanding-item-name">${escapeHtml(item.name)}${item.customBadge} ${reasonDisplay} ${amountDisplay}</span><span class="outstanding-item-amount">${display}</span></div>`;
                 }
                 html += `</div></div>`;
             }
@@ -25732,16 +25755,11 @@ async function printPaymentReceipt(receiptNumber) {
             }
             for (const groupName of Object.keys(paidByGroup)) {
                 const items = paidByGroup[groupName];
-                let displayGroupName = groupName;
-                if (displayGroupName === 'schoolastic requirement') displayGroupName = 'Scholastic Requirements';
-                if (displayGroupName === 'Admission Fee') displayGroupName = 'Admission';
-                if (displayGroupName === 'Transportation Fee') displayGroupName = 'Transportation';
-                html += `<div class="paid-group"><div class="paid-group-name">${escapeHtml(displayGroupName)}</div>`;
+                html += `<div class="paid-group"><div class="paid-group-name">${escapeHtml(groupName)}</div>`;
                 for (const item of items) {
                     if (item.paidAmount === 0 && item.itemsBrought === 0) continue;
                     const isFullyPaid = item.isFullyPaid;
                     const isOverDelivered = item.isOverDelivered;
-                    const customBadge = item.isCustomized ? ' *' : '';
                     const periodLabel = item.periodType === 'one_time' ? 'once' : item.periodType === 'yearly' ? 'year' : 'term';
                     const displayName = item.name || 'Unnamed Item';
                     let quantityDisplay = '';
@@ -25756,7 +25774,7 @@ async function printPaymentReceipt(receiptNumber) {
                     else if (isOverDelivered) statusText = 'Over-delivered';
                     else statusText = 'Partial';
                     const statusClass = isFullyPaid ? (isOverDelivered ? 'credit' : 'paid') : 'partial';
-                    html += `<div class="paid-item ${statusClass}"><div class="paid-item-header"><div class="paid-item-left"><span class="paid-item-name">${escapeHtml(displayName)}${customBadge}</span>${item.isCustomized && item.customReason ? `<span class="custom-reason">(${escapeHtml(item.customReason)})</span>` : ''}${customAmountDisplay}</div><div class="paid-item-right">${item.paymentType === 'brought_item' ? `<span class="paid-item-qty">${quantityDisplay}</span>` : `<span class="paid-item-amount">UGX ${Math.round(item.paidAmount).toLocaleString()}</span>`}</div></div><div class="paid-item-footer"><span class="period-tag">${periodLabel}</span><span class="status-tag ${statusClass}">${statusText}</span>${!isFullyPaid ? `<span class="balance-due">Bal: ${item.balanceDisplayText}</span>` : ''}${isOverDelivered ? '<span class="credit-tag">Over-delivered</span>' : ''}</div></div>`;
+                    html += `<div class="paid-item ${statusClass}"><div class="paid-item-header"><div class="paid-item-left"><span class="paid-item-name">${escapeHtml(displayName)}${item.customBadge}</span>${item.isCustomized && item.customReason ? `<span class="custom-reason">(${escapeHtml(item.customReason)})</span>` : ''}${customAmountDisplay}</div><div class="paid-item-right">${item.paymentType === 'brought_item' ? `<span class="paid-item-qty">${quantityDisplay}</span>` : `<span class="paid-item-amount">UGX ${Math.round(item.paidAmount).toLocaleString()}</span>`}</div></div><div class="paid-item-footer"><span class="period-tag">${periodLabel}</span><span class="status-tag ${statusClass}">${statusText}</span>${!isFullyPaid ? `<span class="balance-due">Bal: ${item.balanceDisplayText}</span>` : ''}${isOverDelivered ? '<span class="credit-tag">Over-delivered</span>' : ''}</div></div>`;
                 }
                 html += `</div>`;
             }
@@ -25781,7 +25799,7 @@ async function printPaymentReceipt(receiptNumber) {
 
         const printWindow = window.open('', '_blank');
         const schoolName = escapeHtml(school.schoolName || 'Eden Junior School');
-        const schoolMotto = escapeHtml(school.motto || 'Nurturing Tomorrow\'s Leaders');
+        const schoolMotto = escapeHtml(school.motto || "Nurturing Tomorrow's Leaders");
         const schoolAddr = escapeHtml(school.address || '');
         const schoolPhone = escapeHtml(school.phone || '');
         const schoolEmail = escapeHtml(school.email || '');
@@ -25796,201 +25814,165 @@ async function printPaymentReceipt(receiptNumber) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt ${escapeHtml(receiptNo)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --ink: #1a1a2e; --ink-light: #4a4a6a; --ink-faint: #8a8a9a;
-            --paper: #ffffff; --paper-warm: #faf9f7;
-            --accent: #c9a96e; --accent-soft: #e8dcc8;
-            --success: #2d6a4f; --success-soft: #d8f3dc;
-            --danger: #9b2226; --danger-soft: #ffccd5;
-            --warning: #b69121; --warning-soft: #fff3cd;
-            --info: #1d3557; --info-soft: #e8f0f2;
-            --divider: #e5e5e5; --divider-dashed: #d0d0d0;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0eeeb; padding: 24px 16px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-        .receipt-paper { width: 100%; max-width: 340px; background: var(--paper); border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06), 0 16px 48px rgba(0,0,0,0.08); padding: 28px 22px 32px; position: relative; overflow: hidden; }
-        .receipt-paper::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E"); pointer-events: none; opacity: 0.6; }
-        .receipt-paper::after { content: ''; position: absolute; bottom: -8px; left: 0; right: 0; height: 16px; background: linear-gradient(135deg, var(--paper) 25%, transparent 25%) -8px 0, linear-gradient(225deg, var(--paper) 25%, transparent 25%) -8px 0, linear-gradient(315deg, var(--paper) 25%, transparent 25%), linear-gradient(45deg, var(--paper) 25%, transparent 25%); background-size: 16px 16px; background-color: transparent; }
-        .header { text-align: center; padding-bottom: 16px; border-bottom: 1px dashed var(--divider-dashed); position: relative; }
-        .logo-ring { width: 44px; height: 44px; margin: 0 auto 10px; border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
-        .school-name { font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: -0.2px; line-height: 1.3; }
-        .school-motto { font-size: 9.5px; color: var(--ink-faint); margin-top: 2px; font-style: italic; letter-spacing: 0.2px; }
-        .school-meta { font-size: 9px; color: var(--ink-faint); margin-top: 4px; line-height: 1.6; }
-        .receipt-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 4px 14px; background: var(--paper-warm); border: 1px solid var(--accent-soft); border-radius: 20px; font-size: 9px; font-weight: 600; color: var(--ink-light); letter-spacing: 1.5px; text-transform: uppercase; }
-        .receipt-badge::before { content: ''; width: 5px; height: 5px; background: var(--accent); border-radius: 50%; }
-        .receipt-number { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; color: var(--ink-light); margin-top: 6px; letter-spacing: 0.5px; }
-        .info-section { padding: 14px 0; border-bottom: 1px dashed var(--divider-dashed); }
-        .info-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
-        .info-row:last-child { margin-bottom: 0; }
-        .info-label { font-size: 10px; font-weight: 500; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.4px; }
-        .info-value { font-size: 11.5px; font-weight: 600; color: var(--ink); text-align: right; max-width: 60%; }
-        .section { padding: 14px 0; border-bottom: 1px dashed var(--divider-dashed); }
-        .section:last-of-type { border-bottom: none; }
-        .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-        .section-icon { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-        .section-icon.tuition { background: var(--success-soft); color: var(--success); }
-        .section-title { font-size: 10.5px; font-weight: 700; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.8px; }
-        .fee-item { margin-bottom: 8px; padding: 10px 12px; background: var(--paper-warm); border-radius: 8px; border: 1px solid var(--divider); }
-        .fee-item:last-child { margin-bottom: 0; }
-        .fee-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-        .fee-name { font-size: 11.5px; font-weight: 600; color: var(--ink); line-height: 1.4; }
-        .fee-amount { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--success); white-space: nowrap; flex-shrink: 0; }
-        .fee-details { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--divider); }
-        .fee-detail-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-faint); margin-bottom: 2px; }
-        .fee-detail-row:last-child { margin-bottom: 0; }
-        .fee-detail-row .value { font-weight: 500; color: var(--ink-light); }
-        .balance-box { margin-top: 8px; padding: 8px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-        .balance-box.due { background: var(--danger-soft); border: 1px solid #ffb3c1; }
-        .balance-box.paid { background: var(--success-soft); border: 1px solid #a7f3d0; }
-        .balance-box.credit { background: var(--info-soft); border: 1px solid #bfdbfe; }
-        .balance-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        .balance-box.due .balance-label { color: var(--danger); }
-        .balance-box.paid .balance-label { color: var(--success); }
-        .balance-box.credit .balance-label { color: var(--info); }
-        .balance-amount { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
-        .balance-box.due .balance-amount { color: var(--danger); }
-        .balance-box.paid .balance-amount { color: var(--success); }
-        .balance-box.credit .balance-amount { color: var(--info); }
-        .total-section { background: var(--paper-warm); border-radius: 10px; padding: 14px; margin-top: 12px; border: 1px solid var(--divider); }
-        .total-row { display: flex; justify-content: space-between; align-items: center; }
-        .total-label { font-size: 12px; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: 0.5px; }
-        .total-amount { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; color: var(--success); }
-        .outstanding-section { margin-top: 12px; }
-        .outstanding-header { margin-bottom: 10px; }
-        .outstanding-title { font-size: 10.5px; font-weight: 700; color: var(--danger); text-transform: uppercase; letter-spacing: 0.8px; }
-        .outstanding-subtitle { display: block; font-size: 9.5px; color: var(--ink-faint); margin-top: 2px; }
-        .outstanding-group { margin-bottom: 10px; padding: 10px 12px; background: #fff5f5; border-radius: 8px; border: 1px solid #fecaca; }
-        .outstanding-group:last-child { margin-bottom: 0; }
-        .outstanding-group-name { font-size: 11px; font-weight: 700; color: var(--danger); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .outstanding-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 3px 0; font-size: 10.5px; border-bottom: 1px dashed #fecaca; }
-        .outstanding-item:last-child { border-bottom: none; }
-        .outstanding-item-name { color: var(--ink-light); flex: 1; padding-right: 8px; }
-        .outstanding-item-amount { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--danger); white-space: nowrap; }
-        .outstanding-summary { margin-top: 10px; padding: 10px; background: var(--warning-soft); border-radius: 8px; border: 1px solid #fcd34d; display: flex; justify-content: space-between; align-items: center; }
-        .outstanding-summary-label { font-size: 10px; font-weight: 700; color: var(--warning); text-transform: uppercase; }
-        .outstanding-summary-amount { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--danger); }
-        .paid-group { margin-bottom: 12px; }
-        .paid-group:last-child { margin-bottom: 0; }
-        .paid-group-name { font-size: 11px; font-weight: 700; color: var(--ink-light); margin-bottom: 8px; padding-left: 8px; border-left: 3px solid var(--accent); }
-        .paid-item { margin-bottom: 6px; padding: 8px 10px; background: var(--paper-warm); border-radius: 6px; border: 1px solid var(--divider); }
-        .paid-item:last-child { margin-bottom: 0; }
-        .paid-item.paid { border-left: 3px solid var(--success); }
-        .paid-item.partial { border-left: 3px solid var(--warning); }
-        .paid-item.credit { border-left: 3px solid var(--info); }
-        .paid-item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-        .paid-item-left { flex: 1; }
-        .paid-item-name { font-size: 11px; font-weight: 600; color: var(--ink); }
-        .paid-item-right { text-align: right; flex-shrink: 0; }
-        .paid-item-amount { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 600; color: var(--success); }
-        .paid-item-qty { font-size: 11px; font-weight: 600; color: var(--info); }
-        .paid-item-footer { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
-        .period-tag { font-size: 8.5px; font-weight: 600; color: var(--ink-faint); background: var(--divider); padding: 1px 6px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
-        .status-tag { font-size: 8.5px; font-weight: 700; padding: 1px 6px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
-        .status-tag.paid { background: var(--success-soft); color: var(--success); }
-        .status-tag.partial { background: var(--warning-soft); color: var(--warning); }
-        .status-tag.credit { background: var(--info-soft); color: var(--info); }
-        .balance-due { font-size: 9px; font-weight: 600; color: var(--danger); }
-        .credit-tag { font-size: 9px; font-weight: 600; color: var(--info); }
-        .custom-reason { font-size: 9px; color: var(--warning); }
-        .custom-amount { font-size: 9px; color: var(--warning); display: block; margin-top: 1px; }
-        .grand-status { margin-top: 14px; padding: 14px; border-radius: 10px; text-align: center; }
-        .grand-status.due { background: var(--danger-soft); border: 1px solid #fca5a5; }
-        .grand-status.paid { background: var(--success-soft); border: 1px solid #a7f3d0; }
-        .grand-status-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-        .grand-status.due .grand-status-title { color: var(--danger); }
-        .grand-status.paid .grand-status-title { color: var(--success); }
-        .grand-status-amount { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; margin-top: 4px; }
-        .grand-status.due .grand-status-amount { color: var(--danger); }
-        .grand-status.paid .grand-status-amount { color: var(--success); }
-        .grand-status-note { font-size: 10px; margin-top: 4px; }
-        .grand-status.due .grand-status-note { color: #991b1b; }
-        .grand-status.paid .grand-status-note { color: #065f46; }
-        .notes-box { margin-top: 12px; padding: 10px 12px; background: var(--warning-soft); border-radius: 8px; border: 1px solid #fde68a; }
-        .notes-label { font-size: 9.5px; font-weight: 700; color: var(--warning); text-transform: uppercase; letter-spacing: 0.5px; }
-        .notes-text { font-size: 10.5px; color: #78350f; margin-top: 3px; line-height: 1.5; }
-        .footer { text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--divider-dashed); }
-        .footer-thanks { font-size: 12px; font-weight: 600; color: var(--ink-light); }
-        .footer-message { font-size: 9.5px; color: var(--ink-faint); margin-top: 4px; line-height: 1.6; }
-        .footer-divider { margin: 10px auto; width: 40px; height: 1px; background: var(--accent-soft); }
-        .print-barcode { font-family: 'JetBrains Mono', monospace; font-size: 14px; letter-spacing: 2px; color: var(--ink-light); margin-top: 8px; opacity: 0.5; }
-        .action-bar { display: flex; gap: 10px; justify-content: center; margin-top: 24px; }
-        .btn { padding: 10px 22px; border: none; border-radius: 8px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; transition: all 0.2s ease; }
-        .btn-print { background: var(--ink); color: var(--paper); }
-        .btn-print:hover { background: #2a2a4a; transform: translateY(-1px); }
-        .btn-close { background: var(--divider); color: var(--ink-light); }
-        .btn-close:hover { background: #d5d5d5; }
-        @media print { body { background: white; padding: 0; } .receipt-paper { box-shadow: none; border-radius: 0; max-width: 80mm; padding: 16px 12px 24px; } .action-bar { display: none; } .receipt-paper::after { display: none; } }
-    </style>
+<meta charset="UTF-8">
+<title>Receipt ${escapeHtml(receiptNo)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1a1a2e;--ink-light:#4a4a6a;--ink-faint:#8a8a9a;--paper:#fff;--paper-warm:#faf9f7;--accent:#c9a96e;--accent-soft:#e8dcc8;--success:#2d6a4f;--success-soft:#d8f3dc;--danger:#9b2226;--danger-soft:#ffccd5;--warning:#b69121;--warning-soft:#fff3cd;--info:#1d3557;--info-soft:#e8f0f2;--divider:#e5e5e5;--divider-dashed:#d0d0d0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#f0eeeb;padding:24px 16px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;line-height:1.5}
+.receipt-paper{width:100%;max-width:340px;background:var(--paper);border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.08);padding:28px 22px 32px;position:relative;overflow:hidden}
+.header{text-align:center;padding-bottom:16px;border-bottom:1px dashed var(--divider-dashed)}
+.logo-ring{width:44px;height:44px;margin:0 auto 10px;border:2px solid var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--accent)}
+.school-name{font-size:15px;font-weight:700;color:var(--ink)}
+.school-motto{font-size:9.5px;color:var(--ink-faint);margin-top:2px;font-style:italic}
+.school-meta{font-size:9px;color:var(--ink-faint);margin-top:4px;line-height:1.6}
+.receipt-badge{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:4px 14px;background:var(--paper-warm);border:1px solid var(--accent-soft);border-radius:20px;font-size:9px;font-weight:600;color:var(--ink-light);letter-spacing:1.5px;text-transform:uppercase}
+.receipt-badge::before{content:'';width:5px;height:5px;background:var(--accent);border-radius:50%}
+.receipt-number{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:var(--ink-light);margin-top:6px}
+.info-section{padding:14px 0;border-bottom:1px dashed var(--divider-dashed)}
+.info-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.info-label{font-size:10px;font-weight:500;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.4px}
+.info-value{font-size:11.5px;font-weight:600;color:var(--ink);text-align:right;max-width:60%}
+.section{padding:14px 0;border-bottom:1px dashed var(--divider-dashed)}
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.section-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px}
+.section-icon.tuition{background:var(--success-soft);color:var(--success)}
+.section-title{font-size:10.5px;font-weight:700;color:var(--ink-light);text-transform:uppercase;letter-spacing:.8px}
+.fee-item{margin-bottom:8px;padding:10px 12px;background:var(--paper-warm);border-radius:8px;border:1px solid var(--divider)}
+.fee-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.fee-name{font-size:11.5px;font-weight:600;color:var(--ink)}
+.fee-amount{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--success);white-space:nowrap}
+.fee-details{margin-top:6px;padding-top:6px;border-top:1px dashed var(--divider)}
+.fee-detail-row{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-faint);margin-bottom:2px}
+.fee-detail-row .value{font-weight:500;color:var(--ink-light)}
+.balance-box{margin-top:8px;padding:8px 10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center}
+.balance-box.due{background:var(--danger-soft);border:1px solid #ffb3c1}
+.balance-box.paid{background:var(--success-soft);border:1px solid #a7f3d0}
+.balance-label{font-size:9.5px;font-weight:700;text-transform:uppercase}
+.balance-box.due .balance-label{color:var(--danger)}
+.balance-box.paid .balance-label{color:var(--success)}
+.balance-amount{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+.balance-box.due .balance-amount{color:var(--danger)}
+.balance-box.paid .balance-amount{color:var(--success)}
+.total-section{background:var(--paper-warm);border-radius:10px;padding:14px;margin-top:12px;border:1px solid var(--divider)}
+.total-row{display:flex;justify-content:space-between;align-items:center}
+.total-label{font-size:12px;font-weight:700;color:var(--ink);text-transform:uppercase}
+.total-amount{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--success)}
+.outstanding-section{margin-top:12px}
+.outstanding-title{font-size:10.5px;font-weight:700;color:var(--danger);text-transform:uppercase}
+.outstanding-subtitle{display:block;font-size:9.5px;color:var(--ink-faint);margin-top:2px}
+.outstanding-group{margin-bottom:10px;padding:10px 12px;background:#fff5f5;border-radius:8px;border:1px solid #fecaca}
+.outstanding-group-name{font-size:11px;font-weight:700;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.outstanding-item{display:flex;justify-content:space-between;align-items:flex-start;padding:3px 0;font-size:10.5px;border-bottom:1px dashed #fecaca}
+.outstanding-item-name{color:var(--ink-light);flex:1;padding-right:8px}
+.outstanding-item-amount{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--danger);white-space:nowrap}
+.outstanding-summary{margin-top:10px;padding:10px;background:var(--warning-soft);border-radius:8px;border:1px solid #fcd34d;display:flex;justify-content:space-between;align-items:center}
+.outstanding-summary-label{font-size:10px;font-weight:700;color:var(--warning);text-transform:uppercase}
+.outstanding-summary-amount{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--danger)}
+.paid-group{margin-bottom:12px}
+.paid-group-name{font-size:11px;font-weight:700;color:var(--ink-light);margin-bottom:8px;padding-left:8px;border-left:3px solid var(--accent)}
+.paid-item{margin-bottom:6px;padding:8px 10px;background:var(--paper-warm);border-radius:6px;border:1px solid var(--divider)}
+.paid-item.paid{border-left:3px solid var(--success)}
+.paid-item.partial{border-left:3px solid var(--warning)}
+.paid-item.credit{border-left:3px solid var(--info)}
+.paid-item-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.paid-item-name{font-size:11px;font-weight:600;color:var(--ink)}
+.paid-item-amount{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:var(--success)}
+.paid-item-qty{font-size:11px;font-weight:600;color:var(--info)}
+.paid-item-footer{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+.period-tag{font-size:8.5px;font-weight:600;color:var(--ink-faint);background:var(--divider);padding:1px 6px;border-radius:10px;text-transform:uppercase}
+.status-tag{font-size:8.5px;font-weight:700;padding:1px 6px;border-radius:10px;text-transform:uppercase}
+.status-tag.paid{background:var(--success-soft);color:var(--success)}
+.status-tag.partial{background:var(--warning-soft);color:var(--warning)}
+.status-tag.credit{background:var(--info-soft);color:var(--info)}
+.balance-due{font-size:9px;font-weight:600;color:var(--danger)}
+.credit-tag{font-size:9px;font-weight:600;color:var(--info)}
+.custom-reason{font-size:9px;color:var(--warning)}
+.custom-amount{font-size:9px;color:var(--warning);display:block;margin-top:1px}
+.grand-status{margin-top:14px;padding:14px;border-radius:10px;text-align:center}
+.grand-status.due{background:var(--danger-soft);border:1px solid #fca5a5}
+.grand-status.paid{background:var(--success-soft);border:1px solid #a7f3d0}
+.grand-status-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.grand-status.due .grand-status-title{color:var(--danger)}
+.grand-status.paid .grand-status-title{color:var(--success)}
+.grand-status-amount{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;margin-top:4px}
+.grand-status.due .grand-status-amount{color:var(--danger)}
+.grand-status.paid .grand-status-amount{color:var(--success)}
+.grand-status-note{font-size:10px;margin-top:4px}
+.grand-status.due .grand-status-note{color:#991b1b}
+.grand-status.paid .grand-status-note{color:#065f46}
+.notes-box{margin-top:12px;padding:10px 12px;background:var(--warning-soft);border-radius:8px;border:1px solid #fde68a}
+.notes-label{font-size:9.5px;font-weight:700;color:var(--warning);text-transform:uppercase}
+.notes-text{font-size:10.5px;color:#78350f;margin-top:3px;line-height:1.5}
+.footer{text-align:center;margin-top:20px;padding-top:16px;border-top:1px dashed var(--divider-dashed)}
+.footer-thanks{font-size:12px;font-weight:600;color:var(--ink-light)}
+.footer-message{font-size:9.5px;color:var(--ink-faint);margin-top:4px;line-height:1.6}
+.footer-divider{margin:10px auto;width:40px;height:1px;background:var(--accent-soft)}
+.print-barcode{font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:2px;color:var(--ink-light);margin-top:8px;opacity:.5}
+.action-bar{display:flex;gap:10px;justify-content:center;margin-top:24px}
+.btn{padding:10px 22px;border:none;border-radius:8px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:600}
+.btn-print{background:var(--ink);color:var(--paper)}
+.btn-close{background:var(--divider);color:var(--ink-light)}
+@media print{body{background:#fff;padding:0}.receipt-paper{box-shadow:none;border-radius:0;max-width:80mm;padding:16px 12px 24px}.action-bar{display:none}}
+</style>
 </head>
 <body>
-    <div class="receipt-paper">
-        <div class="header">
-            <div class="logo-ring">E</div>
-            <div class="school-name">${schoolName}</div>
-            <div class="school-motto">${schoolMotto}</div>
-            ${schoolAddr ? `<div class="school-meta">${schoolAddr}</div>` : ''}
-            ${schoolPhone ? `<div class="school-meta">Tel: ${schoolPhone}</div>` : ''}
-            ${schoolEmail ? `<div class="school-meta">${schoolEmail}</div>` : ''}
-            <div class="receipt-badge">Official Receipt</div>
-            <div class="receipt-number"># ${escapeHtml(receiptNo)}</div>
-        </div>
-
-        <div class="info-section">
-            <div class="info-row"><span class="info-label">Student</span><span class="info-value">${studentName}</span></div>
-            <div class="info-row"><span class="info-label">Admission No</span><span class="info-value">${admissionNo}</span></div>
-            <div class="info-row"><span class="info-label">Date</span><span class="info-value">${payDate}</span></div>
-            <div class="info-row"><span class="info-label">Period</span><span class="info-value">${termName} ${currentYear}</span></div>
-            <div class="info-row"><span class="info-label">Method</span><span class="info-value">${payMethod}</span></div>
-            ${payRef ? `<div class="info-row"><span class="info-label">Reference</span><span class="info-value">${payRef}</span></div>` : ''}
-        </div>
-
-        ${buildPaidItemsHtml()}
-
-        <div class="total-section">
-            ${totalHtml}
-            ${tuitionBalanceAllPeriodsHtml}
-        </div>
-
-        ${buildOutstandingItemsHtml()}
-
-        ${totalCashOutstanding > 0 || totalItemsOutstanding > 0 || totalTuitionBalanceAllPeriods > 0 ? `
-        <div class="grand-status due">
-            <div class="grand-status-title">Outstanding Balance</div>
-            <div class="grand-status-amount">UGX ${Math.round(totalCashOutstanding + totalTuitionBalanceAllPeriods).toLocaleString()}</div>
-            <div class="grand-status-note">Please clear this balance to complete payment</div>
-        </div>
-        ` : (totalCashPaid > 0 || totalItemsBrought > 0) ? `
-        <div class="grand-status paid">
-            <div class="grand-status-title">All Clear</div>
-            <div class="grand-status-amount">Fully Paid</div>
-            <div class="grand-status-note">All fees and items are fully paid. Thank you!</div>
-        </div>
-        ` : ''}
-
-        ${payment.notes ? `
-        <div class="notes-box">
-            <div class="notes-label">Notes</div>
-            <div class="notes-text">${escapeHtml(payment.notes)}</div>
-        </div>
-        ` : ''}
-
-        <div class="footer">
-            <div class="footer-thanks">Thank you for your payment</div>
-            <div class="footer-message">This is a computer-generated receipt.<br>Please keep it for your records.</div>
-            <div class="footer-divider"></div>
-            <div class="print-barcode">${escapeHtml(receiptNo)}</div>
-        </div>
-    </div>
-
-    <div class="action-bar no-print">
-        <button class="btn btn-print" onclick="window.print()">Print Receipt</button>
-        <button class="btn btn-close" onclick="window.close()">Close</button>
-    </div>
+<div class="receipt-paper">
+<div class="header">
+<div class="logo-ring">E</div>
+<div class="school-name">${schoolName}</div>
+<div class="school-motto">${schoolMotto}</div>
+${schoolAddr ? `<div class="school-meta">${schoolAddr}</div>` : ''}
+${schoolPhone ? `<div class="school-meta">Tel: ${schoolPhone}</div>` : ''}
+${schoolEmail ? `<div class="school-meta">${schoolEmail}</div>` : ''}
+<div class="receipt-badge">Official Receipt</div>
+<div class="receipt-number"># ${escapeHtml(receiptNo)}</div>
+</div>
+<div class="info-section">
+<div class="info-row"><span class="info-label">Student</span><span class="info-value">${studentName}</span></div>
+<div class="info-row"><span class="info-label">Admission No</span><span class="info-value">${admissionNo}</span></div>
+<div class="info-row"><span class="info-label">Date</span><span class="info-value">${payDate}</span></div>
+<div class="info-row"><span class="info-label">Period</span><span class="info-value">${termName} ${currentYear}</span></div>
+<div class="info-row"><span class="info-label">Method</span><span class="info-value">${payMethod}</span></div>
+${payRef ? `<div class="info-row"><span class="info-label">Reference</span><span class="info-value">${payRef}</span></div>` : ''}
+</div>
+${buildPaidItemsHtml()}
+<div class="total-section">
+${totalHtml}
+${tuitionBalanceAllPeriodsHtml}
+</div>
+${buildOutstandingItemsHtml()}
+${totalCashOutstanding > 0 || totalItemsOutstanding > 0 || totalTuitionBalanceAllPeriods > 0 ? `
+<div class="grand-status due">
+<div class="grand-status-title">Outstanding Balance</div>
+<div class="grand-status-amount">UGX ${Math.round(totalCashOutstanding + totalTuitionBalanceAllPeriods).toLocaleString()}</div>
+<div class="grand-status-note">Please clear this balance to complete payment</div>
+</div>
+` : (totalCashPaid > 0 || totalItemsBrought > 0) ? `
+<div class="grand-status paid">
+<div class="grand-status-title">All Clear</div>
+<div class="grand-status-amount">Fully Paid</div>
+<div class="grand-status-note">All fees and items are fully paid. Thank you!</div>
+</div>
+` : ''}
+${payment.notes ? `
+<div class="notes-box">
+<div class="notes-label">Notes</div>
+<div class="notes-text">${escapeHtml(payment.notes)}</div>
+</div>
+` : ''}
+<div class="footer">
+<div class="footer-thanks">Thank you for your payment</div>
+<div class="footer-message">This is a computer-generated receipt.<br>Please keep it for your records.</div>
+<div class="footer-divider"></div>
+<div class="print-barcode">${escapeHtml(receiptNo)}</div>
+</div>
+</div>
+<div class="action-bar no-print">
+<button class="btn btn-print" onclick="window.print()">Print Receipt</button>
+<button class="btn btn-close" onclick="window.close()">Close</button>
+</div>
 </body>
 </html>
         `);
@@ -26002,7 +25984,6 @@ async function printPaymentReceipt(receiptNumber) {
         alert('Error printing receipt: ' + error.message);
     }
 }
-
 // ========== MAKE GLOBAL (single canonical export block) ==========
 window.showFeeManagement = showFeeManagement;
 window.loadPaymentHistoryIntoTable = loadPaymentHistoryIntoTable;
