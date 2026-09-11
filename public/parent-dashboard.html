@@ -9,44 +9,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <style>
-/* ============================================================
-   FAMILY PORTAL — design tokens
-   Warm ledger palette: ink / parchment / harvest-gold / deep teal
-   ============================================================ */
 :root{
-  --ink:#1c2430;
-  --ink-soft:#3c4454;
-  --muted:#726c5e;
-  --paper:#faf6ee;
-  --paper-deep:#f2ead9;
-  --surface:#ffffff;
-  --line:#e7dfcd;
-  --line-soft:#efe8d8;
-  --gold:#b5822a;
-  --gold-deep:#8f671f;
-  --gold-tint:#f6ead1;
-  --teal:#1f6f63;
-  --teal-tint:#e2f0ec;
-  --rose:#b3435a;
-  --rose-tint:#f8e6e9;
-  --amber:#c07a1f;
-  --amber-tint:#f8ecd6;
-  --radius-lg:22px;
-  --radius-md:16px;
-  --radius-sm:10px;
+  --ink:#1c2430;--ink-soft:#3c4454;--muted:#726c5e;--paper:#faf6ee;--paper-deep:#f2ead9;
+  --surface:#ffffff;--line:#e7dfcd;--line-soft:#efe8d8;--gold:#b5822a;--gold-deep:#8f671f;
+  --gold-tint:#f6ead1;--teal:#1f6f63;--teal-tint:#e2f0ec;--rose:#b3435a;--rose-tint:#f8e6e9;
+  --amber:#c07a1f;--amber-tint:#f8ecd6;--radius-lg:22px;--radius-md:16px;--radius-sm:10px;
   --shadow-soft:0 1px 2px rgba(28,36,48,.04), 0 8px 24px -12px rgba(28,36,48,.12);
   --shadow-lift:0 18px 40px -20px rgba(28,36,48,.28);
 }
 *{box-sizing:border-box;}
 html{-webkit-text-size-adjust:100%;}
-body{
-  margin:0;
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
-  background:var(--paper);
-  color:var(--ink);
-  -webkit-font-smoothing:antialiased;
-  min-height:100vh;
-}
+body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;}
 h1,h2,h3,.serif{font-family:'Fraunces',Georgia,serif;}
 a{color:inherit;}
 button{font-family:inherit;}
@@ -57,24 +30,14 @@ button{font-family:inherit;}
 :focus-visible{outline:2.5px solid var(--gold);outline-offset:2px;border-radius:6px;}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}
 
-/* ---------- shell layout ---------- */
 .shell{display:flex;min-height:100vh;}
-.rail{
-  width:252px;flex-shrink:0;background:var(--ink);color:#e9e4d6;
-  display:flex;flex-direction:column;padding:26px 18px;position:sticky;top:0;height:100vh;
-}
+.rail{width:252px;flex-shrink:0;background:var(--ink);color:#e9e4d6;display:flex;flex-direction:column;padding:26px 18px;position:sticky;top:0;height:100vh;}
 .rail-brand{display:flex;align-items:center;gap:11px;padding:0 6px 22px;border-bottom:1px solid rgba(233,228,214,.12);margin-bottom:18px;}
-.rail-brand .mark{
-  width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--gold),var(--gold-deep));
-  display:flex;align-items:center;justify-content:center;color:#1c1608;font-weight:700;font-size:15px;flex-shrink:0;
-}
+.rail-brand .mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--gold),var(--gold-deep));display:flex;align-items:center;justify-content:center;color:#1c1608;font-weight:700;font-size:15px;flex-shrink:0;}
 .rail-brand .name{font-family:'Fraunces',serif;font-size:16px;line-height:1.15;font-weight:600;color:#fff;}
 .rail-brand .sub{font-size:11px;color:#a79f8c;margin-top:1px;}
 .rail-nav{display:flex;flex-direction:column;gap:2px;flex:1;overflow-y:auto;}
-.rail-nav button{
-  display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;background:none;color:#c3bca8;
-  border-radius:11px;cursor:pointer;font-size:14px;font-weight:500;text-align:left;transition:background .15s,color .15s;
-}
+.rail-nav button{display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;background:none;color:#c3bca8;border-radius:11px;cursor:pointer;font-size:14px;font-weight:500;text-align:left;transition:background .15s,color .15s;}
 .rail-nav button i{width:18px;text-align:center;font-size:15px;opacity:.85;}
 .rail-nav button:hover{background:rgba(255,255,255,.06);color:#fff;}
 .rail-nav button.active{background:rgba(181,130,42,.18);color:#f3d99a;}
@@ -82,19 +45,14 @@ button{font-family:inherit;}
 .rail-nav button.has-alert .dot{display:block;}
 .rail-foot{border-top:1px solid rgba(233,228,214,.12);padding-top:14px;margin-top:10px;}
 .rail-child{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;background:rgba(255,255,255,.05);margin-bottom:10px;}
-.rail-child select{
-  background:transparent;border:none;color:#f1ecdd;font-size:13px;font-weight:600;width:100%;cursor:pointer;
-}
+.rail-child select{background:transparent;border:none;color:#f1ecdd;font-size:13px;font-weight:600;width:100%;cursor:pointer;}
 .rail-child select option{color:#1c2430;}
 .rail-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(155deg,var(--teal),#123f38);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
 .rail-logout{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:11px;color:#d7a9a9;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;width:100%;}
 .rail-logout:hover{background:rgba(179,67,90,.15);}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column;}
-.topbar{
-  display:none;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface);
-  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;
-}
+.topbar{display:none;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;}
 .topbar .t-title{font-family:'Fraunces',serif;font-size:17px;font-weight:600;}
 .topbar .t-actions{display:flex;align-items:center;gap:14px;}
 .icon-btn{position:relative;background:none;border:none;font-size:18px;color:var(--ink-soft);cursor:pointer;padding:4px;}
@@ -105,7 +63,6 @@ button{font-family:inherit;}
 .view-enter{animation:viewIn .32s ease;}
 @keyframes viewIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 
-/* ---------- generic bits ---------- */
 .eyebrow{font-size:12.5px;color:var(--muted);margin:0 0 4px;}
 .page-head{margin-bottom:24px;}
 .page-head h1{font-size:26px;margin:0 0 4px;font-weight:600;}
@@ -139,20 +96,14 @@ button{font-family:inherit;}
 .spinner{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;margin:40px auto;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ---------- Home hero ---------- */
-.hero{
-  background:var(--ink);color:#f3ead0;border-radius:var(--radius-lg);padding:30px 32px;position:relative;overflow:hidden;margin-bottom:22px;
-}
+.hero{background:var(--ink);color:#f3ead0;border-radius:var(--radius-lg);padding:30px 32px;position:relative;overflow:hidden;margin-bottom:22px;}
 .hero::after{content:'';position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(181,130,42,.35),transparent 70%);}
 .hero .greet{font-family:'Fraunces',serif;font-size:27px;font-weight:600;margin:0 0 6px;position:relative;}
 .hero .greet-sub{font-size:13.5px;color:#c9c0a5;position:relative;max-width:520px;line-height:1.5;}
 .hero .hero-gold-rule{width:52px;height:3px;background:var(--gold);border-radius:2px;margin:14px 0 0;position:relative;}
 
 .child-strip{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;margin-bottom:20px;}
-.child-chip{
-  flex-shrink:0;display:flex;align-items:center;gap:9px;padding:8px 14px 8px 8px;border-radius:9999px;border:1.5px solid var(--line);
-  background:var(--surface);cursor:pointer;transition:border-color .15s, background .15s;
-}
+.child-chip{flex-shrink:0;display:flex;align-items:center;gap:9px;padding:8px 14px 8px 8px;border-radius:9999px;border:1.5px solid var(--line);background:var(--surface);cursor:pointer;transition:border-color .15s, background .15s;}
 .child-chip.active{border-color:var(--gold);background:var(--gold-tint);}
 .child-chip .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(155deg,var(--teal),#123f38);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
 .child-chip .cn{font-size:13px;font-weight:600;white-space:nowrap;}
@@ -168,7 +119,7 @@ button{font-family:inherit;}
 .tile-attend{background:var(--teal-tint);color:var(--teal);}
 .tile-grade{background:var(--gold-tint);color:var(--gold-deep);}
 
-.section-title{display:flex;align-items:center;justify-content:between;gap:10px;font-size:15px;font-weight:700;margin:0 0 12px;}
+.section-title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;margin:0 0 12px;}
 .section-title .link{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--gold-deep);cursor:pointer;}
 
 .feed-item{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--line-soft);}
@@ -179,7 +130,6 @@ button{font-family:inherit;}
 .feed-desc{font-size:12.5px;color:var(--muted);margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .feed-date{font-size:11px;color:var(--muted);margin-top:3px;}
 
-/* ---------- Academics ---------- */
 .term-bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
 .grade-ring-wrap{display:flex;align-items:center;gap:18px;}
 .grade-ring{width:92px;height:92px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;}
@@ -192,16 +142,13 @@ button{font-family:inherit;}
 .subject-name{font-size:13.5px;font-weight:600;}
 .subject-score{font-size:12px;color:var(--muted);}
 .grade-chip{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
-.g-A{background:#e1f3e6;color:#1f7a3d;}
-.g-B{background:var(--teal-tint);color:var(--teal);}
-.g-C{background:var(--amber-tint);color:var(--amber);}
-.g-D{background:#fbe7d3;color:#c05f1f;}
-.g-E{background:var(--rose-tint);color:var(--rose);}
-.g-F{background:#f6dade;color:#93293e;}
+.g-A,.g-D1,.g-D2{background:#e1f3e6;color:#1f7a3d;}
+.g-B,.g-C3,.g-C4{background:var(--teal-tint);color:var(--teal);}
+.g-C,.g-C5,.g-C6{background:var(--amber-tint);color:var(--amber);}
+.g-D,.g-P7{background:#fbe7d3;color:#c05f1f;}
+.g-E,.g-P8{background:var(--rose-tint);color:var(--rose);}
+.g-F,.g-F9{background:#f6dade;color:#93293e;}
 
-.trend-wrap{overflow-x:auto;}
-
-/* ---------- Fees ---------- */
 .donut-wrap{display:flex;align-items:center;gap:20px;}
 .donut{width:108px;height:108px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .donut .hole{width:78px;height:78px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;}
@@ -216,23 +163,22 @@ button{font-family:inherit;}
 .balance-banner .bb-sub{font-size:12px;color:#a13d51;margin-top:1px;}
 
 .accordion{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px;}
-.accordion-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:var(--paper-deep);cursor:pointer;font-weight:700;font-size:13px;}
-.accordion-head .ah-right{display:flex;align-items:center;gap:10px;font-weight:500;font-size:12.5px;color:var(--muted);}
+.accordion-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:var(--paper-deep);cursor:pointer;font-weight:700;font-size:13px;gap:10px;}
+.accordion-head .ah-right{display:flex;align-items:center;gap:10px;font-weight:500;font-size:12.5px;color:var(--muted);flex-shrink:0;text-align:right;}
 .accordion-body{padding:0 16px;max-height:0;overflow:hidden;transition:max-height .25s ease;}
-.accordion.open .accordion-body{max-height:1400px;padding:6px 16px 12px;}
+.accordion.open .accordion-body{max-height:1600px;padding:6px 16px 12px;}
 .accordion-head i.chev{transition:transform .2s;}
 .accordion.open .accordion-head i.chev{transform:rotate(180deg);}
-.item-line{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:13px;gap:10px;}
+.item-line{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:13px;gap:10px;}
 .item-line:last-child{border-bottom:none;}
 .item-line .il-name{font-weight:600;}
-.item-line .il-sub{font-size:11px;color:var(--muted);}
+.item-line .il-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
 
 .payment-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:13px;}
 .payment-row:last-child{border-bottom:none;}
 .payment-row .pr-receipt{font-weight:600;}
 .payment-row .pr-date{font-size:11.5px;color:var(--muted);}
 
-/* ---------- Attendance ---------- */
 .attend-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;}
 .astat{border-radius:var(--radius-md);padding:14px;text-align:center;}
 .astat b{font-family:'Fraunces',serif;font-size:22px;display:block;}
@@ -245,7 +191,6 @@ button{font-family:inherit;}
 .cal-cell.absent{background:var(--rose-tint);color:var(--rose);}
 .cal-cell.empty{background:transparent;}
 
-/* ---------- Events / News ---------- */
 .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
 .chip-filter{padding:6px 13px;border-radius:9999px;border:1.5px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted);}
 .chip-filter.active{border-color:var(--ink);background:var(--ink);color:#f3ead0;}
@@ -255,23 +200,16 @@ button{font-family:inherit;}
 .event-date-block .day{font-family:'Fraunces',serif;font-size:20px;font-weight:700;line-height:1;}
 .event-info h4{margin:0 0 3px;font-size:14px;font-weight:700;}
 .event-info p{margin:0;font-size:12.5px;color:var(--muted);}
-.event-meta{display:flex;gap:12px;margin-top:6px;font-size:11.5px;color:var(--muted);}
+.event-meta{display:flex;gap:12px;margin-top:6px;font-size:11.5px;color:var(--muted);flex-wrap:wrap;}
 
 .announce-card{padding:16px;border:1px solid var(--line);border-radius:var(--radius-md);margin-bottom:10px;background:var(--surface);}
 .announce-card h4{margin:0 0 5px;font-size:14px;font-weight:700;}
 .announce-card p{margin:0;font-size:13px;color:var(--ink-soft);line-height:1.55;}
 .announce-meta{display:flex;justify-content:space-between;align-items:center;margin-top:9px;}
 
-/* ---------- Messages ---------- */
-.msg-shell{display:flex;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;background:var(--surface);height:560px;max-height:70vh;}
-.msg-list{width:230px;flex-shrink:0;border-right:1px solid var(--line);overflow-y:auto;background:var(--paper-deep);}
-.contact-item{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--line-soft);}
-.contact-item:hover, .contact-item.active{background:var(--surface);}
-.contact-item .av{width:32px;height:32px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
-.contact-item .cname{font-size:13px;font-weight:600;}
-.contact-item .ctype{font-size:10.5px;color:var(--muted);text-transform:capitalize;}
-.msg-thread{flex:1;display:flex;flex-direction:column;min-width:0;}
-.msg-thread-head{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:13.5px;}
+.msg-shell{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;background:var(--surface);height:560px;max-height:70vh;}
+.msg-thread-head{padding:13px 16px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;display:flex;align-items:center;gap:10px;background:var(--paper-deep);}
+.msg-thread-head .av{width:32px;height:32px;border-radius:50%;background:linear-gradient(155deg,var(--teal),#123f38);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;}
 .msg-scroll{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;}
 .bubble{max-width:72%;padding:9px 14px;border-radius:16px;font-size:13.5px;line-height:1.4;}
 .bubble.me{align-self:flex-end;background:var(--ink);color:#f3ead0;border-bottom-right-radius:5px;}
@@ -281,7 +219,6 @@ button{font-family:inherit;}
 .msg-input-row input{flex:1;border:1px solid var(--line);border-radius:9999px;padding:10px 16px;font-size:13.5px;background:var(--paper);}
 .msg-send{width:40px;height:40px;border-radius:50%;background:var(--ink);color:#f3ead0;border:none;cursor:pointer;flex-shrink:0;}
 
-/* ---------- Profile ---------- */
 .profile-child-row{display:flex;align-items:center;gap:13px;padding:14px 0;border-bottom:1px solid var(--line-soft);}
 .profile-child-row:last-child{border-bottom:none;}
 .profile-child-row .av{width:42px;height:42px;border-radius:50%;background:linear-gradient(155deg,var(--teal),#123f38);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
@@ -290,7 +227,6 @@ button{font-family:inherit;}
 .info-line span:first-child{color:var(--muted);}
 .info-line span:last-child{font-weight:600;}
 
-/* ---------- notification sheet ---------- */
 .sheet-overlay{position:fixed;inset:0;background:rgba(28,24,16,.4);backdrop-filter:blur(3px);z-index:200;display:none;align-items:flex-start;justify-content:center;padding-top:64px;}
 .sheet-overlay.show{display:flex;}
 .sheet{background:var(--surface);border-radius:20px;width:92%;max-width:400px;max-height:74vh;overflow-y:auto;padding:18px;animation:sheetIn .25s ease;}
@@ -299,7 +235,6 @@ button{font-family:inherit;}
 .sheet-head h3{margin:0;font-size:16px;}
 .sheet-head button{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;}
 
-/* ---------- bottom nav (mobile) ---------- */
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:100;box-shadow:0 -6px 18px rgba(28,24,16,.06);}
 .bottom-nav .bn-row{display:flex;justify-content:space-around;}
 .bottom-nav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:9.5px;font-weight:600;padding:4px 6px;cursor:pointer;position:relative;min-width:52px;}
@@ -315,7 +250,6 @@ button{font-family:inherit;}
 .toast{background:var(--ink);color:#f3ead0;padding:11px 20px;border-radius:12px;font-size:13.5px;box-shadow:var(--shadow-lift);animation:toastIn .25s ease;}
 @keyframes toastIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
 
-/* ---------- responsive ---------- */
 @media (max-width:900px){
   .rail{display:none;}
   .topbar{display:flex;}
@@ -323,8 +257,6 @@ button{font-family:inherit;}
   .bottom-nav{display:block;}
   .tile-row{grid-template-columns:1fr 1fr;}
   .tile-row .tile-balance{grid-column:1 / -1;}
-  .msg-shell{height:auto;flex-direction:column;}
-  .msg-list{width:100%;max-height:150px;border-right:none;border-bottom:1px solid var(--line);}
   .attend-stats{grid-template-columns:repeat(3,1fr);}
 }
 @media (max-width:520px){
@@ -336,8 +268,6 @@ button{font-family:inherit;}
 <body>
 
 <div class="shell" id="shell">
-
-  <!-- ============ DESKTOP RAIL ============ -->
   <aside class="rail" id="rail">
     <div class="rail-brand">
       <div class="mark" id="railMark">S</div>
@@ -356,7 +286,6 @@ button{font-family:inherit;}
     </div>
   </aside>
 
-  <!-- ============ MAIN ============ -->
   <div class="main">
     <div class="topbar">
       <div class="t-title" id="topTitle">Home</div>
@@ -369,7 +298,6 @@ button{font-family:inherit;}
   </div>
 </div>
 
-<!-- ============ NOTIFICATIONS SHEET ============ -->
 <div class="sheet-overlay" id="notifSheet">
   <div class="sheet">
     <div class="sheet-head"><h3><i class="fas fa-bell" style="color:var(--gold-deep)"></i>&nbsp; Updates</h3><button onclick="Portal.closeSheet('notifSheet')">&times;</button></div>
@@ -377,7 +305,6 @@ button{font-family:inherit;}
   </div>
 </div>
 
-<!-- ============ MOBILE "MORE" SHEET ============ -->
 <div class="sheet-overlay" id="moreSheet">
   <div class="sheet">
     <div class="sheet-head"><h3>More</h3><button onclick="Portal.closeSheet('moreSheet')">&times;</button></div>
@@ -385,7 +312,6 @@ button{font-family:inherit;}
   </div>
 </div>
 
-<!-- ============ BOTTOM NAV (mobile) ============ -->
 <div class="bottom-nav">
   <div class="bn-row" id="bottomNav"></div>
 </div>
@@ -395,7 +321,22 @@ button{font-family:inherit;}
 <script>
 /* ==================================================================
    FAMILY PORTAL — application
-   Single-file SPA. Talks to the existing school-management API.
+   Uses only working, existing API routes:
+     GET  /api/school
+     GET  /api/parent/students/:parentName
+     GET  /api/students/:id
+     GET  /api/academic/settings
+     GET  /api/reports/report-card/:studentId/:term/:year
+     GET  /api/students/:studentId/previous-balances
+     GET  /api/attendance/student/:studentId/summary
+     GET  /api/events , /api/events/categories , /api/announcements
+     GET  /api/chat/contacts?type=director
+     GET  /api/chat/messages/:contactId
+     POST /api/chat/messages
+     PUT  /api/chat/messages/:contactId/read
+     GET  /api/chat/unread
+   Deliberately does NOT call /api/parent/student/:id/details (broken
+   server route referencing an undefined "reportFiles" variable).
    ================================================================== */
 const Portal = (() => {
 
@@ -415,19 +356,20 @@ const Portal = (() => {
     school:{ schoolName:'School', motto:'' },
     students:[],
     childId:null,
-    childDetails:{},        // cache: id -> details payload
-    balances:{},            // cache: id -> previous-balances payload
+    studentCache:{},        // id -> full student payload from /api/students/:id
+    balances:{},            // id -> previous-balances payload
+    attendanceCache:{},     // id -> summary payload
     tab:'home',
     events:[],
     eventCategories:[],
     announcements:[],
     notifications:[],
     unread:0,
-    chatContacts:[],
+    adminContact:null,      // the single "director" chat contact
     chatUnread:0,
-    currentContact:null,
     chatPoll:null,
-    academicPeriod:{}       // id -> {year, term}
+    academicSettings:{ currentYear:new Date().getFullYear(), currentTerm:1 },
+    academicPeriod:{}       // childId -> {year, term}
   };
 
   // ---------------- helpers ----------------
@@ -453,8 +395,16 @@ const Portal = (() => {
   }
   function gradeClass(g){ return 'g-'+(g||'F'); }
   function currentChild(){ return state.students.find(s=>s.id===state.childId) || state.students[0]; }
-  function currentDetails(){ return state.childDetails[state.childId]; }
-  function currentBalance(){ return state.balances[state.childId]; }
+  function paymentStatus(it){
+    if(it.isFullyPaid) return {c:'pill-teal', t:'Paid'};
+    if((it.cashPaid||0) > 0 || (it.itemsBrought||0) > 0) return {c:'pill-amber', t:'Partial'};
+    return {c:'pill-rose', t:'Unpaid'};
+  }
+  function paymentOptionLabel(po){
+    if(po === 'cash_only') return 'Cash only';
+    if(po === 'item_only') return 'Item only';
+    return 'Cash or item';
+  }
 
   // ---------------- boot ----------------
   async function init(){
@@ -466,11 +416,17 @@ const Portal = (() => {
 
     try{
       const schoolRes = await api('/api/school');
-      if(schoolRes && schoolRes.school){
-        state.school = schoolRes.school;
-      }
+      if(schoolRes && schoolRes.school) state.school = schoolRes.school;
     }catch(e){ /* non-fatal */ }
     applyBranding();
+
+    try{
+      const settings = await api('/api/academic/settings');
+      if(settings){
+        state.academicSettings.currentYear = settings.currentYear || state.academicSettings.currentYear;
+        state.academicSettings.currentTerm = settings.currentTerm || state.academicSettings.currentTerm;
+      }
+    }catch(e){ /* fall back to defaults */ }
 
     try{
       const sres = await fetch(`/api/parent/students/${encodeURIComponent(name)}`);
@@ -483,9 +439,8 @@ const Portal = (() => {
       populateChildSelectors();
     }
 
-    loadEventsAndAnnouncements(); // background, feeds notifications
-    loadChatUnread();
-    setInterval(loadChatUnread, 15000);
+    loadEventsAndAnnouncements();
+    loadAdminContact();
 
     renderTab('home');
   }
@@ -529,11 +484,13 @@ const Portal = (() => {
     await renderTab(state.tab, true);
   }
 
-  async function ensureDetails(id){
-    if(state.childDetails[id]) return state.childDetails[id];
-    const data = await api(`/api/parent/student/${id}/details`);
-    if(data.success){ state.childDetails[id]=data.student; return data.student; }
-    return null;
+  async function ensureStudent(id){
+    if(state.studentCache[id]) return state.studentCache[id];
+    try{
+      const data = await api(`/api/students/${id}`);
+      state.studentCache[id] = data;
+      return data;
+    }catch(e){ return null; }
   }
   async function ensureBalances(id){
     if(state.balances[id]) return state.balances[id];
@@ -542,6 +499,14 @@ const Portal = (() => {
       if(data.success){ state.balances[id]=data; return data; }
     }catch(e){ console.warn('balances unavailable', e); }
     return null;
+  }
+  async function ensureAttendance(id){
+    if(state.attendanceCache[id]) return state.attendanceCache[id];
+    try{
+      const data = await api(`/api/attendance/student/${id}/summary`);
+      if(data.success){ state.attendanceCache[id]=data.summary; return data.summary; }
+    }catch(e){}
+    return { present:0, absent:0, total:0, rate:0 };
   }
 
   // ---------------- notifications feed ----------------
@@ -589,7 +554,7 @@ const Portal = (() => {
     }
     body.innerHTML = state.notifications.slice(0,25).map(n=>`
       <div class="feed-item">
-        <div class="feed-ic pill-${n.tint==='gold'?'gold':'teal'}" style="background:${n.tint==='gold'?'var(--gold-tint)':'var(--teal-tint)'};color:${n.tint==='gold'?'var(--gold-deep)':'var(--teal)'}"><i class="fas ${n.icon}"></i></div>
+        <div class="feed-ic" style="background:${n.tint==='gold'?'var(--gold-tint)':'var(--teal-tint)'};color:${n.tint==='gold'?'var(--gold-deep)':'var(--teal)'}"><i class="fas ${n.icon}"></i></div>
         <div class="feed-body">
           <p class="feed-title">${esc(n.title)}</p>
           <p class="feed-desc">${esc(n.desc)}</p>
@@ -602,7 +567,6 @@ const Portal = (() => {
   function closeSheet(id){ document.getElementById(id).classList.remove('show'); }
 
   function openMore(){
-    // on desktop the avatar click also opens this as a quick menu; on mobile it's the More tab
     const overlay = document.getElementById('moreSheet');
     overlay.classList.add('show');
     const secondary = TABS.filter(t=>!t.primary);
@@ -655,7 +619,7 @@ const Portal = (() => {
     return `<div class="child-strip">${state.students.map(s=>`
       <div class="child-chip ${s.id===state.childId?'active':''}" onclick="Portal.switchChildUI('${s.id}')">
         <div class="av" style="background:${avatarColor(s.id)}">${initials(s.firstName,s.lastName)}</div>
-        <div><div class="cn">${esc(s.firstName)} ${esc(s.lastName)}</div><div class="cc">${esc(s.currentClassId? '' : '')}${esc(s.admissionNumber||'')}</div></div>
+        <div><div class="cn">${esc(s.firstName)} ${esc(s.lastName)}</div><div class="cc">${esc(s.admissionNumber||'')}</div></div>
       </div>`).join('')}</div>`;
   }
   async function switchChildUI(id){ await switchChild(id); }
@@ -664,30 +628,19 @@ const Portal = (() => {
   async function renderHome(){
     const view = document.getElementById('view');
     const child = currentChild();
-    const details = await ensureDetails(child.id);
-    const bal = await ensureBalances(child.id);
+    const [bal, attendance] = await Promise.all([ ensureBalances(child.id), ensureAttendance(child.id) ]);
 
     const hour = new Date().getHours();
     const greeting = hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
     const firstName = state.parentName.split(' ')[0];
 
-    const attendance = (details && details.attendance && details.attendance.summary) || {present:0,absent:0,total:0,rate:0};
-    const balanceTotal = bal ? (bal.currentPeriod?.total?.balance||0) + (bal.totalPreviousBalance||0) : ((details?.currentFeeStructure?.tuition||0) - (details?.totalPaid||0));
+    const balanceTotal = bal ? (bal.currentPeriod?.total?.balance||0) + (bal.totalPreviousBalance||0) : 0;
 
-    // latest grade average, if we have marks
     let latestAvg = null, latestGrade = null;
-    if(details && details.marks){
-      const years = Object.keys(details.marks).sort().reverse();
-      if(years.length){
-        const terms = Object.keys(details.marks[years[0]]||{}).sort().reverse();
-        if(terms.length){
-          try{
-            const rc = await api(`/api/reports/report-card/${child.id}/${terms[0]}/${years[0]}`);
-            latestAvg = rc.summary?.average; latestGrade = rc.summary?.grade;
-          }catch(e){}
-        }
-      }
-    }
+    try{
+      const rc = await api(`/api/reports/report-card/${child.id}/${state.academicSettings.currentTerm}/${state.academicSettings.currentYear}`);
+      latestAvg = rc.summary?.average; latestGrade = rc.summary?.grade;
+    }catch(e){}
 
     const today = new Date().toISOString().split('T')[0];
     const upcoming = state.events.filter(e=>e.startDate>=today && e.status==='published').sort((a,b)=>a.startDate.localeCompare(b.startDate)).slice(0,3);
@@ -715,7 +668,7 @@ const Portal = (() => {
         </div>
         <div class="tile tile-grade">
           <div class="tk">Latest average</div>
-          <div class="tv">${latestAvg!==null ? Math.round(latestAvg)+'%' : '—'}</div>
+          <div class="tv">${latestAvg!==null && !isNaN(latestAvg) ? Math.round(latestAvg)+'%' : '—'}</div>
           <div class="ts">${latestGrade ? 'Grade '+latestGrade : 'no marks yet'}</div>
         </div>
       </div>
@@ -752,59 +705,53 @@ const Portal = (() => {
   async function renderAcademics(){
     const view = document.getElementById('view');
     const child = currentChild();
-    const details = await ensureDetails(child.id);
-    const marks = (details && details.marks) || {};
-    const years = Object.keys(marks).sort().reverse();
+
+    if(!state.academicPeriod[child.id]){
+      state.academicPeriod[child.id] = { year: state.academicSettings.currentYear, term: state.academicSettings.currentTerm };
+    }
+    const period = state.academicPeriod[child.id];
+    const nowYear = state.academicSettings.currentYear;
+    const yearOptions = [nowYear, nowYear-1, nowYear-2];
 
     view.innerHTML = `
       <div class="page-head"><h1 class="serif">Academics</h1><p>${esc(child.firstName)}'s subject performance, term by term.</p></div>
       ${childChipStrip()}
+      <div class="term-bar">
+        <select class="select" id="yearSelect" onchange="Portal.changeAcadPeriod()">
+          ${yearOptions.map(y=>`<option value="${y}" ${y===period.year?'selected':''}>${y}</option>`).join('')}
+        </select>
+        <select class="select" id="termSelect" onchange="Portal.changeAcadPeriod()">
+          ${[1,2,3].map(t=>`<option value="${t}" ${t===period.term?'selected':''}>Term ${t}</option>`).join('')}
+        </select>
+      </div>
       <div id="acadBody"><div class="spinner"></div></div>
     `;
-
-    if(!years.length){
-      document.getElementById('acadBody').innerHTML = `<div class="empty"><i class="fas fa-graduation-cap"></i><p>No marks have been recorded yet.</p></div>`;
-      return;
-    }
-
-    const year = years[0];
-    const terms = Object.keys(marks[year]||{}).sort();
-    state.academicPeriod[child.id] = { year, term: terms[0] || '1' };
-    await paintAcademicPeriod(years, marks);
+    await paintAcademicPeriod();
   }
 
-  async function paintAcademicPeriod(years, marks){
+  async function paintAcademicPeriod(){
     const child = currentChild();
     const period = state.academicPeriod[child.id];
-    const terms = Object.keys(marks[period.year]||{}).sort();
     const body = document.getElementById('acadBody');
+    if(!body) return;
 
     let rc = null;
     try{ rc = await api(`/api/reports/report-card/${child.id}/${period.term}/${period.year}`); }catch(e){}
 
     const results = (rc && rc.results) || [];
-    const summary = (rc && rc.summary) || {average:0,grade:'F',totalSubjects:0};
+    const summary = (rc && rc.summary) || {average:0,grade:'—',totalSubjects:0,remark:''};
     const pct = Math.max(0, Math.min(100, Math.round(summary.average||0)));
     const ringColor = pct>=80?'#1f7a3d':pct>=60?'#1f6f63':pct>=40?'#c07a1f':'#b3435a';
 
     body.innerHTML = `
-      <div class="term-bar">
-        <select class="select" id="yearSelect" onchange="Portal.changeAcadPeriod()">
-          ${years.map(y=>`<option value="${y}" ${y===period.year?'selected':''}>${y}</option>`).join('')}
-        </select>
-        <select class="select" id="termSelect" onchange="Portal.changeAcadPeriod()">
-          ${terms.map(t=>`<option value="${t}" ${t===period.term?'selected':''}>Term ${t}</option>`).join('')}
-        </select>
-      </div>
-
       <div class="card pad" style="margin-bottom:16px;">
         <div class="grade-ring-wrap">
           <div class="grade-ring" style="background:conic-gradient(${ringColor} ${pct*3.6}deg, var(--paper-deep) 0deg)">
             <div class="inner"><b>${pct}%</b><span>average</span></div>
           </div>
           <div>
-            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;">Grade ${summary.grade||'—'}</div>
-            <div style="font-size:13px;color:var(--muted);margin-top:2px;">${summary.remark||''} · ${summary.totalSubjects||0} subject${(summary.totalSubjects||0)===1?'':'s'} assessed</div>
+            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;">Grade ${esc(summary.grade||'—')}</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:2px;">${esc(summary.remark||'')} · ${summary.totalSubjects||0} subject${(summary.totalSubjects||0)===1?'':'s'} assessed</div>
           </div>
         </div>
       </div>
@@ -814,7 +761,7 @@ const Portal = (() => {
         ${results.length ? results.map(r=>`
           <div class="subject-row">
             <div><div class="subject-name">${esc(r.subjectName)}</div><div class="subject-score">${r.score}% · ${esc(r.remark||'')}</div></div>
-            <div class="grade-chip ${gradeClass(r.grade)}">${r.grade}</div>
+            <div class="grade-chip ${gradeClass(r.grade)}">${esc(r.grade)}</div>
           </div>`).join('') : `<p style="color:var(--muted);font-size:13px;">No subject marks recorded for this term yet.</p>`}
       </div>
     `;
@@ -822,25 +769,25 @@ const Portal = (() => {
 
   async function changeAcadPeriod(){
     const child = currentChild();
-    const details = await ensureDetails(child.id);
-    const marks = details.marks || {};
-    const year = document.getElementById('yearSelect').value;
-    let termSel = document.getElementById('termSelect');
-    // if year changed, rebuild term options
-    const terms = Object.keys(marks[year]||{}).sort();
-    if(!terms.includes(termSel.value)){
-      termSel.innerHTML = terms.map(t=>`<option value="${t}">Term ${t}</option>`).join('');
-    }
-    state.academicPeriod[child.id] = { year, term: termSel.value || terms[0] || '1' };
-    await paintAcademicPeriod(Object.keys(marks).sort().reverse(), marks);
+    const year = parseInt(document.getElementById('yearSelect').value);
+    const term = parseInt(document.getElementById('termSelect').value);
+    state.academicPeriod[child.id] = { year, term };
+    document.getElementById('acadBody').innerHTML = '<div class="spinner"></div>';
+    await paintAcademicPeriod();
   }
 
   // ================= FEES =================
+  // Rule: the top-level "expected / paid / balance" summary counts ONLY
+  // tuition plus items whose paymentOption is "cash_only". Items that can
+  // be settled either with cash OR by bringing the physical item
+  // ("either" / "item_only") are excluded from that top total and are
+  // shown only inside their own status group, with their own remaining
+  // money + remaining item count. Expanding a status group always lists
+  // every item in it (name, cost, qty, payment option, payment status).
   async function renderFees(){
     const view = document.getElementById('view');
     const child = currentChild();
     const bal = await ensureBalances(child.id);
-    const details = await ensureDetails(child.id);
 
     view.innerHTML = `
       <div class="page-head"><h1 class="serif">Fees & Payments</h1><p>${esc(child.firstName)}'s billing for the current term, plus anything carried forward.</p></div>
@@ -850,30 +797,26 @@ const Portal = (() => {
     const body = document.getElementById('feesBody');
 
     if(!bal || !bal.currentPeriod){
-      // fallback to simple tuition view from details
-      const fs = details?.currentFeeStructure || {};
-      const tuition = fs.tuition || 0;
-      const paid = details?.totalPaid || 0;
-      const balanceAmt = tuition - paid;
-      const pct = tuition>0 ? Math.min(100, Math.round((paid/tuition)*100)) : 0;
-      body.innerHTML = `
-        <div class="card pad">
-          <div class="donut-wrap">
-            <div class="donut" style="background:conic-gradient(var(--teal) ${pct*3.6}deg, var(--paper-deep) 0deg)"><div class="hole"><b>${pct}%</b><span>paid</span></div></div>
-            <div style="flex:1;">
-              <div class="money-row"><span>Tuition expected</span><b>${money(tuition)}</b></div>
-              <div class="money-row"><span>Paid</span><b>${money(paid)}</b></div>
-              <div class="money-row"><span>Balance</span><b style="color:${balanceAmt>0?'var(--rose)':'var(--teal)'}">${money(balanceAmt)}</b></div>
-            </div>
-          </div>
-        </div>
-        ${renderPaymentHistory(details?.payments||[])}
-      `;
+      body.innerHTML = `<div class="empty"><i class="fas fa-coins"></i><p>No fee structure is assigned to ${esc(child.firstName)} yet.</p></div>`;
       return;
     }
 
     const cp = bal.currentPeriod;
-    const totalPct = cp.total.expected>0 ? Math.min(100, Math.round((cp.total.paid/cp.total.expected)*100)) : (cp.total.paid>0?100:0);
+    const groups = Object.values(cp.statusGroupBreakdown || {});
+
+    // ---- top-level total: tuition + cash_only items only ----
+    let topExpected = cp.tuition.expected || 0;
+    let topPaid = cp.tuition.paid || 0;
+    groups.forEach(g=>{
+      (g.items||[]).forEach(it=>{
+        if(it.paymentOption === 'cash_only'){
+          topExpected += it.totalAmount || 0;
+          topPaid += it.cashPaid || 0;
+        }
+      });
+    });
+    const topBalance = topExpected - topPaid;
+    const totalPct = topExpected>0 ? Math.min(100, Math.round((topPaid/topExpected)*100)) : (topPaid>0?100:0);
     const ringColor = totalPct>=100?'var(--teal)':totalPct>=50?'var(--gold)':'var(--rose)';
 
     let previousHtml = '';
@@ -884,22 +827,21 @@ const Portal = (() => {
           <div><div class="bb-title">${money(bal.totalPreviousBalance)} carried forward</div>
           <div class="bb-sub">From ${bal.previousPeriods.length} earlier period${bal.previousPeriods.length===1?'':'s'} — see below for the breakdown.</div></div>
         </div>
-        ${bal.previousPeriods.map((p,i)=>renderPeriodAccordion(p, `prev-${i}`, true)).join('')}
+        ${bal.previousPeriods.map((p,i)=>renderPeriodAccordion(p, `prev-${i}`)).join('')}
       `;
     }
-
-    const groups = Object.values(cp.statusGroupBreakdown || {});
 
     body.innerHTML = `
       <div class="card pad" style="margin-bottom:16px;">
         <div class="donut-wrap">
           <div class="donut" style="background:conic-gradient(${ringColor} ${totalPct*3.6}deg, var(--paper-deep) 0deg)"><div class="hole"><b>${totalPct}%</b><span>settled</span></div></div>
           <div style="flex:1;">
-            <div class="money-row"><span>Expected this term</span><b>${money(cp.total.expected)}</b></div>
-            <div class="money-row"><span>Paid</span><b>${money(cp.total.paid)}</b></div>
-            <div class="money-row"><span>Balance</span><b style="color:${cp.total.balance>0?'var(--rose)':'var(--teal)'}">${money(cp.total.balance)}</b></div>
+            <div class="money-row"><span>Expected (tuition + fixed-price items)</span><b>${money(topExpected)}</b></div>
+            <div class="money-row"><span>Paid</span><b>${money(topPaid)}</b></div>
+            <div class="money-row"><span>Balance</span><b style="color:${topBalance>0?'var(--rose)':'var(--teal)'}">${money(topBalance)}</b></div>
           </div>
         </div>
+        <p style="font-size:11.5px;color:var(--muted);margin:12px 0 0;">Items that can be paid either in cash or brought in physically aren't included in this total — check the group below for those.</p>
       </div>
 
       <div class="card pad" style="margin-bottom:16px;">
@@ -915,31 +857,54 @@ const Portal = (() => {
       ${groups.length ? `<div class="section-title" style="margin-top:4px;">This term's items</div>` : ''}
       ${groups.map((g,i)=>renderGroupAccordion(g,`cur-${i}`)).join('')}
 
-      ${renderPaymentHistory(cp.payments || details?.payments || [])}
+      ${renderPaymentHistory(cp.payments || [])}
     `;
+  }
+
+  function groupFlaggedStats(g){
+    // money + item units still owed, counted ONLY from items that are
+    // NOT cash_only (those already live in the top summary)
+    let balance = 0, itemsRemaining = 0, hasFlagged = false;
+    (g.items||[]).forEach(it=>{
+      if(it.paymentOption !== 'cash_only'){
+        hasFlagged = true;
+        balance += Math.max(0, it.remainingAmount||0);
+        itemsRemaining += Math.max(0, it.remainingQuantity||0);
+      }
+    });
+    return { balance, itemsRemaining, hasFlagged };
   }
 
   function renderGroupAccordion(g, key){
     const items = g.items || [];
+    const flagged = groupFlaggedStats(g);
+    const headerRight = flagged.hasFlagged
+      ? `${money(flagged.balance)} remaining · ${flagged.itemsRemaining} item${flagged.itemsRemaining===1?'':'s'}`
+      : `${money(g.paid)} / ${money(g.expected)}`;
+
     return `
       <div class="accordion" id="acc-${key}">
         <div class="accordion-head" onclick="Portal.toggleAcc('${key}')">
           <span>${esc(g.name)}</span>
-          <span class="ah-right">${money(g.paid)} / ${money(g.expected)} <i class="fas fa-chevron-down chev"></i></span>
+          <span class="ah-right">${headerRight} <i class="fas fa-chevron-down chev"></i></span>
         </div>
         <div class="accordion-body">
           ${items.map(it=>{
-            const status = it.isFullyPaid ? {c:'pill-teal',t:'Paid'} : (it.totalCollected>0||it.totalAmountCollected>0) ? {c:'pill-amber',t:'Partial'} : {c:'pill-rose',t:'Unpaid'};
+            const status = paymentStatus(it);
             return `<div class="item-line">
-              <div><div class="il-name">${esc(it.name)}</div><div class="il-sub">qty ${it.quantityRequired||1} · ${money(it.amountExpected)}</div></div>
+              <div>
+                <div class="il-name">${esc(it.itemName)}</div>
+                <div class="il-sub">Qty ${it.quantity||1} · ${money(it.totalAmount||0)} · ${esc(paymentOptionLabel(it.paymentOption))}</div>
+              </div>
               <span class="pill ${status.c}">${status.t}</span>
             </div>`;
-          }).join('')}
+          }).join('') || `<p style="color:var(--muted);font-size:12.5px;padding:8px 0;">No items in this group.</p>`}
         </div>
       </div>`;
   }
 
-  function renderPeriodAccordion(p, key, isPrev){
+  function renderPeriodAccordion(p, key){
+    const groups = Object.values(p.statusGroupBreakdown || {});
     return `
       <div class="accordion" id="acc-${key}">
         <div class="accordion-head" onclick="Portal.toggleAcc('${key}')">
@@ -948,10 +913,21 @@ const Portal = (() => {
         </div>
         <div class="accordion-body">
           <div class="money-row"><span>Tuition balance</span><b>${money(p.tuition.balance)}</b></div>
-          <div class="money-row"><span>Items balance</span><b>${money(p.activity.balance)}</b></div>
-          ${(p.activity.items||[]).filter(it=>!it.isFullyPaid).map(it=>`
-            <div class="item-line"><div class="il-name">${esc(it.itemName)}</div><span class="pill pill-rose">${money(it.remainingAmount||0)} due</span></div>
-          `).join('')}
+          ${groups.map(g=>{
+            const items = (g.items||[]).filter(it=>!it.isFullyPaid);
+            if(!items.length) return '';
+            return `<div style="font-weight:700;font-size:12.5px;margin:10px 0 4px;">${esc(g.name)}</div>` +
+              items.map(it=>{
+                const status = paymentStatus(it);
+                return `<div class="item-line">
+                  <div>
+                    <div class="il-name">${esc(it.itemName)}</div>
+                    <div class="il-sub">Qty ${it.quantity||1} · ${money(it.totalAmount||0)} · ${esc(paymentOptionLabel(it.paymentOption))}</div>
+                  </div>
+                  <span class="pill ${status.c}">${money(it.remainingAmount||0)} due</span>
+                </div>`;
+              }).join('');
+          }).join('')}
         </div>
       </div>`;
   }
@@ -965,24 +941,27 @@ const Portal = (() => {
         ${sorted.slice(0,12).map(p=>`
           <div class="payment-row">
             <div><div class="pr-receipt">${esc(p.receiptNumber||'—')}</div><div class="pr-date">${new Date(p.date).toLocaleDateString()} · ${esc(p.method||'cash')}</div></div>
-            <b style="color:var(--teal)">${money(p.totalAmount ?? p.amount ?? 0)}</b>
+            <b style="color:var(--teal)">${money(p.amount ?? 0)}</b>
           </div>`).join('')}
       </div>`;
   }
 
   function toggleAcc(key){
-    document.getElementById('acc-'+key).classList.toggle('open');
+    const el = document.getElementById('acc-'+key);
+    if(el) el.classList.toggle('open');
   }
 
   // ================= ATTENDANCE =================
   async function renderAttendance(){
     const view = document.getElementById('view');
     const child = currentChild();
-    const details = await ensureDetails(child.id);
-    const records = (details?.attendance?.records) || [];
-    const summary = (details?.attendance?.summary) || {present:0,absent:0,total:0,rate:0};
+    let recordsData = null;
+    try{ recordsData = await api(`/api/attendance/student/${child.id}/summary`); }catch(e){}
+    const records = (recordsData && recordsData.records) || [];
+    const summary = (recordsData && recordsData.summary) || {present:0,absent:0,total:0,rate:0};
 
     state._attendMonth = state._attendMonth || new Date();
+    state._attendRecords = records;
 
     view.innerHTML = `
       <div class="page-head"><h1 class="serif">Attendance</h1><p>Day-by-day record for ${esc(child.firstName)}.</p></div>
@@ -1006,8 +985,7 @@ const Portal = (() => {
 
   function shiftMonth(delta){
     state._attendMonth.setMonth(state._attendMonth.getMonth()+delta);
-    const details = currentDetails();
-    paintCalendar((details?.attendance?.records)||[]);
+    paintCalendar(state._attendRecords || []);
   }
 
   function paintCalendar(records){
@@ -1042,7 +1020,7 @@ const Portal = (() => {
     `;
     const cats = ['all', ...new Set(state.events.map(e=>e.category).filter(Boolean))];
     document.getElementById('evFilters').innerHTML = cats.map(c=>`
-      <button class="chip-filter ${state._eventFilter===c?'active':''}" onclick="Portal.filterEvents('${c}')">${c==='all'?'All':c}</button>
+      <button class="chip-filter ${state._eventFilter===c?'active':''}" onclick="Portal.filterEvents('${c}')">${c==='all'?'All':esc(c)}</button>
     `).join('');
     paintEvents();
   }
@@ -1053,7 +1031,6 @@ const Portal = (() => {
     if(state._eventFilter && state._eventFilter!=='all') evs = evs.filter(e=>e.category===state._eventFilter);
     evs.sort((a,b)=> a.startDate.localeCompare(b.startDate));
     if(!evs.length){ list.innerHTML = `<div class="empty"><i class="fas fa-calendar-xmark"></i><p>No events in this category.</p></div>`; return; }
-    const d = new Date();
     list.innerHTML = evs.map(e=>{
       const dt = new Date(e.startDate);
       return `<div class="event-card">
@@ -1065,7 +1042,7 @@ const Portal = (() => {
           <h4>${esc(e.title)}</h4>
           <p>${esc(e.description||'')}</p>
           <div class="event-meta">
-            ${e.startTime?`<span><i class="far fa-clock"></i> ${e.startTime}</span>`:''}
+            ${e.startTime?`<span><i class="far fa-clock"></i> ${esc(e.startTime)}</span>`:''}
             ${e.location?`<span><i class="fas fa-location-dot"></i> ${esc(e.location)}</span>`:''}
             <span class="pill pill-muted">${esc(e.category||'General')}</span>
           </div>
@@ -1097,89 +1074,83 @@ const Portal = (() => {
       </div>`).join('');
   }
 
-  // ================= MESSAGES =================
+  // ================= MESSAGES (admin/director only) =================
+  async function loadAdminContact(){
+    try{
+      const contacts = await api('/api/chat/contacts?type=director');
+      state.adminContact = (contacts && contacts.length) ? contacts[0] : null;
+    }catch(e){ state.adminContact = null; }
+    loadChatUnread();
+  }
+
   async function renderMessages(){
     const view = document.getElementById('view');
+    if(!state.adminContact){
+      await loadAdminContact();
+    }
+    if(!state.adminContact){
+      view.innerHTML = `
+        <div class="page-head"><h1 class="serif">Messages</h1><p>Reach the school office directly.</p></div>
+        <div class="empty"><i class="fas fa-circle-user"></i><p>No school administrator is set up to receive messages yet.</p><p>Please call or visit the school office.</p></div>
+      `;
+      return;
+    }
+
     view.innerHTML = `
-      <div class="page-head"><h1 class="serif">Messages</h1><p>Reach the school's teachers and administration directly.</p></div>
+      <div class="page-head"><h1 class="serif">Messages</h1><p>You're messaging the school office. Only the administration can reply here.</p></div>
       <div class="msg-shell">
-        <div class="msg-list" id="msgContactList"><div class="spinner"></div></div>
-        <div class="msg-thread" id="msgThread">
-          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;flex-direction:column;gap:8px;">
-            <i class="fas fa-comments" style="font-size:30px;opacity:.3"></i>
-            Pick a contact to start chatting
-          </div>
+        <div class="msg-thread-head">
+          <div class="av" style="background:${avatarColor(state.adminContact.id)}">${initials(...state.adminContact.name.split(' '))}</div>
+          ${esc(state.adminContact.name)}
+        </div>
+        <div class="msg-scroll" id="msgScroll"><div class="spinner"></div></div>
+        <div class="msg-input-row">
+          <input type="text" id="msgInput" placeholder="Write a message…" onkeydown="if(event.key==='Enter') Portal.sendMsg()">
+          <button class="msg-send" onclick="Portal.sendMsg()"><i class="fas fa-paper-plane"></i></button>
         </div>
       </div>
     `;
-    try{
-      const contacts = await api('/api/chat/contacts?type=all');
-      state.chatContacts = (contacts||[]).filter(c=>c.type==='teacher'||c.type==='director');
-    }catch(e){ state.chatContacts=[]; }
-
-    const list = document.getElementById('msgContactList');
-    if(!state.chatContacts.length){
-      list.innerHTML = `<div class="empty" style="padding:24px 12px;"><i class="fas fa-address-book"></i><p style="font-size:12.5px;">No contacts yet</p></div>`;
-      return;
-    }
-    list.innerHTML = state.chatContacts.map(c=>`
-      <div class="contact-item" data-cid="${c.id}" onclick="Portal.selectContact('${c.id}')">
-        <div class="av" style="background:${avatarColor(c.id)}">${initials(...c.name.split(' '))}</div>
-        <div><div class="cname">${esc(c.name)}</div><div class="ctype">${esc(c.type)}</div></div>
-      </div>`).join('');
+    await loadThread();
 
     if(state.chatPoll) clearInterval(state.chatPoll);
-    state.chatPoll = setInterval(()=>{ if(state.currentContact) loadThread(state.currentContact.id, true); loadChatUnread(); }, 6000);
+    state.chatPoll = setInterval(()=>{ if(state.tab==='messages') loadThread(true); loadChatUnread(); }, 6000);
   }
 
-  async function selectContact(id){
-    const c = state.chatContacts.find(x=>x.id===id);
-    state.currentContact = c;
-    document.querySelectorAll('.contact-item').forEach(el=>el.classList.toggle('active', el.dataset.cid===id));
-    await loadThread(id);
-  }
-
-  async function loadThread(id, silent){
-    const thread = document.getElementById('msgThread');
-    if(!silent){
-      thread.innerHTML = `<div class="msg-thread-head">${esc(state.currentContact.name)}</div><div class="spinner"></div>`;
-    }
+  async function loadThread(silent){
+    if(!state.adminContact) return;
+    const scroll = document.getElementById('msgScroll');
+    if(!scroll) return;
     let msgs = [];
-    try{ msgs = await api(`/api/chat/messages/${id}?limit=60`); }catch(e){}
+    try{ msgs = await api(`/api/chat/messages/${state.adminContact.id}?limit=60`); }catch(e){}
     const bubbles = msgs.map(m=>`
       <div class="bubble ${m.sender==='admin'?'them':'me'}">${esc(m.message)}<span class="btime">${new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>
     `).join('');
-    thread.innerHTML = `
-      <div class="msg-thread-head">${esc(state.currentContact.name)}</div>
-      <div class="msg-scroll" id="msgScroll">${bubbles || '<p style="color:var(--muted);font-size:13px;text-align:center;margin-top:20px;">Say hello 👋</p>'}</div>
-      <div class="msg-input-row">
-        <input type="text" id="msgInput" placeholder="Write a message…" onkeydown="if(event.key==='Enter') Portal.sendMsg()">
-        <button class="msg-send" onclick="Portal.sendMsg()"><i class="fas fa-paper-plane"></i></button>
-      </div>`;
-    const scroll = document.getElementById('msgScroll'); if(scroll) scroll.scrollTop = scroll.scrollHeight;
-    try{ await fetch(`/api/chat/messages/${id}/read`, {method:'PUT'}); loadChatUnread(); }catch(e){}
+    scroll.innerHTML = bubbles || '<p style="color:var(--muted);font-size:13px;text-align:center;margin-top:20px;">Say hello 👋</p>';
+    scroll.scrollTop = scroll.scrollHeight;
+    try{ await fetch(`/api/chat/messages/${state.adminContact.id}/read`, {method:'PUT'}); loadChatUnread(); }catch(e){}
   }
 
   async function sendMsg(){
     const input = document.getElementById('msgInput');
-    if(!input || !state.currentContact) return;
+    if(!input || !state.adminContact) return;
     const message = input.value.trim();
     if(!message) return;
     input.value=''; input.disabled=true;
     try{
       await fetch('/api/chat/messages', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ contactId: state.currentContact.id, message, sender: state.parentName, messageType:'text' })
+        body: JSON.stringify({ contactId: state.adminContact.id, message, sender: state.parentName, messageType:'text' })
       });
-      await loadThread(state.currentContact.id, true);
+      await loadThread(true);
     }catch(e){ toast('Message failed to send'); }
     finally{ input.disabled=false; input.focus(); }
   }
 
   async function loadChatUnread(){
+    if(!state.adminContact) return;
     try{
       const d = await api('/api/chat/unread');
-      state.chatUnread = d.totalUnread || 0;
+      state.chatUnread = (d.unreadByContact && d.unreadByContact[state.adminContact.id]) || 0;
       const badge = document.getElementById('bnChatBadge');
       const dot = document.getElementById('rdot-messages');
       if(badge){ if(state.chatUnread>0){ badge.style.display='flex'; badge.textContent = state.chatUnread>9?'9+':state.chatUnread; } else badge.style.display='none'; }
@@ -1225,7 +1196,7 @@ const Portal = (() => {
   // ---------------- public API ----------------
   return {
     init, renderTab, switchChildUI, changeAcadPeriod, toggleAcc,
-    shiftMonth, filterEvents, selectContact, sendMsg,
+    shiftMonth, filterEvents, sendMsg,
     openNotifications, closeSheet, openMore, logout
   };
 })();
