@@ -6,87 +6,299 @@
     <title>Teacher Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* ========== BASE STYLES ========== */
+        /* ========================================================
+           DESIGN TOKENS — "Gradebook" theme
+           Warm paper background, ink-navy type, brass/gold accent.
+           ======================================================== */
+        :root {
+            --ink: #1B2430;
+            --ink-soft: #4A5568;
+            --ink-faint: #8891A0;
+            --paper: #F6F3EC;
+            --paper-raised: #FFFFFF;
+            --line: #E4DFD1;
+            --line-soft: #EEEAE0;
+
+            --accent: #B8842E;
+            --accent-deep: #8F6420;
+            --accent-bg: #F6EEDD;
+
+            --success: #3E7A5C;
+            --success-bg: #E6F1EA;
+            --danger: #B14A32;
+            --danger-bg: #F6E6E0;
+            --info: #2E5C82;
+            --info-bg: #E6EEF4;
+            --warn: #A67A22;
+            --warn-bg: #F5EDDA;
+
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-card: 0 1px 2px rgba(27,36,48,0.04), 0 8px 24px -12px rgba(27,36,48,0.14);
+            --shadow-pop: 0 20px 60px -20px rgba(27,36,48,0.35);
+        }
+
+        * { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        h1, h2, h3, h4, .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; letter-spacing: -0.01em; }
+
+        html, body { background: var(--paper); color: var(--ink); }
+        #app { background: var(--paper); }
+
+        ::selection { background: var(--accent-bg); color: var(--accent-deep); }
+
+        /* Scrollbars */
+        .scrollable-table { scrollbar-width: thin; scrollbar-color: #C9C2AD transparent; }
+        .scrollable-table::-webkit-scrollbar { width: 5px; height: 5px; }
+        .scrollable-table::-webkit-scrollbar-thumb { background: #C9C2AD; border-radius: 9999px; }
+
+        /* ---------- Header ---------- */
+        .app-header {
+            background: var(--paper-raised);
+            border-bottom: 1px solid var(--line);
+        }
+        .brand-mark {
+            background: linear-gradient(135deg, var(--ink) 0%, #2E3B4E 100%);
+            box-shadow: 0 6px 16px -6px rgba(27,36,48,0.45);
+        }
+        .teacher-chip {
+            background: var(--paper);
+            border: 1px solid var(--line);
+        }
+        .logout-btn {
+            color: var(--danger);
+            background: var(--danger-bg);
+        }
+        .logout-btn:hover { background: #EFD8CD; }
+
+        /* ---------- Hero ---------- */
+        .hero-band {
+            background:
+                radial-gradient(1200px 300px at 15% -10%, rgba(184,132,46,0.35), transparent 60%),
+                linear-gradient(120deg, #1B2430 0%, #223047 55%, #2C3E52 100%);
+            border-radius: var(--radius-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-band::after {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 64px);
+            pointer-events: none;
+        }
+        .hero-date-pill {
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.18);
+            backdrop-filter: blur(6px);
+        }
+
+        /* ---------- Stat ledger row ---------- */
+        .stat-ledger {
+            background: var(--paper-raised);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+        }
+        .stat-cell {
+            border-right: 1px solid var(--line-soft);
+            transition: background-color 0.15s ease;
+        }
+        .stat-cell:last-child { border-right: none; }
+        .stat-cell:hover { background: var(--paper); }
+        .stat-cell .stat-icon {
+            width: 2.5rem; height: 2.5rem; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .stat-value { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.5rem; color: var(--ink); }
+        .stat-label { font-size: 0.72rem; color: var(--ink-faint); font-weight: 500; }
+
+        /* ---------- Main panel ---------- */
+        .main-panel {
+            background: var(--paper-raised);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+        }
+        .panel-toolbar { background: var(--paper); border-bottom: 1px solid var(--line); }
+
+        select, input[type="text"], input[type="date"], input[type="number"], textarea {
+            background: var(--paper-raised);
+        }
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px var(--accent-bg) !important;
+        }
+
+        /* ---------- Tabs (folder style) ---------- */
         .status-badge { transition: all 0.2s ease; }
-        .attendance-row:hover { background-color: #f8fafc; }
-        .toggle-checkbox:checked + .toggle-slider { background-color: #22c55e; }
+        .attendance-row:hover { background-color: var(--paper); }
+        .toggle-checkbox:checked + .toggle-slider { background-color: var(--success) !important; }
         .toggle-checkbox:checked + .toggle-slider:before { transform: translateX(1.25rem); }
         .toggle-slider:before {
             content: '';
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 1.25rem;
-            height: 1.25rem;
-            background: white;
-            border-radius: 9999px;
+            position: absolute; top: 2px; left: 2px;
+            width: 1.25rem; height: 1.25rem;
+            background: white; border-radius: 9999px;
             transition: transform 0.2s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
-        .tab-btn { transition: all 0.2s ease; }
-        .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
-        .tab-btn:not(.active) { color: #6b7280; border-bottom-color: transparent; }
-        .tab-btn:not(.active):hover { color: #374151; border-bottom-color: #d1d5db; }
-        .sub-tab-btn { transition: all 0.2s ease; }
-        .sub-tab-btn.active { background-color: #2563eb; color: white; }
-        .sub-tab-btn:not(.active) { background-color: #f3f4f6; color: #6b7280; }
-        .sub-tab-btn:not(.active):hover { background-color: #e5e7eb; }
-        .scrollable-table { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
-        .scrollable-table::-webkit-scrollbar { width: 4px; height: 4px; }
-        .scrollable-table::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
-        .history-item:hover { background-color: #f8fafc; }
-        .history-item.selected { background-color: #eff6ff; border-left: 3px solid #2563eb; }
-        .toast { animation: toastIn 0.4s ease-out; }
-        @keyframes toastIn { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .toast-out { animation: toastOut 0.3s ease-in forwards; }
-        @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(20px) scale(0.95); } }
-        .loading-spinner { width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
-        .sweeping-day-card { transition: all 0.2s ease; }
-        .sweeping-day-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+        .tab-btn { transition: all 0.15s ease; position: relative; border-radius: 10px 10px 0 0; }
+        .tab-btn.active { color: var(--ink) !important; border-bottom-color: var(--accent) !important; background: var(--paper); font-weight: 600; }
+        .tab-btn:not(.active) { color: var(--ink-faint) !important; border-bottom-color: transparent !important; }
+        .tab-btn:not(.active):hover { color: var(--ink-soft) !important; background: var(--paper); }
+
+        .sub-tab-btn { transition: all 0.15s ease; border-radius: 999px !important; }
+        .sub-tab-btn.active { background-color: var(--ink) !important; color: white !important; }
+        .sub-tab-btn:not(.active) { background-color: var(--paper) !important; color: var(--ink-soft) !important; border: 1px solid var(--line); }
+        .sub-tab-btn:not(.active):hover { background-color: var(--line-soft) !important; }
+
+        .rc-designer-tab-btn.active { background-color: var(--ink) !important; color: white !important; border-color: var(--ink) !important; }
+        .rc-designer-tab-btn:not(.active) { border: 1px solid var(--line); }
+
+        /* ---------- Tables ---------- */
+        table thead th { color: var(--ink-faint); font-weight: 600; letter-spacing: 0.02em; }
+        table tbody tr:hover { background-color: var(--paper); }
+
+        /* ---------- Cards ---------- */
+        .sweeping-day-card { transition: all 0.2s ease; background: var(--paper-raised); }
+        .sweeping-day-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); border-color: var(--accent) !important; }
         .sweeping-student-chip { transition: all 0.2s ease; }
-        .sweeping-student-chip:hover { background-color: #dbeafe; transform: scale(1.02); }
-        .animate-slide-up { animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .sweeping-student-chip:hover { background-color: var(--accent-bg) !important; color: var(--accent-deep) !important; border-color: var(--accent) !important; transform: scale(1.02); }
+
         .day-selector-btn { transition: all 0.2s ease; }
-        .day-selector-btn.active-day { background-color: #2563eb; color: white; border-color: #2563eb; }
-        .day-selector-btn.active-day:hover { background-color: #1d4ed8; }
-        .day-selector-btn:not(.active-day):hover { background-color: #f3f4f6; }
-        .report-card-preview { border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .report-card-preview .school-name { font-size: 20px; font-weight: 700; text-align: center; }
-        .report-card-preview .school-address { font-size: 12px; text-align: center; color: #6b7280; }
+        .day-selector-btn.active-day { background-color: var(--ink) !important; color: white !important; border-color: var(--ink) !important; }
+        .day-selector-btn.active-day:hover { background-color: #2E3B4E !important; }
+        .day-selector-btn:not(.active-day):hover { background-color: var(--paper) !important; }
+
+        /* ---------- Animations ---------- */
+        .animate-slide-up { animation: slideUp 0.25s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .toast { animation: toastIn 0.35s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .toast-out { animation: toastOut 0.25s ease-in forwards; }
+        @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(16px) scale(0.96); } }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal-overlay { background: rgba(20,25,33,0.55); backdrop-filter: blur(4px); }
+
+        /* ---------- Report card preview ---------- */
+        .report-card-preview { border: 2px solid var(--line); border-radius: var(--radius-md); padding: 24px; background: white; box-shadow: var(--shadow-card); font-family: 'Inter', sans-serif; }
+        .report-card-preview .school-name { font-family: 'Space Grotesk', sans-serif; font-size: 21px; font-weight: 700; text-align: center; color: var(--ink); }
+        .report-card-preview .school-address { font-size: 12px; text-align: center; color: var(--ink-faint); }
         .report-card-preview .student-info { font-size: 13px; margin-top: 12px; }
         .report-card-preview table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 12px; }
-        .report-card-preview table th { background: #f3f4f6; padding: 6px 8px; border: 1px solid #d1d5db; text-align: left; font-weight: 600; }
-        .report-card-preview table td { padding: 6px 8px; border: 1px solid #d1d5db; }
+        .report-card-preview table th { background: var(--paper); padding: 7px 8px; border: 1px solid var(--line); text-align: left; font-weight: 600; }
+        .report-card-preview table td { padding: 7px 8px; border: 1px solid var(--line); }
+
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
-        .rc-designer-tab-btn.active { background-color: #1f2937 !important; color: white !important; border-color: #1f2937 !important; }
+
+        /* ---------- Tailwind utility remaps → brand palette ----------
+           JS template strings hardcode Tailwind color utilities.
+           These overrides retarget them to the design tokens above
+           without touching a single line of application logic. */
+        .bg-blue-600 { background-color: var(--info) !important; }
+        .hover\:bg-blue-700:hover { background-color: #244A69 !important; }
+        .bg-blue-700 { background-color: #244A69 !important; }
+        .text-blue-600 { color: var(--info) !important; }
+        .hover\:text-blue-800:hover { color: #1B3A52 !important; }
+        .text-blue-700, .text-blue-800 { color: var(--info) !important; }
+        .bg-blue-50 { background-color: var(--info-bg) !important; }
+        .bg-blue-100 { background-color: #D7E4EF !important; }
+        .hover\:bg-blue-200:hover { background-color: #C5D8E8 !important; }
+        .border-blue-200 { border-color: #BFD4E5 !important; }
+        .border-blue-400 { border-color: var(--info) !important; }
+        .ring-blue-200 { --tw-ring-color: #BFD4E5 !important; }
+        .focus\:ring-blue-500:focus { --tw-ring-color: var(--accent) !important; }
+        .focus\:border-blue-500:focus { border-color: var(--accent) !important; }
+
+        .bg-green-600 { background-color: var(--success) !important; }
+        .hover\:bg-green-700:hover { background-color: #2E5F47 !important; }
+        .bg-green-700 { background-color: #2E5F47 !important; }
+        .text-green-600, .text-green-700, .text-green-800 { color: var(--success) !important; }
+        .bg-green-50, .bg-green-100 { background-color: var(--success-bg) !important; }
+        .border-green-200 { border-color: #C6DECF !important; }
+
+        .bg-red-600 { background-color: var(--danger) !important; }
+        .hover\:bg-red-700:hover { background-color: #8F3A26 !important; }
+        .text-red-500, .text-red-600, .text-red-700, .text-red-800 { color: var(--danger) !important; }
+        .bg-red-50, .bg-red-100 { background-color: var(--danger-bg) !important; }
+        .hover\:bg-red-100:hover, .hover\:bg-red-200:hover { background-color: #EFD8CD !important; }
+        .border-red-200 { border-color: #E5C6B8 !important; }
+        .hover\:text-red-700:hover { color: #8F3A26 !important; }
+
+        .bg-yellow-500 { background-color: var(--warn) !important; }
+        .hover\:bg-yellow-600:hover { background-color: #8A6519 !important; }
+        .bg-yellow-50, .bg-yellow-100 { background-color: var(--warn-bg) !important; }
+        .text-yellow-600, .text-yellow-700, .text-yellow-800 { color: var(--warn) !important; }
+        .border-yellow-200 { border-color: #E9D9AF !important; }
+
+        .bg-purple-600 { background-color: #6B4E8E !important; }
+        .hover\:bg-purple-700:hover { background-color: #593F78 !important; }
+        .bg-purple-50 { background-color: #EFE9F5 !important; }
+        .text-purple-600 { color: #6B4E8E !important; }
+
+        .bg-indigo-600, .bg-indigo-50, .text-indigo-600, .hover\:bg-indigo-700:hover, .bg-indigo-100, .text-indigo-700 {
+            background-color: var(--accent-bg) !important; color: var(--accent-deep) !important;
+        }
+        button.bg-indigo-600 { background-color: var(--ink) !important; color: #fff !important; }
+        button.hover\:bg-indigo-700:hover { background-color: #2E3B4E !important; }
+
+        .bg-orange-50, .text-orange-600 { background-color: var(--accent-bg) !important; color: var(--accent-deep) !important; }
+        .bg-rose-50, .text-rose-600 { background-color: var(--danger-bg) !important; color: var(--danger) !important; }
+
+        .bg-gray-50 { background-color: var(--paper) !important; }
+        .bg-gray-100 { background-color: var(--line-soft) !important; }
+        .hover\:bg-gray-100:hover, .hover\:bg-gray-200:hover, .hover\:bg-gray-300:hover { background-color: var(--line-soft) !important; }
+        .bg-gray-200 { background-color: #E9E4D6 !important; }
+        .text-gray-400, .text-gray-500 { color: var(--ink-faint) !important; }
+        .text-gray-600, .text-gray-700 { color: var(--ink-soft) !important; }
+        .text-gray-800 { color: var(--ink) !important; }
+        .border-gray-200, .border-gray-300 { border-color: var(--line) !important; }
+        .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line-soft) !important; }
+
+        /* Buttons: consistent soft-lift on hover, but no per-card motion clutter */
+        button { -webkit-font-smoothing: antialiased; }
+        .rounded-lg, .rounded-xl, .rounded-2xl { transition: box-shadow 0.15s ease; }
+
+        /* Focus visibility for accessibility */
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--accent); outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+        }
     </style>
 </head>
 <body>
 
-    <div id="app" class="min-h-screen bg-gray-100">
+    <div id="app" class="min-h-screen">
 
-        <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+        <header class="app-header sticky top-0 z-20">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                        <div class="w-9 h-9 rounded-xl brand-mark flex items-center justify-center text-white">
                             <i class="fas fa-chalkboard-user text-sm"></i>
                         </div>
-                        <span class="text-lg font-bold text-gray-800 hidden sm:block">Teacher Portal</span>
+                        <span class="text-lg font-display font-semibold hidden sm:block" style="color:var(--ink)">Teacher Portal</span>
                     </div>
-                    <div class="hidden md:flex items-center gap-4 bg-gray-50 px-4 py-1.5 rounded-full border border-gray-200">
-                        <i class="fas fa-user-circle text-blue-600 text-lg"></i>
-                        <span class="text-sm font-medium text-gray-700" id="teacherName">Loading...</span>
-                        <span class="text-xs text-gray-400">|</span>
-                        <span class="text-xs text-gray-500" id="teacherId">ID: ---</span>
+                    <div class="hidden md:flex items-center gap-4 teacher-chip px-4 py-1.5 rounded-full">
+                        <i class="fas fa-user-circle" style="color:var(--accent)"></i>
+                        <span class="text-sm font-medium" style="color:var(--ink)" id="teacherName">Loading...</span>
+                        <span class="text-xs" style="color:var(--line)">|</span>
+                        <span class="text-xs" style="color:var(--ink-faint)" id="teacherId">ID: ---</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button onclick="logoutTeacher()" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition">
+                        <button onclick="logoutTeacher()" class="logout-btn flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition">
                             <i class="fas fa-sign-out-alt"></i>
                             <span class="hidden sm:inline">Logout</span>
                         </button>
@@ -97,51 +309,51 @@
 
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-            <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="hero-band p-6 mb-6 text-white">
+                <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <h1 class="text-2xl font-bold" id="welcomeMessage">Welcome, Teacher!</h1>
-                        <p class="text-sm text-blue-100 mt-0.5">Manage your classes, attendance, sweeping rosters, and report cards.</p>
+                        <h1 class="text-2xl font-display font-semibold" id="welcomeMessage">Welcome, Teacher!</h1>
+                        <p class="text-sm mt-1" style="color:rgba(255,255,255,0.7)">Manage your classes, attendance, sweeping rosters, and report cards.</p>
                     </div>
-                    <div class="flex items-center gap-3 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl">
-                        <i class="fas fa-calendar-alt"></i>
+                    <div class="flex items-center gap-3 hero-date-pill px-4 py-2 rounded-xl">
+                        <i class="fas fa-calendar-alt" style="color:var(--accent)"></i>
                         <span class="text-sm font-medium" id="currentDate"></span>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas fa-users text-lg"></i></div>
-                    <div><p class="text-2xl font-bold text-gray-800" id="studentCount">0</p><p class="text-xs text-gray-500">My Students</p></div>
+            <div class="stat-ledger grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 mb-6 overflow-hidden">
+                <div class="stat-cell p-4 flex items-center gap-3">
+                    <div class="stat-icon" style="background:var(--info-bg);color:var(--info)"><i class="fas fa-users text-base"></i></div>
+                    <div><p class="stat-value" id="studentCount">0</p><p class="stat-label">My Students</p></div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center"><i class="fas fa-chalkboard text-lg"></i></div>
-                    <div><p class="text-2xl font-bold text-gray-800" id="classCount">0</p><p class="text-xs text-gray-500">My Classes</p></div>
+                <div class="stat-cell p-4 flex items-center gap-3">
+                    <div class="stat-icon" style="background:#EFE9F5;color:#6B4E8E"><i class="fas fa-chalkboard text-base"></i></div>
+                    <div><p class="stat-value" id="classCount">0</p><p class="stat-label">My Classes</p></div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-green-50 text-green-600 flex items-center justify-center"><i class="fas fa-book-open text-lg"></i></div>
-                    <div><p class="text-2xl font-bold text-gray-800" id="subjectCount">0</p><p class="text-xs text-gray-500">Subjects</p></div>
+                <div class="stat-cell p-4 flex items-center gap-3">
+                    <div class="stat-icon" style="background:var(--success-bg);color:var(--success)"><i class="fas fa-book-open text-base"></i></div>
+                    <div><p class="stat-value" id="subjectCount">0</p><p class="stat-label">Subjects</p></div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center"><i class="fas fa-clock text-lg"></i></div>
-                    <div><p class="text-2xl font-bold text-gray-800" id="todayClasses">0</p><p class="text-xs text-gray-500">Today's Classes</p></div>
+                <div class="stat-cell p-4 flex items-center gap-3">
+                    <div class="stat-icon" style="background:var(--accent-bg);color:var(--accent-deep)"><i class="fas fa-clock text-base"></i></div>
+                    <div><p class="stat-value" id="todayClasses">0</p><p class="stat-label">Today's Classes</p></div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fas fa-broom text-lg"></i></div>
-                    <div><p class="text-2xl font-bold text-gray-800" id="sweepingCount">0</p><p class="text-xs text-gray-500">Sweeping Roster</p></div>
+                <div class="stat-cell p-4 flex items-center gap-3">
+                    <div class="stat-icon" style="background:var(--info-bg);color:var(--info)"><i class="fas fa-broom text-base"></i></div>
+                    <div><p class="stat-value" id="sweepingCount">0</p><p class="stat-label">Sweeping Roster</p></div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center"><i class="fas fa-file-alt text-lg"></i></div>
-                    <div><p class="text-2xl font-bold text-gray-800" id="reportCount">0</p><p class="text-xs text-gray-500">Report Cards</p></div>
+                <div class="stat-cell p-4 flex items-center gap-3">
+                    <div class="stat-icon" style="background:var(--danger-bg);color:var(--danger)"><i class="fas fa-file-alt text-base"></i></div>
+                    <div><p class="stat-value" id="reportCount">0</p><p class="stat-label">Report Cards</p></div>
                 </div>
             </div>
 
-            <div id="classManagementContainer" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div id="classManagementContainer" class="main-panel overflow-hidden">
                 <div class="flex items-center justify-center py-16">
                     <div class="flex flex-col items-center gap-3">
                         <div class="loading-spinner"></div>
-                        <p class="text-sm text-gray-500">Loading your classes...</p>
+                        <p class="text-sm" style="color:var(--ink-faint)">Loading your classes...</p>
                     </div>
                 </div>
             </div>
@@ -151,15 +363,15 @@
 
     <!-- History Detail Modal -->
     <div id="historyModal" class="fixed inset-0 z-50 hidden modal-overlay flex items-center justify-center">
-        <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden shadow-2xl animate-slide-up">
-            <div class="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 class="text-lg font-bold text-gray-800" id="historyModalTitle">Attendance Details</h3>
+        <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden shadow-2xl animate-slide-up" style="box-shadow:var(--shadow-pop)">
+            <div class="flex items-center justify-between p-4 border-b" style="border-color:var(--line)">
+                <h3 class="text-lg font-display font-semibold" style="color:var(--ink)" id="historyModalTitle">Attendance Details</h3>
                 <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <div class="p-4 overflow-y-auto max-h-[60vh]" id="historyModalBody">
                 <div class="flex justify-center py-8"><div class="loading-spinner"></div></div>
             </div>
-            <div class="border-t border-gray-200 p-4 flex justify-end">
+            <div class="border-t p-4 flex justify-end" style="border-color:var(--line)">
                 <button onclick="closeHistoryModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">Close</button>
             </div>
         </div>
@@ -167,9 +379,9 @@
 
     <!-- Sweeping Roster Modal (Add/Edit) -->
     <div id="sweepingModal" class="fixed inset-0 z-50 hidden modal-overlay flex items-center justify-center">
-        <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden shadow-2xl animate-slide-up">
-            <div class="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 class="text-lg font-bold text-gray-800" id="sweepingModalTitle">Manage Sweeping Roster</h3>
+        <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden shadow-2xl animate-slide-up" style="box-shadow:var(--shadow-pop)">
+            <div class="flex items-center justify-between p-4 border-b" style="border-color:var(--line)">
+                <h3 class="text-lg font-display font-semibold" style="color:var(--ink)" id="sweepingModalTitle">Manage Sweeping Roster</h3>
                 <button onclick="closeSweepingModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <div class="p-4 overflow-y-auto max-h-[60vh]" id="sweepingModalBody">
@@ -180,15 +392,15 @@
 
     <!-- Report Card Modal -->
     <div id="reportModal" class="fixed inset-0 z-50 hidden modal-overlay flex items-center justify-center">
-        <div class="bg-white rounded-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden shadow-2xl animate-slide-up flex flex-col">
-            <div class="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 class="text-lg font-bold text-gray-800" id="reportModalTitle">Report Card</h3>
+        <div class="bg-white rounded-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden shadow-2xl animate-slide-up flex flex-col" style="box-shadow:var(--shadow-pop)">
+            <div class="flex items-center justify-between p-4 border-b" style="border-color:var(--line)">
+                <h3 class="text-lg font-display font-semibold" style="color:var(--ink)" id="reportModalTitle">Report Card</h3>
                 <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <div class="p-4 overflow-y-auto flex-1" id="reportModalBody">
                 <div class="flex justify-center py-8"><div class="loading-spinner"></div></div>
             </div>
-            <div class="border-t border-gray-200 p-4 flex justify-end gap-3">
+            <div class="border-t p-4 flex justify-end gap-3" style="border-color:var(--line)">
                 <button onclick="window.printReportCard()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                     <i class="fas fa-print mr-2"></i> Print
                 </button>
@@ -407,10 +619,10 @@
                 const tabIcons = ['fa-clipboard-list', 'fa-users', 'fa-broom', 'fa-file-alt', 'fa-book'];
 
                 return `
-                    <div class="p-4 sm:p-6 border-b border-gray-200 bg-gray-50/50">
+                    <div class="p-4 sm:p-6 border-b panel-toolbar">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                             <div class="flex items-center gap-3">
-                                <i class="fas fa-chalkboard text-blue-600 text-lg"></i>
+                                <i class="fas fa-chalkboard" style="color:var(--accent)"></i>
                                 <label for="classSelector" class="font-medium text-gray-700">Select Class:</label>
                             </div>
                             <select id="classSelector" class="flex-1 max-w-xs border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
