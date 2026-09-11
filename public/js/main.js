@@ -24912,9 +24912,9 @@ async function loadPaymentHistoryIntoTable() {
                     </td>
                     <td class="p-2.5"><span class="db-badge ${mm.chip}"><i class="fas ${mm.icon} mr-1"></i>${(payment.method || 'CASH').toUpperCase()}</span></td>
                     <td class="p-2.5 text-center">
-                        <button onclick="event.stopPropagation(); printPaymentReceipt('${payment.receiptNumber}')" class="text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center mx-auto" title="Print Receipt">
-                            <i class="fas fa-print text-xs"></i>
-                        </button>
+                  <button type="button" class="print-receipt-btn text-indigo-500 hover:text-white hover:bg-indigo-500 w-7 h-7 rounded-lg transition flex items-center justify-center mx-auto" title="Print Receipt" data-receipt="${escapeAttr(payment.receiptNumber)}">
+    <i class="fas fa-print text-xs"></i>
+</button>
                     </td>
                 </tr>
             `;
